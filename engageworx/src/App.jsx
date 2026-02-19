@@ -1,669 +1,182 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-const COLORS = {
-  bg: "#0A0E1A",
-  surface: "#111827",
-  surfaceAlt: "#1a2235",
-  border: "#1e2d45",
-  accent: "#00C9FF",
-  accent2: "#E040FB",
-  accent3: "#00E676",
-  accent4: "#FF6B35",
-  text: "#E8F4FD",
-  textMuted: "#6B8BAE",
-  textDim: "#3A5068",
+// ─── TENANT DATA ──────────────────────────────────────────────────────────────
+const TENANTS = {
+  serviceProvider: {
+    id: "sp_root",
+    name: "EngageWorx",
+    logo: "EW",
+    role: "superadmin",
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#0A0E1A", surface: "#111827", border: "#1e2d45", text: "#E8F4FD", muted: "#6B8BAE" },
+    customers: ["acme", "retailco", "finserv"],
+    stats: { totalMessages: 1284712, totalRevenue: 892450, activeCustomers: 3, totalCampaigns: 87 },
+  },
+  acme: {
+    id: "acme",
+    name: "Acme Corp",
+    logo: "AC",
+    role: "customer",
+    brand: { primary: "#FF6B35", secondary: "#FF8C42", name: "AcmeEngage" },
+    colors: { primary: "#FF6B35", accent: "#FF8C42", bg: "#0F0A06", surface: "#1A1208", border: "#2D1F0E", text: "#FFF0E8", muted: "#8B6B55" },
+    stats: { messages: 284712, revenue: 128450, campaigns: 24, contacts: 48200, deliveryRate: 95.3, openRate: 51.2 },
+    channels: ["SMS", "Email", "WhatsApp"],
+  },
+  retailco: {
+    id: "retailco",
+    name: "RetailCo",
+    logo: "RC",
+    role: "customer",
+    brand: { primary: "#00E676", secondary: "#00BFA5", name: "RetailReach" },
+    colors: { primary: "#00E676", accent: "#00BFA5", bg: "#050F09", surface: "#0A1A0F", border: "#0E2A18", text: "#E8FFF2", muted: "#4B8B65" },
+    stats: { messages: 612340, revenue: 441200, campaigns: 38, contacts: 124000, deliveryRate: 97.1, openRate: 44.8 },
+    channels: ["SMS", "MMS", "Email", "RCS"],
+  },
+  finserv: {
+    id: "finserv",
+    name: "FinServ Group",
+    logo: "FS",
+    role: "customer",
+    brand: { primary: "#7C4DFF", secondary: "#651FFF", name: "FinConnect" },
+    colors: { primary: "#7C4DFF", accent: "#651FFF", bg: "#07050F", surface: "#100C1A", border: "#1A1430", text: "#EDE8FF", muted: "#6B5B8B" },
+    stats: { messages: 387660, revenue: 322800, campaigns: 25, contacts: 89300, deliveryRate: 98.2, openRate: 62.1 },
+    channels: ["SMS", "Email", "Voice"],
+  },
 };
 
-const channelConfig = {
-  SMS: { color: "#00C9FF", icon: "💬" },
-  MMS: { color: "#7C4DFF", icon: "🖼️" },
-  WhatsApp: { color: "#25D366", icon: "📱" },
-  Email: { color: "#FF6B35", icon: "📧" },
-  Voice: { color: "#E040FB", icon: "📞" },
-  RCS: { color: "#00E676", icon: "✨" },
-};
-
-const navItems = [
-  { id: "dashboard", label: "Dashboard", icon: "⊞" },
-  { id: "campaigns", label: "Campaigns", icon: "🚀" },
-  { id: "flows", label: "Flow Builder", icon: "⚡" },
-  { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-  { id: "analytics", label: "Analytics", icon: "📊" },
-  { id: "contacts", label: "Contacts", icon: "👥" },
-  { id: "settings", label: "Settings", icon: "⚙️" },
-];
-
-const sparkData = [40, 65, 45, 80, 60, 90, 75, 95, 70, 88, 92, 100];
-
-function Sparkline({ data, color }) {
-  const w = 120, h = 40;
-  const max = Math.max(...data);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - (v / max) * h}`).join(" ");
-  return (
-    <svg width={w} height={h} style={{ overflow: "visible" }}>
-      <defs>
-        <linearGradient id={`sg-${color}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline fill="none" stroke={color} strokeWidth="2" points={pts} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function Badge({ children, color }) {
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function Badge({ children, color, size = "sm" }) {
   return (
     <span style={{
       background: color + "22", color, border: `1px solid ${color}44`,
-      borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: 0.5
+      borderRadius: 4, padding: size === "sm" ? "2px 8px" : "4px 12px",
+      fontSize: size === "sm" ? 11 : 13, fontWeight: 700, letterSpacing: 0.5,
     }}>{children}</span>
   );
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard() {
-  const [animate, setAnimate] = useState(false);
-  useEffect(() => { setTimeout(() => setAnimate(true), 100); }, []);
+function StatCard({ label, value, sub, color, icon }) {
+  return (
+    <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.08)`, borderTop: `3px solid ${color}`, borderRadius: 12, padding: "20px 22px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+      </div>
+      <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: "10px 0 4px" }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color }}>{sub}</div>}
+    </div>
+  );
+}
 
-  const stats = [
-    { label: "Messages Sent", value: "284,712", delta: "+12.4%", color: COLORS.accent, icon: "📨" },
-    { label: "Delivery Rate", value: "95.3%", delta: "+0.8%", color: COLORS.accent3, icon: "✅" },
-    { label: "Open Rate", value: "51.2%", delta: "+3.1%", color: COLORS.accent2, icon: "👁️" },
-    { label: "Revenue Generated", value: "$128,450", delta: "+22.7%", color: COLORS.accent4, icon: "💰" },
-  ];
+// ─── SUPER ADMIN VIEW (Service Provider) ─────────────────────────────────────
+function SuperAdminDashboard({ tenant, onDrillDown, C }) {
+  const sp = TENANTS.serviceProvider;
+  const customers = sp.customers.map(id => TENANTS[id]);
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: COLORS.text, margin: 0 }}>
-          Command Center
-        </h1>
-        <p style={{ color: COLORS.textMuted, marginTop: 6, fontSize: 14 }}>
-          Real-time overview · engwx.com · All channels active
-        </p>
-      </div>
-
-      {/* Channel Status Bar */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 32, flexWrap: "wrap" }}>
-        {Object.entries(channelConfig).map(([ch, cfg]) => (
-          <div key={ch} style={{
-            background: COLORS.surface, border: `1px solid ${cfg.color}44`,
-            borderRadius: 10, padding: "10px 18px", display: "flex", alignItems: "center", gap: 10,
-            opacity: animate ? 1 : 0, transition: "opacity 0.5s ease",
-          }}>
-            <span style={{ fontSize: 18 }}>{cfg.icon}</span>
-            <div>
-              <div style={{ fontSize: 12, color: cfg.color, fontWeight: 700 }}>{ch}</div>
-              <div style={{ fontSize: 10, color: COLORS.textMuted }}>● Active</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* KPI Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20, marginBottom: 32 }}>
-        {stats.map((s, i) => (
-          <div key={s.label} style={{
-            background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-            borderRadius: 14, padding: 24,
-            borderTop: `3px solid ${s.color}`,
-            opacity: animate ? 1 : 0,
-            transform: animate ? "translateY(0)" : "translateY(20px)",
-            transition: `all 0.5s ease ${i * 0.1}s`,
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div style={{ color: COLORS.textMuted, fontSize: 12, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: COLORS.text }}>{s.value}</div>
-                <div style={{ color: s.color, fontSize: 13, marginTop: 4, fontWeight: 600 }}>{s.delta} vs last month</div>
-              </div>
-              <span style={{ fontSize: 24 }}>{s.icon}</span>
-            </div>
-            <div style={{ marginTop: 16 }}>
-              <Sparkline data={sparkData.map(v => v * (0.8 + Math.random() * 0.4))} color={s.color} />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Channel Performance + Recent Campaigns */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ color: COLORS.text, margin: "0 0 20px", fontSize: 16 }}>Channel Performance</h3>
-          {Object.entries(channelConfig).map(([ch, cfg]) => {
-            const pct = 40 + Math.floor(Math.random() * 55);
-            return (
-              <div key={ch} style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ color: COLORS.text, fontSize: 13 }}>{cfg.icon} {ch}</span>
-                  <span style={{ color: cfg.color, fontSize: 13, fontWeight: 700 }}>{pct}%</span>
-                </div>
-                <div style={{ height: 6, background: COLORS.bg, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: cfg.color, borderRadius: 3, transition: "width 1s ease" }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 24 }}>
-          <h3 style={{ color: COLORS.text, margin: "0 0 20px", fontSize: 16 }}>Active Campaigns</h3>
-          {[
-            { name: "Summer Flash Sale", channel: "SMS", status: "Live", reach: "48,200", color: COLORS.accent },
-            { name: "Welcome Series", channel: "Email", status: "Live", reach: "12,440", color: COLORS.accent4 },
-            { name: "Re-engagement", channel: "WhatsApp", status: "Paused", reach: "6,800", color: "#25D366" },
-            { name: "VIP Loyalty", channel: "RCS", status: "Draft", reach: "3,100", color: COLORS.accent3 },
-          ].map(c => (
-            <div key={c.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${COLORS.border}` }}>
-              <div>
-                <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600 }}>{c.name}</div>
-                <div style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 2 }}>{channelConfig[c.channel]?.icon} {c.channel} · {c.reach} contacts</div>
-              </div>
-              <Badge color={c.status === "Live" ? COLORS.accent3 : c.status === "Paused" ? COLORS.accent4 : COLORS.textMuted}>{c.status}</Badge>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── CAMPAIGNS ────────────────────────────────────────────────────────────────
-function Campaigns() {
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ name: "", channel: "SMS", audience: "", message: "", schedule: "now" });
-
-  return (
-    <div style={{ padding: "32px 40px" }}>
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: COLORS.text, margin: 0 }}>Campaign Manager</h1>
-          <p style={{ color: COLORS.textMuted, marginTop: 6, fontSize: 14 }}>Create and manage omnichannel campaigns</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <Badge color={C.primary} size="md">🌐 Service Provider View</Badge>
+            <Badge color="#00E676" size="md">● All Systems Operational</Badge>
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Platform Overview</h1>
+          <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Holistic view across all customer tenants</p>
         </div>
-        <button onClick={() => setShowNew(true)} style={{
-          background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
-          border: "none", borderRadius: 10, padding: "12px 24px",
-          color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 14,
-        }}>+ New Campaign</button>
+        <button style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+          + Onboard New Customer
+        </button>
       </div>
 
-      {showNew && (
-        <div style={{
-          background: COLORS.surface, border: `1px solid ${COLORS.accent}55`,
-          borderRadius: 16, padding: 32, marginBottom: 32,
-          boxShadow: `0 0 40px ${COLORS.accent}22`,
-        }}>
-          <h3 style={{ color: COLORS.text, margin: "0 0 24px", fontSize: 18 }}>⚡ Create New Campaign</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {[
-              { label: "Campaign Name", key: "name", type: "text", placeholder: "e.g. Summer Flash Sale" },
-              { label: "Audience Segment", key: "audience", type: "text", placeholder: "e.g. All subscribers" },
-            ].map(f => (
-              <div key={f.key}>
-                <label style={{ color: COLORS.textMuted, fontSize: 12, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
-                <input
-                  value={form[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                  placeholder={f.placeholder}
-                  style={{ width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", color: COLORS.text, fontSize: 14, boxSizing: "border-box" }}
-                />
-              </div>
-            ))}
-            <div>
-              <label style={{ color: COLORS.textMuted, fontSize: 12, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Channel</label>
-              <select value={form.channel} onChange={e => setForm({ ...form, channel: e.target.value })}
-                style={{ width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", color: COLORS.text, fontSize: 14 }}>
-                {Object.keys(channelConfig).map(ch => <option key={ch}>{ch}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ color: COLORS.textMuted, fontSize: 12, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Schedule</label>
-              <select value={form.schedule} onChange={e => setForm({ ...form, schedule: e.target.value })}
-                style={{ width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", color: COLORS.text, fontSize: 14 }}>
-                <option value="now">Send Immediately</option>
-                <option value="later">Schedule for Later</option>
-                <option value="trigger">Trigger-Based</option>
-              </select>
-            </div>
-            <div style={{ gridColumn: "span 2" }}>
-              <label style={{ color: COLORS.textMuted, fontSize: 12, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Message</label>
-              <textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
-                placeholder="Write your message... Use {{first_name}}, {{promo_code}} for personalization"
-                rows={4}
-                style={{ width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", color: COLORS.text, fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
-              />
-              <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 4 }}>Supports: personalization tokens, emoji, media links, opt-out footers</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-            <button style={{ background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`, border: "none", borderRadius: 8, padding: "11px 24px", color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-              Launch Campaign
-            </button>
-            <button onClick={() => setShowNew(false)} style={{ background: "transparent", border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "11px 24px", color: COLORS.textMuted, cursor: "pointer" }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gap: 12 }}>
-        {[
-          { name: "Summer Flash Sale", channel: "SMS", status: "Live", sent: 48200, opened: 24100, clicked: 7230, revenue: "$34,200" },
-          { name: "Welcome Onboarding Series", channel: "Email", status: "Live", sent: 12440, opened: 9830, clicked: 3210, revenue: "$8,700" },
-          { name: "Cart Abandonment Recovery", channel: "WhatsApp", status: "Live", sent: 6800, opened: 5940, clicked: 2100, revenue: "$18,900" },
-          { name: "Win-Back Re-engagement", channel: "SMS", status: "Paused", sent: 22100, opened: 8800, clicked: 2400, revenue: "$9,400" },
-          { name: "VIP Loyalty Rewards", channel: "RCS", status: "Draft", sent: 0, opened: 0, clicked: 0, revenue: "$0" },
-          { name: "Product Launch Blast", channel: "MMS", status: "Scheduled", sent: 0, opened: 0, clicked: 0, revenue: "$0" },
-        ].map((c, i) => {
-          const cfg = channelConfig[c.channel];
-          const statusColor = c.status === "Live" ? COLORS.accent3 : c.status === "Paused" ? COLORS.accent4 : c.status === "Scheduled" ? COLORS.accent : COLORS.textMuted;
-          return (
-            <div key={i} style={{
-              background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-              borderRadius: 12, padding: "20px 24px",
-              display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 100px",
-              alignItems: "center", gap: 16,
-              transition: "border-color 0.2s",
-            }}>
-              <div>
-                <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 14 }}>{c.name}</div>
-                <div style={{ color: cfg.color, fontSize: 12, marginTop: 4 }}>{cfg.icon} {c.channel}</div>
-              </div>
-              {[
-                { label: "Sent", val: c.sent.toLocaleString() },
-                { label: "Opened", val: c.opened.toLocaleString() },
-                { label: "Clicked", val: c.clicked.toLocaleString() },
-                { label: "Revenue", val: c.revenue },
-              ].map(m => (
-                <div key={m.label} style={{ textAlign: "center" }}>
-                  <div style={{ color: COLORS.text, fontSize: 15, fontWeight: 700 }}>{m.val}</div>
-                  <div style={{ color: COLORS.textMuted, fontSize: 11 }}>{m.label}</div>
-                </div>
-              ))}
-              <div style={{ textAlign: "center" }}>
-                <Badge color={statusColor}>{c.status}</Badge>
-              </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button style={{ background: "transparent", border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "6px 12px", color: COLORS.textMuted, cursor: "pointer", fontSize: 12 }}>Edit</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── FLOW BUILDER ─────────────────────────────────────────────────────────────
-function FlowBuilder() {
-  const nodes = [
-    { id: 1, type: "trigger", label: "Contact Joins List", x: 60, y: 60, color: COLORS.accent },
-    { id: 2, type: "message", label: "Send Welcome SMS", x: 60, y: 200, color: "#7C4DFF" },
-    { id: 3, type: "wait", label: "Wait 2 Days", x: 60, y: 340, color: COLORS.accent4 },
-    { id: 4, type: "condition", label: "Opened SMS?", x: 60, y: 480, color: COLORS.accent2 },
-    { id: 5, type: "message", label: "Send Follow-up Email ✓", x: 260, y: 580, color: COLORS.accent3 },
-    { id: 6, type: "message", label: "Re-send via WhatsApp ✗", x: -140, y: 580, color: "#25D366" },
-  ];
-
-  const nodeTypes = [
-    { type: "trigger", label: "Trigger", color: COLORS.accent, icon: "⚡" },
-    { type: "message", label: "Send Message", color: "#7C4DFF", icon: "💬" },
-    { type: "wait", label: "Wait / Delay", color: COLORS.accent4, icon: "⏱️" },
-    { type: "condition", label: "Condition", color: COLORS.accent2, icon: "🔀" },
-    { type: "action", label: "Action", color: COLORS.accent3, icon: "🎯" },
-    { type: "ai", label: "AI Step", color: "#FF6B35", icon: "🤖" },
-  ];
-
-  return (
-    <div style={{ padding: "32px 40px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: COLORS.text, margin: 0 }}>Visual Flow Builder</h1>
-          <p style={{ color: COLORS.textMuted, marginTop: 6, fontSize: 14 }}>Drag & drop to build automated customer journeys</p>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 20px", color: COLORS.text, cursor: "pointer", fontSize: 13 }}>💾 Save</button>
-          <button style={{ background: `linear-gradient(135deg, ${COLORS.accent3}, #00897B)`, border: "none", borderRadius: 8, padding: "10px 20px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>▶ Activate Flow</button>
-        </div>
+      {/* Platform KPIs */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
+        <StatCard label="Total Messages Sent" value="1.28M" sub="Across all tenants" color={C.primary} icon="📨" />
+        <StatCard label="Platform Revenue" value="$892,450" sub="+18.4% this month" color="#00E676" icon="💰" />
+        <StatCard label="Active Customers" value="3" sub="All tenants healthy" color={C.accent} icon="🏢" />
+        <StatCard label="Total Campaigns" value="87" sub="32 currently live" color="#FF6B35" icon="🚀" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 20 }}>
-        {/* Sidebar */}
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20 }}>
-          <div style={{ color: COLORS.textMuted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>Add Steps</div>
-          {nodeTypes.map(n => (
-            <div key={n.type} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-              background: COLORS.bg, border: `1px solid ${n.color}44`, borderRadius: 8,
-              marginBottom: 8, cursor: "grab", transition: "border-color 0.2s",
-            }}>
-              <span style={{ fontSize: 18 }}>{n.icon}</span>
-              <div>
-                <div style={{ color: n.color, fontSize: 12, fontWeight: 700 }}>{n.label}</div>
-              </div>
-            </div>
-          ))}
-
-          <div style={{ marginTop: 24, padding: "16px", background: COLORS.bg, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
-            <div style={{ color: COLORS.accent, fontSize: 11, fontWeight: 700, marginBottom: 8 }}>📋 TEMPLATES</div>
-            {["Welcome Series", "Cart Recovery", "Re-engagement", "Post-Purchase", "Birthday Flow"].map(t => (
-              <div key={t} style={{ color: COLORS.textMuted, fontSize: 12, padding: "6px 0", cursor: "pointer", borderBottom: `1px solid ${COLORS.border}` }}>
-                {t}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Canvas */}
-        <div style={{
-          background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 12,
-          height: 680, position: "relative", overflow: "hidden",
-          backgroundImage: `radial-gradient(${COLORS.border} 1px, transparent 1px)`,
-          backgroundSize: "28px 28px",
-        }}>
-          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-            {[[1, 2], [2, 3], [3, 4], [4, 5], [4, 6]].map(([a, b]) => {
-              const from = nodes.find(n => n.id === a);
-              const to = nodes.find(n => n.id === b);
-              if (!from || !to) return null;
-              const x1 = from.x + 160 + 80, y1 = from.y + 40;
-              const x2 = to.x + 160 + 80, y2 = to.y + 16;
-              return (
-                <g key={`${a}-${b}`}>
-                  <path d={`M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`}
-                    fill="none" stroke={COLORS.accent + "66"} strokeWidth="2" strokeDasharray="4 4" />
-                  <polygon points={`${x2},${y2} ${x2 - 5},${y2 - 8} ${x2 + 5},${y2 - 8}`} fill={COLORS.accent + "88"} />
-                </g>
-              );
-            })}
-          </svg>
-          {nodes.map(node => (
-            <div key={node.id} style={{
-              position: "absolute", left: node.x + 60, top: node.y + 30,
-              width: 200, background: COLORS.surface, border: `2px solid ${node.color}`,
-              borderRadius: 10, padding: "10px 14px", cursor: "pointer",
-              boxShadow: `0 0 20px ${node.color}33`,
-            }}>
-              <div style={{ color: node.color, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                {node.type}
-              </div>
-              <div style={{ color: COLORS.text, fontSize: 13 }}>{node.label}</div>
-            </div>
-          ))}
-
-          <div style={{
-            position: "absolute", bottom: 16, right: 16, background: COLORS.surface,
-            border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 16px",
-            color: COLORS.textMuted, fontSize: 12,
+      {/* Customer Tenant Cards */}
+      <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Customer Tenants</h2>
+      <div style={{ display: "grid", gap: 16, marginBottom: 32 }}>
+        {customers.map(c => (
+          <div key={c.id} style={{
+            background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.08)`,
+            borderLeft: `4px solid ${c.brand.primary}`, borderRadius: 12, padding: "22px 28px",
+            display: "grid", gridTemplateColumns: "220px 1fr 1fr 1fr 1fr 1fr 140px",
+            alignItems: "center", gap: 20,
           }}>
-            6 nodes · 5 connections · Est. reach: 48,200
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── AI CHATBOT ───────────────────────────────────────────────────────────────
-function ChatbotConfig() {
-  const [tab, setTab] = useState("setup");
-  const [messages, setMessages] = useState([
-    { from: "bot", text: "Hi! I'm your EngageWorx AI assistant. How can I help you today? 😊" },
-  ]);
-  const [input, setInput] = useState("");
-
-  const send = () => {
-    if (!input.trim()) return;
-    const userMsg = { from: "user", text: input };
-    const responses = [
-      "I can help with that! Let me check your account details.",
-      "Great question! Your order #4821 is currently in transit and expected by Friday.",
-      "I've updated your preferences. Is there anything else I can assist with?",
-      "I'm connecting you with a specialist for this. Please hold for a moment.",
-      "Thanks for reaching out! I've logged this request and our team will follow up within 24 hours.",
-    ];
-    const botMsg = { from: "bot", text: responses[Math.floor(Math.random() * responses.length)] };
-    setMessages(m => [...m, userMsg, botMsg]);
-    setInput("");
-  };
-
-  const tabs = ["setup", "intents", "preview", "deploy"];
-
-  return (
-    <div style={{ padding: "32px 40px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, color: COLORS.text, margin: "0 0 8px" }}>AI Chatbot Studio</h1>
-      <p style={{ color: COLORS.textMuted, marginBottom: 28, fontSize: 14 }}>Configure your intelligent conversational agent</p>
-
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 28, background: COLORS.surface, padding: 4, borderRadius: 10, width: "fit-content", border: `1px solid ${COLORS.border}` }}>
-        {tabs.map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            background: tab === t ? COLORS.accent : "transparent",
-            border: "none", borderRadius: 7, padding: "8px 20px",
-            color: tab === t ? "#000" : COLORS.textMuted, fontWeight: tab === t ? 700 : 400,
-            cursor: "pointer", fontSize: 13, textTransform: "capitalize", transition: "all 0.2s",
-          }}>{t === "setup" ? "⚙️ Setup" : t === "intents" ? "🎯 Intents" : t === "preview" ? "👁️ Preview" : "🚀 Deploy"}</button>
-        ))}
-      </div>
-
-      {tab === "setup" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-            <h3 style={{ color: COLORS.text, margin: "0 0 20px" }}>Bot Configuration</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#000" }}>{c.logo}</div>
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{c.name}</div>
+                <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
+              </div>
+            </div>
             {[
-              { label: "Bot Name", placeholder: "EngageWorx Assistant", type: "text" },
-              { label: "Fallback Message", placeholder: "I'll connect you to an agent...", type: "text" },
-              { label: "Escalation Threshold", placeholder: "3 failed intents", type: "text" },
-              { label: "Max Session Duration", placeholder: "30 minutes", type: "text" },
-            ].map(f => (
-              <div key={f.label} style={{ marginBottom: 16 }}>
-                <label style={{ color: COLORS.textMuted, fontSize: 12, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
-                <input placeholder={f.placeholder} style={{ width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", color: COLORS.text, fontSize: 14, boxSizing: "border-box" }} />
+              { label: "Messages", val: c.stats.messages.toLocaleString() },
+              { label: "Revenue", val: `$${c.stats.revenue.toLocaleString()}` },
+              { label: "Campaigns", val: c.stats.campaigns },
+              { label: "Contacts", val: c.stats.contacts.toLocaleString() },
+              { label: "Delivery", val: `${c.stats.deliveryRate}%` },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: "center" }}>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{s.val}</div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{s.label}</div>
               </div>
             ))}
-
-            <div style={{ marginTop: 8 }}>
-              <div style={{ color: COLORS.textMuted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>AI Model</div>
-              {["GPT-4o (Recommended)", "Claude 3.5", "Gemini Pro", "Custom Fine-tuned"].map(m => (
-                <label key={m} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
-                  <input type="radio" name="model" defaultChecked={m.includes("Recommended")} style={{ accentColor: COLORS.accent }} />
-                  <span style={{ color: COLORS.text, fontSize: 13 }}>{m}</span>
-                </label>
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <Badge color="#00E676">● Active</Badge>
+              <button onClick={() => onDrillDown(c.id)} style={{
+                background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}66`,
+                borderRadius: 7, padding: "7px 14px", color: c.brand.primary,
+                fontWeight: 700, cursor: "pointer", fontSize: 12,
+              }}>Drill Down →</button>
             </div>
-          </div>
-
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-            <h3 style={{ color: COLORS.text, margin: "0 0 20px" }}>Handoff & Escalation Rules</h3>
-            {[
-              { label: "Live Agent Routing", desc: "Route to available agents when bot confidence < 70%" },
-              { label: "Sentiment Detection", desc: "Escalate on negative sentiment detection" },
-              { label: "VIP Priority Routing", desc: "Route VIP contacts to senior agents" },
-              { label: "After-Hours Handling", desc: "Collect info & schedule callback outside hours" },
-              { label: "Language Detection", desc: "Auto-detect and respond in customer's language" },
-              { label: "Profanity Filter", desc: "Filter inappropriate content in both directions" },
-            ].map(r => (
-              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${COLORS.border}` }}>
-                <div>
-                  <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600 }}>{r.label}</div>
-                  <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>{r.desc}</div>
-                </div>
-                <div style={{ width: 44, height: 24, background: COLORS.accent, borderRadius: 12, position: "relative", cursor: "pointer" }}>
-                  <div style={{ width: 18, height: 18, background: "#fff", borderRadius: "50%", position: "absolute", right: 3, top: 3 }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === "intents" && (
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
-            <h3 style={{ color: COLORS.text, margin: 0 }}>Intent Library</h3>
-            <button style={{ background: COLORS.accent, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>+ Add Intent</button>
-          </div>
-          {[
-            { intent: "Order Status", examples: 14, responses: 3, accuracy: "96%" },
-            { intent: "Billing Inquiry", examples: 22, responses: 5, accuracy: "91%" },
-            { intent: "Product Info", examples: 31, responses: 8, accuracy: "89%" },
-            { intent: "Complaint", examples: 18, responses: 4, accuracy: "87%" },
-            { intent: "Appointment Booking", examples: 25, responses: 6, accuracy: "94%" },
-            { intent: "Returns & Refunds", examples: 20, responses: 5, accuracy: "92%" },
-            { intent: "Human Agent Request", examples: 8, responses: 1, accuracy: "99%" },
-          ].map((item, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 80px", gap: 16, padding: "14px 0", borderBottom: `1px solid ${COLORS.border}`, alignItems: "center" }}>
-              <div style={{ color: COLORS.text, fontWeight: 600, fontSize: 14 }}>🎯 {item.intent}</div>
-              <div style={{ color: COLORS.textMuted, fontSize: 13 }}>{item.examples} examples</div>
-              <div style={{ color: COLORS.textMuted, fontSize: 13 }}>{item.responses} responses</div>
-              <div>
-                <Badge color={parseFloat(item.accuracy) > 90 ? COLORS.accent3 : COLORS.accent4}>{item.accuracy}</Badge>
-              </div>
-              <button style={{ background: "transparent", border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "5px 12px", color: COLORS.textMuted, cursor: "pointer", fontSize: 12 }}>Edit</button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "preview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24 }}>
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-            <h3 style={{ color: COLORS.text, margin: "0 0 16px" }}>Conversation Flow Preview</h3>
-            <p style={{ color: COLORS.textMuted, fontSize: 13 }}>Test your chatbot across different channels and scenarios. The chatbot preview on the right shows how customers will interact.</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 20 }}>
-              {["Order Status Check", "Billing Issue", "Return Request", "Product Question", "Complaint Handling", "Book Appointment"].map(s => (
-                <div key={s} style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "12px 16px", cursor: "pointer" }}>
-                  <div style={{ color: COLORS.accent, fontSize: 13, fontWeight: 600 }}>▶ {s}</div>
-                  <div style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 4 }}>Test scenario</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Chat Preview */}
-          <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: 560 }}>
-            <div style={{ padding: "14px 18px", background: COLORS.accent, display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 36, height: 36, background: "#fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🤖</div>
-              <div>
-                <div style={{ color: "#000", fontWeight: 700, fontSize: 14 }}>EngageWorx Assistant</div>
-                <div style={{ color: "#00000088", fontSize: 11 }}>● Online</div>
-              </div>
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-              {messages.map((m, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start" }}>
-                  <div style={{
-                    maxWidth: "80%", padding: "10px 14px", borderRadius: m.from === "user" ? "12px 12px 0 12px" : "12px 12px 12px 0",
-                    background: m.from === "user" ? COLORS.accent : COLORS.bg,
-                    color: m.from === "user" ? "#000" : COLORS.text,
-                    fontSize: 13, lineHeight: 1.5,
-                  }}>{m.text}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: "12px 16px", borderTop: `1px solid ${COLORS.border}`, display: "flex", gap: 8 }}>
-              <input value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && send()}
-                placeholder="Test a message..." style={{
-                  flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 8,
-                  padding: "8px 12px", color: COLORS.text, fontSize: 13,
-                }} />
-              <button onClick={send} style={{ background: COLORS.accent, border: "none", borderRadius: 8, padding: "8px 14px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>→</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "deploy" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {Object.entries(channelConfig).map(([ch, cfg]) => (
-            <div key={ch} style={{ background: COLORS.surface, border: `1px solid ${cfg.color}44`, borderRadius: 14, padding: 24 }}>
-              <div style={{ fontSize: 32, marginBottom: 12 }}>{cfg.icon}</div>
-              <h3 style={{ color: COLORS.text, margin: "0 0 8px", fontSize: 16 }}>{ch}</h3>
-              <p style={{ color: COLORS.textMuted, fontSize: 13, marginBottom: 16 }}>
-                Deploy your AI chatbot on {ch}. {ch === "Voice" ? "Configure IVR and speech synthesis." : ch === "Email" ? "Enable email-based conversation threading." : "Connect via API integration."}
-              </p>
-              <button style={{
-                background: `${cfg.color}22`, border: `1px solid ${cfg.color}66`,
-                borderRadius: 8, padding: "10px 20px", color: cfg.color,
-                fontWeight: 700, cursor: "pointer", fontSize: 13, width: "100%",
-              }}>Configure {ch}</button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── ANALYTICS ────────────────────────────────────────────────────────────────
-function Analytics() {
-  const barData = [
-    { month: "Aug", val: 62 }, { month: "Sep", val: 78 }, { month: "Oct", val: 55 },
-    { month: "Nov", val: 91 }, { month: "Dec", val: 88 }, { month: "Jan", val: 74 },
-    { month: "Feb", val: 96 },
-  ];
-
-  return (
-    <div style={{ padding: "32px 40px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, color: COLORS.text, margin: "0 0 8px" }}>Analytics & Insights</h1>
-      <p style={{ color: COLORS.textMuted, marginBottom: 28, fontSize: 14 }}>Deep dive into campaign and channel performance</p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 28 }}>
-        {[
-          { label: "Total Revenue", val: "$128,450", icon: "💰", color: COLORS.accent4 },
-          { label: "Avg. CTR", val: "14.8%", icon: "🖱️", color: COLORS.accent },
-          { label: "Conversion Rate", val: "3.2%", icon: "🎯", color: COLORS.accent3 },
-          { label: "Cost Per Message", val: "$0.021", icon: "💡", color: COLORS.accent2 },
-        ].map(s => (
-          <div key={s.label} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 24 }}>{s.icon}</span>
-              <Badge color={s.color}>+↑</Badge>
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, marginTop: 12 }}>{s.val}</div>
-            <div style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 24 }}>
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-          <h3 style={{ color: COLORS.text, margin: "0 0 24px" }}>Monthly Message Volume</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 200 }}>
-            {barData.map((d, i) => (
-              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{d.val}K</div>
-                <div style={{
-                  width: "100%", height: d.val * 2, background: `linear-gradient(180deg, ${COLORS.accent}, ${COLORS.accent2})`,
-                  borderRadius: "4px 4px 0 0", transition: "height 0.5s ease",
-                }} />
-                <div style={{ fontSize: 11, color: COLORS.textMuted }}>{d.month}</div>
+      {/* Channel Usage Across Platform */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Channel Usage — Platform Wide</h3>
+          {[
+            { ch: "SMS", pct: 42, color: C.primary },
+            { ch: "Email", pct: 24, color: "#FF6B35" },
+            { ch: "WhatsApp", pct: 18, color: "#25D366" },
+            { ch: "Voice", pct: 8, color: C.accent },
+            { ch: "RCS", pct: 5, color: "#00E676" },
+            { ch: "MMS", pct: 3, color: "#7C4DFF" },
+          ].map(r => (
+            <div key={r.ch} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>{r.ch}</span>
+                <span style={{ color: r.color, fontSize: 12, fontWeight: 700 }}>{r.pct}%</span>
               </div>
-            ))}
-          </div>
+              <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
+                <div style={{ height: "100%", width: `${r.pct}%`, background: r.color, borderRadius: 3 }} />
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
-          <h3 style={{ color: COLORS.text, margin: "0 0 20px" }}>Channel Mix</h3>
-          {[
-            { ch: "SMS", pct: 42, val: "119,580" },
-            { ch: "Email", pct: 24, val: "68,330" },
-            { ch: "WhatsApp", pct: 18, val: "51,248" },
-            { ch: "Voice", pct: 8, val: "22,777" },
-            { ch: "RCS", pct: 5, val: "14,236" },
-            { ch: "MMS", pct: 3, val: "8,541" },
-          ].map(r => {
-            const cfg = channelConfig[r.ch];
+        <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Tenant Comparison</h3>
+          {customers.map(c => {
+            const maxRev = 500000;
+            const pct = Math.round((c.stats.revenue / maxRev) * 100);
             return (
-              <div key={r.ch} style={{ marginBottom: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                  <span style={{ color: COLORS.text, fontSize: 13 }}>{cfg.icon} {r.ch}</span>
-                  <span style={{ color: cfg.color, fontSize: 12, fontWeight: 700 }}>{r.pct}% · {r.val}</span>
+              <div key={c.id} style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+                  <span style={{ color: c.brand.primary, fontSize: 13, fontWeight: 700 }}>${c.stats.revenue.toLocaleString()}</span>
                 </div>
-                <div style={{ height: 5, background: COLORS.bg, borderRadius: 3, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${r.pct}%`, background: cfg.color, borderRadius: 3 }} />
+                <div style={{ height: 8, background: "rgba(255,255,255,0.05)", borderRadius: 4 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 4 }} />
                 </div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 3 }}>{c.stats.messages.toLocaleString()} messages · {c.stats.campaigns} campaigns</div>
               </div>
             );
           })}
@@ -673,56 +186,413 @@ function Analytics() {
   );
 }
 
-// ─── APP SHELL ────────────────────────────────────────────────────────────────
-export default function App() {
-  const [page, setPage] = useState("dashboard");
-
-  const pageMap = {
-    dashboard: <Dashboard />,
-    campaigns: <Campaigns />,
-    flows: <FlowBuilder />,
-    chatbot: <ChatbotConfig />,
-    analytics: <Analytics />,
-    contacts: (
-      <div style={{ padding: "32px 40px" }}>
-        <h1 style={{ color: COLORS.text, fontSize: 28, fontWeight: 700 }}>Contacts</h1>
-        <p style={{ color: COLORS.textMuted }}>Contact management, segmentation, and CRM sync coming here.</p>
-      </div>
-    ),
-    settings: (
-      <div style={{ padding: "32px 40px" }}>
-        <h1 style={{ color: COLORS.text, fontSize: 28, fontWeight: 700 }}>Settings</h1>
-        <p style={{ color: COLORS.textMuted }}>API keys, integrations, team management, billing, and compliance settings.</p>
-      </div>
-    ),
-  };
+// ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
+function TenantManagement({ C }) {
+  const [activeTab, setActiveTab] = useState("tenants");
+  const [showNew, setShowNew] = useState(false);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: COLORS.bg, fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: COLORS.text }}>
-      {/* Sidebar */}
-      <div style={{
-        width: 240, background: COLORS.surface, borderRight: `1px solid ${COLORS.border}`,
-        display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0,
-        position: "fixed", height: "100vh", top: 0,
-      }}>
-        <div style={{ marginBottom: 32, paddingLeft: 8 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, letterSpacing: -0.5 }}>
-            Engage<span style={{ color: COLORS.accent }}>Worx</span>
+    <div style={{ padding: "32px 40px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Tenant Management</h1>
+          <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage white-label customers, branding & access</p>
+        </div>
+        <button onClick={() => setShowNew(true)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
+          + New Tenant
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10, width: "fit-content" }}>
+        {["tenants", "branding", "permissions", "billing"].map(t => (
+          <button key={t} onClick={() => setActiveTab(t)} style={{
+            background: activeTab === t ? C.primary : "transparent",
+            border: "none", borderRadius: 7, padding: "8px 20px",
+            color: activeTab === t ? "#000" : C.muted,
+            fontWeight: activeTab === t ? 700 : 400,
+            cursor: "pointer", fontSize: 13, textTransform: "capitalize", transition: "all 0.2s",
+          }}>{t === "tenants" ? "🏢 Tenants" : t === "branding" ? "🎨 Branding" : t === "permissions" ? "🔐 Permissions" : "💳 Billing"}</button>
+        ))}
+      </div>
+
+      {activeTab === "tenants" && (
+        <div>
+          {showNew && (
+            <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Onboard New Tenant</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                {[
+                  { label: "Company Name", placeholder: "e.g. TechCorp Ltd" },
+                  { label: "White-Label Brand Name", placeholder: "e.g. TechEngage" },
+                  { label: "Admin Email", placeholder: "admin@techcorp.com" },
+                  { label: "Custom Domain", placeholder: "messaging.techcorp.com" },
+                  { label: "Primary Color", placeholder: "#FF6B35", type: "color" },
+                  { label: "Plan", placeholder: "Select plan" },
+                ].map(f => (
+                  <div key={f.label}>
+                    <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>{f.label}</label>
+                    <input type={f.type || "text"} placeholder={f.placeholder} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                <button style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "10px 22px", color: "#000", fontWeight: 700, cursor: "pointer" }}>Create Tenant</button>
+                <button onClick={() => setShowNew(false)} style={{ background: "transparent", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "10px 22px", color: C.muted, cursor: "pointer" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "grid", gap: 12 }}>
+            {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
+              <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderLeft: `4px solid ${c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 200px", alignItems: "center", gap: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000" }}>{c.logo}</div>
+                  <div>
+                    <div style={{ color: "#fff", fontWeight: 700 }}>{c.name}</div>
+                    <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#fff", fontSize: 13 }}>{c.channels.join(", ")}</div>
+                  <div style={{ color: C.muted, fontSize: 11 }}>Active channels</div>
+                </div>
+                <div>
+                  <div style={{ color: "#fff", fontSize: 13 }}>{c.stats.contacts.toLocaleString()} contacts</div>
+                  <div style={{ color: C.muted, fontSize: 11 }}>{c.stats.campaigns} campaigns</div>
+                </div>
+                <div><Badge color="#00E676">● Active</Badge></div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 7, padding: "7px 14px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Configure</button>
+                  <button style={{ background: "transparent", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 7, padding: "7px 14px", color: C.muted, cursor: "pointer", fontSize: 12 }}>Suspend</button>
+                </div>
+              </div>
+            ))}
           </div>
-          <div style={{ fontSize: 11, color: COLORS.textMuted, marginTop: 2 }}>Customer Communications</div>
+        </div>
+      )}
+
+      {activeTab === "branding" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+          {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
+            <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 24, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{c.logo}</div>
+                <div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{c.name}</div>
+                  <div style={{ color: c.brand.primary, fontSize: 13 }}>{c.brand.name}</div>
+                </div>
+              </div>
+
+              {/* Brand Preview */}
+              <div style={{ background: "#000", borderRadius: 10, padding: 16, marginBottom: 16, border: `1px solid ${c.brand.primary}33` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 24, height: 24, background: c.brand.primary, borderRadius: 5 }} />
+                  <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.brand.name}</span>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1, height: 6, background: c.brand.primary, borderRadius: 3 }} />
+                  <div style={{ flex: 1, height: 6, background: c.brand.secondary + "66", borderRadius: 3 }} />
+                  <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }} />
+                </div>
+                <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
+                  <div style={{ background: c.brand.primary, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#000", fontWeight: 700 }}>Button</div>
+                  <div style={{ background: "transparent", border: `1px solid ${c.brand.primary}`, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: c.brand.primary }}>Outline</div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Primary", color: c.brand.primary },
+                  { label: "Secondary", color: c.brand.secondary },
+                ].map(sw => (
+                  <div key={sw.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, background: sw.color, borderRadius: 6, border: "2px solid rgba(255,255,255,0.2)" }} />
+                    <div>
+                      <div style={{ color: "#fff", fontSize: 12 }}>{sw.label}</div>
+                      <div style={{ color: C.muted, fontSize: 11 }}>{sw.color}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button style={{ marginTop: 14, width: "100%", background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 8, padding: "9px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Edit Brand Settings</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "permissions" && (
+        <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 28 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Role & Permission Matrix</h3>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={{ color: C.muted, fontSize: 12, textAlign: "left", padding: "10px 16px", borderBottom: `1px solid rgba(255,255,255,0.07)` }}>Feature</th>
+                  {["Super Admin", "Tenant Admin", "Campaign Mgr", "Analyst", "Read Only"].map(r => (
+                    <th key={r} style={{ color: C.primary, fontSize: 12, textAlign: "center", padding: "10px 16px", borderBottom: `1px solid rgba(255,255,255,0.07)` }}>{r}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["All Tenant Access", true, false, false, false, false],
+                  ["Tenant Branding", true, true, false, false, false],
+                  ["Create Campaigns", true, true, true, false, false],
+                  ["View Analytics", true, true, true, true, true],
+                  ["Manage Contacts", true, true, true, false, false],
+                  ["Flow Builder", true, true, true, false, false],
+                  ["API Keys", true, true, false, false, false],
+                  ["Billing Access", true, true, false, false, false],
+                  ["User Management", true, true, false, false, false],
+                ].map(([feature, ...perms]) => (
+                  <tr key={feature}>
+                    <td style={{ color: "#fff", fontSize: 13, padding: "12px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>{feature}</td>
+                    {perms.map((allowed, i) => (
+                      <td key={i} style={{ textAlign: "center", padding: "12px 16px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                        <span style={{ fontSize: 16 }}>{allowed ? "✅" : "—"}</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "billing" && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+          {[
+            { plan: "Starter", price: "$299/mo", messages: "50,000", channels: 2, users: 3, color: "#6B8BAE" },
+            { plan: "Growth", price: "$799/mo", messages: "250,000", channels: 4, users: 10, color: C.primary },
+            { plan: "Enterprise", price: "Custom", messages: "Unlimited", channels: 6, users: "Unlimited", color: C.accent },
+          ].map(p => (
+            <div key={p.plan} style={{ background: "rgba(255,255,255,0.03)", border: `2px solid ${p.color}44`, borderRadius: 14, padding: 28, textAlign: "center" }}>
+              <div style={{ color: p.color, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{p.plan}</div>
+              <div style={{ color: "#fff", fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{p.price}</div>
+              {[`${p.messages} messages/mo`, `${p.channels} channels`, `${p.users} users`, "White-label portal", "Custom domain", p.plan === "Enterprise" ? "Dedicated support" : "Email support"].map(f => (
+                <div key={f} style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, padding: "8px 0", borderBottom: `1px solid rgba(255,255,255,0.05)` }}>✓ {f}</div>
+              ))}
+              <button style={{ marginTop: 20, width: "100%", background: p.color, border: "none", borderRadius: 8, padding: "12px", color: "#000", fontWeight: 700, cursor: "pointer" }}>Assign to Tenant</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
+function CustomerPortal({ tenantId, onBack }) {
+  const tenant = TENANTS[tenantId];
+  const C = tenant.colors;
+  const [page, setPage] = useState("dashboard");
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: "⊞" },
+    { id: "campaigns", label: "Campaigns", icon: "🚀" },
+    { id: "analytics", label: "Analytics", icon: "📊" },
+    { id: "contacts", label: "Contacts", icon: "👥" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
+  ];
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      {/* White-labeled Sidebar */}
+      <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0 }}>
+        <div style={{ marginBottom: 28, paddingLeft: 8 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
         </div>
 
         <nav style={{ flex: 1 }}>
           {navItems.map(item => (
             <button key={item.id} onClick={() => setPage(item.id)} style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 10,
+              padding: "10px 12px", borderRadius: 8, border: "none",
+              background: page === item.id ? `${C.primary}22` : "transparent",
+              color: page === item.id ? C.primary : C.muted,
+              cursor: "pointer", fontSize: 13, fontWeight: page === item.id ? 700 : 400,
+              marginBottom: 3, textAlign: "left",
+              borderLeft: page === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
+            }}>
+              <span style={{ fontSize: 16 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
+          ← Back to Provider
+        </button>
+
+        <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#000" }}>{tenant.logo}</div>
+            <div>
+              <div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{tenant.name}</div>
+              <div style={{ color: C.muted, fontSize: 10 }}>Tenant Admin</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {page === "dashboard" && (
+          <div style={{ padding: "32px 36px" }}>
+            <div style={{ marginBottom: 28 }}>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
+              <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Welcome back, {tenant.name} team</p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, marginBottom: 28 }}>
+              <StatCard label="Messages Sent" value={tenant.stats.messages.toLocaleString()} sub={`Delivery: ${tenant.stats.deliveryRate}%`} color={C.primary} icon="📨" />
+              <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
+              <StatCard label="Open Rate" value={`${tenant.stats.openRate}%`} sub="Industry avg: 38%" color={C.accent} icon="👁️" />
+            </div>
+
+            <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: 24 }}>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
+              <div style={{ display: "flex", gap: 12 }}>
+                {tenant.channels.map(ch => (
+                  <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>
+                    ● {ch}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {page !== "dashboard" && (
+          <div style={{ padding: "32px 36px" }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
+            <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
+            <div style={{ marginTop: 24, background: `${C.primary}08`, border: `1px solid ${C.primary}22`, borderRadius: 14, padding: 32, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>{navItems.find(n => n.id === page)?.icon}</div>
+              <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>{navItems.find(n => n.id === page)?.label} Module</div>
+              <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {tenant.brand.name}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [view, setView] = useState("login");
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [drillDownTenant, setDrillDownTenant] = useState(null);
+  const [spPage, setSpPage] = useState("dashboard");
+
+  const C = TENANTS.serviceProvider.colors;
+
+  const spNavItems = [
+    { id: "dashboard", label: "Platform Overview", icon: "⊞" },
+    { id: "tenants", label: "Tenant Management", icon: "🏢" },
+    { id: "analytics", label: "Global Analytics", icon: "📊" },
+    { id: "api", label: "API & Integrations", icon: "🔌" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
+  ];
+
+  if (drillDownTenant) {
+    return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
+  }
+
+  if (view === "login") {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ width: 480 }}>
+          {/* Logo */}
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+            <div style={{ color: C.muted, marginTop: 6 }}>Multi-Tenant Communications Platform</div>
+          </div>
+
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
+            <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Select Portal</h2>
+            <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Choose your access level to continue</p>
+
+            {/* Role Selection */}
+            <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
+              <button onClick={() => setSelectedRole("sp")} style={{
+                background: selectedRole === "sp" ? `${C.primary}22` : "rgba(255,255,255,0.03)",
+                border: `2px solid ${selectedRole === "sp" ? C.primary : "rgba(255,255,255,0.1)"}`,
+                borderRadius: 12, padding: "16px 20px", cursor: "pointer", textAlign: "left",
+                display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
+              }}>
+                <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌐</div>
+                <div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Service Provider</div>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Holistic view · All tenants · Platform management</div>
+                </div>
+                {selectedRole === "sp" && <div style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</div>}
+              </button>
+
+              {Object.values(TENANTS).filter(t => t.role === "customer").map(t => (
+                <button key={t.id} onClick={() => setSelectedRole(t.id)} style={{
+                  background: selectedRole === t.id ? `${t.brand.primary}22` : "rgba(255,255,255,0.03)",
+                  border: `2px solid ${selectedRole === t.id ? t.brand.primary : "rgba(255,255,255,0.1)"}`,
+                  borderRadius: 12, padding: "16px 20px", cursor: "pointer", textAlign: "left",
+                  display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
+                }}>
+                  <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${t.brand.primary}, ${t.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 16 }}>{t.logo}</div>
+                  <div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{t.brand.name}</div>
+                    <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.name} · Customer Portal</div>
+                  </div>
+                  {selectedRole === t.id && <div style={{ marginLeft: "auto", color: t.brand.primary, fontSize: 20 }}>✓</div>}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => selectedRole && setView(selectedRole === "sp" ? "sp" : "tenant_" + selectedRole)}
+              disabled={!selectedRole}
+              style={{
+                width: "100%", background: selectedRole ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : "rgba(255,255,255,0.1)",
+                border: "none", borderRadius: 10, padding: "14px",
+                color: selectedRole ? "#000" : C.muted, fontWeight: 700, cursor: selectedRole ? "pointer" : "not-allowed",
+                fontSize: 16, transition: "all 0.2s",
+              }}>
+              Enter Portal →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Customer tenant portal
+  if (view.startsWith("tenant_")) {
+    const tenantId = view.replace("tenant_", "");
+    return <CustomerPortal tenantId={tenantId} onBack={() => setView("login")} />;
+  }
+
+  // Service Provider portal
+  return (
+    <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
+      {/* SP Sidebar */}
+      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh" }}>
+        <div style={{ marginBottom: 32, paddingLeft: 8 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
+          <div style={{ marginTop: 8 }}><Badge color={C.primary}>🌐 Super Admin</Badge></div>
+        </div>
+
+        <nav style={{ flex: 1 }}>
+          {spNavItems.map(item => (
+            <button key={item.id} onClick={() => setSpPage(item.id)} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 12,
               padding: "11px 12px", borderRadius: 9, border: "none",
-              background: page === item.id ? `${COLORS.accent}22` : "transparent",
-              color: page === item.id ? COLORS.accent : COLORS.textMuted,
-              cursor: "pointer", fontSize: 14, fontWeight: page === item.id ? 700 : 400,
+              background: spPage === item.id ? `${C.primary}22` : "transparent",
+              color: spPage === item.id ? C.primary : C.muted,
+              cursor: "pointer", fontSize: 14, fontWeight: spPage === item.id ? 700 : 400,
               marginBottom: 4, textAlign: "left",
-              borderLeft: page === item.id ? `3px solid ${COLORS.accent}` : "3px solid transparent",
-              transition: "all 0.15s",
+              borderLeft: spPage === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
             }}>
               <span style={{ fontSize: 17 }}>{item.icon}</span>
               {item.label}
@@ -730,20 +600,29 @@ export default function App() {
           ))}
         </nav>
 
-        <div style={{ padding: "16px 12px", background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}` }}>
+        <button onClick={() => setView("login")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
+
+        <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#000" }}>E</div>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
             <div>
-              <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
-              <div style={{ color: COLORS.textMuted, fontSize: 11 }}>engwx.com</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
+              <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, marginLeft: 240, minHeight: "100vh", overflowY: "auto" }}>
-        {pageMap[page]}
+      <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
+        {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} />}
+        {spPage === "tenants" && <TenantManagement C={C} />}
+        {["analytics", "api", "settings"].includes(spPage) && (
+          <div style={{ padding: "32px 40px" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
+            <p style={{ color: C.muted }}>Full {spPage} module available here</p>
+          </div>
+        )}
       </div>
     </div>
   );
