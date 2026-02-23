@@ -390,12 +390,15 @@ function CustomerPortal({ tenantId, onBack }) {
   const [page, setPage] = useState("dashboard");
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "⊞" },
-    { id: "campaigns", label: "Campaigns", icon: "🚀" },
-    { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "contacts", label: "Contacts", icon: "👥" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
-  ];
+  { id: "dashboard", label: "Dashboard", icon: "⊞" },
+  { id: "campaigns", label: "Campaigns", icon: "🚀" },
+  { id: "flows", label: "Flow Builder", icon: "⚡" },
+  { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+  { id: "inbox", label: "Live Inbox", icon: "💬" },
+  { id: "analytics", label: "Analytics", icon: "📊" },
+  { id: "contacts", label: "Contacts", icon: "👥" },
+  { id: "settings", label: "Settings", icon: "⚙️" },
+];
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
