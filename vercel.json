@@ -1,11 +1,6 @@
 {
   "buildCommand": "cd engageworx && npm install && npm run build",
   "outputDirectory": "engageworx/build",
-  "functions": {
-    "engageworx/api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/engageworx/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
