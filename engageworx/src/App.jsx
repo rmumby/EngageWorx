@@ -1,4 +1,3 @@
-import AgentInbox from './AgentInbox';
 
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 const TENANTS = {
