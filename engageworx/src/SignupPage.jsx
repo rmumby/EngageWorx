@@ -60,6 +60,13 @@ export default function SignupPage({ onBack }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showTwilioToken, setShowTwilioToken] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+
+  // Login fields for welcome page
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState("");
 
   const [form, setForm] = useState({
     email: "",
@@ -84,6 +91,23 @@ export default function SignupPage({ onBack }) {
   }, []);
 
   const update = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleLogin = async () => {
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (authError) throw authError;
+      // Successful login — redirect to main app
+      if (onBack) onBack();
+    } catch (err) {
+      setLoginError(err.message);
+      setLoginLoading(false);
+    }
+  };
 
   const handleSignup = async () => {
     setLoading(true);
@@ -203,69 +227,91 @@ export default function SignupPage({ onBack }) {
           <p style={styles.tagline}>AI-Powered SMS Platform</p>
         </div>
 
-        {/* Step 6 - Welcome / Pending Approval */}
+        {/* Step 6 - Welcome / Pending Approval with Login */}
         {step === 6 ? (
           <div style={styles.card}>
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <div style={{ fontSize: 64, marginBottom: 20 }}>🎉</div>
-              <h2 style={{ color: "#e2e8f0", fontSize: 28, fontWeight: 800, margin: "0 0 12px 0" }}>
+            <div style={{ textAlign: "center", padding: "10px 0 0 0" }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+              <h2 style={{ color: "#e2e8f0", fontSize: 26, fontWeight: 800, margin: "0 0 8px 0" }}>
                 Welcome to EngageWorx!
               </h2>
-              <p style={{ color: "#94a3b8", fontSize: 16, lineHeight: 1.6, margin: "0 0 24px 0" }}>
-                Your account has been created and your subscription is active.
+              <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.5, margin: "0 0 20px 0" }}>
+                Your account has been created and your trial is active.
               </p>
               <div style={{
                 background: "#0c2a3f",
                 border: "1px solid #0ea5e9",
                 borderRadius: 12,
-                padding: 24,
-                marginBottom: 24,
+                padding: 20,
+                marginBottom: 20,
                 textAlign: "left"
               }}>
-                <div style={{ color: "#0ea5e9", fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                <div style={{ color: "#0ea5e9", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
                   What happens next?
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ color: "#0ea5e9", fontSize: 18, lineHeight: 1 }}>①</div>
+                    <div style={{ color: "#0ea5e9", fontSize: 16, lineHeight: 1 }}>①</div>
                     <div>
-                      <div style={{ color: "#e2e8f0", fontSize: 14, fontWeight: 600 }}>Account Review</div>
-                      <div style={{ color: "#64748b", fontSize: 13 }}>Our team will review and approve your account within 24 hours.</div>
+                      <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>Account Review</div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>We'll review and approve your account within 24 hours.</div>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ color: "#0ea5e9", fontSize: 18, lineHeight: 1 }}>②</div>
+                    <div style={{ color: "#0ea5e9", fontSize: 16, lineHeight: 1 }}>②</div>
                     <div>
-                      <div style={{ color: "#e2e8f0", fontSize: 14, fontWeight: 600 }}>Phone Number Setup</div>
-                      <div style={{ color: "#64748b", fontSize: 13 }}>We'll provision your SMS number and configure your AI bot.</div>
+                      <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>Phone Number Setup</div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>We'll provision your SMS number and configure your AI bot.</div>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ color: "#0ea5e9", fontSize: 18, lineHeight: 1 }}>③</div>
+                    <div style={{ color: "#0ea5e9", fontSize: 16, lineHeight: 1 }}>③</div>
                     <div>
-                      <div style={{ color: "#e2e8f0", fontSize: 14, fontWeight: 600 }}>Welcome Email</div>
-                      <div style={{ color: "#64748b", fontSize: 13 }}>You'll receive login credentials and a quick-start guide via email.</div>
+                      <div style={{ color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>You're Live!</div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>Start sending SMS and let your AI bot handle conversations.</div>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Login Section */}
               <div style={{
                 background: "#1e293b",
-                borderRadius: 10,
-                padding: "14px 20px",
-                marginBottom: 24,
-                display: "flex",
-                alignItems: "center",
-                gap: 10
+                borderRadius: 12,
+                padding: 24,
+                textAlign: "left"
               }}>
-                <div style={{ fontSize: 20 }}>📧</div>
-                <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "left" }}>
-                  Check your email for a confirmation link. If you don't see it, check your spam folder.
+                <div style={{ color: "#e2e8f0", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>
+                  Log in to your portal
                 </div>
+                <div style={{ color: "#64748b", fontSize: 12, marginBottom: 16 }}>
+                  Use the credentials you just created.
+                </div>
+
+                {loginError && <div style={{ ...styles.error, marginBottom: 12 }}>{loginError}</div>}
+
+                <div style={{ ...styles.field, marginBottom: 12 }}>
+                  <label style={styles.label}>Email</label>
+                  <input style={styles.input} type="email" value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)} placeholder="you@company.com" />
+                </div>
+                <div style={{ ...styles.field, marginBottom: 16 }}>
+                  <label style={styles.label}>Password</label>
+                  <div style={{ position: "relative" }}>
+                    <input style={{ ...styles.input, width: "100%", boxSizing: "border-box", paddingRight: 44 }}
+                      type={showLoginPassword ? "text" : "password"} value={loginPassword}
+                      onChange={e => setLoginPassword(e.target.value)} placeholder="Your password"
+                      onKeyDown={e => { if (e.key === "Enter") handleLogin(); }} />
+                    <button type="button" onClick={() => setShowLoginPassword(!showLoginPassword)} style={eyeButtonStyle}>
+                      {showLoginPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                </div>
+                <button style={{ ...styles.btn, width: "100%", opacity: loginLoading ? 0.7 : 1 }}
+                  onClick={handleLogin} disabled={loginLoading}>
+                  {loginLoading ? "Logging in..." : "Log In →"}
+                </button>
               </div>
-              <button style={styles.btn} onClick={() => { if (onBack) onBack(); }}>
-                Go to Login →
-              </button>
             </div>
           </div>
         ) : (
