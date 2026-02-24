@@ -1,5 +1,6 @@
 
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
+import { useState } from "react";
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
