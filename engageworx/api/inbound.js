@@ -1,5 +1,19 @@
-import twilio from "twilio";
 import { createClient } from "@supabase/supabase-js";
+
+async function sendSMS(to, from, body) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  
+  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+  });
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -83,11 +97,7 @@ export default async function handler(req, res) {
         process.env.TWILIO_ACCOUNT_SID,
         process.env.TWILIO_AUTH_TOKEN
       );
-      await twilioClient.messages.create({
-        body: "You have been unsubscribed. Reply START to resubscribe.",
-        from: To,
-        to: From,
-      });
+   await sendSMS(From, To, reply);
 
       return res.status(200).send("<Response></Response>");
     }
@@ -124,11 +134,7 @@ export default async function handler(req, res) {
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
-    await twilioClient.messages.create({
-      body: reply,
-      from: To,
-      to: From,
-    });
+  await sendSMS(From, To, reply);
 
     // Store outbound reply
     await supabase.from("conversation_messages").insert({
