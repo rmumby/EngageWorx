@@ -1,4 +1,3 @@
-import twilio from "twilio";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -11,136 +10,57 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { From, To, Body, MessageSid } = req.body;
+  const { message, intent, sentiment, conversationId } = req.body;
+  console.log("Generating reply for:", message, "intent:", intent);
 
   try {
-    // Find or create contact
-    let { data: contact } = await supabase
-      .from("contacts")
-      .select("*")
-      .eq("phone", From)
-      .single();
+    // Get conversation history
+    let conversationHistory = [];
+    if (conversationId) {
+      const { data: history } = await supabase
+        .from("conversation_messages")
+        .select("direction, content")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
+        .limit(10);
 
-    if (!contact) {
-      const { data: newContact } = await supabase
-        .from("contacts")
-        .insert({ phone: From, status: "active" })
-        .select()
-        .single();
-      contact = newContact;
+      conversationHistory = (history || []).map((m) => ({
+        role: m.direction === "inbound" ? "user" : "assistant",
+        content: m.content,
+      }));
     }
 
-    // Find or create conversation
-    let { data: conversation } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("contact_id", contact.id)
-      .eq("status", "open")
-      .single();
-
-    if (!conversation) {
-      const { data: newConv } = await supabase
-        .from("conversations")
-        .insert({
-          contact_id: contact.id,
-          channel: "SMS",
-          status: "open",
-        })
-        .select()
-        .single();
-      conversation = newConv;
-    }
-
-    // Classify intent
-    const classifyRes = await fetch(
-      `${process.env.VERCEL_URL}/api/classify`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: Body, conversationId: conversation.id }),
-      }
-    );
-    const { intent, sentiment } = await classifyRes.json();
-
-    // Store inbound message
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "inbound",
-      content: Body,
-      intent,
-      sentiment,
-      channel: "SMS",
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 300,
+        system: `You are a helpful customer service assistant for EngageWorx.
+Be concise — this is SMS, keep replies under 160 characters when possible.
+Be friendly, professional, and helpful.
+Intent detected: ${intent || "general"}
+Sentiment detected: ${sentiment || "neutral"}
+Never make up information. Never mention being an AI unless directly asked.`,
+        messages: [
+          ...conversationHistory,
+          { role: "user", content: message },
+        ],
+      }),
     });
 
-    // Handle opt-out immediately
-    if (intent === "opt_out") {
-      await supabase
-        .from("contacts")
-        .update({ status: "unsubscribed" })
-        .eq("id", contact.id);
+    const data = await response.json();
+    console.log("Reply data:", JSON.stringify(data));
+    const reply = data.content?.[0]?.text ||
+      "Thanks for reaching out! We'll get back to you shortly.";
 
-      const twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
-      await twilioClient.messages.create({
-        body: "You have been unsubscribed. Reply START to resubscribe.",
-        from: To,
-        to: From,
-      });
-
-      return res.status(200).send("<Response></Response>");
-    }
-
-    // Escalate complaints to human agent
-    if (intent === "complaint" || sentiment === "very_negative") {
-      await supabase
-        .from("conversations")
-        .update({ status: "escalated" })
-        .eq("id", conversation.id);
-
-      return res.status(200).send("<Response></Response>");
-    }
-
-    // Get bot response
-    const respondRes = await fetch(
-      `${process.env.VERCEL_URL}/api/respond`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: Body,
-          intent,
-          sentiment,
-          conversationId: conversation.id,
-          contactId: contact.id,
-        }),
-      }
-    );
-    const { reply } = await respondRes.json();
-
-    // Send reply via Twilio
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    await twilioClient.messages.create({
-      body: reply,
-      from: To,
-      to: From,
-    });
-
-    // Store outbound reply
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "outbound",
-      content: reply,
-      channel: "SMS",
-    });
-
-    res.status(200).send("<Response></Response>");
+    res.status(200).json({ reply });
   } catch (err) {
-    console.error("Inbound error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Respond error:", err.message);
+    res.status(200).json({ reply: "Thanks for reaching out! We'll get back to you shortly." });
   }
 }
