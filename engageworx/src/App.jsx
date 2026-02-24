@@ -573,6 +573,12 @@ export default function App() {
               }}>
               Enter Portal →
             </button>
+            <div style={{ marginTop: 16, textAlign: "center" }}>
+              <span style={{ color: C.muted, fontSize: 14 }}>New to EngageWorx? </span>
+              <button onClick={() => setView("signup")} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                Sign Up →
+              </button>
+            </div>
           </div>
         </div>
       </div>
