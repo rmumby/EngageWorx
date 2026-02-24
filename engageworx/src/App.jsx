@@ -2,6 +2,7 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import AgentInbox from './AgentInbox';
+import NLCampaignBuilder from './NLCampaignBuilder';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 const TENANTS = {
@@ -471,7 +472,9 @@ function CustomerPortal({ tenantId, onBack }) {
           </div>
         )}
 
-       {page === "inbox" && (
+       {page === "inbox" && {page === "campaigns" && (
+          <NLCampaignBuilder tenantId={tenantId} />
+        )}(
           <AgentInbox tenantId={tenantId} />
         )}
 
