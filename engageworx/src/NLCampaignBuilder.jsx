@@ -1,4 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
 
 const COLORS = {
   bg: "#0A0E1A",
@@ -15,11 +21,11 @@ const COLORS = {
 };
 
 const EXAMPLES = [
-  "Send a promo to customers who bought running shoes in the last 90 days but haven't opened our last 3 messages. Try WhatsApp first, fall back to SMS.",
-  "Re-engage customers who signed up over 6 months ago but haven't purchased. Offer 20% off via email, follow up with SMS after 2 days if no open.",
-  "Send a birthday message to all contacts with a birthday this week across all channels they prefer.",
-  "Alert VIP customers about our flash sale starting tomorrow — use RCS if available, otherwise WhatsApp. Send at their local 10am.",
-  "Win back churned customers who haven't engaged in 60 days. Start gentle with email, escalate to SMS after 3 days.",
+  "Send a promo to all contacts offering 20% off this weekend. Use SMS.",
+  "Re-engage customers who haven't been contacted in 30 days with a friendly check-in message.",
+  "Send a holiday greeting to all contacts wishing them a great season.",
+  "Alert all contacts about our new product launch happening next week.",
+  "Win back inactive contacts with a special limited-time offer via SMS.",
 ];
 
 function Badge({ children, color }) {
@@ -31,7 +37,7 @@ function Badge({ children, color }) {
   );
 }
 
-function CampaignPreview({ campaign }) {
+function CampaignPreview({ campaign, onLaunch, onSaveDraft, launching, contactCount }) {
   if (!campaign) return null;
 
   const channelColors = {
@@ -60,7 +66,7 @@ function CampaignPreview({ campaign }) {
       {/* Campaign Overview */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
         {[
-          { label: "Est. Audience", value: campaign.estimatedAudience, icon: "👥" },
+          { label: "Contacts Available", value: `${contactCount} contacts`, icon: "👥" },
           { label: "Channels", value: campaign.channels?.join(" → "), icon: "📡" },
           { label: "Send Time", value: campaign.sendTime, icon: "⏰" },
           { label: "Est. Revenue", value: campaign.estimatedRevenue, icon: "💰" },
@@ -87,7 +93,7 @@ function CampaignPreview({ campaign }) {
 
       {/* Channel Sequence */}
       <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20, marginBottom: 16 }}>
-        <div style={{ color: COLORS.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>📡 Channel Sequence & Fallback</div>
+        <div style={{ color: COLORS.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>📡 Channel Sequence</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {campaign.channels?.map((ch, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -98,24 +104,19 @@ function CampaignPreview({ campaign }) {
                 color: channelColors[ch] || COLORS.accent,
                 fontWeight: 700, fontSize: 13,
               }}>
-                {ch === "WhatsApp" ? "📱" : ch === "SMS" ? "💬" : ch === "Email" ? "📧" : ch === "RCS" ? "✨" : "📞"} {ch}
+                {ch === "SMS" ? "💬" : ch === "Email" ? "📧" : ch === "WhatsApp" ? "📱" : "📡"} {ch}
               </div>
               {i < campaign.channels.length - 1 && (
                 <div style={{ color: COLORS.dim, fontSize: 18 }}>→</div>
               )}
             </div>
           ))}
-          {campaign.fallbackDelay && (
-            <span style={{ color: COLORS.muted, fontSize: 12, marginLeft: 8 }}>
-              ({campaign.fallbackDelay} between attempts)
-            </span>
-          )}
         </div>
       </div>
 
       {/* Message Variants */}
       <div style={{ background: COLORS.bg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20, marginBottom: 16 }}>
-        <div style={{ color: COLORS.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>💬 AI-Generated Message Variants</div>
+        <div style={{ color: COLORS.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>💬 AI-Generated Messages</div>
         <div style={{ display: "grid", gap: 12 }}>
           {campaign.messageVariants?.map((v, i) => (
             <div key={i} style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: 16 }}>
@@ -144,39 +145,106 @@ function CampaignPreview({ campaign }) {
 
       {/* Action Buttons */}
       <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-        <button style={{
-          background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
+        <button onClick={onLaunch} disabled={launching} style={{
+          background: launching ? COLORS.border : `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
           border: "none", borderRadius: 10, padding: "13px 28px",
-          color: "#000", fontWeight: 800, cursor: "pointer", fontSize: 15,
-          flex: 1,
+          color: launching ? COLORS.muted : "#000", fontWeight: 800, cursor: launching ? "not-allowed" : "pointer", fontSize: 15,
+          flex: 1, opacity: launching ? 0.7 : 1,
         }}>
-          🚀 Launch Campaign
+          {launching ? "📡 Sending..." : `🚀 Launch Campaign (${contactCount} contacts)`}
         </button>
-        <button style={{
+        <button onClick={onSaveDraft} style={{
           background: COLORS.accent3 + "22", border: `1px solid ${COLORS.accent3}55`,
           borderRadius: 10, padding: "13px 20px",
           color: COLORS.accent3, fontWeight: 700, cursor: "pointer", fontSize: 14,
         }}>
           💾 Save Draft
         </button>
-        <button style={{
-          background: "transparent", border: `1px solid ${COLORS.border}`,
-          borderRadius: 10, padding: "13px 20px",
-          color: COLORS.muted, cursor: "pointer", fontSize: 14,
-        }}>
-          ✏️ Edit
-        </button>
       </div>
     </div>
   );
 }
 
-export default function NLCampaignBuilder() {
+// Campaign history list
+function CampaignHistory({ campaigns, onSelect }) {
+  if (!campaigns || campaigns.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 32 }}>
+      <div style={{ color: COLORS.muted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
+        📋 Recent Campaigns
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {campaigns.map(c => (
+          <div key={c.id} onClick={() => onSelect(c)} style={{
+            background: COLORS.surface, border: `1px solid ${COLORS.border}`,
+            borderRadius: 10, padding: "14px 18px", cursor: "pointer",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            transition: "all 0.2s",
+          }}>
+            <div>
+              <div style={{ color: COLORS.text, fontWeight: 600, fontSize: 14 }}>{c.name}</div>
+              <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 2 }}>
+                {c.channel || "SMS"} · {c.sent_count || 0} sent · {new Date(c.created_at).toLocaleDateString()}
+              </div>
+            </div>
+            <Badge color={
+              c.status === "sent" ? COLORS.accent3 :
+              c.status === "draft" ? COLORS.muted :
+              c.status === "sending" ? COLORS.accent :
+              COLORS.accent4
+            }>
+              {c.status || "draft"}
+            </Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function NLCampaignBuilder({ tenantId }) {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [campaign, setCampaign] = useState(null);
   const [error, setError] = useState(null);
   const [thinking, setThinking] = useState("");
+  const [launching, setLaunching] = useState(false);
+  const [launchResult, setLaunchResult] = useState(null);
+  const [contacts, setContacts] = useState([]);
+  const [pastCampaigns, setPastCampaigns] = useState([]);
+
+  // Load contacts and past campaigns from Supabase
+  useEffect(() => {
+    loadContacts();
+    loadCampaigns();
+  }, [tenantId]);
+
+  const loadContacts = async () => {
+    try {
+      let query = supabase.from("contacts").select("id, phone, first_name, last_name");
+      if (tenantId) query = query.eq("tenant_id", tenantId);
+      const { data } = await query;
+      if (data) setContacts(data);
+    } catch (err) {
+      console.log("No contacts table or no data:", err);
+    }
+  };
+
+  const loadCampaigns = async () => {
+    try {
+      let query = supabase
+        .from("campaigns")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (tenantId) query = query.eq("tenant_id", tenantId);
+      const { data } = await query;
+      if (data) setPastCampaigns(data);
+    } catch (err) {
+      console.log("No campaigns loaded:", err);
+    }
+  };
 
   const thinkingSteps = [
     "🧠 Parsing your campaign intent...",
@@ -193,8 +261,8 @@ export default function NLCampaignBuilder() {
     setLoading(true);
     setError(null);
     setCampaign(null);
+    setLaunchResult(null);
 
-    // Animate thinking steps
     let stepIndex = 0;
     const stepInterval = setInterval(() => {
       if (stepIndex < thinkingSteps.length) {
@@ -216,27 +284,22 @@ When given a natural language campaign description, extract and return ONLY a va
 {
   "name": "Campaign name",
   "estimatedAudience": "e.g. ~12,400 contacts",
-  "channels": ["WhatsApp", "SMS"],
-  "sendTime": "e.g. Today at 10am local time",
+  "channels": ["SMS"],
+  "sendTime": "e.g. Immediately",
   "estimatedRevenue": "e.g. $8,200 - $14,500",
   "fallbackDelay": "e.g. 24 hours",
-  "audienceFilters": ["filter1", "filter2", "filter3"],
+  "audienceFilters": ["filter1", "filter2"],
   "messageVariants": [
     {
-      "channel": "WhatsApp",
-      "message": "Full message text here",
-      "cta": "Call to action text"
-    },
-    {
       "channel": "SMS",
-      "message": "Shorter SMS version",
-      "cta": "Shop Now"
+      "message": "Full message text here. Reply STOP to opt out.",
+      "cta": "Call to action text"
     }
   ],
-  "complianceNotes": "Brief compliance summary including opt-out handling and relevant regulations"
+  "complianceNotes": "Brief compliance summary including opt-out handling"
 }
 
-Be specific and realistic. Generate compelling, professional message copy. Always include opt-out language. Channel order should reflect the fallback sequence requested.`,
+Be specific and realistic. Generate compelling, professional message copy. Always include "Reply STOP to opt out" in SMS messages. Keep SMS messages under 160 characters when possible.`,
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -252,10 +315,122 @@ Be specific and realistic. Generate compelling, professional message copy. Alway
     } catch (err) {
       clearInterval(stepInterval);
       setThinking("");
-      setError("Could not generate campaign. Please check your API connection and try again.");
+      setError("Could not generate campaign. Please try again.");
     }
 
     setLoading(false);
+  };
+
+  const saveDraft = async () => {
+    if (!campaign) return;
+
+    try {
+      const { error } = await supabase.from("campaigns").insert({
+        tenant_id: tenantId || null,
+        name: campaign.name,
+        description: prompt,
+        channel: campaign.channels?.[0] || "SMS",
+        message_template: campaign.messageVariants?.[0]?.message || "",
+        audience_filters: campaign.audienceFilters,
+        status: "draft",
+        sent_count: 0,
+        campaign_data: campaign,
+      });
+
+      if (error) throw error;
+      loadCampaigns();
+      setLaunchResult({ type: "success", message: "Campaign saved as draft!" });
+    } catch (err) {
+      setLaunchResult({ type: "error", message: "Failed to save: " + err.message });
+    }
+  };
+
+  const launchCampaign = async () => {
+    if (!campaign) return;
+    setLaunching(true);
+    setLaunchResult(null);
+
+    const smsMessage = campaign.messageVariants?.find(v => v.channel === "SMS")?.message
+      || campaign.messageVariants?.[0]?.message
+      || "Hello from EngageWorx!";
+
+    // Get contacts to send to
+    let sendTo = [];
+
+    if (contacts.length > 0) {
+      // Use real contacts from Supabase
+      sendTo = contacts.map(c => ({
+        to: c.phone,
+        body: smsMessage,
+      }));
+    } else {
+      // No contacts — save as draft instead
+      setLaunching(false);
+      setLaunchResult({
+        type: "warning",
+        message: "No contacts found. Campaign saved as draft. Add contacts to send SMS."
+      });
+      saveDraft();
+      return;
+    }
+
+    try {
+      // Save campaign to Supabase first
+      const { data: savedCampaign, error: saveError } = await supabase
+        .from("campaigns")
+        .insert({
+          tenant_id: tenantId || null,
+          name: campaign.name,
+          description: prompt,
+          channel: campaign.channels?.[0] || "SMS",
+          message_template: smsMessage,
+          audience_filters: campaign.audienceFilters,
+          status: "sending",
+          sent_count: 0,
+          campaign_data: campaign,
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      // Send via API
+      const res = await fetch("/api/send-campaign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          campaignId: savedCampaign?.id,
+          tenantId,
+          messages: sendTo,
+        }),
+      });
+
+      const result = await res.json();
+
+      // Update campaign status
+      if (savedCampaign?.id) {
+        await supabase
+          .from("campaigns")
+          .update({
+            status: "sent",
+            sent_count: result.results?.sent || 0,
+            sent_at: new Date().toISOString(),
+          })
+          .eq("id", savedCampaign.id);
+      }
+
+      setLaunchResult({
+        type: "success",
+        message: `Campaign sent! ${result.results?.sent || 0} messages delivered, ${result.results?.failed || 0} failed.`
+      });
+
+      loadCampaigns();
+
+    } catch (err) {
+      setLaunchResult({ type: "error", message: "Launch failed: " + err.message });
+    }
+
+    setLaunching(false);
   };
 
   return (
@@ -278,50 +453,48 @@ Be specific and realistic. Generate compelling, professional message copy. Alway
             <span style={{ fontSize: 16 }}>✨</span>
             <span style={{ color: COLORS.accent, fontSize: 13, fontWeight: 700 }}>AI-Powered · EngageWorx</span>
           </div>
-          <h1 style={{ fontSize: 42, fontWeight: 900, margin: "0 0 16px", background: `linear-gradient(135deg, ${COLORS.text}, ${COLORS.accent})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            Natural Language Campaign Builder
+          <h1 style={{ fontSize: 36, fontWeight: 900, margin: "0 0 16px", background: `linear-gradient(135deg, ${COLORS.text}, ${COLORS.accent})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            Campaign Builder
           </h1>
-          <p style={{ color: COLORS.muted, fontSize: 17, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
-            Describe your campaign in plain English. AI builds it instantly — audience, channels, messages, timing, and compliance.
+          <p style={{ color: COLORS.muted, fontSize: 16, maxWidth: 600, margin: "0 auto", lineHeight: 1.6 }}>
+            Describe your campaign in plain English. AI builds it — then send it to {contacts.length > 0 ? `your ${contacts.length} contacts` : "your contacts"} instantly.
           </p>
         </div>
 
         {/* Input Area */}
         <div style={{ background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 20, padding: 28, marginBottom: 24 }}>
-          <div style={{ color: COLORS.muted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>
-            Describe your campaign
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ color: COLORS.muted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>
+              Describe your campaign
+            </div>
+            <Badge color={contacts.length > 0 ? COLORS.accent3 : COLORS.muted}>
+              {contacts.length > 0 ? `${contacts.length} contacts loaded` : "No contacts yet"}
+            </Badge>
           </div>
           <textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             onKeyDown={e => e.key === "Enter" && e.metaKey && buildCampaign()}
-            placeholder="e.g. Send a promo to customers who bought in the last 90 days but haven't opened our last 3 emails. Try WhatsApp first, fall back to SMS after 24 hours..."
+            placeholder="e.g. Send a promo to all contacts offering 20% off this weekend. Keep it friendly and include an opt-out..."
             rows={4}
             style={{
               width: "100%", background: COLORS.bg, border: `1px solid ${COLORS.border}`,
               borderRadius: 12, padding: "16px", color: COLORS.text, fontSize: 15,
               resize: "vertical", boxSizing: "border-box", lineHeight: 1.6,
+              fontFamily: "'DM Sans', sans-serif",
               transition: "border-color 0.2s, box-shadow 0.2s",
             }}
           />
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
-            <div style={{ color: COLORS.dim, fontSize: 12 }}>
-              ⌘ + Enter to generate
-            </div>
-            <button
-              onClick={buildCampaign}
-              disabled={loading || !prompt.trim()}
-              style={{
-                background: loading || !prompt.trim()
-                  ? COLORS.border
-                  : `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
-                border: "none", borderRadius: 10, padding: "13px 32px",
-                color: loading || !prompt.trim() ? COLORS.muted : "#000",
-                fontWeight: 800, cursor: loading || !prompt.trim() ? "not-allowed" : "pointer",
-                fontSize: 15, transition: "all 0.2s",
-              }}
-            >
+            <div style={{ color: COLORS.dim, fontSize: 12 }}>⌘ + Enter to generate</div>
+            <button onClick={buildCampaign} disabled={loading || !prompt.trim()} style={{
+              background: loading || !prompt.trim() ? COLORS.border : `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
+              border: "none", borderRadius: 10, padding: "13px 32px",
+              color: loading || !prompt.trim() ? COLORS.muted : "#000",
+              fontWeight: 800, cursor: loading || !prompt.trim() ? "not-allowed" : "pointer",
+              fontSize: 15, transition: "all 0.2s",
+            }}>
               {loading ? "Building..." : "✨ Build Campaign"}
             </button>
           </div>
@@ -346,11 +519,39 @@ Be specific and realistic. Generate compelling, professional message copy. Alway
           </div>
         )}
 
+        {/* Launch Result */}
+        {launchResult && (
+          <div style={{
+            background: launchResult.type === "success" ? COLORS.accent3 + "11" : launchResult.type === "warning" ? COLORS.accent4 + "11" : "#FF000011",
+            border: `1px solid ${launchResult.type === "success" ? COLORS.accent3 : launchResult.type === "warning" ? COLORS.accent4 : "#FF0000"}33`,
+            borderRadius: 12, padding: 16, marginBottom: 24,
+            color: launchResult.type === "success" ? COLORS.accent3 : launchResult.type === "warning" ? COLORS.accent4 : "#FF6B6B",
+            fontSize: 14, fontWeight: 600,
+          }}>
+            {launchResult.type === "success" ? "✅ " : launchResult.type === "warning" ? "⚠️ " : "❌ "}
+            {launchResult.message}
+          </div>
+        )}
+
         {/* Generated Campaign */}
-        <CampaignPreview campaign={campaign} />
+        <CampaignPreview
+          campaign={campaign}
+          onLaunch={launchCampaign}
+          onSaveDraft={saveDraft}
+          launching={launching}
+          contactCount={contacts.length}
+        />
+
+        {/* Past Campaigns */}
+        <CampaignHistory campaigns={pastCampaigns} onSelect={(c) => {
+          if (c.campaign_data) {
+            setCampaign(c.campaign_data);
+            setPrompt(c.description || "");
+          }
+        }} />
 
         {/* Example Prompts */}
-        {!campaign && !loading && (
+        {!campaign && !loading && pastCampaigns.length === 0 && (
           <div style={{ marginTop: 40 }}>
             <div style={{ color: COLORS.muted, fontSize: 12, textTransform: "uppercase", letterSpacing: 1, marginBottom: 16, textAlign: "center" }}>
               Try these examples
@@ -362,7 +563,6 @@ Be specific and realistic. Generate compelling, professional message copy. Alway
                   borderRadius: 10, padding: "14px 18px", color: COLORS.muted,
                   cursor: "pointer", fontSize: 13, textAlign: "left", lineHeight: 1.5,
                   transition: "all 0.2s",
-                  ":hover": { borderColor: COLORS.accent },
                 }}>
                   <span style={{ color: COLORS.accent, marginRight: 8 }}>→</span>
                   {ex}
