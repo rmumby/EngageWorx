@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   const { businessName, email, plan, twilioOption } = req.body;
 
-  const ADMIN_EMAIL = "rmumby@gmail.com";
+  const ADMIN_EMAIL = "rob@engwx.com";
 
   try {
     const response = await fetch("https://api.resend.com/emails", {
