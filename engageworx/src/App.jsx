@@ -506,7 +506,15 @@ export default function App() {
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
   }
+// Public signup page
+  if (view === "signup") {
+    return <SignupPage onBack={() => setView("login")} />;
+  }
 
+  // Admin tenant management
+  if (view === "admin_tenants") {
+    return <AdminTenants onBack={() => setView("sp")} />;
+  }
   if (view === "login") {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
@@ -571,6 +579,15 @@ export default function App() {
     );
   }
 
+  // Public signup page
+  if (view === "signup") {
+    return <SignupPage onBack={() => setView("login")} />;
+  }
+
+  // Admin tenant management
+  if (view === "admin_tenants") {
+    return <AdminTenants onBack={() => setView("sp")} />;
+  }
   // Customer tenant portal
   if (view.startsWith("tenant_")) {
     const tenantId = view.replace("tenant_", "");
