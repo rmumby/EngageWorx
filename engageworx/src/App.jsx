@@ -1,6 +1,6 @@
 
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 const TENANTS = {
@@ -492,6 +492,13 @@ export default function App() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
+  // Check for signup success redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("signup") === "success") {
+      setView("signup");
+    }
+  }, []);
 
   const C = TENANTS.serviceProvider.colors;
 
