@@ -272,41 +272,17 @@ export default function NLCampaignBuilder({ tenantId }) {
     }, 600);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/generate-campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: `You are an expert marketing campaign builder for EngageWorx, a multi-channel customer communications platform supporting SMS, MMS, WhatsApp, Email, Voice, and RCS.
-
-When given a natural language campaign description, extract and return ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
-{
-  "name": "Campaign name",
-  "estimatedAudience": "e.g. ~12,400 contacts",
-  "channels": ["SMS"],
-  "sendTime": "e.g. Immediately",
-  "estimatedRevenue": "e.g. $8,200 - $14,500",
-  "fallbackDelay": "e.g. 24 hours",
-  "audienceFilters": ["filter1", "filter2"],
-  "messageVariants": [
-    {
-      "channel": "SMS",
-      "message": "Full message text here. Reply STOP to opt out.",
-      "cta": "Call to action text"
-    }
-  ],
-  "complianceNotes": "Brief compliance summary including opt-out handling"
-}
-
-Be specific and realistic. Generate compelling, professional message copy. Always include "Reply STOP to opt out" in SMS messages. Keep SMS messages under 160 characters when possible.`,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        body: JSON.stringify({ prompt }),
       });
 
       const data = await response.json();
       clearInterval(stepInterval);
       setThinking("");
+
+      if (data.error) throw new Error(data.error);
 
       const text = data.content?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
