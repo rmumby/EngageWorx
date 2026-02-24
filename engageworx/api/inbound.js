@@ -1,157 +1,164 @@
 import { createClient } from "@supabase/supabase-js";
 
-async function sendSMS(to, from, body) {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-  
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
-  });
-}
-
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+async function sendSMS(to, from, body) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: to, From: from, Body: body }).toString(),
+    }
+  );
+  const data = await response.json();
+  console.log("SMS sent:", JSON.stringify(data));
+  return data;
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { From, To, Body, MessageSid } = req.body;
+  const { From, To, Body } = req.body;
+  console.log("Inbound SMS from:", From, "body:", Body);
 
   try {
     // Find or create contact
-    let { data: contact } = await supabase
+    let contact = null;
+    const { data: existingContact } = await supabase
       .from("contacts")
       .select("*")
       .eq("phone", From)
-      .single();
+      .maybeSingle();
 
-    if (!contact) {
-      const { data: newContact } = await supabase
+    if (existingContact) {
+      contact = existingContact;
+    } else {
+      const { data: newContact, error: insertError } = await supabase
         .from("contacts")
-        .insert({ phone: From, status: "active" })
+        .insert({ phone: From, status: "active", first_name: "Unknown" })
         .select()
         .single();
-      contact = newContact;
+      if (insertError) {
+        console.log("Contact insert error:", insertError.message);
+      } else {
+        contact = newContact;
+      }
     }
 
     // Find or create conversation
-    let { data: conversation } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("contact_id", contact.id)
-      .eq("status", "open")
-      .single();
-
-    if (!conversation) {
-      const { data: newConv } = await supabase
+    let conversation = null;
+    if (contact) {
+      const { data: existingConv } = await supabase
         .from("conversations")
-        .insert({
-          contact_id: contact.id,
-          channel: "SMS",
-          status: "open",
-        })
-        .select()
-        .single();
-      conversation = newConv;
+        .select("*")
+        .eq("contact_id", contact.id)
+        .eq("status", "open")
+        .maybeSingle();
+
+      if (existingConv) {
+        conversation = existingConv;
+      } else {
+        const { data: newConv } = await supabase
+          .from("conversations")
+          .insert({ contact_id: contact.id, channel: "SMS", status: "open" })
+          .select()
+          .single();
+        conversation = newConv;
+      }
     }
 
-    // Classify intent
-    const classifyRes = await fetch(`https://portal.engwx.com/api/classify`,
-      {
+    // Classify intent with fallback
+    let intent = "general";
+    let sentiment = "neutral";
+    try {
+      const classifyRes = await fetch("https://portal.engwx.com/api/classify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: Body, conversationId: conversation.id }),
+        body: JSON.stringify({ message: Body }),
+      });
+      if (classifyRes.ok) {
+        const classifyData = await classifyRes.json();
+        intent = classifyData.intent || "general";
+        sentiment = classifyData.sentiment || "neutral";
       }
-    );
-   let intent = "general", sentiment = "neutral";
-try {
-  const classifyData = await classifyRes.json();
-  intent = classifyData.intent || "general";
-  sentiment = classifyData.sentiment || "neutral";
-} catch(e) {
-  console.log("Classify failed, using defaults");
-}
+    } catch (e) {
+      console.log("Classify error:", e.message);
+    }
+
+    console.log("Intent:", intent, "Sentiment:", sentiment);
 
     // Store inbound message
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "inbound",
-      content: Body,
-      intent,
-      sentiment,
-      channel: "SMS",
-    });
+    if (conversation) {
+      await supabase.from("conversation_messages").insert({
+        conversation_id: conversation.id,
+        direction: "inbound",
+        content: Body,
+        intent,
+        sentiment,
+        channel: "SMS",
+      });
+    }
 
-    // Handle opt-out immediately
+    // Handle opt-out
     if (intent === "opt_out") {
-      await supabase
-        .from("contacts")
-        .update({ status: "unsubscribed" })
-        .eq("id", contact.id);
-
-      const twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
-   await sendSMS(From, To, reply);
-
+      if (contact) {
+        await supabase.from("contacts").update({ status: "unsubscribed" }).eq("id", contact.id);
+      }
+      await sendSMS(From, To, "You have been unsubscribed. Reply START to resubscribe.");
       return res.status(200).send("<Response></Response>");
     }
 
-    // Escalate complaints to human agent
-    if (intent === "complaint" || sentiment === "very_negative") {
-      await supabase
-        .from("conversations")
-        .update({ status: "escalated" })
-        .eq("id", conversation.id);
-
-      return res.status(200).send("<Response></Response>");
-    }
-
-    // Get bot response
-    const respondRes = await fetch(`https://portal.engwx.com/api/respond`,
-      {
+    // Get bot response with fallback
+    let reply = "Thanks for your message! We'll get back to you shortly.";
+    try {
+      const respondRes = await fetch("https://portal.engwx.com/api/respond", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: Body,
           intent,
           sentiment,
-          conversationId: conversation.id,
-          contactId: contact.id,
+          conversationId: conversation?.id,
         }),
+      });
+      if (respondRes.ok) {
+        const respondData = await respondRes.json();
+        reply = respondData.reply || reply;
       }
-    );
-    const { reply } = await respondRes.json();
+    } catch (e) {
+      console.log("Respond error:", e.message);
+    }
 
-    // Send reply via Twilio
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-  await sendSMS(From, To, reply);
+    console.log("Sending reply:", reply);
 
-    // Store outbound reply
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "outbound",
-      content: reply,
-      channel: "SMS",
-    });
+    // Send reply
+    await sendSMS(From, To, reply);
+
+    // Store outbound message
+    if (conversation) {
+      await supabase.from("conversation_messages").insert({
+        conversation_id: conversation.id,
+        direction: "outbound",
+        content: reply,
+        channel: "SMS",
+      });
+    }
 
     res.status(200).send("<Response></Response>");
   } catch (err) {
-    console.error("Inbound error:", err);
+    console.error("Inbound handler error:", err.message);
     res.status(500).json({ error: err.message });
   }
 }
