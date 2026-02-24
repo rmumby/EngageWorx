@@ -630,7 +630,7 @@ export default function App() {
 
         <button onClick={() => setView("login")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
 
-        <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+        <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
             <div>
