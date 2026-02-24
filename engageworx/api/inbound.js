@@ -73,7 +73,14 @@ export default async function handler(req, res) {
         body: JSON.stringify({ message: Body, conversationId: conversation.id }),
       }
     );
-    const { intent, sentiment } = await classifyRes.json();
+   let intent = "general", sentiment = "neutral";
+try {
+  const classifyData = await classifyRes.json();
+  intent = classifyData.intent || "general";
+  sentiment = classifyData.sentiment || "neutral";
+} catch(e) {
+  console.log("Classify failed, using defaults");
+}
 
     // Store inbound message
     await supabase.from("conversation_messages").insert({
