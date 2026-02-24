@@ -1,4 +1,3 @@
-import twilio from "twilio";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
