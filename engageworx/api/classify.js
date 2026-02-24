@@ -1,145 +1,38 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { From, To, Body, MessageSid } = req.body;
+  const { message } = req.body;
+  console.log("Classifying:", message);
 
   try {
-    // Find or create contact
-    let { data: contact } = await supabase
-      .from("contacts")
-      .select("*")
-      .eq("phone", From)
-      .single();
-
-    if (!contact) {
-      const { data: newContact } = await supabase
-        .from("contacts")
-        .insert({ phone: From, status: "active" })
-        .select()
-        .single();
-      contact = newContact;
-    }
-
-    // Find or create conversation
-    let { data: conversation } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("contact_id", contact.id)
-      .eq("status", "open")
-      .single();
-
-    if (!conversation) {
-      const { data: newConv } = await supabase
-        .from("conversations")
-        .insert({
-          contact_id: contact.id,
-          channel: "SMS",
-          status: "open",
-        })
-        .select()
-        .single();
-      conversation = newConv;
-    }
-
-    // Classify intent
-    const classifyRes = await fetch(
-      `${process.env.VERCEL_URL}/api/classify`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: Body, conversationId: conversation.id }),
-      }
-    );
-    const { intent, sentiment } = await classifyRes.json();
-
-    // Store inbound message
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "inbound",
-      content: Body,
-      intent,
-      sentiment,
-      channel: "SMS",
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 100,
+        system: `Classify the intent and sentiment of customer messages.
+Return ONLY a JSON object like:
+{"intent":"purchase_inquiry|support|complaint|opt_out|general|positive_feedback|booking","sentiment":"positive|neutral|negative|very_negative"}
+No explanation, no markdown, no backticks. Just the JSON object.`,
+        messages: [{ role: "user", content: message }],
+      }),
     });
 
-    // Handle opt-out immediately
-    if (intent === "opt_out") {
-      await supabase
-        .from("contacts")
-        .update({ status: "unsubscribed" })
-        .eq("id", contact.id);
-
-      const twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
-      await twilioClient.messages.create({
-        body: "You have been unsubscribed. Reply START to resubscribe.",
-        from: To,
-        to: From,
-      });
-
-      return res.status(200).send("<Response></Response>");
-    }
-
-    // Escalate complaints to human agent
-    if (intent === "complaint" || sentiment === "very_negative") {
-      await supabase
-        .from("conversations")
-        .update({ status: "escalated" })
-        .eq("id", conversation.id);
-
-      return res.status(200).send("<Response></Response>");
-    }
-
-    // Get bot response
-    const respondRes = await fetch(
-      `${process.env.VERCEL_URL}/api/respond`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: Body,
-          intent,
-          sentiment,
-          conversationId: conversation.id,
-          contactId: contact.id,
-        }),
-      }
-    );
-    const { reply } = await respondRes.json();
-
-    // Send reply via Twilio
-    const twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
-    await twilioClient.messages.create({
-      body: reply,
-      from: To,
-      to: From,
-    });
-
-    // Store outbound reply
-    await supabase.from("conversation_messages").insert({
-      conversation_id: conversation.id,
-      direction: "outbound",
-      content: reply,
-      channel: "SMS",
-    });
-
-    res.status(200).send("<Response></Response>");
+    const data = await response.json();
+    console.log("Anthropic response:", JSON.stringify(data));
+    const text = data.content?.[0]?.text || '{"intent":"general","sentiment":"neutral"}';
+    const clean = text.replace(/```json|```/g, "").trim();
+    const result = JSON.parse(clean);
+    res.status(200).json(result);
   } catch (err) {
-    console.error("Inbound error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Classify error:", err.message);
+    res.status(200).json({ intent: "general", sentiment: "neutral" });
   }
 }
