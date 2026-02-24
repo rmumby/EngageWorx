@@ -1,6 +1,8 @@
 
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState } from "react";
+import SignupPage from './SignupPage';
+import AdminTenants from './AdminTenants';
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
