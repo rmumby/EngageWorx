@@ -66,8 +66,7 @@ export default async function handler(req, res) {
     }
 
     // Classify intent
-    const classifyRes = await fetch(
-      `${process.env.VERCEL_URL}/api/classify`,
+    const classifyRes = await fetch(`https://portal.engwx.com/api/classify`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -113,8 +112,7 @@ export default async function handler(req, res) {
     }
 
     // Get bot response
-    const respondRes = await fetch(
-      `${process.env.VERCEL_URL}/api/respond`,
+    const respondRes = await fetch(`https://portal.engwx.com/api/respond`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
