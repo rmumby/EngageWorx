@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AgentInbox from './AgentInbox';
 import NLCampaignBuilder from './NLCampaignBuilder';
+import AnalyticsDashboard from './AnalyticsDashboard';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 const TENANTS = {
@@ -472,6 +473,9 @@ function CustomerPortal({ tenantId, onBack }) {
           </div>
         )}
 
+        {page === "analytics" && (
+  <AnalyticsDashboard tenantId={tenantId} />
+)}
               {page === "campaigns" && (
           <NLCampaignBuilder tenantId={tenantId} />
         )}
@@ -480,7 +484,7 @@ function CustomerPortal({ tenantId, onBack }) {
           <AgentInbox tenantId={tenantId} />
         )}
 
-        {page !== "dashboard" && page !== "inbox" && page !== "campaigns" && (
+        {page !== "dashboard" && page !== "inbox" && page !== "campaigns" && page !== "analytics" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
