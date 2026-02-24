@@ -37,27 +37,41 @@ const PLANS = [
   }
 ];
 
+// Eye icon components
+const EyeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+    <line x1="1" y1="1" x2="23" y2="23"/>
+  </svg>
+);
+
 export default function SignupPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState("growth");
-  const [twilioOption, setTwilioOption] = useState("managed"); // managed or own
+  const [twilioOption, setTwilioOption] = useState("managed");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showTwilioToken, setShowTwilioToken] = useState(false);
 
   const [form, setForm] = useState({
-    // Account
     email: "",
     password: "",
     confirmPassword: "",
-    // Business
     businessName: "",
     brandColor: "#0ea5e9",
     logoUrl: "",
-    // Twilio (if own)
     twilioAccountSid: "",
     twilioAuthToken: "",
     twilioPhoneNumber: "",
-    // Team
     teamEmails: "",
   });
 
@@ -68,7 +82,6 @@ export default function SignupPage() {
     setError("");
 
     try {
-      // Create Supabase auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -79,7 +92,6 @@ export default function SignupPage() {
 
       if (authError) throw authError;
 
-      // Create tenant record
       const slug = form.businessName.toLowerCase().replace(/[^a-z0-9]/g, "-");
       const { data: tenant, error: tenantError } = await supabase
         .from("tenants")
@@ -102,7 +114,6 @@ export default function SignupPage() {
 
       if (tenantError) throw tenantError;
 
-      // Create owner user record
       await supabase.from("users").insert({
         tenant_id: tenant.id,
         auth_id: authData.user?.id,
@@ -110,7 +121,6 @@ export default function SignupPage() {
         role: "owner",
       });
 
-      // Invite team members
       if (form.teamEmails) {
         const emails = form.teamEmails.split(",").map(e => e.trim()).filter(Boolean);
         for (const email of emails) {
@@ -123,7 +133,6 @@ export default function SignupPage() {
         }
       }
 
-      // Move to Stripe checkout
       const res = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,6 +149,20 @@ export default function SignupPage() {
       setError(err.message);
       setLoading(false);
     }
+  };
+
+  const eyeButtonStyle = {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: 4,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 
   return (
@@ -188,13 +211,25 @@ export default function SignupPage() {
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Password</label>
-                <input style={styles.input} type="password" value={form.password}
-                  onChange={e => update("password", e.target.value)} placeholder="Min 8 characters" />
+                <div style={{ position: "relative" }}>
+                  <input style={{ ...styles.input, width: "100%", boxSizing: "border-box", paddingRight: 44 }}
+                    type={showPassword ? "text" : "password"} value={form.password}
+                    onChange={e => update("password", e.target.value)} placeholder="Min 8 characters" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={eyeButtonStyle}>
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
               </div>
               <div style={styles.field}>
                 <label style={styles.label}>Confirm password</label>
-                <input style={styles.input} type="password" value={form.confirmPassword}
-                  onChange={e => update("confirmPassword", e.target.value)} placeholder="Repeat password" />
+                <div style={{ position: "relative" }}>
+                  <input style={{ ...styles.input, width: "100%", boxSizing: "border-box", paddingRight: 44 }}
+                    type={showConfirm ? "text" : "password"} value={form.confirmPassword}
+                    onChange={e => update("confirmPassword", e.target.value)} placeholder="Repeat password" />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} style={eyeButtonStyle}>
+                    {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
               </div>
               <button style={styles.btn} onClick={() => {
                 if (!form.email || !form.password) return setError("Please fill all fields");
@@ -270,8 +305,14 @@ export default function SignupPage() {
                   </div>
                   <div style={styles.field}>
                     <label style={styles.label}>Twilio Auth Token</label>
-                    <input style={styles.input} type="password" value={form.twilioAuthToken}
-                      onChange={e => update("twilioAuthToken", e.target.value)} placeholder="Your auth token" />
+                    <div style={{ position: "relative" }}>
+                      <input style={{ ...styles.input, width: "100%", boxSizing: "border-box", paddingRight: 44 }}
+                        type={showTwilioToken ? "text" : "password"} value={form.twilioAuthToken}
+                        onChange={e => update("twilioAuthToken", e.target.value)} placeholder="Your auth token" />
+                      <button type="button" onClick={() => setShowTwilioToken(!showTwilioToken)} style={eyeButtonStyle}>
+                        {showTwilioToken ? <EyeOffIcon /> : <EyeIcon />}
+                      </button>
+                    </div>
                   </div>
                   <div style={styles.field}>
                     <label style={styles.label}>Twilio Phone Number</label>
