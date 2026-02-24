@@ -11,7 +11,7 @@ const PLANS = [
     id: "starter",
     name: "Starter",
     price: 99,
-    priceId: "price_1T4OeIPEs1sluBAUuRIaD8Cq",
+    priceId: "price_1T4QhrPEs1sluBAUvF8Jt7tx",
     numbers: 1,
     sms: "1,000",
     description: "Perfect for small businesses getting started with SMS"
@@ -20,7 +20,7 @@ const PLANS = [
     id: "growth",
     name: "Growth",
     price: 249,
-    priceId: "price_1T4OefPEs1sluBAUuZVAaBJ3",
+    priceId: "price_1T4QqZPEs1sluBAUFNhNczt1",
     numbers: 3,
     sms: "5,000",
     description: "For growing businesses with higher messaging needs",
@@ -30,7 +30,7 @@ const PLANS = [
     id: "pro",
     name: "Pro",
     price: 499,
-    priceId: "price_1T4Of6PEs1sluBAURFjaViRv",
+    priceId: "price_1T4QqhPEs1sluBAUNd6yUGYd",
     numbers: 10,
     sms: "20,000",
     description: "For agencies and high-volume messaging operations"
