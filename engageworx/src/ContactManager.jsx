@@ -399,7 +399,6 @@ export default function ContactManager({ tenantId }) {
     setLoading(true);
     try {
       let query = supabase.from("contacts").select("*").order("created_at", { ascending: false }).limit(1000);
-      if (tenantId) query = query.eq("tenant_id", tenantId);
       const { data, error } = await query;
       if (error) throw error;
       setContacts(data || []);
