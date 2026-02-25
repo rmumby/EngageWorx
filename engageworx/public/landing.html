@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EngageWorx — AI-Powered Customer Engagement Platform</title>
+  <meta name="description" content="The all-in-one CPaaS platform for SMS, RCS, WhatsApp, and AI-powered customer engagement. Built for businesses that want to scale conversations." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #050810;
+      --surface: #0d1220;
+      --surface2: #131b2e;
+      --border: #1a2540;
+      --accent: #00C9FF;
+      --accent2: #E040FB;
+      --accent3: #00E676;
+      --text: #E8F4FD;
+      --muted: #6B8BAE;
+      --dim: #3A5068;
+      --glow: rgba(0, 201, 255, 0.15);
+      --glow2: rgba(224, 64, 251, 0.12);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* ── NOISE OVERLAY ─────────────────────── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* ── GRID BG ────────────────────────────── */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,201,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,201,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* ── ANIMATIONS ─────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-12px); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px var(--glow), 0 0 60px rgba(0,201,255,0.05); }
+      50% { box-shadow: 0 0 40px var(--glow), 0 0 100px rgba(0,201,255,0.1); }
+    }
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes orbit {
+      from { transform: rotate(0deg) translateX(200px) rotate(0deg); }
+      to { transform: rotate(360deg) translateX(200px) rotate(-360deg); }
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    @keyframes typing {
+      0%, 60% { width: 0; }
+      80%, 100% { width: 100%; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    @keyframes count-up {
+      from { opacity: 0; transform: scale(0.5); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── NAV ────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(5, 8, 16, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(26, 37, 64, 0.5);
+      transition: all 0.3s;
+    }
+    nav.scrolled {
+      padding: 12px 40px;
+      background: rgba(5, 8, 16, 0.95);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 16px;
+      color: #000;
+    }
+    .logo-text {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+    .logo-text span { color: var(--accent); }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+      position: relative;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 2px;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+    .nav-links a:hover::after { width: 100%; }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000 !important;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-weight: 700 !important;
+      font-size: 14px;
+      transition: transform 0.2s, box-shadow 0.2s !important;
+    }
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px var(--glow);
+    }
+    .nav-cta::after { display: none !important; }
+
+    /* ── HERO ───────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 40px 80px;
+      overflow: hidden;
+    }
+
+    .hero-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+    }
+    .hero-orb-1 {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(0,201,255,0.12), transparent 70%);
+      top: -100px;
+      right: -200px;
+      animation: float 8s ease-in-out infinite;
+    }
+    .hero-orb-2 {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(224,64,251,0.08), transparent 70%);
+      bottom: -100px;
+      left: -150px;
+      animation: float 10s ease-in-out infinite 2s;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      max-width: 900px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 18px 6px 8px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      animation: fadeUp 0.8s ease both;
+    }
+    .hero-badge-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent3);
+      border-radius: 50%;
+      animation: pulse-glow 2s infinite;
+    }
+    .hero-badge strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .hero h1 {
+      font-size: clamp(48px, 7vw, 86px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -3px;
+      margin-bottom: 24px;
+      animation: fadeUp 0.8s ease 0.1s both;
+    }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: gradient-shift 4s ease infinite;
+    }
+
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 640px;
+      margin: 0 auto 40px;
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      animation: fadeUp 0.8s ease 0.3s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000;
+      padding: 16px 36px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 800;
+      text-decoration: none;
+      transition: all 0.3s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px var(--glow);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 16px 36px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    /* ── FLOATING BADGES ───────────────────── */
+    .hero-floating {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .float-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      white-space: nowrap;
+      animation: float 6s ease-in-out infinite;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .float-badge .emoji { font-size: 18px; }
+    .float-badge strong { color: var(--text); font-weight: 700; }
+
+    .fb-1 { top: 25%; left: 5%; animation-delay: 0s; }
+    .fb-2 { top: 35%; right: 3%; animation-delay: 1.5s; }
+    .fb-3 { bottom: 25%; left: 8%; animation-delay: 3s; }
+    .fb-4 { bottom: 20%; right: 6%; animation-delay: 0.8s; }
+
+    /* ── STATS BAR ─────────────────────────── */
+    .stats-bar {
+      position: relative;
+      z-index: 2;
+      max-width: 1000px;
+      margin: -40px auto 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .stat-item {
+      background: var(--surface);
+      padding: 32px 24px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ── SECTIONS ───────────────────────────── */
+    section {
+      position: relative;
+      z-index: 2;
+      padding: 120px 40px;
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 600px;
+      line-height: 1.7;
+    }
+
+    /* ── CHANNELS ───────────────────────────── */
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 60px auto 0;
+    }
+
+    .channel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .channel-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .channel-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(0,201,255,0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px var(--glow);
+    }
+    .channel-card:hover::before { opacity: 1; }
+
+    .channel-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 16px;
+    }
+    .channel-card h3 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .channel-card p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .channel-badge {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── FEATURES ───────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 60px auto 0;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0,201,255,0.2);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
+    .feature-card h3 {
+      font-size: 17px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── HOW IT WORKS ──────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 40px;
+      max-width: 1000px;
+      margin: 60px auto 0;
+      position: relative;
+    }
+    .steps::before {
+      content: "";
+      position: absolute;
+      top: 40px;
+      left: 15%;
+      right: 15%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+      opacity: 0.3;
+    }
+
+    .step {
+      text-align: center;
+      position: relative;
+    }
+    .step-num {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--accent);
+      margin: 0 auto 20px;
+      position: relative;
+      z-index: 2;
+    }
+    .step h3 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .step p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ── PRICING ────────────────────────────── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 1000px;
+      margin: 60px auto 0;
+    }
+
+    .price-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 28px;
+      position: relative;
+      transition: all 0.4s;
+    }
+    .price-card:hover {
+      transform: translateY(-4px);
+    }
+    .price-card.featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 40px var(--glow), 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .price-card.featured::before {
+      content: "MOST POPULAR";
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000;
+      padding: 4px 16px;
+      border-radius: 100px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    .price-name {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .price-amount {
+      font-size: 48px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      margin-bottom: 4px;
+    }
+    .price-amount span {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0;
+    }
+    .price-desc {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .price-features {
+      list-style: none;
+      margin-bottom: 28px;
+    }
+    .price-features li {
+      padding: 8px 0;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .price-features li::before {
+      content: "✓";
+      color: var(--accent3);
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .price-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.3s;
+      cursor: pointer;
+      border: none;
+      font-family: 'Outfit', sans-serif;
+    }
+    .price-btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000;
+    }
+    .price-btn-primary:hover {
+      box-shadow: 0 8px 30px var(--glow);
+      transform: translateY(-2px);
+    }
+    .price-btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .price-btn-outline:hover {
+      border-color: var(--accent);
+      background: rgba(0,201,255,0.05);
+    }
+
+    /* ── TESTIMONIAL ───────────────────────── */
+    .testimonial-section {
+      background: linear-gradient(180deg, var(--bg), var(--surface), var(--bg));
+    }
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 60px auto 0;
+    }
+    .testimonial-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .testimonial-stars {
+      color: #FFD600;
+      font-size: 14px;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+    .testimonial-text {
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+      font-style: italic;
+    }
+    .testimonial-author {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .testimonial-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 14px;
+      color: #000;
+    }
+    .testimonial-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .testimonial-role {
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    /* ── CTA ────────────────────────────────── */
+    .cta-section {
+      text-align: center;
+    }
+    .cta-box {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 60px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-box::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+    }
+    .cta-box::after {
+      content: "";
+      position: absolute;
+      bottom: -100px;
+      right: -100px;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(224,64,251,0.08), transparent 70%);
+      pointer-events: none;
+    }
+    .cta-box h2 {
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .cta-box p {
+      color: var(--muted);
+      font-size: 17px;
+      margin-bottom: 32px;
+      line-height: 1.6;
+      position: relative;
+    }
+
+    /* ── FOOTER ─────────────────────────────── */
+    footer {
+      position: relative;
+      z-index: 2;
+      border-top: 1px solid var(--border);
+      padding: 60px 40px 30px;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      max-width: 1100px;
+      margin: 0 auto 40px;
+    }
+    .footer-brand p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+      margin-top: 12px;
+      max-width: 280px;
+    }
+    .footer-col h4 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .footer-col a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      padding: 4px 0;
+      transition: color 0.2s;
+    }
+    .footer-col a:hover { color: var(--accent); }
+
+    .footer-bottom {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    /* ── RESPONSIVE ─────────────────────────── */
+    @media (max-width: 768px) {
+      nav { padding: 12px 20px; }
+      .nav-links { display: none; }
+      .hero { padding: 100px 20px 60px; }
+      .hero h1 { letter-spacing: -1.5px; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      .hero-floating { display: none; }
+      .stats-bar { grid-template-columns: repeat(2, 1fr); margin: -20px 20px 0; }
+      section { padding: 80px 20px; }
+      .channels-grid, .features-grid, .pricing-grid, .testimonial-grid, .steps { grid-template-columns: 1fr; }
+      .steps::before { display: none; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+      .cta-box { padding: 40px 24px; }
+      .cta-box h2 { font-size: 28px; }
+      .float-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- ── NAV ──────────────────────────────────── -->
+<nav id="navbar">
+  <a href="#" class="logo">
+    <div class="logo-icon">EW</div>
+    <div class="logo-text">Engage<span>Worx</span></div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#channels">Channels</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#signup" class="nav-cta">Get Started Free</a></li>
+  </ul>
+</nav>
+
+<!-- ── HERO ─────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-orb hero-orb-1"></div>
+  <div class="hero-orb hero-orb-2"></div>
+
+  <div class="hero-floating fb-1">
+    <div class="float-badge"><span class="emoji">💬</span> <strong>2.4M</strong>&nbsp;messages sent today</div>
+  </div>
+  <div class="hero-floating fb-2">
+    <div class="float-badge"><span class="emoji">🤖</span> <strong>94%</strong>&nbsp;AI resolution rate</div>
+  </div>
+  <div class="hero-floating fb-3">
+    <div class="float-badge"><span class="emoji">⚡</span> <strong>0.3s</strong>&nbsp;avg response time</div>
+  </div>
+  <div class="hero-floating fb-4">
+    <div class="float-badge"><span class="emoji">📈</span> <strong>3.2x</strong>&nbsp;conversion lift</div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Now with <strong>RCS Business Messaging</strong>
+    </div>
+
+    <h1>
+      Conversations that<br />
+      <span class="gradient-text">close deals.</span>
+    </h1>
+
+    <p class="hero-sub">
+      The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email.
+      Automate conversations, build campaigns, and delight customers at scale.
+    </p>
+
+    <div class="hero-actions">
+      <a href="#signup" class="btn-primary">Start Free Trial →</a>
+      <a href="#how" class="btn-secondary">See How It Works</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS BAR ────────────────────────────── -->
+<div class="stats-bar fade-up">
+  <div class="stat-item">
+    <div class="stat-number">99.9%</div>
+    <div class="stat-label">Uptime SLA</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-number">50M+</div>
+    <div class="stat-label">Messages Delivered</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-number">2.1s</div>
+    <div class="stat-label">Avg Delivery Speed</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-number">500+</div>
+    <div class="stat-label">Businesses Trust Us</div>
+  </div>
+</div>
+
+<!-- ── CHANNELS ─────────────────────────────── -->
+<section id="channels">
+  <div style="text-align: center;" class="fade-up">
+    <div class="section-label">📡 Channels</div>
+    <h2 class="section-title">Every channel.<br />One platform.</h2>
+    <p class="section-sub" style="margin: 0 auto;">Reach customers wherever they are — SMS, RCS, WhatsApp, or Email — all managed from a single intelligent inbox.</p>
+  </div>
+
+  <div class="channels-grid">
+    <div class="channel-card fade-up">
+      <div class="channel-icon" style="background: rgba(0,201,255,0.1); border: 1px solid rgba(0,201,255,0.2);">💬</div>
+      <h3>SMS</h3>
+      <p>Reliable, universal messaging with 98% open rates. A2P compliant with 10DLC registration built in.</p>
+      <div class="channel-badge" style="background: rgba(0,230,118,0.1); color: var(--accent3);">LIVE</div>
+    </div>
+    <div class="channel-card fade-up">
+      <div class="channel-icon" style="background: rgba(224,64,251,0.1); border: 1px solid rgba(224,64,251,0.2);">✨</div>
+      <h3>RCS</h3>
+      <p>Rich cards, carousels, and branded messaging. The future of business texting is here.</p>
+      <div class="channel-badge" style="background: rgba(0,201,255,0.1); color: var(--accent);">NEW</div>
+    </div>
+    <div class="channel-card fade-up">
+      <div class="channel-icon" style="background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.2);">📱</div>
+      <h3>WhatsApp</h3>
+      <p>Connect with 2B+ users globally. Templates, media, and interactive buttons included.</p>
+      <div class="channel-badge" style="background: rgba(0,230,118,0.1); color: var(--accent3);">LIVE</div>
+    </div>
+    <div class="channel-card fade-up">
+      <div class="channel-icon" style="background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2);">📧</div>
+      <h3>Email</h3>
+      <p>Transactional and marketing email with templates, tracking, and deliverability monitoring.</p>
+      <div class="channel-badge" style="background: rgba(0,230,118,0.1); color: var(--accent3);">LIVE</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ─────────────────────────────── -->
+<section id="features">
+  <div style="text-align: center;" class="fade-up">
+    <div class="section-label">⚡ Features</div>
+    <h2 class="section-title">Built for teams<br />that move fast.</h2>
+    <p class="section-sub" style="margin: 0 auto;">Everything you need to engage customers, automate workflows, and scale conversations — without the enterprise complexity.</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card fade-up">
+      <div class="feature-icon">🤖</div>
+      <h3>AI Chatbot</h3>
+      <p>Configure personality, tone, and escalation rules. Your AI agent handles 90%+ of conversations automatically.</p>
+    </div>
+    <div class="feature-card fade-up">
+      <div class="feature-icon">📊</div>
+      <h3>Real-Time Analytics</h3>
+      <p>Message volume, sentiment analysis, conversion tracking, and agent performance — all in one dashboard.</p>
+    </div>
+    <div class="feature-card fade-up">
+      <div class="feature-icon">⚡</div>
+      <h3>Visual Flow Builder</h3>
+      <p>Drag-and-drop automation workflows. Triggers, conditions, delays, and AI classification — no code required.</p>
+    </div>
+    <div class="feature-card fade-up">
+      <div class="feature-icon">🎯</div>
+      <h3>Smart Campaigns</h3>
+      <p>AI generates your copy, picks the best send time, and A/B tests variants. Just describe what you want.</p>
+    </div>
+    <div class="feature-card fade-up">
+      <div class="feature-icon">💬</div>
+      <h3>Unified Inbox</h3>
+      <p>Every conversation across every channel in one live inbox. Assign agents, track sentiment, resolve fast.</p>
+    </div>
+    <div class="feature-card fade-up">
+      <div class="feature-icon">📋</div>
+      <h3>Compliance Built-In</h3>
+      <p>TCR/10DLC registration, opt-in/opt-out management, TCPA compliance, and consent tracking — all handled.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ─────────────────────────── -->
+<section id="how" style="background: linear-gradient(180deg, var(--bg), var(--surface2), var(--bg));">
+  <div style="text-align: center;" class="fade-up">
+    <div class="section-label">🚀 How It Works</div>
+    <h2 class="section-title">Live in minutes,<br />not months.</h2>
+    <p class="section-sub" style="margin: 0 auto;">From sign-up to sending your first campaign in under 10 minutes. No engineering team required.</p>
+  </div>
+
+  <div class="steps">
+    <div class="step fade-up">
+      <div class="step-num">1</div>
+      <h3>Sign Up & Connect</h3>
+      <p>Create your account, verify your business, and connect your phone number in minutes.</p>
+    </div>
+    <div class="step fade-up">
+      <div class="step-num">2</div>
+      <h3>Import & Configure</h3>
+      <p>Upload contacts via CSV, configure your AI chatbot, and set up automation flows.</p>
+    </div>
+    <div class="step fade-up">
+      <div class="step-num">3</div>
+      <h3>Engage & Scale</h3>
+      <p>Launch campaigns, monitor analytics, and let AI handle conversations while you grow.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ──────────────────────────────── -->
+<section id="pricing">
+  <div style="text-align: center;" class="fade-up">
+    <div class="section-label">💎 Pricing</div>
+    <h2 class="section-title">Simple, transparent<br />pricing.</h2>
+    <p class="section-sub" style="margin: 0 auto;">Start free, scale as you grow. No hidden fees, no surprises.</p>
+  </div>
+
+  <div class="pricing-grid">
+    <div class="price-card fade-up">
+      <div class="price-name">Starter</div>
+      <div class="price-amount">$49<span>/mo</span></div>
+      <div class="price-desc">Perfect for small teams getting started with messaging.</div>
+      <ul class="price-features">
+        <li>1,000 messages/month</li>
+        <li>SMS + Email channels</li>
+        <li>AI Chatbot (basic)</li>
+        <li>5 automation flows</li>
+        <li>1 team member</li>
+      </ul>
+      <button class="price-btn price-btn-outline">Start Free Trial</button>
+    </div>
+
+    <div class="price-card featured fade-up">
+      <div class="price-name">Growth</div>
+      <div class="price-amount">$149<span>/mo</span></div>
+      <div class="price-desc">For growing teams that need full omnichannel power.</div>
+      <ul class="price-features">
+        <li>10,000 messages/month</li>
+        <li>All channels (SMS, RCS, WhatsApp, Email)</li>
+        <li>AI Chatbot (advanced)</li>
+        <li>Unlimited flows</li>
+        <li>5 team members</li>
+        <li>Priority support</li>
+      </ul>
+      <button class="price-btn price-btn-primary">Start Free Trial</button>
+    </div>
+
+    <div class="price-card fade-up">
+      <div class="price-name">Enterprise</div>
+      <div class="price-amount">Custom</div>
+      <div class="price-desc">White-label, unlimited volume, and dedicated support.</div>
+      <ul class="price-features">
+        <li>Unlimited messages</li>
+        <li>All channels + API access</li>
+        <li>White-label branding</li>
+        <li>Custom integrations</li>
+        <li>Unlimited team members</li>
+        <li>Dedicated account manager</li>
+      </ul>
+      <button class="price-btn price-btn-outline">Contact Sales</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── TESTIMONIALS ─────────────────────────── -->
+<section class="testimonial-section">
+  <div style="text-align: center;" class="fade-up">
+    <div class="section-label">💬 Testimonials</div>
+    <h2 class="section-title">Trusted by teams<br />who ship fast.</h2>
+  </div>
+
+  <div class="testimonial-grid">
+    <div class="testimonial-card fade-up">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"We replaced three separate tools with EngageWorx. The AI chatbot alone saves us 20 hours per week. Game changer for our support team."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">JM</div>
+        <div>
+          <div class="testimonial-name">Jake Morrison</div>
+          <div class="testimonial-role">Head of CX, TechFlow</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card fade-up">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"The visual flow builder is incredible. We built our entire onboarding sequence in an afternoon — no developers needed."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">SR</div>
+        <div>
+          <div class="testimonial-name">Sarah Rodriguez</div>
+          <div class="testimonial-role">Marketing Director, GreenLeaf</div>
+        </div>
+      </div>
+    </div>
+    <div class="testimonial-card fade-up">
+      <div class="testimonial-stars">★★★★★</div>
+      <p class="testimonial-text">"RCS support put us ahead of every competitor. Our click-through rates tripled compared to plain SMS. The ROI is unreal."</p>
+      <div class="testimonial-author">
+        <div class="testimonial-avatar">AP</div>
+        <div>
+          <div class="testimonial-name">Alex Park</div>
+          <div class="testimonial-role">CEO, SwiftShip</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ──────────────────────────────────── -->
+<section class="cta-section">
+  <div class="cta-box fade-up">
+    <h2>Ready to <span class="gradient-text">transform</span> your<br />customer engagement?</h2>
+    <p>Start your free trial today. No credit card required.<br />Set up in under 10 minutes.</p>
+    <div class="hero-actions" style="margin-top: 0;">
+      <a href="#signup" class="btn-primary">Start Free Trial →</a>
+      <a href="#" class="btn-secondary">Book a Demo</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ───────────────────────────────── -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <a href="#" class="logo">
+        <div class="logo-icon">EW</div>
+        <div class="logo-text">Engage<span>Worx</span></div>
+      </a>
+      <p>AI-powered customer engagement across every channel. Built for teams that move fast.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <a href="#channels">Channels</a>
+      <a href="#features">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#">API Docs</a>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <a href="#">About</a>
+      <a href="#">Blog</a>
+      <a href="#">Careers</a>
+      <a href="#">Contact</a>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">TCPA Compliance</a>
+      <a href="#">Security</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>&copy; 2026 EngageWorx. All rights reserved.</span>
+    <span>Built with 🤖 in Miami</span>
+  </div>
+</footer>
+
+<script>
+  // Nav scroll effect
+  window.addEventListener('scroll', () => {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+  });
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => entry.target.classList.add('visible'), i * 100);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+
+</body>
+</html>
