@@ -1,4 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+const DEMO_TENANT_ID = "demo-tenant-000";
 
 const C = {
   bg: "#0A0E1A", surface: "#111827", border: "#1e2d45",
@@ -10,9 +18,36 @@ const C = {
 export default function DemoMode() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [showInAdmin, setShowInAdmin] = useState(true);
+  const [demoExists, setDemoExists] = useState(false);
+
+  useEffect(() => {
+    checkDemoStatus();
+    // Load toggle preference from localStorage
+    const pref = localStorage.getItem("engwx_show_demo_in_admin");
+    if (pref !== null) setShowInAdmin(pref === "true");
+  }, []);
+
+  const checkDemoStatus = async () => {
+    try {
+      const { data } = await supabase
+        .from("contacts").select("id", { count: "exact", head: true })
+        .eq("tenant_id", DEMO_TENANT_ID);
+      setDemoExists(data !== null);
+    } catch {
+      // ignore
+    }
+  };
+
+  const toggleAdminVisibility = (val) => {
+    setShowInAdmin(val);
+    localStorage.setItem("engwx_show_demo_in_admin", val.toString());
+    // Dispatch custom event so other components can listen
+    window.dispatchEvent(new CustomEvent("demo-visibility-changed", { detail: { showDemo: val, demoTenantId: DEMO_TENANT_ID } }));
+  };
 
   const seedDemo = async () => {
-    if (!window.confirm("This will add ~45 contacts, ~28 conversations, ~100+ messages, and 8 campaigns to make the portal look populated. Continue?")) return;
+    if (!window.confirm("This will create a Demo Company tenant and populate it with ~45 contacts, ~28 conversations, ~100+ messages, and 8 campaigns. Real customer data is never touched. Continue?")) return;
     setLoading(true);
     setResult(null);
     try {
@@ -23,7 +58,8 @@ export default function DemoMode() {
       });
       const data = await res.json();
       if (data.success) {
-        setResult({ type: "success", message: `Seeded ${data.results.contacts} contacts, ${data.results.conversations} conversations, ${data.results.messages} messages, ${data.results.campaigns} campaigns` });
+        setResult({ type: "success", message: `Seeded ${data.results.contacts} contacts, ${data.results.conversations} conversations, ${data.results.messages} messages, ${data.results.campaigns} campaigns under Demo Company tenant` });
+        setDemoExists(true);
       } else {
         throw new Error(data.error);
       }
@@ -34,7 +70,7 @@ export default function DemoMode() {
   };
 
   const clearDemo = async () => {
-    if (!window.confirm("⚠️ This will DELETE all contacts, conversations, messages, and campaigns. This cannot be undone. Are you sure?")) return;
+    if (!window.confirm("This will remove all Demo Company data. Real customer data is never touched. Continue?")) return;
     setLoading(true);
     setResult(null);
     try {
@@ -45,7 +81,8 @@ export default function DemoMode() {
       });
       const data = await res.json();
       if (data.success) {
-        setResult({ type: "success", message: "All demo data cleared!" });
+        setResult({ type: "success", message: "Demo data cleared! Real customer data untouched." });
+        setDemoExists(false);
       } else {
         throw new Error(data.error);
       }
@@ -63,11 +100,47 @@ export default function DemoMode() {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <span style={{ fontSize: 22 }}>🎭</span>
         <h3 style={{ color: C.text, fontSize: 17, fontWeight: 800, margin: 0 }}>Demo Mode</h3>
+        {demoExists && (
+          <span style={{
+            background: C.accent3 + "22", border: `1px solid ${C.accent3}44`,
+            borderRadius: 4, padding: "2px 8px", fontSize: 10, color: C.accent3, fontWeight: 700,
+          }}>ACTIVE</span>
+        )}
       </div>
       <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px", lineHeight: 1.5 }}>
-        Populate the portal with realistic sample data for demos and presentations.
-        This adds contacts, conversations, messages, and campaigns so every page looks alive.
+        Creates a dedicated <strong style={{ color: C.accent }}>"Demo Company"</strong> tenant with realistic sample data.
+        Real customer data is <strong style={{ color: C.accent3 }}>never touched</strong> — seed and clear as many times as you want.
       </p>
+
+      {/* Admin Visibility Toggle */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        background: C.bg, border: `1px solid ${C.border}`,
+        borderRadius: 10, padding: "12px 16px", marginBottom: 14,
+      }}>
+        <div>
+          <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>Show demo data in Global Admin</div>
+          <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>
+            {showInAdmin
+              ? "Demo Company data is visible in analytics, tenants, and admin views"
+              : "Demo Company data is hidden from admin views — only real customers shown"}
+          </div>
+        </div>
+        <div onClick={() => toggleAdminVisibility(!showInAdmin)} style={{
+          width: 44, height: 24, borderRadius: 12,
+          background: showInAdmin ? C.accent : C.border,
+          cursor: "pointer", position: "relative",
+          transition: "background 0.2s",
+        }}>
+          <div style={{
+            width: 18, height: 18, borderRadius: "50%",
+            background: "#fff", position: "absolute",
+            top: 3, left: showInAdmin ? 23 : 3,
+            transition: "left 0.2s",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+          }} />
+        </div>
+      </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <button onClick={seedDemo} disabled={loading} style={{
@@ -85,7 +158,7 @@ export default function DemoMode() {
           color: loading ? C.dim : "#FF6B6B", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
           fontSize: 13,
         }}>
-          🗑 Clear All Data
+          🗑 Clear Demo Data
         </button>
       </div>
 
@@ -102,7 +175,7 @@ export default function DemoMode() {
       )}
 
       <div style={{ marginTop: 12, color: C.dim, fontSize: 11, lineHeight: 1.5 }}>
-        <strong style={{ color: C.muted }}>What gets seeded:</strong> ~45 contacts with names, phones, emails & tags • ~28 conversations with varied intents & sentiments • ~100+ messages (customer, bot & agent) • 8 campaigns (sent, draft, sending) with AI-generated content
+        <strong style={{ color: C.muted }}>How it works:</strong> All demo data lives under a "Demo Company" tenant (ID: {DEMO_TENANT_ID}). When you toggle off admin visibility, global analytics and tenant views exclude this tenant. When live customers come aboard, their data is completely separate.
       </div>
     </div>
   );
