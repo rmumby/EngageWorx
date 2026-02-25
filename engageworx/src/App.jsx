@@ -2,6 +2,7 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import AgentInbox from './AgentInbox';
+import FlowBuilder from './FlowBuilder';
 import ChatbotConfig from './ChatbotConfig';
 import TCRRegistration from './TCRRegistration';
 import NLCampaignBuilder from './NLCampaignBuilder';
@@ -483,6 +484,9 @@ function CustomerPortal({ tenantId, onBack }) {
         {page === "chatbot" && (
   <ChatbotConfig tenantId={tenantId} />
 )}
+        {page === "flows" && (
+  <FlowBuilder tenantId={tenantId} />
+)}
         {page === "registration" && (
   <TCRRegistration tenantId={tenantId} />
 )}
@@ -497,7 +501,7 @@ function CustomerPortal({ tenantId, onBack }) {
           <AgentInbox tenantId={tenantId} />
         )}
 
-      {page !== "dashboard" && page !== "inbox" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "chatbot" && page !== "registration" && (
+      {page !== "dashboard" && page !== "inbox" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "chatbot" && page !== "registration" && page !== "flows" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
