@@ -405,6 +405,7 @@ function CustomerPortal({ tenantId, onBack }) {
   { id: "inbox", label: "Live Inbox", icon: "💬" },
   { id: "analytics", label: "Analytics", icon: "📊" },
   { id: "contacts", label: "Contacts", icon: "👥" },
+  { id: "registration", label: "Registration", icon: "📋" },
   { id: "settings", label: "Settings", icon: "⚙️" },
 ];
 
