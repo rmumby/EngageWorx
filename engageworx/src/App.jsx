@@ -533,6 +533,10 @@ export default function App() {
     }
   }, []);
 
+  // Check if we're on /landing
+if (window.location.pathname === '/landing') {
+  return <LandingPage />;
+}
   const C = TENANTS.serviceProvider.colors;
 
   const spNavItems = [
