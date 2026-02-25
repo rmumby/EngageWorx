@@ -285,53 +285,6 @@ function TenantManagement({ C }) {
       )}
 
       {activeTab === "branding" && <WhiteLabelBranding tenantId="sp_root" />}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
-            <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 24, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{c.logo}</div>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{c.name}</div>
-                  <div style={{ color: c.brand.primary, fontSize: 13 }}>{c.brand.name}</div>
-                </div>
-              </div>
-
-              {/* Brand Preview */}
-              <div style={{ background: "#000", borderRadius: 10, padding: 16, marginBottom: 16, border: `1px solid ${c.brand.primary}33` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 24, height: 24, background: c.brand.primary, borderRadius: 5 }} />
-                  <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.brand.name}</span>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ flex: 1, height: 6, background: c.brand.primary, borderRadius: 3 }} />
-                  <div style={{ flex: 1, height: 6, background: c.brand.secondary + "66", borderRadius: 3 }} />
-                  <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }} />
-                </div>
-                <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
-                  <div style={{ background: c.brand.primary, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#000", fontWeight: 700 }}>Button</div>
-                  <div style={{ background: "transparent", border: `1px solid ${c.brand.primary}`, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: c.brand.primary }}>Outline</div>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { label: "Primary", color: c.brand.primary },
-                  { label: "Secondary", color: c.brand.secondary },
-                ].map(sw => (
-                  <div key={sw.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 28, height: 28, background: sw.color, borderRadius: 6, border: "2px solid rgba(255,255,255,0.2)" }} />
-                    <div>
-                      <div style={{ color: "#fff", fontSize: 12 }}>{sw.label}</div>
-                      <div style={{ color: C.muted, fontSize: 11 }}>{sw.color}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button style={{ marginTop: 14, width: "100%", background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 8, padding: "9px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Edit Brand Settings</button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {activeTab === "permissions" && (
         <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 28 }}>
