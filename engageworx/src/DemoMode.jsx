@@ -1,4 +1,5 @@
 import { useState } from "react";
+import DemoMode from './DemoMode';
 
 const C = {
   bg: "#0A0E1A", surface: "#111827", border: "#1e2d45",
