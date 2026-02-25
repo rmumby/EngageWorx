@@ -5,6 +5,7 @@ import AgentInbox from './AgentInbox';
 import FlowBuilder from './FlowBuilder';
 import ChatbotConfig from './ChatbotConfig';
 import DemoMode from './DemoMode';
+import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
 import TCRRegistration from './TCRRegistration';
 import NLCampaignBuilder from './NLCampaignBuilder';
@@ -283,7 +284,7 @@ function TenantManagement({ C }) {
         </div>
       )}
 
-      {activeTab === "branding" && (
+      {activeTab === "branding" && <WhiteLabelBranding tenantId="sp_root" />}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
             <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 24, overflow: "hidden" }}>
