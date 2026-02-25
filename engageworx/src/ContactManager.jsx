@@ -419,7 +419,7 @@ export default function ContactManager({ tenantId }) {
         showToast("Contact updated!");
       } else {
         const { error } = await supabase.from("contacts")
-          .insert({ ...formData, tenant_id: tenantId || null });
+          .insert({ ...formData });
         if (error) throw error;
         showToast("Contact added!");
       }
@@ -455,7 +455,7 @@ export default function ContactManager({ tenantId }) {
 
     for (const chunk of chunks) {
       const rows = chunk.map(c => ({
-        tenant_id: tenantId || null,
+        // tenant_id omitted — let database handle it
         phone: (() => {
   let p = (c.phone || "").replace(/[\s\-\(\)\.]/g, "");
   if (p.length === 10 && !p.startsWith("+")) p = "+1" + p;
