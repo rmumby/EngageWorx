@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import AgentInbox from './AgentInbox';
 import FlowBuilder from './FlowBuilder';
 import ChatbotConfig from './ChatbotConfig';
+import DemoMode from './DemoMode';
 import TCRRegistration from './TCRRegistration';
 import NLCampaignBuilder from './NLCampaignBuilder';
 import ContactManager from './ContactManager';
@@ -687,6 +688,7 @@ export default function App() {
           <div style={{ padding: "32px 40px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
             <p style={{ color: C.muted }}>Full {spPage} module available here</p>
+            <DemoMode />
           </div>
         )}
       </div>
