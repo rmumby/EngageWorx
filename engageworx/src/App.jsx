@@ -5,6 +5,7 @@ import AgentInbox from './AgentInbox';
 import FlowBuilder from './FlowBuilder';
 import ChatbotConfig from './ChatbotConfig';
 import DemoMode from './DemoMode';
+import LandingPage from './components/LandingPage';
 import TCRRegistration from './TCRRegistration';
 import NLCampaignBuilder from './NLCampaignBuilder';
 import ContactManager from './ContactManager';
