@@ -1,18 +1,9 @@
-
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
-import AgentInbox from './AgentInbox';
-import FlowBuilder from './FlowBuilder';
-import ChatbotConfig from './ChatbotConfig';
-import DemoMode from './DemoMode';
-import WhiteLabelBranding from './WhiteLabelBranding';
-import LandingPage from './components/LandingPage';
-import TCRRegistration from './TCRRegistration';
-import NLCampaignBuilder from './NLCampaignBuilder';
-import ContactManager from './ContactManager';
-import AnalyticsDashboard from './AnalyticsDashboard';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
+import WhiteLabelBranding from './WhiteLabelBranding';
+import LandingPage from './components/LandingPage';
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
@@ -362,7 +353,6 @@ function CustomerPortal({ tenantId, onBack }) {
   { id: "inbox", label: "Live Inbox", icon: "💬" },
   { id: "analytics", label: "Analytics", icon: "📊" },
   { id: "contacts", label: "Contacts", icon: "👥" },
-  { id: "registration", label: "Registration", icon: "📋" },
   { id: "settings", label: "Settings", icon: "⚙️" },
 ];
 
@@ -434,30 +424,7 @@ function CustomerPortal({ tenantId, onBack }) {
           </div>
         )}
 
-        {page === "analytics" && (
-  <AnalyticsDashboard tenantId={tenantId} />
-)}
-        {page === "chatbot" && (
-  <ChatbotConfig tenantId={tenantId} />
-)}
-        {page === "flows" && (
-  <FlowBuilder tenantId={tenantId} />
-)}
-        {page === "registration" && (
-  <TCRRegistration tenantId={tenantId} />
-)}
-        {page === "contacts" && (
-  <ContactManager tenantId={tenantId} />
-)}
-              {page === "campaigns" && (
-          <NLCampaignBuilder tenantId={tenantId} />
-        )}
-
-        {page === "inbox" && (
-          <AgentInbox tenantId={tenantId} />
-        )}
-
-      {page !== "dashboard" && page !== "inbox" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "chatbot" && page !== "registration" && page !== "flows" && (
+        {page !== "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -487,10 +454,11 @@ export default function App() {
     }
   }, []);
 
-  // Check if we're on /landing
-if (window.location.pathname === '/landing') {
-  return <LandingPage />;
-}
+  // Landing page route
+  if (window.location.pathname === '/landing') {
+    return <LandingPage />;
+  }
+
   const C = TENANTS.serviceProvider.colors;
 
   const spNavItems = [
@@ -647,7 +615,6 @@ if (window.location.pathname === '/landing') {
           <div style={{ padding: "32px 40px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
             <p style={{ color: C.muted }}>Full {spPage} module available here</p>
-            <DemoMode />
           </div>
         )}
       </div>
