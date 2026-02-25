@@ -45,10 +45,14 @@ function ContactModal({ contact, onSave, onClose }) {
   const handleSave = async () => {
     if (!form.phone.trim() && !form.email.trim()) return;
     setSaving(true);
-    await onSave({
-      ...form,
-      tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-    });
+    let phone = form.phone.replace(/[\s\-\(\)\.]/g, "");
+if (phone.length === 10 && !phone.startsWith("+")) phone = "+1" + phone;
+if (phone.length === 11 && phone.startsWith("1") && !phone.startsWith("+")) phone = "+" + phone;
+await onSave({
+  ...form,
+  phone,
+  tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+});
     setSaving(false);
   };
 
@@ -452,7 +456,12 @@ export default function ContactManager({ tenantId }) {
     for (const chunk of chunks) {
       const rows = chunk.map(c => ({
         tenant_id: tenantId || null,
-        phone: c.phone,
+        phone: (() => {
+  let p = (c.phone || "").replace(/[\s\-\(\)\.]/g, "");
+  if (p.length === 10 && !p.startsWith("+")) p = "+1" + p;
+  if (p.length === 11 && p.startsWith("1") && !p.startsWith("+")) p = "+" + p;
+  return p;
+})(),
         first_name: c.first_name || null,
         last_name: c.last_name || null,
         email: c.email || null,
