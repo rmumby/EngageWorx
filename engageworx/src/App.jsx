@@ -454,8 +454,10 @@ export default function App() {
     }
   }, []);
 
-  // Landing page route
-  if (window.location.pathname === '/landing') {
+  // Landing page route — show on engwx.com (main domain) or /landing path
+  const hostname = window.location.hostname;
+  const isMarketingSite = hostname === 'engwx.com' || hostname === 'www.engwx.com';
+  if (isMarketingSite || window.location.pathname === '/landing') {
     return <LandingPage />;
   }
 
