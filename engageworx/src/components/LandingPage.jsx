@@ -58,75 +58,184 @@ const LandingPage = () => {
     privacy: {
       title: 'Privacy Policy',
       updated: 'February 26, 2026',
-      content: `EngageWorx ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
+      content: `EngageWorx ("we," "us," or "our") operates the EngageWorx platform (engwx.com and portal.engwx.com). This Privacy Policy explains how we collect, use, store, and protect your personal data. It applies to all users regardless of location, including the United States, United Kingdom, and European Economic Area (EEA).
+
+Data Controller
+For the purposes of UK GDPR and EU GDPR, the data controller is EngageWorx, based in Miami, Florida, USA. You can contact our data protection team at privacy@engwx.com.
 
 Information We Collect
-We collect information you provide directly, including: account registration details (name, email, company name), billing information processed securely through Stripe, communication data sent through our platform on behalf of your business, and usage analytics to improve our services.
+We collect the following categories of personal data: account information (name, email address, company name, phone number), billing and payment data (processed securely by Stripe — we do not store full card numbers), platform usage data (features accessed, session duration, device and browser information), communication data (messages sent through the platform on behalf of your business), technical data (IP address, cookies, log files, and analytics identifiers), and marketing preferences (opt-in status for newsletters and product updates).
+
+Legal Bases for Processing (UK & EU)
+Under UK GDPR and EU GDPR, we process personal data on the following legal bases: contractual necessity — to provide the EngageWorx platform and fulfill our service agreement with you, legitimate interests — to improve our services, prevent fraud, and ensure platform security, consent — for marketing communications and non-essential cookies (you may withdraw consent at any time), and legal obligation — to comply with tax, accounting, telecommunications, and anti-spam regulations.
 
 How We Use Your Information
-We use collected information to: provide and maintain our messaging platform, process transactions and send billing notifications, improve and personalize your experience, comply with legal obligations including TCPA and telecommunications regulations, and communicate service updates and security alerts.
+We use your data to: provide, operate, and maintain the EngageWorx platform, process subscriptions and billing through Stripe, send transactional notifications (account alerts, security notices, service updates), improve platform performance and develop new features, comply with applicable laws including TCPA (US), PECR (UK), ePrivacy Directive (EU), CAN-SPAM (US), and GDPR (UK/EU), respond to support requests and communicate with you, and detect and prevent fraud, abuse, and security incidents.
 
-Data Storage & Security
-All data is encrypted in transit (TLS 1.3) and at rest (AES-256). We use Supabase for secure database hosting with row-level security. Message content is retained per your account settings and applicable regulations.
+Data Sharing & Third Parties
+We share data with the following categories of service providers, each operating under data processing agreements: Twilio — message delivery (SMS, RCS, WhatsApp), Stripe — payment processing (PCI DSS Level 1 certified), Supabase — database hosting and authentication, and analytics providers — platform usage insights (anonymized where possible). We do not sell your personal data to third parties. We may disclose data if required by law, court order, or to protect our legal rights.
 
-Third-Party Services
-We integrate with: Twilio (message delivery), Stripe (payment processing), and Supabase (data storage). Each provider maintains their own privacy policies and security certifications.
+International Data Transfers
+If you are located in the UK or EEA, your data may be transferred to the United States where our servers and service providers are located. We safeguard these transfers using: Standard Contractual Clauses (SCCs) approved by the European Commission, UK International Data Transfer Agreements (IDTAs) where applicable, and data processing agreements with all sub-processors. We assess the data protection laws of recipient countries and implement supplementary measures where necessary, in line with the Schrems II ruling.
+
+Data Retention
+We retain your personal data for as long as your account is active or as needed to provide services. After account deletion, we retain data for up to 12 months for legal compliance and dispute resolution, billing records for up to 7 years as required by tax laws, and anonymized analytics data indefinitely for service improvement. Message content sent through the platform is retained according to your account settings and applicable telecommunications regulations.
 
 Your Rights
-You may request access to, correction of, or deletion of your personal data at any time by contacting privacy@engwx.com. California residents have additional rights under the CCPA.
+Depending on your location, you have the following rights:
 
-Contact
-For privacy-related inquiries: privacy@engwx.com`
+All Users (US, UK, EU): access your personal data, correct inaccurate data, request deletion of your data, object to or restrict certain processing, and receive a copy of your data in a portable format.
+
+California Residents (CCPA/CPRA): right to know what data is collected and how it is used, right to delete personal information, right to opt out of the sale of personal data (we do not sell data), right to non-discrimination for exercising your rights, and right to limit use of sensitive personal information.
+
+UK & EU Residents (GDPR): all rights listed above, plus the right to withdraw consent at any time (without affecting prior processing), right to lodge a complaint with your supervisory authority (UK: ICO at ico.org.uk — EU: your local Data Protection Authority), and the right not to be subject to solely automated decision-making with legal effects.
+
+To exercise any of these rights, contact us at privacy@engwx.com. We will respond within 30 days (or within one calendar month for UK/EU GDPR requests).
+
+Cookies & Tracking
+We use essential cookies required for platform functionality (no consent needed), analytics cookies to understand usage patterns (consent required in UK/EU), and preference cookies to remember your settings. You can manage cookie preferences through your browser settings or our cookie banner. We respect Do Not Track (DNT) browser signals.
+
+Children's Privacy
+EngageWorx is not directed at individuals under 16 years of age (or under 13 in the US under COPPA). We do not knowingly collect data from children. If we become aware that we have collected data from a child, we will delete it promptly.
+
+Security
+We implement industry-standard security measures including: TLS 1.3 encryption for all data in transit, AES-256 encryption for data at rest, row-level security in our database, regular security audits and penetration testing, role-based access controls, and incident response procedures with breach notification within 72 hours as required by GDPR.
+
+Changes to This Policy
+We may update this Privacy Policy periodically. Material changes will be communicated via email and a prominent notice on our website. Continued use of the platform after changes constitutes acceptance, except where consent is required by law.
+
+Contact Us
+For privacy inquiries, data subject requests, or complaints:
+Email: privacy@engwx.com
+Data Protection Team, EngageWorx, Miami, Florida, USA
+
+If you are in the UK, you may also contact the Information Commissioner's Office (ICO) at ico.org.uk. If you are in the EU, you may contact your local Data Protection Authority.`
     },
     terms: {
       title: 'Terms of Service',
       updated: 'February 26, 2026',
-      content: `Welcome to EngageWorx. By accessing or using our platform, you agree to be bound by these Terms of Service.
+      content: `These Terms of Service ("Terms") govern your access to and use of the EngageWorx platform, including all related websites, APIs, and services (collectively, the "Service"). By creating an account or using the Service, you agree to these Terms. If you do not agree, do not use the Service.
 
-Acceptance of Terms
-By creating an account or using EngageWorx services, you agree to these terms. If you do not agree, do not use our services.
+These Terms apply to users worldwide, including in the United States, United Kingdom, and European Union.
 
-Description of Service
-EngageWorx provides an AI-powered customer engagement platform including SMS, RCS, WhatsApp, and Email messaging services, automation tools, analytics, and related features.
+1. Definitions
+"EngageWorx," "we," "us," and "our" refer to the operator of the EngageWorx platform, based in Miami, Florida, USA. "You" and "your" refer to the individual or entity accessing or using the Service. "Platform" refers to the EngageWorx web application, APIs, and all associated tools and services. "Content" refers to any text, images, data, or other material transmitted through the Platform. "Messages" refers to SMS, MMS, RCS, WhatsApp, Email, or other communications sent through the Service.
 
-Account Responsibilities
-You are responsible for maintaining the confidentiality of your account credentials, all activities under your account, ensuring your use complies with applicable laws including TCPA, CAN-SPAM, and telecommunications regulations, and the content of messages sent through the platform.
+2. Eligibility
+You must be at least 18 years old (or the age of legal majority in your jurisdiction) to use the Service. By using the Service, you represent that you have the legal authority to bind the entity on whose behalf you are acting.
 
-Acceptable Use
-You agree not to: send unsolicited messages (spam), transmit harmful, illegal, or deceptive content, violate any applicable laws or regulations, attempt to access other users' accounts or data, or reverse-engineer or disrupt the platform.
+3. Account Registration
+You agree to provide accurate and complete information during registration, maintain the security and confidentiality of your login credentials, notify us immediately of any unauthorized access to your account, and accept responsibility for all activity under your account.
 
-Billing & Payments
-Subscription fees are billed monthly or annually through Stripe. You may cancel at any time; cancellation takes effect at the end of the current billing period. Refunds are handled on a case-by-case basis.
+4. Description of Service
+EngageWorx provides an AI-powered customer engagement platform including: omnichannel messaging (SMS, RCS, WhatsApp, Email), AI chatbot and automation tools, visual flow builder for conversation workflows, campaign management and analytics, contact management and CSV import, compliance tools for TCR/10DLC registration (US) and messaging regulations, and white-label branding for service providers.
 
-Limitation of Liability
-EngageWorx is provided "as is." We are not liable for indirect, incidental, or consequential damages. Our total liability shall not exceed the amount paid by you in the twelve months preceding the claim.
+5. Acceptable Use
+You agree to use the Service only for lawful purposes. Specifically, you shall not: send unsolicited, unwanted, or spam messages, send messages without proper recipient consent as required by applicable law, transmit content that is illegal, harmful, threatening, abusive, defamatory, or infringing, use the Service to facilitate fraud, phishing, or deceptive practices, attempt to gain unauthorized access to other accounts or systems, reverse-engineer, decompile, or disassemble the Service, use the Service in violation of export control or sanctions laws, or exceed rate limits or abuse the API in a way that degrades service for others.
 
-Modifications
-We may update these terms at any time. Continued use after changes constitutes acceptance. Material changes will be communicated via email.
+6. Messaging Compliance
+You are solely responsible for ensuring your messaging activities comply with all applicable laws and regulations, including:
+
+United States: Telephone Consumer Protection Act (TCPA), CAN-SPAM Act, Cellular Telecommunications Industry Association (CTIA) guidelines, TCR/10DLC registration requirements, and state-level privacy and communications laws.
+
+United Kingdom: Privacy and Electronic Communications Regulations (PECR), UK GDPR, Ofcom regulations, and the ICO's direct marketing guidance.
+
+European Union: ePrivacy Directive (2002/58/EC), EU GDPR, national implementations of ePrivacy rules, and any sector-specific regulations in your jurisdiction.
+
+EngageWorx provides compliance tools to assist you, but compliance remains your responsibility. We may suspend accounts that violate messaging regulations.
+
+7. Intellectual Property
+The Service, including its code, design, trademarks, and documentation, is owned by EngageWorx and protected by intellectual property laws. Your subscription grants you a limited, non-exclusive, non-transferable license to use the Service for your business purposes. You retain ownership of your content and data. By using the Service, you grant us a limited license to process your data as necessary to provide the Service.
+
+8. Billing & Payments
+Subscription fees are billed monthly or annually through Stripe. All fees are exclusive of taxes unless stated otherwise. You authorize us to charge your payment method on file. Price changes will be communicated at least 30 days in advance. You may cancel at any time; cancellation takes effect at the end of the current billing period. Refunds are provided at our discretion or as required by applicable consumer protection laws.
+
+EU/UK Consumer Rights: If you are a consumer in the EU or UK, you may have a right to cancel within 14 days of purchase under the Consumer Contracts Regulations. This right may not apply once you have begun using the Service with your express consent.
+
+9. Data Protection
+Our collection and use of personal data is governed by our Privacy Policy. Where we process personal data on your behalf (as a data processor), we do so under a Data Processing Agreement in compliance with UK GDPR and EU GDPR. You are responsible for ensuring you have a lawful basis to share customer data with us for messaging purposes.
+
+10. Service Availability & SLA
+We target 99.9% platform uptime but do not guarantee uninterrupted service. Scheduled maintenance windows will be communicated in advance. We are not liable for downtime caused by factors outside our control, including third-party provider outages, internet connectivity issues, or force majeure events.
+
+11. Limitation of Liability
+To the maximum extent permitted by applicable law: the Service is provided "as is" and "as available" without warranties of any kind, we are not liable for indirect, incidental, special, consequential, or punitive damages, our total aggregate liability shall not exceed the fees you paid in the 12 months preceding the claim, and we are not liable for the content of messages you send through the Platform.
+
+Nothing in these Terms excludes or limits liability for: death or personal injury caused by negligence, fraud or fraudulent misrepresentation, or any liability that cannot be excluded by applicable law (including UK Consumer Rights Act 2015 and EU consumer protection directives).
+
+12. Indemnification
+You agree to indemnify and hold EngageWorx harmless from any claims, damages, or expenses arising from your use of the Service, your violation of these Terms, your violation of messaging regulations, or the content of messages sent through your account.
+
+13. Suspension & Termination
+We may suspend or terminate your account if you breach these Terms, your messaging activity violates applicable laws, your payment is overdue by more than 14 days, or your use poses a security risk to the Platform or other users. Upon termination, you may export your data within 30 days. After that period, we may delete your data in accordance with our retention policies.
+
+14. Dispute Resolution
+United States: Disputes shall be resolved through binding arbitration under the rules of the American Arbitration Association (AAA) in Miami, Florida. You waive the right to participate in class actions.
+
+United Kingdom: These Terms are governed by the laws of England and Wales. Disputes shall be subject to the exclusive jurisdiction of the English courts.
+
+European Union: These Terms are governed by the laws of the EU member state in which you are resident. Nothing in these Terms affects your rights under mandatory consumer protection laws. EU consumers may also use the Online Dispute Resolution platform at ec.europa.eu/odr.
+
+15. Modifications
+We may update these Terms at any time. Material changes will be notified by email at least 30 days before they take effect. Continued use after changes constitutes acceptance, except where applicable law requires explicit consent.
+
+16. Severability
+If any provision of these Terms is found unenforceable, the remaining provisions shall continue in full force and effect.
+
+17. Entire Agreement
+These Terms, together with our Privacy Policy and any Data Processing Agreement, constitute the entire agreement between you and EngageWorx.
 
 Contact
-For questions about these terms: legal@engwx.com`
+For questions about these Terms: legal@engwx.com
+EngageWorx, Miami, Florida, USA`
     },
     accessibility: {
       title: 'Accessibility Statement',
       updated: 'February 26, 2026',
-      content: `EngageWorx is committed to ensuring digital accessibility for people of all abilities. We continually improve the user experience for everyone and apply relevant accessibility standards.
+      content: `EngageWorx is committed to ensuring digital accessibility for people of all abilities. We believe everyone should have equal access to our platform and services, regardless of disability, impairment, or assistive technology used.
 
-Our Commitment
-We strive to conform to the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA. These guidelines explain how to make web content more accessible to people with disabilities.
+This statement applies to the EngageWorx website (engwx.com) and the EngageWorx platform (portal.engwx.com).
 
-Measures Taken
-We have taken the following measures to ensure accessibility: keyboard navigation support throughout the platform, sufficient color contrast ratios for text and interactive elements, screen reader compatibility with ARIA labels, responsive design that works across devices and screen sizes, and clear, consistent navigation patterns.
+Standards & Compliance
+We strive to conform to the following accessibility standards: Web Content Accessibility Guidelines (WCAG) 2.1 Level AA (international standard), Section 508 of the Rehabilitation Act (United States), the Americans with Disabilities Act (ADA) (United States), the Equality Act 2010 (United Kingdom), EN 301 549 — the European standard for ICT accessibility (European Union), and the European Accessibility Act (Directive 2019/882).
 
-Feedback
-We welcome your feedback on the accessibility of EngageWorx. If you encounter any barriers or have suggestions for improvement, please contact us:
+Measures We Have Taken
+We have implemented the following accessibility measures across our platform:
+
+Perceivable: sufficient color contrast ratios (minimum 4.5:1 for text), text alternatives for non-text content, responsive design that adapts to different screen sizes and zoom levels, content that can be presented in different ways without losing meaning, and no content that relies solely on color to convey information.
+
+Operable: full keyboard navigation support throughout the platform, no keyboard traps — users can navigate freely, visible focus indicators on interactive elements, sufficient time for users to read and interact with content, no content that flashes more than three times per second, and skip navigation links for screen reader users.
+
+Understandable: clear and consistent navigation patterns, form labels and error messages that are descriptive and helpful, consistent behavior of interactive components, and language of the page is programmatically set.
+
+Robust: compatibility with major screen readers (JAWS, NVDA, VoiceOver, TalkBack), valid and semantic HTML markup, ARIA landmarks and labels where appropriate, and regular testing with assistive technologies.
+
+Known Limitations
+While we strive for comprehensive accessibility, we are aware of the following limitations: some third-party embedded content (e.g., Stripe payment forms) may have accessibility gaps — we work with these providers to improve, certain complex data visualizations in analytics may not be fully accessible to screen readers — we provide text alternatives where possible, and older PDF documents may not be fully tagged for accessibility — we are working to remediate these.
+
+We are actively working to address these limitations and improve accessibility across all areas of the platform.
+
+Testing & Evaluation
+We regularly evaluate our accessibility through: automated testing tools (axe, Lighthouse, WAVE), manual testing with keyboard-only navigation, screen reader testing (VoiceOver, NVDA), user testing with individuals who use assistive technologies, and periodic third-party accessibility audits.
+
+Feedback & Contact
+We welcome feedback on the accessibility of EngageWorx. If you encounter any barriers, need information in an alternative format, or have suggestions for improvement, please contact us:
 
 Email: accessibility@engwx.com
 
-We aim to respond to accessibility feedback within 2 business days and to resolve issues as quickly as possible.
+We aim to acknowledge accessibility feedback within 2 business days and to provide a resolution or timeline within 10 business days.
 
-Limitations
-While we strive for full accessibility, some third-party integrations may have their own accessibility limitations. We actively work with our partners to improve these experiences.`
+Enforcement & Complaints
+If you are not satisfied with our response, you may escalate your concern to:
+
+United States: File a complaint under the ADA with the U.S. Department of Justice at ada.gov, or under Section 508 with the relevant federal agency.
+
+United Kingdom: Contact the Equality Advisory Support Service (EASS) at equalityadvisoryservice.com, or the Equality and Human Rights Commission (EHRC) at equalityhumanrights.com.
+
+European Union: Contact your national equality body or the European Commission. Under the European Accessibility Act, enforcement mechanisms vary by member state.
+
+Continuous Improvement
+Accessibility is an ongoing effort. We are committed to regularly reviewing and improving our platform to ensure the best possible experience for all users. This statement is reviewed and updated at least annually.`
     }
   };
 
