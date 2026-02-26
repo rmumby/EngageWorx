@@ -1,11 +1,9 @@
-// deploy trigger
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import SignupPage from './SignupPage';
+import AdminTenants from './AdminTenants';
 import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
-import AdminTenants from './AdminTenants';
-
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
@@ -277,9 +275,9 @@ function TenantManagement({ C }) {
         </div>
       )}
 
-     {activeTab === "branding" && <WhiteLabelBranding tenantId="sp_root" />}
-      
-    {activeTab === "permissions" && (
+      {activeTab === "branding" && <WhiteLabelBranding tenantId="sp_root" />}
+
+      {activeTab === "permissions" && (
         <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 28 }}>
           <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Role & Permission Matrix</h3>
           <div style={{ overflowX: "auto" }}>
