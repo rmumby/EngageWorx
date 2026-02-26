@@ -2,6 +2,8 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import SignupPage from './SignupPage';
+import WhiteLabelBranding from './WhiteLabelBranding';
+import LandingPage from './components/LandingPage';
 import AdminTenants from './AdminTenants';
 import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
