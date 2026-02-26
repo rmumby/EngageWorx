@@ -1,725 +1,773 @@
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useState, useEffect, useRef, useCallback } from "react";
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_ANON_KEY
-);
+// ─── DEMO DATA GENERATOR ──────────────────────────────────────────────────────
+const CHANNELS = ["SMS", "MMS", "RCS", "WhatsApp", "Email", "Voice"];
+const CHANNEL_COLORS = { SMS: "#00C9FF", MMS: "#7C4DFF", RCS: "#E040FB", WhatsApp: "#25D366", Email: "#FF6B35", Voice: "#FFD600" };
 
-const COLORS = {
-  bg: "#0A0E1A",
-  surface: "#111827",
-  surfaceAlt: "#1a2235",
-  border: "#1e2d45",
-  accent: "#00C9FF",
-  accent2: "#E040FB",
-  accent3: "#00E676",
-  accent4: "#FF6B35",
-  warning: "#FFD600",
-  text: "#E8F4FD",
-  muted: "#6B8BAE",
-  dim: "#3A5068",
-};
+const DEMO_TENANTS = [
+  { id: "acme", name: "Acme Corp", brand: "AcmeEngage", color: "#FF6B35", logo: "AC" },
+  { id: "retailco", name: "RetailCo", brand: "RetailReach", color: "#00E676", logo: "RC" },
+  { id: "finserv", name: "FinServ Group", brand: "FinConnect", color: "#7C4DFF", logo: "FS" },
+];
 
-// Mini sparkline bar chart component
-function BarChart({ data, color, height = 80, label }) {
-  if (!data || data.length === 0) return null;
-  const max = Math.max(...data.map(d => d.value), 1);
+function generateDemoData(startDate, endDate, tenantFilter, channelFilter) {
+  const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+  const tenants = tenantFilter === "all" ? DEMO_TENANTS : DEMO_TENANTS.filter(t => t.id === tenantFilter);
+  const channels = channelFilter === "all" ? CHANNELS : [channelFilter];
 
+  // Daily time series
+  const daily = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    const dow = d.getDay();
+    const weekendDip = (dow === 0 || dow === 6) ? 0.55 : 1;
+    const trend = 1 + i * 0.005;
+    const seasonality = 1 + 0.15 * Math.sin((i / 7) * Math.PI);
+
+    const dayData = { date: new Date(d), label: `${d.getMonth()+1}/${d.getDate()}` };
+    let totalSent = 0, totalDelivered = 0, totalFailed = 0, totalOpened = 0, totalClicked = 0, totalReplied = 0, totalOptOut = 0, totalRevenue = 0;
+
+    // Per channel
+    channels.forEach(ch => {
+      const base = ch === "SMS" ? 4200 : ch === "Email" ? 2400 : ch === "WhatsApp" ? 1800 : ch === "RCS" ? 640 : ch === "MMS" ? 380 : 200;
+      const scale = tenants.length / 3;
+      const sent = Math.round(base * scale * weekendDip * trend * seasonality * (0.85 + Math.random() * 0.3));
+      const deliveryRate = ch === "Email" ? 0.94 + Math.random() * 0.04 : 0.95 + Math.random() * 0.04;
+      const delivered = Math.round(sent * deliveryRate);
+      const failed = sent - delivered;
+      const openRate = ch === "Email" ? 0.28 + Math.random() * 0.15 : ch === "SMS" ? 0.92 + Math.random() * 0.06 : 0.55 + Math.random() * 0.2;
+      const opened = Math.round(delivered * openRate);
+      const clicked = Math.round(opened * (0.12 + Math.random() * 0.12));
+      const replied = Math.round(delivered * (0.04 + Math.random() * 0.06));
+      const optOut = Math.round(delivered * (0.001 + Math.random() * 0.003));
+      const costPer = ch === "SMS" ? 0.0079 : ch === "MMS" ? 0.02 : ch === "RCS" ? 0.015 : ch === "WhatsApp" ? 0.005 : ch === "Email" ? 0.001 : 0.04;
+      const revenue = Math.round(sent * costPer * (2.5 + Math.random()) * 100) / 100;
+
+      totalSent += sent; totalDelivered += delivered; totalFailed += failed;
+      totalOpened += opened; totalClicked += clicked; totalReplied += replied;
+      totalOptOut += optOut; totalRevenue += revenue;
+    });
+
+    dayData.sent = totalSent; dayData.delivered = totalDelivered; dayData.failed = totalFailed;
+    dayData.opened = totalOpened; dayData.clicked = totalClicked; dayData.replied = totalReplied;
+    dayData.optOut = totalOptOut; dayData.revenue = Math.round(totalRevenue);
+    daily.push(dayData);
+  }
+
+  // Hourly distribution (aggregate)
+  const hourly = Array.from({ length: 24 }, (_, h) => {
+    const peak = Math.exp(-0.5 * Math.pow((h - 14) / 4, 2));
+    const morning = Math.exp(-0.5 * Math.pow((h - 10) / 3, 2)) * 0.6;
+    return { hour: h, label: `${h.toString().padStart(2,"0")}:00`, value: Math.round(1800 * (peak + morning) * (0.8 + Math.random() * 0.4) * (tenants.length / 3)) };
+  });
+
+  // Channel breakdown
+  const channelBreakdown = channels.map(ch => {
+    const bases = { SMS: 542000, MMS: 36712, RCS: 64000, WhatsApp: 231000, Email: 308000, Voice: 18000 };
+    const scale = tenants.length / 3 * (days / 30);
+    const val = Math.round((bases[ch] || 10000) * scale * (0.85 + Math.random() * 0.3));
+    return { name: ch, value: val, color: CHANNEL_COLORS[ch] };
+  });
+  const chTotal = channelBreakdown.reduce((s, c) => s + c.value, 0);
+  channelBreakdown.forEach(c => c.pct = Math.round((c.value / chTotal) * 100));
+
+  // Per tenant breakdown
+  const tenantBreakdown = tenants.map(t => {
+    const bases = { acme: { messages: 284712, revenue: 128450, campaigns: 24, contacts: 48200, deliveryRate: 95.3, openRate: 51.2 },
+      retailco: { messages: 612340, revenue: 441200, campaigns: 38, contacts: 124000, deliveryRate: 97.1, openRate: 44.8 },
+      finserv: { messages: 387660, revenue: 322800, campaigns: 25, contacts: 89300, deliveryRate: 98.2, openRate: 62.1 } };
+    const b = bases[t.id] || bases.acme;
+    const scale = days / 30;
+    return { ...t, messages: Math.round(b.messages * scale), revenue: Math.round(b.revenue * scale),
+      campaigns: Math.round(b.campaigns * scale), contacts: b.contacts,
+      deliveryRate: b.deliveryRate + (Math.random() - 0.5), openRate: b.openRate + (Math.random() - 0.5) * 3 };
+  });
+
+  // Error codes
+  const errorCodes = [
+    { code: "30003", desc: "Unreachable destination", count: Math.round(420 * (days/30) * (tenants.length/3)), severity: "warning" },
+    { code: "30005", desc: "Unknown destination", count: Math.round(285 * (days/30) * (tenants.length/3)), severity: "warning" },
+    { code: "30006", desc: "Landline or unreachable carrier", count: Math.round(198 * (days/30) * (tenants.length/3)), severity: "info" },
+    { code: "30007", desc: "Carrier violation", count: Math.round(67 * (days/30) * (tenants.length/3)), severity: "error" },
+    { code: "30008", desc: "Unknown error", count: Math.round(34 * (days/30) * (tenants.length/3)), severity: "error" },
+    { code: "21610", desc: "Opt-out reply (STOP)", count: Math.round(512 * (days/30) * (tenants.length/3)), severity: "info" },
+    { code: "30034", desc: "Message blocked (spam)", count: Math.round(23 * (days/30) * (tenants.length/3)), severity: "error" },
+  ].sort((a, b) => b.count - a.count);
+
+  // Response types
+  const responseTypes = [
+    { type: "User Content", count: Math.round(18400 * (days/30) * (tenants.length/3)), color: "#00C9FF" },
+    { type: "Opt-Out (STOP)", count: Math.round(512 * (days/30) * (tenants.length/3)), color: "#FF3B30" },
+    { type: "Opt-In (START)", count: Math.round(89 * (days/30) * (tenants.length/3)), color: "#00E676" },
+    { type: "Help Request", count: Math.round(234 * (days/30) * (tenants.length/3)), color: "#FFD600" },
+    { type: "Auto-Reply", count: Math.round(4200 * (days/30) * (tenants.length/3)), color: "#E040FB" },
+  ];
+
+  // Latency distribution
+  const latency = [
+    { bucket: "< 1s", count: 72, color: "#00E676" },
+    { bucket: "1-3s", count: 18, color: "#00C9FF" },
+    { bucket: "3-5s", count: 6, color: "#FFD600" },
+    { bucket: "5-10s", count: 3, color: "#FF6B35" },
+    { bucket: "> 10s", count: 1, color: "#FF3B30" },
+  ];
+
+  // Aggregate stats
+  const totals = daily.reduce((acc, d) => ({
+    sent: acc.sent + d.sent, delivered: acc.delivered + d.delivered, failed: acc.failed + d.failed,
+    opened: acc.opened + d.opened, clicked: acc.clicked + d.clicked, replied: acc.replied + d.replied,
+    optOut: acc.optOut + d.optOut, revenue: acc.revenue + d.revenue
+  }), { sent: 0, delivered: 0, failed: 0, opened: 0, clicked: 0, replied: 0, optOut: 0, revenue: 0 });
+
+  return { daily, hourly, channelBreakdown, tenantBreakdown, errorCodes, responseTypes, latency, totals, days };
+}
+
+// ─── CHART COMPONENTS ──────────────────────────────────────────────────────────
+function BarChart({ data, color, height = 200, valueKey = "value", format, gradientId }) {
+  const max = Math.max(...data.map(d => d[valueKey])) || 1;
+  const showEvery = data.length > 60 ? 14 : data.length > 30 ? 7 : data.length > 14 ? 3 : 1;
   return (
     <div>
-      {label && <div style={{ color: COLORS.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{label}</div>}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height }}>
-        {data.map((d, i) => (
-          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <div
-              style={{
-                width: "100%",
-                height: `${Math.max((d.value / max) * height, 2)}px`,
-                background: `linear-gradient(180deg, ${color}, ${color}44)`,
-                borderRadius: "3px 3px 0 0",
-                transition: "height 0.6s ease",
-                minHeight: 2,
-              }}
-              title={`${d.label}: ${d.value}`}
-            />
-            <div style={{ color: COLORS.dim, fontSize: 9, whiteSpace: "nowrap" }}>{d.label}</div>
-          </div>
-        ))}
+      <div style={{ display: "flex", alignItems: "flex-end", gap: data.length > 60 ? 1 : 2, height, padding: "0 0 24px" }}>
+        {data.map((d, i) => {
+          const pct = (d[valueKey] / max) * 100;
+          return (
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative" }}>
+              <div
+                title={`${d.label}: ${format ? format(d[valueKey]) : d[valueKey].toLocaleString()}`}
+                style={{ width: "100%", minWidth: 2, maxWidth: 20, height: `${pct}%`, background: typeof color === "function" ? color(d, i) : `linear-gradient(180deg, ${color}, ${color}66)`, borderRadius: "2px 2px 0 0", transition: "height 0.3s", cursor: "pointer" }}
+                onMouseEnter={(e) => { e.target.style.filter = "brightness(1.3)"; }}
+                onMouseLeave={(e) => { e.target.style.filter = "none"; }}
+              />
+              {(i % showEvery === 0) && <span style={{ position: "absolute", bottom: -18, fontSize: 9, color: "rgba(255,255,255,0.2)", whiteSpace: "nowrap" }}>{d.label}</span>}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Donut chart component
-function DonutChart({ segments, size = 120, strokeWidth = 14 }) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
-  let offset = 0;
+function Sparkline({ data, color, width = 80, height = 28, valueKey = "value" }) {
+  const vals = data.map(d => d[valueKey]);
+  const max = Math.max(...vals); const min = Math.min(...vals); const range = max - min || 1;
+  const points = vals.map((v, i) => `${(i / (vals.length - 1)) * width},${height - ((v - min) / range) * (height - 4)}`).join(" ");
+  return <svg width={width} height={height} style={{ overflow: "visible" }}><polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
 
+function DonutChart({ segments, size = 140, label }) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  let cum = 0; const r = 52; const circ = 2 * Math.PI * r;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={COLORS.border} strokeWidth={strokeWidth} />
+    <svg width={size} height={size} viewBox="0 0 140 140">
       {segments.map((seg, i) => {
-        const pct = seg.value / total;
-        const dashArray = `${pct * circumference} ${circumference}`;
-        const dashOffset = -offset * circumference;
-        offset += pct;
-        return (
-          <circle
-            key={i}
-            cx={size/2} cy={size/2} r={radius}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeWidth}
-            strokeDasharray={dashArray}
-            strokeDashoffset={dashOffset}
-            strokeLinecap="round"
-            transform={`rotate(-90 ${size/2} ${size/2})`}
-            style={{ transition: "stroke-dasharray 0.8s ease" }}
-          />
-        );
+        const pct = seg.value / total; const offset = cum * circ; cum += pct;
+        return <circle key={i} cx="70" cy="70" r={r} fill="none" stroke={seg.color} strokeWidth="18" strokeDasharray={`${pct * circ} ${circ}`} strokeDashoffset={-offset} transform="rotate(-90 70 70)" style={{ transition: "all 0.5s" }} />;
       })}
-      <text x={size/2} y={size/2 - 6} textAnchor="middle" fill={COLORS.text} fontSize="20" fontWeight="800">{total}</text>
-      <text x={size/2} y={size/2 + 12} textAnchor="middle" fill={COLORS.muted} fontSize="10">TOTAL</text>
+      <text x="70" y="66" textAnchor="middle" fill="#fff" fontSize="20" fontWeight="900">{total >= 1000000 ? `${(total/1000000).toFixed(1)}M` : total >= 1000 ? `${(total/1000).toFixed(0)}K` : total}</text>
+      {label && <text x="70" y="84" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="10">{label}</text>}
     </svg>
   );
 }
 
-// Stat card component
-function StatCard({ icon, label, value, change, changeType, color, delay = 0 }) {
+function ProgressBar({ value, max = 100, color, height = 6 }) {
   return (
-    <div style={{
-      background: COLORS.surface,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 14,
-      padding: "22px 20px",
-      position: "relative",
-      overflow: "hidden",
-      animation: `slideUp 0.5s ease ${delay}s both`,
-    }}>
-      <div style={{
-        position: "absolute", top: -20, right: -20,
-        width: 80, height: 80,
-        background: `radial-gradient(circle, ${color}15, transparent)`,
-        borderRadius: "50%",
-      }} />
-      <div style={{ fontSize: 24, marginBottom: 8 }}>{icon}</div>
-      <div style={{ color: COLORS.text, fontSize: 28, fontWeight: 900, letterSpacing: -1 }}>{value}</div>
-      <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 4, marginBottom: 6 }}>{label}</div>
-      {change !== undefined && (
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          background: changeType === "up" ? COLORS.accent3 + "15" : changeType === "down" ? "#FF000015" : COLORS.muted + "15",
-          border: `1px solid ${changeType === "up" ? COLORS.accent3 : changeType === "down" ? "#FF0000" : COLORS.muted}33`,
-          borderRadius: 6, padding: "2px 8px",
-          color: changeType === "up" ? COLORS.accent3 : changeType === "down" ? "#FF6B6B" : COLORS.muted,
-          fontSize: 11, fontWeight: 700,
-        }}>
-          {changeType === "up" ? "↑" : changeType === "down" ? "↓" : "→"} {change}
-        </div>
-      )}
+    <div style={{ height, background: "rgba(255,255,255,0.05)", borderRadius: height/2 }}>
+      <div style={{ height: "100%", width: `${Math.min((value/max)*100, 100)}%`, background: color, borderRadius: height/2, transition: "width 0.5s" }} />
     </div>
   );
 }
 
-// Sentiment pill
-function SentimentBar({ positive, neutral, negative }) {
-  const total = positive + neutral + negative || 1;
+// ─── DATE RANGE PICKER ─────────────────────────────────────────────────────────
+function DateRangePicker({ startDate, endDate, onChangeStart, onChangeEnd, onPreset }) {
+  const presets = [
+    { label: "Today", days: 0 }, { label: "7D", days: 7 }, { label: "30D", days: 30 },
+    { label: "90D", days: 90 }, { label: "120D", days: 120 },
+  ];
+  const inputStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+
   return (
-    <div>
-      <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", height: 10, marginBottom: 10 }}>
-        <div style={{ width: `${(positive/total)*100}%`, background: COLORS.accent3, transition: "width 0.6s ease" }} />
-        <div style={{ width: `${(neutral/total)*100}%`, background: COLORS.warning, transition: "width 0.6s ease" }} />
-        <div style={{ width: `${(negative/total)*100}%`, background: "#FF6B6B", transition: "width 0.6s ease" }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 8 }}>
+        {presets.map(p => {
+          const now = new Date(); const preset = new Date(); preset.setDate(preset.getDate() - p.days);
+          const isActive = Math.abs(startDate - preset) < 86400000 && Math.abs(endDate - now) < 86400000;
+          return (
+            <button key={p.label} onClick={() => onPreset(p.days)} style={{
+              background: isActive ? "#00C9FF" : "transparent", border: "none", borderRadius: 6,
+              padding: "6px 12px", color: isActive ? "#000" : "rgba(255,255,255,0.4)",
+              fontWeight: isActive ? 700 : 400, cursor: "pointer", fontSize: 12, transition: "all 0.2s",
+            }}>{p.label}</button>
+          );
+        })}
       </div>
-      <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-        <span style={{ color: COLORS.accent3 }}>● Positive {Math.round((positive/total)*100)}%</span>
-        <span style={{ color: COLORS.warning }}>● Neutral {Math.round((neutral/total)*100)}%</span>
-        <span style={{ color: "#FF6B6B" }}>● Negative {Math.round((negative/total)*100)}%</span>
-      </div>
+      <input type="date" value={startDate.toISOString().split("T")[0]} onChange={(e) => onChangeStart(new Date(e.target.value))} style={inputStyle} />
+      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>to</span>
+      <input type="date" value={endDate.toISOString().split("T")[0]} onChange={(e) => onChangeEnd(new Date(e.target.value))} style={inputStyle} />
     </div>
   );
 }
 
-export default function AnalyticsDashboard({ tenantId }) {
-  const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("7d");
-  const [stats, setStats] = useState({
-    totalConversations: 0,
-    totalMessages: 0,
-    totalContacts: 0,
-    totalCampaigns: 0,
-    campaignsSent: 0,
-    messagesSent: 0,
-    messagesDelivered: 0,
-    responseRate: 0,
-    avgResponseTime: "—",
-    sentimentPositive: 0,
-    sentimentNeutral: 0,
-    sentimentNegative: 0,
-    dailyMessages: [],
-    dailyConversations: [],
-    channelBreakdown: [],
-    statusBreakdown: [],
-    recentActivity: [],
-    topIntents: [],
-  });
+// ─── EXPORT FUNCTIONS ──────────────────────────────────────────────────────────
+function exportToCSV(data, filename) {
+  if (!data || !data.length) return;
+  const headers = Object.keys(data[0]);
+  const csv = [headers.join(","), ...data.map(row => headers.map(h => {
+    const val = row[h];
+    return val instanceof Date ? val.toISOString().split("T")[0] : typeof val === "string" && val.includes(",") ? `"${val}"` : val;
+  }).join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
-  const getDateRange = useCallback(() => {
-    const now = new Date();
-    const days = timeRange === "24h" ? 1 : timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
-    const start = new Date(now);
-    start.setDate(start.getDate() - days);
-    return { start: start.toISOString(), end: now.toISOString(), days };
-  }, [timeRange]);
+// ─── MAIN ANALYTICS DASHBOARD ──────────────────────────────────────────────────
+export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", currentTenantId = null }) {
+  const now = new Date();
+  const thirtyAgo = new Date(); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
+  const [startDate, setStartDate] = useState(thirtyAgo);
+  const [endDate, setEndDate] = useState(now);
+  const [tenantFilter, setTenantFilter] = useState(currentTenantId || "all");
+  const [channelFilter, setChannelFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [demoMode, setDemoMode] = useState(true);
+  const [chartMetric, setChartMetric] = useState("sent");
+  const [drillTenant, setDrillTenant] = useState(null);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [tenantId, timeRange]);
-
-  const loadAnalytics = async () => {
-    setLoading(true);
-    const { start, days } = getDateRange();
-
-    try {
-      // Fetch all data in parallel
-      const [
-        conversationsRes,
-        messagesRes,
-        contactsRes,
-        campaignsRes,
-      ] = await Promise.all([
-        supabase.from("conversations")
-          .select("*")
-          .gte("created_at", start)
-          .order("created_at", { ascending: false }),
-        supabase.from("conversation_messages")
-          .select("*")
-          .gte("created_at", start)
-          .order("created_at", { ascending: false }),
-        supabase.from("contacts")
-          .select("id, created_at"),
-        supabase.from("campaigns")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
-
-      const conversations = conversationsRes.data || [];
-      const messages = messagesRes.data || [];
-      const contacts = contactsRes.data || [];
-      const campaigns = campaignsRes.data || [];
-
-      // Filter by tenant if applicable
-      const tenantConvos = tenantId
-        ? conversations.filter(c => c.tenant_id === tenantId)
-        : conversations;
-      const tenantMsgs = tenantId
-        ? messages.filter(m => {
-            const convo = conversations.find(c => c.id === m.conversation_id);
-            return convo && convo.tenant_id === tenantId;
-          })
-        : messages;
-      const tenantContacts = tenantId
-        ? contacts.filter(c => c.tenant_id === tenantId)
-        : contacts;
-      const tenantCampaigns = tenantId
-        ? campaigns.filter(c => c.tenant_id === tenantId)
-        : campaigns;
-
-      // Sentiment analysis from conversations
-      const sentimentPositive = tenantConvos.filter(c => c.sentiment === "positive").length;
-      const sentimentNeutral = tenantConvos.filter(c => c.sentiment === "neutral" || !c.sentiment).length;
-      const sentimentNegative = tenantConvos.filter(c => c.sentiment === "negative").length;
-
-      // Daily message volume
-      const dailyMap = {};
-      for (let i = 0; i < Math.min(days, 14); i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const key = d.toISOString().split("T")[0];
-        dailyMap[key] = { messages: 0, conversations: 0 };
-      }
-
-      tenantMsgs.forEach(m => {
-        const day = m.created_at?.split("T")[0];
-        if (dailyMap[day]) dailyMap[day].messages++;
-      });
-
-      tenantConvos.forEach(c => {
-        const day = c.created_at?.split("T")[0];
-        if (dailyMap[day]) dailyMap[day].conversations++;
-      });
-
-      const sortedDays = Object.keys(dailyMap).sort();
-      const dailyMessages = sortedDays.map(d => ({
-        label: new Date(d + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }),
-        value: dailyMap[d].messages,
-      }));
-      const dailyConversations = sortedDays.map(d => ({
-        label: new Date(d + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }),
-        value: dailyMap[d].conversations,
-      }));
-
-      // Channel breakdown from conversations
-      const channelMap = {};
-      tenantConvos.forEach(c => {
-        const ch = c.channel || "SMS";
-        channelMap[ch] = (channelMap[ch] || 0) + 1;
-      });
-      const channelColors = { SMS: COLORS.accent, WhatsApp: "#25D366", Email: COLORS.accent4, RCS: COLORS.accent3, Voice: COLORS.accent2 };
-      const channelBreakdown = Object.entries(channelMap).map(([name, value]) => ({
-        name, value, color: channelColors[name] || COLORS.accent,
-      }));
-
-      // Status breakdown
-      const statusMap = {};
-      tenantConvos.forEach(c => {
-        const s = c.status || "open";
-        statusMap[s] = (statusMap[s] || 0) + 1;
-      });
-      const statusColors = { open: COLORS.accent, resolved: COLORS.accent3, escalated: COLORS.accent4, pending: COLORS.warning };
-      const statusBreakdown = Object.entries(statusMap).map(([name, value]) => ({
-        name, value, color: statusColors[name] || COLORS.muted,
-      }));
-
-      // Top intents
-      const intentMap = {};
-      tenantConvos.forEach(c => {
-        if (c.intent) {
-          intentMap[c.intent] = (intentMap[c.intent] || 0) + 1;
-        }
-      });
-      const topIntents = Object.entries(intentMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([intent, count]) => ({ intent, count }));
-
-      // Recent activity
-      const recentActivity = tenantConvos.slice(0, 8).map(c => ({
-        id: c.id,
-        contact: c.contact_name || c.contact_phone || "Unknown",
-        intent: c.intent || "General",
-        sentiment: c.sentiment || "neutral",
-        status: c.status || "open",
-        time: c.created_at,
-        channel: c.channel || "SMS",
-      }));
-
-      // Campaigns sent count
-      const campaignsSent = tenantCampaigns.filter(c => c.status === "sent").length;
-      const totalMessagesSent = tenantCampaigns.reduce((sum, c) => sum + (c.sent_count || 0), 0);
-
-      // Bot vs agent messages
-      const botMessages = tenantMsgs.filter(m => m.sender === "bot").length;
-      const agentMessages = tenantMsgs.filter(m => m.sender === "agent").length;
-      const customerMessages = tenantMsgs.filter(m => m.sender === "customer" || m.sender === "contact").length;
-
-      // Response rate (conversations that got a reply)
-      const conversationsWithReply = tenantConvos.filter(c => {
-        return tenantMsgs.some(m => m.conversation_id === c.id && (m.sender === "bot" || m.sender === "agent"));
-      }).length;
-      const responseRate = tenantConvos.length > 0
-        ? Math.round((conversationsWithReply / tenantConvos.length) * 100)
-        : 0;
-
-      setStats({
-        totalConversations: tenantConvos.length,
-        totalMessages: tenantMsgs.length,
-        totalContacts: tenantContacts.length,
-        totalCampaigns: tenantCampaigns.length,
-        campaignsSent,
-        messagesSent: totalMessagesSent,
-        botMessages,
-        agentMessages,
-        customerMessages,
-        responseRate,
-        avgResponseTime: tenantConvos.length > 0 ? "< 30s" : "—",
-        sentimentPositive,
-        sentimentNeutral,
-        sentimentNegative,
-        dailyMessages,
-        dailyConversations,
-        channelBreakdown,
-        statusBreakdown,
-        recentActivity,
-        topIntents,
-      });
-    } catch (err) {
-      console.error("Analytics load error:", err);
-    }
-
-    setLoading(false);
+  const handlePreset = (days) => {
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate() - (days || 0));
+    setStartDate(start); setEndDate(end);
   };
 
-  const timeRanges = [
-    { key: "24h", label: "24h" },
-    { key: "7d", label: "7 Days" },
-    { key: "30d", label: "30 Days" },
-    { key: "90d", label: "90 Days" },
+  // Generate or fetch data
+  const data = demoMode ? generateDemoData(startDate, endDate, tenantFilter, channelFilter) : generateDemoData(startDate, endDate, tenantFilter, channelFilter); // TODO: replace with real fetch
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: "📊" },
+    { id: "delivery", label: "Delivery & Errors", icon: "📬" },
+    { id: "responses", label: "Responses", icon: "💬" },
+    { id: "channels", label: "Channels", icon: "📡" },
+    ...(viewLevel === "sp" ? [{ id: "tenants", label: "Tenants", icon: "🏢" }] : []),
+    { id: "campaigns", label: "Campaigns", icon: "🚀" },
+    { id: "ai", label: "AI Performance", icon: "🤖" },
+    { id: "revenue", label: "Revenue", icon: "💰" },
   ];
 
-  const sentimentIcon = (s) => s === "positive" ? "😊" : s === "negative" ? "😟" : "😐";
-  const statusColor = (s) => s === "resolved" ? COLORS.accent3 : s === "escalated" ? COLORS.accent4 : s === "open" ? COLORS.accent : COLORS.warning;
+  const selectStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", appearance: "auto", cursor: "pointer" };
 
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: COLORS.bg,
-      fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-      color: COLORS.text,
-    }}>
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        .shimmer-load {
-          background: linear-gradient(90deg, ${COLORS.surface} 25%, ${COLORS.surfaceAlt} 50%, ${COLORS.surface} 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-          border-radius: 8px;
-        }
-      `}</style>
-
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "40px 24px" }}>
-        {/* Header */}
-        <div style={{
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          marginBottom: 32, animation: "slideUp 0.4s ease both",
-        }}>
+  // Drill-down into specific tenant
+  if (drillTenant) {
+    const t = DEMO_TENANTS.find(x => x.id === drillTenant);
+    return (
+      <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
+        <button onClick={() => setDrillTenant(null)} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>← Back to All Tenants</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+          <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{t.logo}</div>
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: COLORS.accent + "15", border: `1px solid ${COLORS.accent}33`, borderRadius: 20, padding: "5px 14px", marginBottom: 12 }}>
-              <span style={{ fontSize: 14 }}>📊</span>
-              <span style={{ color: COLORS.accent, fontSize: 12, fontWeight: 700 }}>Live Analytics</span>
-              <span style={{ width: 6, height: 6, background: COLORS.accent3, borderRadius: "50%", animation: "pulse 2s infinite" }} />
-            </div>
-            <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: COLORS.text }}>
-              Analytics Dashboard
-            </h1>
-          </div>
-
-          {/* Time Range Selector */}
-          <div style={{ display: "flex", gap: 4, background: COLORS.surface, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 4 }}>
-            {timeRanges.map(tr => (
-              <button key={tr.key} onClick={() => setTimeRange(tr.key)} style={{
-                background: timeRange === tr.key ? COLORS.accent + "22" : "transparent",
-                border: timeRange === tr.key ? `1px solid ${COLORS.accent}44` : "1px solid transparent",
-                borderRadius: 7, padding: "6px 14px",
-                color: timeRange === tr.key ? COLORS.accent : COLORS.muted,
-                fontSize: 12, fontWeight: 700, cursor: "pointer",
-                transition: "all 0.2s",
-              }}>
-                {tr.label}
-              </button>
-            ))}
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>{t.name}</h1>
+            <p style={{ color: t.color, margin: 0, fontSize: 14 }}>{t.brand} Analytics</p>
           </div>
         </div>
+        <AnalyticsDashboard C={{ ...C, primary: t.color }} tenants={tenants} viewLevel="tenant" currentTenantId={t.id} />
+      </div>
+    );
+  }
 
-        {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="shimmer-load" style={{ height: 140 }} />
+  return (
+    <div style={{ padding: viewLevel === "sp" ? "32px 40px" : 0, maxWidth: 1400 }}>
+      {/* Header */}
+      {viewLevel === "sp" && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Global Analytics</h1>
+            <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Platform-wide performance metrics across all tenants</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* Demo toggle */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: demoMode ? "rgba(255,107,53,0.1)" : "rgba(0,230,118,0.1)", border: `1px solid ${demoMode ? "rgba(255,107,53,0.3)" : "rgba(0,230,118,0.3)"}`, borderRadius: 8, padding: "6px 14px" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: demoMode ? "#FF6B35" : "#00E676" }} />
+              <span style={{ fontSize: 12, color: demoMode ? "#FF6B35" : "#00E676", fontWeight: 600 }}>{demoMode ? "Demo Data" : "Live Data"}</span>
+              <button onClick={() => setDemoMode(!demoMode)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 4, padding: "2px 8px", color: "#fff", fontSize: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Switch</button>
+            </div>
+            {/* Export */}
+            <button onClick={() => exportToCSV(data.daily.map(d => ({ date: d.label, sent: d.sent, delivered: d.delivered, failed: d.failed, opened: d.opened, clicked: d.clicked, replied: d.replied, optOut: d.optOut, revenue: d.revenue })), `analytics-${startDate.toISOString().split("T")[0]}-${endDate.toISOString().split("T")[0]}.csv`)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+              📥 Export CSV
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Filters Bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20, padding: "14px 20px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
+        <DateRangePicker startDate={startDate} endDate={endDate} onChangeStart={setStartDate} onChangeEnd={setEndDate} onPreset={handlePreset} />
+        <div style={{ display: "flex", gap: 10 }}>
+          {viewLevel === "sp" && (
+            <select value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)} style={selectStyle}>
+              <option value="all">All Tenants</option>
+              {DEMO_TENANTS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          )}
+          <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={selectStyle}>
+            <option value="all">All Channels</option>
+            {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 2, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+            background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)",
+            border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : "rgba(255,255,255,0.5)",
+            fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, whiteSpace: "nowrap",
+            fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+          }}>{t.icon} {t.label}</button>
+        ))}
+      </div>
+
+      {/* ═══════════════ OVERVIEW TAB ═══════════════ */}
+      {activeTab === "overview" && (
+        <>
+          {/* KPI Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 24 }}>
+            {[
+              { label: "Messages Sent", value: data.totals.sent, change: "+12.4%", pos: true, color: C.primary, icon: "📨", spark: data.daily.slice(-14) },
+              { label: "Delivered", value: data.totals.delivered, change: `${((data.totals.delivered/data.totals.sent)*100).toFixed(1)}%`, pos: true, color: "#00E676", icon: "✅", spark: data.daily.slice(-14), sparkKey: "delivered" },
+              { label: "Revenue", value: data.totals.revenue, change: "+18.4%", pos: true, color: "#FFD600", icon: "💰", fmt: v => `$${v.toLocaleString()}` },
+              { label: "Opened", value: data.totals.opened, change: `${((data.totals.opened/data.totals.delivered)*100).toFixed(1)}%`, pos: true, color: C.accent, icon: "👁️" },
+              { label: "Failed", value: data.totals.failed, change: `${((data.totals.failed/data.totals.sent)*100).toFixed(1)}%`, pos: false, color: "#FF3B30", icon: "⚠️" },
+            ].map((kpi, i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderTop: `3px solid ${kpi.color}`, borderRadius: 12, padding: "16px 18px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
+                  <span style={{ fontSize: 16 }}>{kpi.icon}</span>
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{kpi.fmt ? kpi.fmt(kpi.value) : kpi.value.toLocaleString()}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: kpi.pos ? "#00E676" : "#FF3B30", fontWeight: 600 }}>{kpi.pos ? "↑" : "↓"} {kpi.change}</span>
+                  {kpi.spark && <div style={{ marginLeft: "auto" }}><Sparkline data={kpi.spark} color={kpi.color} valueKey={kpi.sparkKey || "sent"} /></div>}
+                </div>
+              </div>
             ))}
           </div>
-        ) : (
-          <>
-            {/* KPI Cards Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-              <StatCard icon="💬" label="Conversations" value={stats.totalConversations} change="this period" changeType="up" color={COLORS.accent} delay={0} />
-              <StatCard icon="📨" label="Messages" value={stats.totalMessages} change={`${stats.responseRate}% response rate`} changeType="up" color={COLORS.accent2} delay={0.05} />
-              <StatCard icon="👥" label="Contacts" value={stats.totalContacts} color={COLORS.accent3} delay={0.1} />
-              <StatCard icon="🚀" label="Campaigns Sent" value={stats.campaignsSent} change={`${stats.messagesSent} SMS sent`} changeType="up" color={COLORS.accent4} delay={0.15} />
-            </div>
 
-            {/* Charts Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 24 }}>
-              {/* Message Volume Chart */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.2s both",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                  <div>
-                    <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800 }}>Message Volume</div>
-                    <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 2 }}>Daily inbound + outbound messages</div>
-                  </div>
-                  <div style={{ color: COLORS.accent, fontSize: 24, fontWeight: 900 }}>{stats.totalMessages}</div>
+          {/* Main chart + Channel donut */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>Message Volume Over Time</h3>
+                <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 7 }}>
+                  {[{ id: "sent", label: "Sent" }, { id: "delivered", label: "Delivered" }, { id: "revenue", label: "Revenue" }].map(m => (
+                    <button key={m.id} onClick={() => setChartMetric(m.id)} style={{ background: chartMetric === m.id ? "rgba(255,255,255,0.1)" : "transparent", border: "none", borderRadius: 5, padding: "4px 10px", color: chartMetric === m.id ? "#fff" : "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 11, fontWeight: chartMetric === m.id ? 600 : 400 }}>{m.label}</button>
+                  ))}
                 </div>
-                {stats.dailyMessages.length > 0 ? (
-                  <BarChart data={stats.dailyMessages} color={COLORS.accent} height={100} />
-                ) : (
-                  <div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.dim, fontSize: 13 }}>
-                    No message data yet — start sending to see trends
-                  </div>
-                )}
               </div>
-
-              {/* Channel Breakdown */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.25s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 20 }}>Channels</div>
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-                  {stats.channelBreakdown.length > 0 ? (
-                    <DonutChart segments={stats.channelBreakdown} />
-                  ) : (
-                    <DonutChart segments={[{ value: 1, color: COLORS.border }]} />
-                  )}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {stats.channelBreakdown.length > 0 ? stats.channelBreakdown.map(ch => (
-                    <div key={ch.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: ch.color }} />
-                        <span style={{ color: COLORS.text, fontSize: 13 }}>{ch.name}</span>
-                      </div>
-                      <span style={{ color: COLORS.muted, fontSize: 13, fontWeight: 700 }}>{ch.value}</span>
-                    </div>
-                  )) : (
-                    <div style={{ color: COLORS.dim, fontSize: 12, textAlign: "center" }}>No channel data yet</div>
-                  )}
-                </div>
+              <BarChart data={data.daily} color={chartMetric === "revenue" ? "#00E676" : C.primary} height={200} valueKey={chartMetric} format={chartMetric === "revenue" ? v => `$${v.toLocaleString()}` : undefined} />
+              <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Total: <strong style={{ color: "#fff" }}>{chartMetric === "revenue" ? `$${data.totals[chartMetric].toLocaleString()}` : data.totals[chartMetric].toLocaleString()}</strong></span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Daily Avg: <strong style={{ color: "#fff" }}>{chartMetric === "revenue" ? `$${Math.round(data.totals[chartMetric] / data.days).toLocaleString()}` : Math.round(data.totals[chartMetric] / data.days).toLocaleString()}</strong></span>
               </div>
             </div>
 
-            {/* Second Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-              {/* Sentiment Analysis */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.3s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Sentiment Analysis</div>
-                <SentimentBar
-                  positive={stats.sentimentPositive}
-                  neutral={stats.sentimentNeutral}
-                  negative={stats.sentimentNegative}
-                />
-                <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, textAlign: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.accent3 }}>{stats.sentimentPositive}</div>
-                    <div style={{ fontSize: 10, color: COLORS.muted }}>Positive</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.warning }}>{stats.sentimentNeutral}</div>
-                    <div style={{ fontSize: 10, color: COLORS.muted }}>Neutral</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: "#FF6B6B" }}>{stats.sentimentNegative}</div>
-                    <div style={{ fontSize: 10, color: COLORS.muted }}>Negative</div>
-                  </div>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Channel Mix</h3>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+                <DonutChart segments={data.channelBreakdown} label="messages" />
+              </div>
+              {data.channelBreakdown.map(ch => (
+                <div key={ch.name} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: ch.color, flexShrink: 0 }} />
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, flex: 1 }}>{ch.name}</span>
+                  <span style={{ color: ch.color, fontSize: 11, fontWeight: 700, width: 32, textAlign: "right" }}>{ch.pct}%</span>
+                  <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, width: 60, textAlign: "right" }}>{ch.value.toLocaleString()}</span>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
 
-              {/* Conversation Status */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.35s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Conversation Status</div>
-                {stats.statusBreakdown.length > 0 ? stats.statusBreakdown.map(s => {
-                  const total = stats.totalConversations || 1;
-                  const pct = Math.round((s.value / total) * 100);
-                  return (
-                    <div key={s.name} style={{ marginBottom: 14 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ color: COLORS.text, fontSize: 13, textTransform: "capitalize" }}>{s.name}</span>
-                        <span style={{ color: s.color, fontSize: 13, fontWeight: 700 }}>{s.value} ({pct}%)</span>
-                      </div>
-                      <div style={{ height: 6, background: COLORS.bg, borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: s.color, borderRadius: 3, transition: "width 0.6s ease" }} />
-                      </div>
+          {/* Hourly + Funnel */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 4px", fontSize: 15 }}>Hourly Distribution</h3>
+              <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 14 }}>Peak hours highlighted · All times EST</p>
+              <BarChart data={data.hourly} color={(d) => d.value > 1200 ? C.accent : `${C.primary}88`} height={130} />
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Engagement Funnel</h3>
+              {[
+                { label: "Sent", value: data.totals.sent, color: C.primary },
+                { label: "Delivered", value: data.totals.delivered, color: "#00E676" },
+                { label: "Opened", value: data.totals.opened, color: "#00C9FF" },
+                { label: "Clicked", value: data.totals.clicked, color: C.accent },
+                { label: "Replied", value: data.totals.replied, color: "#FF6B35" },
+              ].map((step, i) => {
+                const pct = ((step.value / data.totals.sent) * 100).toFixed(1);
+                return (
+                  <div key={i} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 12 }}>{step.label}</span>
+                      <span style={{ fontSize: 12 }}><span style={{ color: step.color, fontWeight: 700 }}>{step.value.toLocaleString()}</span> <span style={{ color: "rgba(255,255,255,0.2)" }}>({pct}%)</span></span>
                     </div>
-                  );
-                }) : (
-                  <div style={{ color: COLORS.dim, fontSize: 12, textAlign: "center", marginTop: 20 }}>No conversations yet</div>
-                )}
-              </div>
+                    <ProgressBar value={parseFloat(pct)} color={step.color} height={8} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
 
-              {/* AI Bot Performance */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.4s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Message Breakdown</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* ═══════════════ DELIVERY & ERRORS TAB ═══════════════ */}
+      {activeTab === "delivery" && (
+        <>
+          {/* Delivery KPIs */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+            {[
+              { label: "Delivery Rate", value: `${((data.totals.delivered/data.totals.sent)*100).toFixed(1)}%`, color: "#00E676" },
+              { label: "Failed Messages", value: data.totals.failed.toLocaleString(), color: "#FF3B30" },
+              { label: "Avg Latency", value: "1.8s", color: "#00C9FF" },
+              { label: "Error Rate", value: `${((data.totals.failed/data.totals.sent)*100).toFixed(2)}%`, color: "#FF6B35" },
+            ].map((kpi, i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderLeft: `4px solid ${kpi.color}`, borderRadius: 12, padding: "18px 20px" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{kpi.label}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{kpi.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Delivery status over time */}
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Delivery Status Over Time</h3>
+            <BarChart data={data.daily} color={(d) => {
+              const rate = d.delivered / d.sent;
+              return rate > 0.97 ? "#00E676" : rate > 0.94 ? "#FFD600" : "#FF3B30";
+            }} height={180} valueKey="delivered" />
+          </div>
+
+          {/* Error codes + Latency */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Error Codes</h3>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {["Code", "Description", "Count", "Severity"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.errorCodes.map((err, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{err.code}</td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{err.desc}</td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "#fff", fontSize: 13, fontWeight: 600 }}>{err.count.toLocaleString()}</td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                        <span style={{ background: err.severity === "error" ? "rgba(255,59,48,0.1)" : err.severity === "warning" ? "rgba(255,214,0,0.1)" : "rgba(0,201,255,0.1)", color: err.severity === "error" ? "#FF3B30" : err.severity === "warning" ? "#FFD600" : "#00C9FF", borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{err.severity}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Latency Distribution</h3>
+              {data.latency.map((l, i) => (
+                <div key={i} style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{l.bucket}</span>
+                    <span style={{ color: l.color, fontSize: 13, fontWeight: 700 }}>{l.count}%</span>
+                  </div>
+                  <ProgressBar value={l.count} color={l.color} height={8} />
+                </div>
+              ))}
+              <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(0,230,118,0.05)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: 10 }}>
+                <div style={{ fontSize: 12, color: "#00E676", fontWeight: 600 }}>✓ 90% of messages delivered under 3 seconds</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Meets SLA target of &lt; 5s for 95% of messages</div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════ RESPONSES TAB ═══════════════ */}
+      {activeTab === "responses" && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Response Types</h3>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                <DonutChart segments={data.responseTypes.map(r => ({ value: r.count, color: r.color }))} label="responses" />
+              </div>
+              {data.responseTypes.map(r => (
+                <div key={r.type} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 3, background: r.color, flexShrink: 0 }} />
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, flex: 1 }}>{r.type}</span>
+                  <span style={{ color: r.color, fontSize: 12, fontWeight: 700 }}>{r.count.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Opt-Out Monitoring</h3>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 48, fontWeight: 900, color: data.totals.optOut / data.totals.delivered < 0.005 ? "#00E676" : "#FF6B35" }}>{((data.totals.optOut / data.totals.delivered) * 100).toFixed(2)}%</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>Opt-out rate</div>
+              </div>
+              <div style={{ padding: "14px 16px", background: "rgba(0,230,118,0.05)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: 10, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: "#00E676", fontWeight: 600 }}>✓ Below industry average of 0.5%</div>
+              </div>
+              {[
+                { label: "Total Opt-Outs", value: data.totals.optOut.toLocaleString() },
+                { label: "Re-subscriptions (START)", value: Math.round(data.totals.optOut * 0.17).toLocaleString() },
+                { label: "Help Requests", value: Math.round(data.totals.optOut * 0.45).toLocaleString() },
+                { label: "Net Subscriber Change", value: `+${Math.round(data.totals.sent * 0.002).toLocaleString()}` },
+              ].map(s => (
+                <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{s.label}</span>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════ CHANNELS TAB ═══════════════ */}
+      {activeTab === "channels" && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 16 }}>
+            {data.channelBreakdown.map(ch => (
+              <div key={ch.name} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderTop: `3px solid ${ch.color}`, borderRadius: 12, padding: "20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{ch.name}</span>
+                  <span style={{ background: `${ch.color}22`, color: ch.color, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700 }}>{ch.pct}%</span>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{ch.value.toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>messages in period</div>
+                <ProgressBar value={ch.pct} color={ch.color} height={4} />
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════ TENANTS TAB ═══════════════ */}
+      {activeTab === "tenants" && viewLevel === "sp" && (
+        <>
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Tenant Performance</h3>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Tenant", "Messages", "Revenue", "Campaigns", "Contacts", "Delivery", "Open Rate", ""].map(h => (
+                    <th key={h} style={{ textAlign: h === "Tenant" || h === "" ? "left" : "center", padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.tenantBreakdown.map(t => (
+                  <tr key={t.id} style={{ cursor: "pointer" }} onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                    <td style={{ padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 36, height: 36, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 13 }}>{t.logo}</div>
+                        <div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff", fontWeight: 700 }}>{t.messages.toLocaleString()}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#00E676", fontWeight: 700 }}>${t.revenue.toLocaleString()}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.campaigns}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.contacts.toLocaleString()}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: t.deliveryRate > 96 ? "#00E676" : "#FFD600", fontWeight: 600 }}>{t.deliveryRate.toFixed(1)}%</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.openRate.toFixed(1)}%</td>
+                    <td style={{ padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <button onClick={() => setDrillTenant(t.id)} style={{ background: `${t.color}22`, border: `1px solid ${t.color}55`, borderRadius: 6, padding: "6px 12px", color: t.color, fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Drill Down →</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Revenue comparison */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {data.tenantBreakdown.map(t => (
+              <div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderLeft: `4px solid ${t.color}`, borderRadius: 14, padding: 22 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{t.logo}</div>
+                  <div><div style={{ color: "#fff", fontWeight: 700 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   {[
-                    { label: "🤖 AI Bot", value: stats.botMessages || 0, color: COLORS.accent2 },
-                    { label: "👤 Agent", value: stats.agentMessages || 0, color: COLORS.accent },
-                    { label: "📱 Customer", value: stats.customerMessages || 0, color: COLORS.accent3 },
-                  ].map(item => (
-                    <div key={item.label}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ color: COLORS.text, fontSize: 13 }}>{item.label}</span>
-                        <span style={{ color: item.color, fontSize: 13, fontWeight: 700 }}>{item.value}</span>
-                      </div>
-                      <div style={{ height: 6, background: COLORS.bg, borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%",
-                          width: `${stats.totalMessages > 0 ? (item.value / stats.totalMessages) * 100 : 0}%`,
-                          background: item.color, borderRadius: 3,
-                          transition: "width 0.6s ease",
-                        }} />
-                      </div>
+                    { label: "Messages", value: t.messages.toLocaleString() },
+                    { label: "Revenue", value: `$${t.revenue.toLocaleString()}` },
+                    { label: "Delivery", value: `${t.deliveryRate.toFixed(1)}%` },
+                    { label: "Open Rate", value: `${t.openRate.toFixed(1)}%` },
+                  ].map(s => (
+                    <div key={s.label}>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{s.value}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 16, padding: "12px 14px", background: COLORS.bg, borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: COLORS.muted, fontSize: 12 }}>Response Rate</span>
-                    <span style={{ color: COLORS.accent3, fontSize: 14, fontWeight: 800 }}>{stats.responseRate}%</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ═══════════════ CAMPAIGNS TAB ═══════════════ */}
+      {activeTab === "campaigns" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Campaign Summary</h3>
+            {[
+              { label: "Total Campaigns", value: data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0), icon: "🚀", color: "#FF6B35" },
+              { label: "Active Now", value: Math.round(data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0) * 0.37), icon: "🟢", color: "#00E676" },
+              { label: "Completed", value: Math.round(data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0) * 0.55), icon: "✅", color: "#00C9FF" },
+              { label: "Scheduled", value: Math.round(data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0) * 0.08), icon: "📅", color: "#E040FB" },
+              { label: "Avg Revenue/Campaign", value: `$${Math.round(data.totals.revenue / Math.max(data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0), 1)).toLocaleString()}`, icon: "💵", color: "#FFD600" },
+              { label: "AI-Generated Copy", value: "34%", icon: "🤖", color: "#7C4DFF" },
+            ].map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: `${item.color}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, flex: 1 }}>{item.label}</span>
+                <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>{typeof item.value === "number" ? item.value.toLocaleString() : item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Performing Campaigns</h3>
+            {[
+              { name: "Flash Sale Alert", tenant: "RetailCo", channel: "SMS", sent: 45200, openRate: 94.2, clickRate: 22.1, color: "#00E676" },
+              { name: "Account Verification", tenant: "FinServ", channel: "SMS", sent: 38400, openRate: 98.1, clickRate: 8.2, color: "#7C4DFF" },
+              { name: "Weekly Newsletter", tenant: "Acme Corp", channel: "Email", sent: 24100, openRate: 42.8, clickRate: 12.4, color: "#FF6B35" },
+              { name: "Abandoned Cart", tenant: "RetailCo", channel: "WhatsApp", sent: 18600, openRate: 72.4, clickRate: 31.2, color: "#25D366" },
+              { name: "Product Launch RCS", tenant: "Acme Corp", channel: "RCS", sent: 12800, openRate: 68.9, clickRate: 28.7, color: "#E040FB" },
+            ].map((c, i) => (
+              <div key={i} style={{ padding: "14px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <div>
+                    <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}</span>
+                    <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginLeft: 8 }}>{c.tenant}</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                    <span style={{ color: COLORS.muted, fontSize: 12 }}>Avg Response Time</span>
-                    <span style={{ color: COLORS.accent, fontSize: 14, fontWeight: 800 }}>{stats.avgResponseTime}</span>
-                  </div>
+                  <span style={{ background: `${CHANNEL_COLORS[c.channel]}22`, color: CHANNEL_COLORS[c.channel], borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{c.channel}</span>
+                </div>
+                <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Sent: <strong style={{ color: "#fff" }}>{c.sent.toLocaleString()}</strong></span>
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Open: <strong style={{ color: "#00E676" }}>{c.openRate}%</strong></span>
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Click: <strong style={{ color: C.accent }}>{c.clickRate}%</strong></span>
                 </div>
               </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-            {/* Conversation Volume Chart */}
-            <div style={{
-              background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-              borderRadius: 14, padding: 24, marginBottom: 24,
-              animation: "slideUp 0.5s ease 0.45s both",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div>
-                  <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800 }}>Conversation Volume</div>
-                  <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 2 }}>New conversations per day</div>
-                </div>
+      {/* ═══════════════ AI PERFORMANCE TAB ═══════════════ */}
+      {activeTab === "ai" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>AI Chatbot Metrics</h3>
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
+              <div style={{ fontSize: 56, fontWeight: 900, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>94.2%</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Automated Resolution Rate</div>
+            </div>
+            {[
+              { label: "Total Conversations", value: "42,847", icon: "💬" },
+              { label: "Avg Response Time", value: "0.3s", icon: "⚡" },
+              { label: "Escalated to Human", value: "5.8%", icon: "🙋" },
+              { label: "Customer Satisfaction", value: "4.7 / 5.0", icon: "⭐" },
+              { label: "Avg Conversation Length", value: "4.2 msgs", icon: "📏" },
+              { label: "Cost Savings vs Human", value: "$28,400", icon: "💵" },
+            ].map(s => (
+              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <span style={{ fontSize: 16, width: 24 }}>{s.icon}</span>
+                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, flex: 1 }}>{s.label}</span>
+                <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>{s.value}</span>
               </div>
-              {stats.dailyConversations.length > 0 ? (
-                <BarChart data={stats.dailyConversations} color={COLORS.accent2} height={80} />
-              ) : (
-                <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.dim, fontSize: 13 }}>
-                  No conversation data yet
-                </div>
-              )}
-            </div>
+            ))}
+          </div>
 
-            {/* Bottom Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-              {/* Recent Activity */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.5s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Recent Conversations</div>
-                {stats.recentActivity.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {stats.recentActivity.map((a, i) => (
-                      <div key={a.id || i} style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "10px 14px", background: COLORS.bg, borderRadius: 8,
-                        border: `1px solid ${COLORS.border}`,
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <span style={{ fontSize: 16 }}>{sentimentIcon(a.sentiment)}</span>
-                          <div>
-                            <div style={{ color: COLORS.text, fontSize: 13, fontWeight: 600 }}>{a.contact}</div>
-                            <div style={{ color: COLORS.muted, fontSize: 11 }}>{a.intent} · {a.channel}</div>
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{
-                            background: statusColor(a.status) + "22",
-                            border: `1px solid ${statusColor(a.status)}44`,
-                            color: statusColor(a.status),
-                            borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700,
-                            textTransform: "uppercase",
-                          }}>
-                            {a.status}
-                          </span>
-                          <span style={{ color: COLORS.dim, fontSize: 11 }}>
-                            {new Date(a.time).toLocaleDateString("en", { month: "short", day: "numeric" })}
-                          </span>
-                        </div>
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Top Intents Detected</h3>
+            {[
+              { intent: "Order Status", count: 12840, pct: 30, color: "#00C9FF" },
+              { intent: "Product Information", count: 8420, pct: 20, color: "#E040FB" },
+              { intent: "Return / Refund", count: 6210, pct: 14, color: "#FF6B35" },
+              { intent: "Billing Question", count: 4890, pct: 11, color: "#FFD600" },
+              { intent: "Account Support", count: 3640, pct: 8, color: "#00E676" },
+              { intent: "Scheduling", count: 2780, pct: 6, color: "#7C4DFF" },
+              { intent: "Complaint", count: 1920, pct: 4, color: "#FF3B30" },
+              { intent: "Other", count: 2147, pct: 5, color: "#6B8BAE" },
+            ].map(item => (
+              <div key={item.intent} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{item.intent}</span>
+                  <span style={{ fontSize: 12 }}><span style={{ color: item.color, fontWeight: 700 }}>{item.pct}%</span> <span style={{ color: "rgba(255,255,255,0.2)" }}>({item.count.toLocaleString()})</span></span>
+                </div>
+                <ProgressBar value={item.pct} color={item.color} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ REVENUE TAB ═══════════════ */}
+      {activeTab === "revenue" && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+            {[
+              { label: "Total Revenue", value: `$${data.totals.revenue.toLocaleString()}`, color: "#00E676", icon: "💰" },
+              { label: "MRR", value: `$${Math.round(data.totals.revenue / Math.max(data.days / 30, 1)).toLocaleString()}`, color: "#00C9FF", icon: "📈" },
+              { label: "Avg Revenue / Message", value: `$${(data.totals.revenue / data.totals.sent).toFixed(4)}`, color: C.accent, icon: "📊" },
+              { label: "Projected Annual", value: `$${Math.round((data.totals.revenue / data.days) * 365).toLocaleString()}`, color: "#FFD600", icon: "🎯" },
+            ].map((kpi, i) => (
+              <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderTop: `3px solid ${kpi.color}`, borderRadius: 12, padding: "18px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
+                  <span style={{ fontSize: 16 }}>{kpi.icon}</span>
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", marginTop: 6 }}>{kpi.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Revenue Over Time</h3>
+            <BarChart data={data.daily} color="#00E676" height={200} valueKey="revenue" format={v => `$${v.toLocaleString()}`} />
+          </div>
+
+          {viewLevel === "sp" && (
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Revenue by Tenant</h3>
+              {data.tenantBreakdown.map(t => {
+                const maxRev = Math.max(...data.tenantBreakdown.map(x => x.revenue));
+                return (
+                  <div key={t.id} style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 24, height: 24, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 9 }}>{t.logo}</div>
+                        <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{t.name}</span>
                       </div>
-                    ))}
+                      <span style={{ color: t.color, fontSize: 14, fontWeight: 700 }}>${t.revenue.toLocaleString()}</span>
+                    </div>
+                    <ProgressBar value={t.revenue} max={maxRev} color={t.color} height={10} />
                   </div>
-                ) : (
-                  <div style={{ color: COLORS.dim, fontSize: 13, textAlign: "center", padding: 20 }}>
-                    No conversations yet — they'll appear here as customers message in
-                  </div>
-                )}
-              </div>
-
-              {/* Top Intents */}
-              <div style={{
-                background: COLORS.surface, border: `1px solid ${COLORS.border}`,
-                borderRadius: 14, padding: 24,
-                animation: "slideUp 0.5s ease 0.55s both",
-              }}>
-                <div style={{ color: COLORS.text, fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Top Intents</div>
-                {stats.topIntents.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {stats.topIntents.map((t, i) => {
-                      const maxCount = stats.topIntents[0]?.count || 1;
-                      return (
-                        <div key={t.intent}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <span style={{ color: COLORS.text, fontSize: 13 }}>{t.intent}</span>
-                            <span style={{ color: COLORS.accent, fontSize: 13, fontWeight: 700 }}>{t.count}</span>
-                          </div>
-                          <div style={{ height: 5, background: COLORS.bg, borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{
-                              height: "100%",
-                              width: `${(t.count / maxCount) * 100}%`,
-                              background: `linear-gradient(90deg, ${COLORS.accent}, ${COLORS.accent2})`,
-                              borderRadius: 3,
-                              transition: "width 0.6s ease",
-                            }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ color: COLORS.dim, fontSize: 12, textAlign: "center", padding: 20 }}>
-                    Intent data will populate as conversations come in
-                  </div>
-                )}
-
-                {/* Quick Stats */}
-                <div style={{ marginTop: 20, padding: "14px", background: COLORS.bg, borderRadius: 10, border: `1px solid ${COLORS.border}` }}>
-                  <div style={{ color: COLORS.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Quick Stats</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: COLORS.muted, fontSize: 12 }}>Total Campaigns</span>
-                    <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 700 }}>{stats.totalCampaigns}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ color: COLORS.muted, fontSize: 12 }}>SMS Delivered</span>
-                    <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 700 }}>{stats.messagesSent}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: COLORS.muted, fontSize: 12 }}>Active Contacts</span>
-                    <span style={{ color: COLORS.text, fontSize: 12, fontWeight: 700 }}>{stats.totalContacts}</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
