@@ -5,6 +5,15 @@ const PORTAL_URL = 'https://portal.engwx.com';
 const LandingPage = () => {
   const observerRef = useRef(null);
   const [legalPage, setLegalPage] = useState(null);
+  const [page, setPage] = useState('home');
+  const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', type: 'general', message: '' });
+  const [contactSubmitted, setContactSubmitted] = useState(false);
+
+  const navigateTo = (p) => {
+    setPage(p);
+    setLegalPage(null);
+    window.scrollTo(0, 0);
+  };
 
   useEffect(() => {
     // Scroll reveal observer
@@ -241,7 +250,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
 
   // If showing a legal page, render it
   if (legalPage) {
-    const page = legalContent[legalPage];
+    const legalData = legalContent[legalPage];
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '0' }}>
         <style>{`
@@ -261,26 +270,438 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           .lp-logo-text span { color: #00C9FF; }
         `}</style>
         <nav className="lp-legal-nav">
-          <div className="lp-logo" onClick={() => setLegalPage(null)} style={{ cursor: 'pointer' }}>
+          <div className="lp-logo" onClick={() => navigateTo('home')} style={{ cursor: 'pointer' }}>
             <div className="lp-logo-icon">EW</div>
             <div className="lp-logo-text">Engage<span>Worx</span></div>
           </div>
-          <button onClick={() => setLegalPage(null)} style={{
+          <button onClick={() => navigateTo('home')} style={{
             background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8,
             padding: '8px 20px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14,
             fontFamily: "'Outfit', sans-serif"
           }}>← Back to Home</button>
         </nav>
         <div style={{ maxWidth: 760, margin: '0 auto', padding: '120px 40px 80px' }}>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>{page.title}</h1>
-          <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 40 }}>Last updated: {page.updated}</p>
-          {page.content.split('\n\n').map((para, i) => {
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>{legalData.title}</h1>
+          <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 40 }}>Last updated: {legalData.updated}</p>
+          {legalData.content.split('\n\n').map((para, i) => {
             const isHeading = para.length < 60 && !para.includes('.');
             return isHeading
               ? <h2 key={i} style={{ fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF' }}>{para}</h2>
               : <p key={i} style={{ color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16 }}>{para}</p>;
           })}
         </div>
+      </div>
+    );
+  }
+
+  // Shared sub-page wrapper with nav
+  const SubPageNav = () => (
+    <>
+      <style>{`
+        .lp-sub-nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          padding: 16px 40px; display: flex; align-items: center; justify-content: space-between;
+          background: rgba(5,8,16,0.95); backdrop-filter: blur(20px);
+          border-bottom: 1px solid rgba(26,37,64,0.5);
+        }
+        .lp-sub-nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
+        .lp-sub-nav-links a, .lp-sub-nav-links span {
+          color: #6B8BAE; text-decoration: none; font-size: 14px; font-weight: 500;
+          cursor: pointer; transition: color 0.2s;
+        }
+        .lp-sub-nav-links a:hover, .lp-sub-nav-links span:hover { color: #E8F4FD; }
+        .lp-sub-cta {
+          background: linear-gradient(135deg, #00C9FF, #E040FB) !important;
+          color: #000 !important; padding: 10px 24px !important; border-radius: 8px;
+          font-weight: 700 !important; font-size: 14px !important; border: none; cursor: pointer;
+          font-family: 'Outfit', sans-serif;
+        }
+        .lp-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
+        .lp-logo-icon {
+          width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB);
+          border-radius: 10px; display: flex; align-items: center; justify-content: center;
+          font-weight: 900; font-size: 16px; color: #000;
+        }
+        .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
+        .lp-logo-text span { color: #00C9FF; }
+        @media (max-width: 768px) {
+          .lp-sub-nav { padding: 12px 20px; }
+          .lp-sub-nav-links { display: none !important; }
+        }
+      `}</style>
+      <nav className="lp-sub-nav">
+        <div className="lp-logo" onClick={() => navigateTo('home')}>
+          <div className="lp-logo-icon">EW</div>
+          <div className="lp-logo-text">Engage<span>Worx</span></div>
+        </div>
+        <ul className="lp-sub-nav-links">
+          <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
+          <li><span onClick={() => navigateTo('about')}>About</span></li>
+          <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
+          <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
+          <li><button className="lp-sub-cta" onClick={goToSignup}>Get Started Free</button></li>
+        </ul>
+      </nav>
+    </>
+  );
+
+  // Shared sub-page footer
+  const SubPageFooter = () => (
+    <footer style={{ borderTop: '1px solid #1a2540', padding: '40px 40px 30px', marginTop: 80 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <span onClick={() => navigateTo('home')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Home</span>
+          <span onClick={() => navigateTo('pricing')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Pricing</span>
+          <span onClick={() => navigateTo('about')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>About</span>
+          <span onClick={() => navigateTo('contact')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Contact</span>
+          <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Privacy</span>
+          <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
+        </div>
+        <span style={{ color: '#3A5068', fontSize: 13 }}>© 2026 EngageWorx. All rights reserved.</span>
+      </div>
+    </footer>
+  );
+
+  // ─── PRICING PAGE ───────────────────────────────────────────────────────────
+  if (page === 'pricing') {
+    const plans = [
+      {
+        name: 'Starter', price: '$49', period: '/mo', desc: 'Perfect for small teams getting started with customer messaging.',
+        features: ['1,000 messages/month', 'SMS + Email channels', 'AI Chatbot (basic)', '5 automation flows', '1 team member', 'Community support', 'Basic analytics'],
+        cta: 'Start Free Trial', featured: false
+      },
+      {
+        name: 'Growth', price: '$149', period: '/mo', desc: 'For growing teams that need full omnichannel power and automation.',
+        features: ['10,000 messages/month', 'All channels (SMS, RCS, WhatsApp, Email)', 'AI Chatbot (advanced + custom personality)', 'Unlimited automation flows', '5 team members', 'Priority support', 'Advanced analytics + A/B testing', 'Custom sender IDs'],
+        cta: 'Start Free Trial', featured: true
+      },
+      {
+        name: 'Enterprise', price: 'Custom', period: '', desc: 'White-label, unlimited volume, and dedicated support for service providers.',
+        features: ['Unlimited messages', 'All channels + API access', 'White-label branding', 'Custom integrations', 'Unlimited team members', 'Dedicated account manager', 'SLA guarantee (99.9%)', 'Custom domain + SSO', 'Multi-tenant management'],
+        cta: 'Contact Sales', featured: false
+      }
+    ];
+    const faqs = [
+      { q: 'Is there a free trial?', a: 'Yes! All paid plans come with a 14-day free trial. No credit card required to start.' },
+      { q: 'Can I change plans later?', a: 'Absolutely. You can upgrade or downgrade at any time. Changes take effect at your next billing cycle.' },
+      { q: 'What counts as a message?', a: 'Each SMS segment, email, WhatsApp message, or RCS message counts as one message. MMS counts as 3 messages.' },
+      { q: 'Do you offer annual billing?', a: 'Yes — save 20% with annual billing on Starter and Growth plans. Contact us for Enterprise pricing.' },
+      { q: 'What happens if I exceed my message limit?', a: 'We will notify you at 80% and 100% usage. Overage messages are billed at a per-message rate based on your plan.' },
+      { q: 'Is there a setup fee?', a: 'No. There are no setup fees, hidden charges, or long-term contracts on Starter and Growth plans.' },
+    ];
+
+    return (
+      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
+        <SubPageNav />
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 40px 0' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 60 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>💎 Pricing</div>
+            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Simple, transparent<br />pricing.</h1>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Start free, scale as you grow. No hidden fees, no surprises, no long-term contracts.</p>
+          </div>
+
+          {/* Plan Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginBottom: 80 }}>
+            {plans.map((p, i) => (
+              <div key={i} style={{
+                background: '#0d1220', border: p.featured ? '2px solid #00C9FF' : '1px solid #1a2540',
+                borderRadius: 20, padding: '36px 28px', position: 'relative',
+                boxShadow: p.featured ? '0 0 40px rgba(0,201,255,0.15), 0 20px 60px rgba(0,0,0,0.3)' : 'none'
+              }}>
+                {p.featured && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '4px 16px', borderRadius: 100, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>MOST POPULAR</div>}
+                <div style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#6B8BAE', marginBottom: 12 }}>{p.name}</div>
+                <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: -2, marginBottom: 4 }}>{p.price}<span style={{ fontSize: 16, fontWeight: 500, color: '#6B8BAE', letterSpacing: 0 }}>{p.period}</span></div>
+                <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>{p.desc}</p>
+                <ul style={{ listStyle: 'none', padding: 0, marginBottom: 28 }}>
+                  {p.features.map((f, j) => (
+                    <li key={j} style={{ padding: '8px 0', fontSize: 14, color: '#6B8BAE', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ color: '#00E676', fontWeight: 800, fontSize: 14 }}>✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={p.cta === 'Contact Sales' ? () => navigateTo('contact') : goToSignup} style={{
+                  display: 'block', width: '100%', padding: 14, borderRadius: 10, textAlign: 'center',
+                  fontSize: 15, fontWeight: 700, cursor: 'pointer', border: 'none', fontFamily: "'Outfit', sans-serif",
+                  background: p.featured ? 'linear-gradient(135deg, #00C9FF, #E040FB)' : 'transparent',
+                  color: p.featured ? '#000' : '#E8F4FD',
+                  ...(p.featured ? {} : { border: '1px solid #1a2540' })
+                }}>{p.cta}</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Feature Comparison */}
+          <div style={{ marginBottom: 80 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, textAlign: 'center', marginBottom: 40 }}>Compare plans</h2>
+            <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#6B8BAE', fontSize: 13, fontWeight: 600 }}>Feature</th>
+                    {['Starter', 'Growth', 'Enterprise'].map(h => (
+                      <th key={h} style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#00C9FF', fontSize: 13, fontWeight: 700 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ['Monthly messages', '1,000', '10,000', 'Unlimited'],
+                    ['SMS & Email', '✓', '✓', '✓'],
+                    ['RCS & WhatsApp', '—', '✓', '✓'],
+                    ['AI Chatbot', 'Basic', 'Advanced', 'Custom'],
+                    ['Automation flows', '5', 'Unlimited', 'Unlimited'],
+                    ['Team members', '1', '5', 'Unlimited'],
+                    ['Analytics', 'Basic', 'Advanced', 'Custom'],
+                    ['A/B testing', '—', '✓', '✓'],
+                    ['White-label branding', '—', '—', '✓'],
+                    ['Custom domain', '—', '—', '✓'],
+                    ['API access', '—', '✓', '✓'],
+                    ['SSO / SAML', '—', '—', '✓'],
+                    ['Dedicated support', '—', '—', '✓'],
+                    ['SLA guarantee', '—', '—', '99.9%'],
+                    ['TCR/10DLC registration', '✓', '✓', '✓'],
+                    ['GDPR compliance tools', '✓', '✓', '✓'],
+                  ].map(([feature, ...vals], i) => (
+                    <tr key={i}>
+                      <td style={{ padding: '12px 24px', borderBottom: '1px solid rgba(26,37,64,0.5)', color: '#E8F4FD', fontSize: 14 }}>{feature}</td>
+                      {vals.map((v, j) => (
+                        <td key={j} style={{ textAlign: 'center', padding: '12px 24px', borderBottom: '1px solid rgba(26,37,64,0.5)', color: v === '✓' ? '#00E676' : v === '—' ? '#3A5068' : '#6B8BAE', fontSize: 14, fontWeight: v === '✓' || v === '—' ? 400 : 600 }}>{v}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* FAQ */}
+          <div style={{ marginBottom: 60 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, textAlign: 'center', marginBottom: 40 }}>Frequently asked questions</h2>
+            <div style={{ maxWidth: 760, margin: '0 auto', display: 'grid', gap: 16 }}>
+              {faqs.map((f, i) => (
+                <div key={i} style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 12, padding: '24px 28px' }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{f.q}</h3>
+                  <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>{f.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ textAlign: 'center', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 24, padding: '60px 48px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 12 }}>Ready to get started?</h2>
+            <p style={{ color: '#6B8BAE', fontSize: 17, marginBottom: 28 }}>Start your free 14-day trial. No credit card required.</p>
+            <button onClick={goToSignup} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px 36px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
+          </div>
+        </div>
+        <SubPageFooter />
+      </div>
+    );
+  }
+
+  // ─── ABOUT PAGE ─────────────────────────────────────────────────────────────
+  if (page === 'about') {
+    return (
+      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
+        <SubPageNav />
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '120px 40px 0' }}>
+          {/* Hero */}
+          <div style={{ textAlign: 'center', marginBottom: 80 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>🏢 About Us</div>
+            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 20 }}>We're building the future of<br /><span style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>customer engagement.</span></h1>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 640, margin: '0 auto', lineHeight: 1.8 }}>
+              EngageWorx was born from a simple frustration: businesses shouldn't need five different tools, a dedicated engineering team, and a six-figure budget to have great customer conversations.
+            </p>
+          </div>
+
+          {/* Mission */}
+          <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '48px 40px', marginBottom: 48, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
+            <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 16, color: '#00C9FF' }}>Our Mission</h2>
+            <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8 }}>
+              To democratize customer engagement by providing an all-in-one, AI-powered communication platform that any business can deploy in minutes — not months. We believe every company, regardless of size, deserves enterprise-grade messaging capabilities.
+            </p>
+          </div>
+
+          {/* What We Do */}
+          <h2 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 24 }}>What we do</h2>
+          <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8, marginBottom: 40 }}>
+            EngageWorx is an AI-powered Communication Platform as a Service (CPaaS) that unifies SMS, RCS, WhatsApp, and Email into a single intelligent platform. Our tools include AI chatbots that handle conversations automatically, visual automation builders, smart campaign management, and real-time analytics — all wrapped in a beautiful, white-label-ready interface.
+          </p>
+
+          {/* Values */}
+          <h2 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 24 }}>What drives us</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 48 }}>
+            {[
+              { icon: '⚡', title: 'Speed Over Complexity', desc: 'We obsess over reducing time-to-value. If it takes more than 10 minutes to set up, we haven\'t done our job.' },
+              { icon: '🤖', title: 'AI That Helps, Not Hypes', desc: 'We use AI where it genuinely saves you time — generating campaigns, handling conversations, and surfacing insights.' },
+              { icon: '🌍', title: 'Global By Default', desc: 'Built for businesses operating across the US, UK, and EU with compliance tools for TCPA, GDPR, PECR, and more.' },
+              { icon: '🔒', title: 'Trust & Security', desc: 'End-to-end encryption, SOC 2 practices, GDPR compliance, and row-level data isolation. Your data is yours.' },
+              { icon: '🎨', title: 'Your Brand, Not Ours', desc: 'Full white-label capabilities mean your customers see your brand, your colors, your domain — never ours.' },
+              { icon: '💬', title: 'Conversations, Not Broadcasts', desc: 'We believe the best customer engagement is two-way. Our platform is built for dialogue, not just delivery.' },
+            ].map((v, i) => (
+              <div key={i} style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px 24px' }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>{v.icon}</div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{v.title}</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>{v.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
+            {[
+              { num: '50M+', label: 'Messages delivered' },
+              { num: '500+', label: 'Businesses trust us' },
+              { num: '99.9%', label: 'Uptime SLA' },
+              { num: '6', label: 'Channels supported' },
+            ].map((s, i) => (
+              <div key={i} style={{ background: '#0d1220', padding: '32px 24px', textAlign: 'center' }}>
+                <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{s.num}</div>
+                <div style={{ fontSize: 13, color: '#6B8BAE', marginTop: 4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Location */}
+          <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px', marginBottom: 48, display: 'flex', alignItems: 'center', gap: 32 }}>
+            <div style={{ fontSize: 48 }}>☀️</div>
+            <div>
+              <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Based in Miami, serving the world</h3>
+              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7 }}>
+                Our team operates from Miami, Florida with a global infrastructure spanning the US, Europe, and beyond. We serve businesses across North America, the United Kingdom, and the European Union with localized compliance and support.
+              </p>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div style={{ textAlign: 'center', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 24, padding: '60px 48px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
+            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 12 }}>Want to learn more?</h2>
+            <p style={{ color: '#6B8BAE', fontSize: 17, marginBottom: 28 }}>Get in touch or start your free trial today.</p>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              <button onClick={goToSignup} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px 36px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
+              <button onClick={() => navigateTo('contact')} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid #1a2540', color: '#E8F4FD', padding: '16px 36px', borderRadius: 12, fontSize: 16, fontWeight: 600, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Contact Us</button>
+            </div>
+          </div>
+        </div>
+        <SubPageFooter />
+      </div>
+    );
+  }
+
+  // ─── CONTACT PAGE ───────────────────────────────────────────────────────────
+  if (page === 'contact') {
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const subject = encodeURIComponent(`[${contactForm.type}] Inquiry from ${contactForm.name}`);
+      const body = encodeURIComponent(`Name: ${contactForm.name}\nEmail: ${contactForm.email}\nCompany: ${contactForm.company}\nType: ${contactForm.type}\n\nMessage:\n${contactForm.message}`);
+      window.location.href = `mailto:hello@engwx.com?subject=${subject}&body=${body}`;
+      setContactSubmitted(true);
+    };
+
+    return (
+      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
+        <SubPageNav />
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 40px 0' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 60 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>✉️ Contact</div>
+            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Let's talk.</h1>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Have a question, want a demo, or ready to get started? We'd love to hear from you.</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 48, alignItems: 'start' }}>
+            {/* Contact Form */}
+            <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px' }}>
+              {contactSubmitted ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+                  <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Thanks for reaching out!</h2>
+                  <p style={{ color: '#6B8BAE', fontSize: 15 }}>Your email client should open with your message. We'll get back to you within one business day.</p>
+                  <button onClick={() => setContactSubmitted(false)} style={{ marginTop: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Send another message</button>
+                </div>
+              ) : (
+                <>
+                  <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 24 }}>Send us a message</h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    <div>
+                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Your Name</label>
+                      <input type="text" value={contactForm.name} onChange={(e) => setContactForm({...contactForm, name: e.target.value})} placeholder="John Smith" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Email Address</label>
+                      <input type="email" value={contactForm.email} onChange={(e) => setContactForm({...contactForm, email: e.target.value})} placeholder="john@company.com" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    <div>
+                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Company</label>
+                      <input type="text" value={contactForm.company} onChange={(e) => setContactForm({...contactForm, company: e.target.value})} placeholder="Acme Corp" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Inquiry Type</label>
+                      <select value={contactForm.type} onChange={(e) => setContactForm({...contactForm, type: e.target.value})} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box', appearance: 'auto' }}>
+                        <option value="general">General Inquiry</option>
+                        <option value="demo">Request a Demo</option>
+                        <option value="sales">Sales / Enterprise</option>
+                        <option value="support">Technical Support</option>
+                        <option value="partnership">Partnership</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Message</label>
+                    <textarea value={contactForm.message} onChange={(e) => setContactForm({...contactForm, message: e.target.value})} rows={5} placeholder="Tell us how we can help..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box', resize: 'vertical' }} />
+                  </div>
+                  <button onClick={handleSubmit} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Send Message →</button>
+                </>
+              )}
+            </div>
+
+            {/* Contact Info Sidebar */}
+            <div>
+              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
+                <div style={{ fontSize: 24, marginBottom: 12 }}>📧</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Email Us</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
+                  General: <a href="mailto:hello@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>hello@engwx.com</a><br />
+                  Sales: <a href="mailto:sales@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>sales@engwx.com</a><br />
+                  Support: <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>
+                </p>
+              </div>
+
+              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
+                <div style={{ fontSize: 24, marginBottom: 12 }}>⏰</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Response Time</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
+                  We respond to all inquiries within one business day. Enterprise and demo requests are prioritized.
+                </p>
+              </div>
+
+              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
+                <div style={{ fontSize: 24, marginBottom: 12 }}>📍</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Location</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
+                  Miami, Florida, USA<br />
+                  Serving customers in the US, UK & EU
+                </p>
+              </div>
+
+              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px' }}>
+                <div style={{ fontSize: 24, marginBottom: 12 }}>🚀</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Ready to start?</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
+                  Skip the form and jump straight in. 14-day free trial, no credit card required.
+                </p>
+                <button onClick={goToSignup} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '12px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <SubPageFooter />
       </div>
     );
   }
@@ -641,8 +1062,9 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           <ul className="lp-nav-links">
             <li><span onClick={() => scrollTo('lp-channels')}>Channels</span></li>
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
-            <li><span onClick={() => scrollTo('lp-pricing')}>Pricing</span></li>
-            <li><span onClick={() => scrollTo('lp-how')}>How It Works</span></li>
+            <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
+            <li><span onClick={() => navigateTo('about')}>About</span></li>
+            <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
           </ul>
@@ -884,15 +1306,15 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               <h4>Product</h4>
               <a onClick={() => scrollTo('lp-channels')}>Channels</a>
               <a onClick={() => scrollTo('lp-features')}>Features</a>
-              <a onClick={() => scrollTo('lp-pricing')}>Pricing</a>
+              <a onClick={() => navigateTo('pricing')}>Pricing</a>
               <a href={PORTAL_URL}>Login</a>
             </div>
             <div className="lp-footer-col">
               <h4>Company</h4>
-              <a onClick={goToSignup}>Get Started</a>
+              <a onClick={() => navigateTo('about')}>About Us</a>
+              <a onClick={() => navigateTo('contact')}>Contact</a>
               <a href={PORTAL_URL}>Customer Portal</a>
-              <a href="mailto:support@engwx.com">Support</a>
-              <a href="mailto:sales@engwx.com">Contact Sales</a>
+              <a onClick={goToSignup}>Get Started</a>
             </div>
             <div className="lp-footer-col">
               <h4>Legal</h4>
