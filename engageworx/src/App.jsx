@@ -1,3 +1,4 @@
+// deploy trigger
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
 import SignupPage from './SignupPage';
@@ -621,4 +622,3 @@ export default function App() {
     </div>
   );
 }
-// trigger deploy
