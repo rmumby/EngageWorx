@@ -5,8 +5,7 @@ import SignupPage from './SignupPage';
 import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
 import AdminTenants from './AdminTenants';
-import WhiteLabelBranding from './WhiteLabelBranding';
-import LandingPage from './components/LandingPage';
+
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
