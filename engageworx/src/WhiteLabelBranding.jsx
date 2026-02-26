@@ -278,7 +278,7 @@ function isLightColor(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
-export default function WhiteLabelBranding({ tenantId }) {
+export default function WhiteLabelBranding({ tenantId, onSaved }) {
   const [brand, setBrand] = useState({ ...DEFAULT_BRAND });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -300,11 +300,13 @@ export default function WhiteLabelBranding({ tenantId }) {
   const loadBranding = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      let query = supabase
         .from("tenant_branding")
-        .select("*")
-        .limit(1)
-        .single();
+        .select("*");
+      if (tenantId) {
+        query = query.eq("tenant_id", tenantId);
+      }
+      const { data } = await query.limit(1).single();
       if (data) {
         setBrandId(data.id);
         if (data.branding) setBrand(prev => ({ ...prev, ...data.branding }));
@@ -328,6 +330,7 @@ export default function WhiteLabelBranding({ tenantId }) {
         if (data) setBrandId(data.id);
       }
       showToast("Branding saved! Changes will apply on next page load.");
+      if (onSaved) onSaved();
     } catch (err) {
       showToast("Error: " + err.message, "error");
     }
