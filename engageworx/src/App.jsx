@@ -530,6 +530,143 @@ export default function App() {
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
   const [liveBranding, setLiveBranding] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginMode, setLoginMode] = useState("login"); // "login" | "register" | "forgot"
+  const [registerName, setRegisterName] = useState("");
+  const [registerCompany, setRegisterCompany] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setAuthUser(session.user);
+          // Check user role to determine default view
+          const { data: profile } = await supabase
+            .from("user_profiles")
+            .select("role, tenant_id")
+            .eq("id", session.user.id)
+            .single();
+          if (profile?.role === "superadmin") {
+            setView("sp");
+          } else if (profile?.tenant_id) {
+            setView("tenant_" + profile.tenant_id);
+          } else {
+            setView("sp"); // Default to SP view for now
+          }
+        }
+      } catch (err) { /* No session */ }
+      setAuthLoading(false);
+    };
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          setAuthUser(session.user);
+        } else if (event === "SIGNED_OUT") {
+          setAuthUser(null);
+          setView("login");
+        }
+      }
+    );
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  // Handle login
+  const handleLogin = async (e) => {
+    e?.preventDefault();
+    setLoginError("");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (error) throw error;
+      setAuthUser(data.user);
+      // Get user profile for role
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("role, tenant_id")
+        .eq("id", data.user.id)
+        .single();
+      if (profile?.role === "superadmin") {
+        setView("sp");
+      } else if (profile?.tenant_id) {
+        setView("tenant_" + profile.tenant_id);
+      } else {
+        setView("sp");
+      }
+    } catch (err) {
+      setLoginError(err.message || "Invalid email or password");
+    }
+  };
+
+  // Handle registration
+  const handleRegister = async (e) => {
+    e?.preventDefault();
+    setLoginError("");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: loginEmail,
+        password: loginPassword,
+        options: {
+          data: {
+            full_name: registerName,
+            company_name: registerCompany,
+          }
+        }
+      });
+      if (error) throw error;
+      if (data.user && !data.session) {
+        // Email confirmation required
+        setAuthMessage("Check your email for a confirmation link to complete registration.");
+        setLoginMode("login");
+      } else if (data.session) {
+        // Auto-confirmed (if email confirmations disabled)
+        setAuthUser(data.user);
+        setView("sp");
+      }
+    } catch (err) {
+      setLoginError(err.message || "Registration failed");
+    }
+  };
+
+  // Handle forgot password
+  const handleForgotPassword = async (e) => {
+    e?.preventDefault();
+    setLoginError("");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setAuthMessage("Password reset link sent to your email.");
+      setLoginMode("login");
+    } catch (err) {
+      setLoginError(err.message || "Failed to send reset email");
+    }
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setAuthUser(null);
+    setView("login");
+    setSelectedRole(null);
+    setLoginEmail("");
+    setLoginPassword("");
+    setLoginError("");
+    setAuthMessage("");
+  };
 
   // Load saved branding from Supabase
   useEffect(() => {
@@ -604,11 +741,19 @@ export default function App() {
     return <AdminTenants onBack={() => setView("sp")} />;
   }
   if (view === "login") {
+    if (authLoading) {
+      return (
+        <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ color: C.muted, fontSize: 16 }}>Loading...</div>
+        </div>
+      );
+    }
+
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ width: 480 }}>
+        <div style={{ width: 440 }}>
           {/* Logo */}
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: 40 }}>
             {brandLogo ? (
               <img src={brandLogo} alt={brandName} style={{ maxHeight: 48, marginBottom: 8 }} />
             ) : (
@@ -620,10 +765,195 @@ export default function App() {
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
-            <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Select Portal</h2>
-            <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Choose your access level to continue</p>
+            {/* Auth Message */}
+            {authMessage && (
+              <div style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 16px", marginBottom: 20, color: C.primary, fontSize: 13, textAlign: "center" }}>
+                {authMessage}
+              </div>
+            )}
 
-            {/* Role Selection */}
+            {/* LOGIN MODE */}
+            {loginMode === "login" && (
+              <>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Welcome Back</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Sign in to your account</p>
+
+                {loginError && (
+                  <div style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, color: "#FF3B30", fontSize: 13 }}>
+                    {loginError}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Email Address</label>
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                    placeholder="you@company.com"
+                    style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: 8 }}>
+                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Password</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                      placeholder="Enter your password"
+                      style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }}
+                    />
+                    <button onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 18 }}>
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "right", marginBottom: 20 }}>
+                  <button onClick={() => { setLoginMode("forgot"); setLoginError(""); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+                    Forgot password?
+                  </button>
+                </div>
+
+                <button
+                  onClick={handleLogin}
+                  style={{
+                    width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                    border: "none", borderRadius: 10, padding: "14px",
+                    color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 16, transition: "all 0.2s",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}>
+                  Sign In →
+                </button>
+
+                <div style={{ marginTop: 20, textAlign: "center" }}>
+                  <span style={{ color: C.muted, fontSize: 14 }}>New to {brandName}? </span>
+                  <button onClick={() => { setLoginMode("register"); setLoginError(""); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                    Create Account →
+                  </button>
+                </div>
+
+                {/* Demo Access Divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "24px 0 16px" }}>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                  <span style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>or explore demo</span>
+                  <div style={{ flex: 1, height: 1, background: C.border }} />
+                </div>
+
+                <button
+                  onClick={() => setView("demo_select")}
+                  style={{
+                    width: "100%", background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px",
+                    color: C.muted, fontWeight: 600, cursor: "pointer", fontSize: 13,
+                    fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                  }}>
+                  🎯 Try Demo Mode
+                </button>
+              </>
+            )}
+
+            {/* REGISTER MODE */}
+            {loginMode === "register" && (
+              <>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Create Account</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Start your free trial — no credit card required</p>
+
+                {loginError && (
+                  <div style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, color: "#FF3B30", fontSize: 13 }}>
+                    {loginError}
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Full Name</label>
+                    <input type="text" value={registerName} onChange={(e) => setRegisterName(e.target.value)} placeholder="John Smith" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Company</label>
+                    <input type="text" value={registerCompany} onChange={(e) => setRegisterCompany(e.target.value)} placeholder="Acme Corp" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Email Address</label>
+                  <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="you@company.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                </div>
+
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Password</label>
+                  <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleRegister()} placeholder="Min. 8 characters" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                </div>
+
+                <button onClick={handleRegister} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif" }}>
+                  Create Account →
+                </button>
+
+                <div style={{ marginTop: 20, textAlign: "center" }}>
+                  <span style={{ color: C.muted, fontSize: 14 }}>Already have an account? </span>
+                  <button onClick={() => { setLoginMode("login"); setLoginError(""); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                    Sign In →
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* FORGOT PASSWORD MODE */}
+            {loginMode === "forgot" && (
+              <>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Reset Password</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Enter your email and we'll send you a reset link</p>
+
+                {loginError && (
+                  <div style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 10, padding: "10px 16px", marginBottom: 16, color: "#FF3B30", fontSize: 13 }}>
+                    {loginError}
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Email Address</label>
+                  <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleForgotPassword()} placeholder="you@company.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                </div>
+
+                <button onClick={handleForgotPassword} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif" }}>
+                  Send Reset Link →
+                </button>
+
+                <div style={{ marginTop: 20, textAlign: "center" }}>
+                  <button onClick={() => { setLoginMode("login"); setLoginError(""); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                    ← Back to Sign In
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Demo portal selector
+  if (view === "demo_select") {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ width: 480 }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: 100, padding: "6px 16px", fontSize: 12, fontWeight: 700, color: C.primary, marginBottom: 16 }}>🎯 DEMO MODE</div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>
+              {brandName === "EngageWorx" ? <>Engage<span style={{ color: C.primary }}>Worx</span></> : <span style={{ color: C.primary }}>{brandName}</span>}
+            </div>
+            <div style={{ color: C.muted, marginTop: 6 }}>Explore the platform with sample data</div>
+          </div>
+
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
+            <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Select Portal</h2>
+            <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Choose your access level to explore</p>
+
             <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
               <button onClick={() => setSelectedRole("sp")} style={{
                 background: selectedRole === "sp" ? `${C.primary}22` : "rgba(255,255,255,0.03)",
@@ -668,9 +998,8 @@ export default function App() {
               Enter Portal →
             </button>
             <div style={{ marginTop: 16, textAlign: "center" }}>
-              <span style={{ color: C.muted, fontSize: 14 }}>New to {brandName}? </span>
-              <button onClick={() => setView("signup")} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
-                Sign Up →
+              <button onClick={() => { setView("login"); setSelectedRole(null); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                ← Back to Sign In
               </button>
             </div>
           </div>
@@ -728,13 +1057,14 @@ export default function App() {
           ))}
         </nav>
 
-        <button onClick={() => setView("login")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
+        <button onClick={() => setView("login")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 8, width: "100%" }}>← Switch Portal</button>
+        {authUser && <button onClick={handleLogout} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "10px", color: "#FF6B6B", cursor: "pointer", fontSize: 12, marginBottom: 12, width: "100%" }}>Sign Out</button>}
 
         <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>{brandName.substring(0,2).toUpperCase()}</div>
             <div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{brandName} Admin</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{authUser ? authUser.email : `${brandName} Admin`}</div>
               <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
             </div>
           </div>
