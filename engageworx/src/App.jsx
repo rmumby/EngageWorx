@@ -195,7 +195,391 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
   );
 }
 
-// ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
+// ─── GLOBAL ANALYTICS ─────────────────────────────────────────────────────────
+function GlobalAnalytics({ C }) {
+  const [timeRange, setTimeRange] = useState("30d");
+  const [activeMetric, setActiveMetric] = useState("messages");
+  const customers = Object.values(TENANTS).filter(t => t.role === "customer");
+  const sp = TENANTS.serviceProvider;
+
+  // Generate mock time series data
+  const generateTimeSeries = (days, base, variance) => {
+    const data = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dayOfWeek = d.getDay();
+      const weekendDip = (dayOfWeek === 0 || dayOfWeek === 6) ? 0.6 : 1;
+      const trend = 1 + (days - i) * 0.008;
+      const val = Math.round(base * weekendDip * trend * (0.85 + Math.random() * variance));
+      data.push({ date: d, label: `${d.getMonth()+1}/${d.getDate()}`, value: val });
+    }
+    return data;
+  };
+
+  const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
+  const msgData = generateTimeSeries(days, 4200, 0.3);
+  const revData = generateTimeSeries(days, 980, 0.25);
+
+  // Chart renderer (pure CSS bar chart)
+  const BarChart = ({ data, color, height = 200, label, format }) => {
+    const max = Math.max(...data.map(d => d.value));
+    const showEvery = data.length > 30 ? 7 : data.length > 14 ? 3 : 1;
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height, padding: "0 0 24px" }}>
+          {data.map((d, i) => {
+            const pct = (d.value / max) * 100;
+            return (
+              <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative" }}>
+                <div
+                  title={`${d.label}: ${format ? format(d.value) : d.value.toLocaleString()}`}
+                  style={{
+                    width: "100%", minWidth: 3, maxWidth: 24,
+                    height: `${pct}%`, background: `linear-gradient(180deg, ${color}, ${color}88)`,
+                    borderRadius: "3px 3px 0 0", transition: "height 0.3s",
+                    cursor: "pointer", position: "relative",
+                  }}
+                  onMouseEnter={(e) => { e.target.style.opacity = 0.8; e.target.style.boxShadow = `0 0 12px ${color}44`; }}
+                  onMouseLeave={(e) => { e.target.style.opacity = 1; e.target.style.boxShadow = "none"; }}
+                />
+                {(i % showEvery === 0) && (
+                  <span style={{ position: "absolute", bottom: -20, fontSize: 9, color: "rgba(255,255,255,0.25)", whiteSpace: "nowrap" }}>{d.label}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Mini sparkline
+  const Sparkline = ({ data, color, width = 80, height = 28 }) => {
+    const max = Math.max(...data.map(d => d.value));
+    const min = Math.min(...data.map(d => d.value));
+    const range = max - min || 1;
+    const points = data.map((d, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((d.value - min) / range) * (height - 4);
+      return `${x},${y}`;
+    }).join(" ");
+    return (
+      <svg width={width} height={height} style={{ overflow: "visible" }}>
+        <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  };
+
+  // Donut chart
+  const DonutChart = ({ segments, size = 160 }) => {
+    const total = segments.reduce((s, seg) => s + seg.value, 0);
+    let cumulative = 0;
+    const radius = 60;
+    const circumference = 2 * Math.PI * radius;
+
+    return (
+      <svg width={size} height={size} viewBox="0 0 160 160">
+        {segments.map((seg, i) => {
+          const pct = seg.value / total;
+          const offset = cumulative * circumference;
+          cumulative += pct;
+          return (
+            <circle key={i} cx="80" cy="80" r={radius} fill="none"
+              stroke={seg.color} strokeWidth="20"
+              strokeDasharray={`${pct * circumference} ${circumference}`}
+              strokeDashoffset={-offset}
+              transform="rotate(-90 80 80)"
+              style={{ transition: "all 0.5s" }}
+            />
+          );
+        })}
+        <text x="80" y="75" textAnchor="middle" fill="#fff" fontSize="24" fontWeight="900">{total.toLocaleString()}</text>
+        <text x="80" y="95" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11">Total</text>
+      </svg>
+    );
+  };
+
+  const channelData = [
+    { name: "SMS", value: 542000, color: C.primary, pct: 42 },
+    { name: "Email", value: 308000, color: "#FF6B35", pct: 24 },
+    { name: "WhatsApp", value: 231000, color: "#25D366", pct: 18 },
+    { name: "Voice", value: 103000, color: C.accent, pct: 8 },
+    { name: "RCS", value: 64000, color: "#00E676", pct: 5 },
+    { name: "MMS", value: 36712, color: "#7C4DFF", pct: 3 },
+  ];
+
+  const hourlyData = Array.from({ length: 24 }, (_, h) => {
+    const peak = Math.exp(-0.5 * Math.pow((h - 14) / 4, 2));
+    return { hour: h, value: Math.round(1800 * peak * (0.8 + Math.random() * 0.4)), label: `${h}:00` };
+  });
+
+  const weeklyTrend = generateTimeSeries(12, 32000, 0.2);
+
+  return (
+    <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Global Analytics</h1>
+          <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Platform-wide performance metrics across all tenants</p>
+        </div>
+        <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10 }}>
+          {[{ id: "7d", label: "7D" }, { id: "30d", label: "30D" }, { id: "90d", label: "90D" }].map(t => (
+            <button key={t.id} onClick={() => setTimeRange(t.id)} style={{
+              background: timeRange === t.id ? C.primary : "transparent",
+              border: "none", borderRadius: 7, padding: "8px 16px",
+              color: timeRange === t.id ? "#000" : C.muted,
+              fontWeight: timeRange === t.id ? 700 : 400,
+              cursor: "pointer", fontSize: 13, transition: "all 0.2s",
+            }}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16, marginBottom: 28 }}>
+        {[
+          { label: "Total Messages", value: "1.28M", change: "+12.4%", positive: true, color: C.primary, icon: "📨", sparkData: msgData.slice(-14) },
+          { label: "Platform Revenue", value: "$892,450", change: "+18.4%", positive: true, color: "#00E676", icon: "💰", sparkData: revData.slice(-14) },
+          { label: "Avg Delivery Rate", value: "96.9%", change: "+0.8%", positive: true, color: "#00C9FF", icon: "✅" },
+          { label: "Avg Open Rate", value: "52.7%", change: "+3.2%", positive: true, color: C.accent, icon: "👁️" },
+          { label: "Active Campaigns", value: "87", change: "+6", positive: true, color: "#FF6B35", icon: "🚀" },
+        ].map((kpi, i) => (
+          <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderTop: `3px solid ${kpi.color}`, borderRadius: 12, padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</div>
+              <span style={{ fontSize: 18 }}>{kpi.icon}</span>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 4 }}>{kpi.value}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: kpi.positive ? "#00E676" : "#FF3B30", fontWeight: 600 }}>
+                {kpi.positive ? "↑" : "↓"} {kpi.change}
+              </span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.25)" }}>vs prev period</span>
+              {kpi.sparkData && <div style={{ marginLeft: "auto" }}><Sparkline data={kpi.sparkData} color={kpi.color} /></div>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Charts Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 20 }}>
+        {/* Message Volume Chart */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Message Volume</h3>
+            <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 8 }}>
+              {[{ id: "messages", label: "Messages" }, { id: "revenue", label: "Revenue" }].map(m => (
+                <button key={m.id} onClick={() => setActiveMetric(m.id)} style={{
+                  background: activeMetric === m.id ? "rgba(255,255,255,0.1)" : "transparent",
+                  border: "none", borderRadius: 6, padding: "5px 12px",
+                  color: activeMetric === m.id ? "#fff" : C.muted,
+                  cursor: "pointer", fontSize: 12, fontWeight: activeMetric === m.id ? 600 : 400,
+                }}>{m.label}</button>
+              ))}
+            </div>
+          </div>
+          <BarChart
+            data={activeMetric === "messages" ? msgData : revData}
+            color={activeMetric === "messages" ? C.primary : "#00E676"}
+            height={220}
+            format={activeMetric === "revenue" ? (v) => `$${v.toLocaleString()}` : undefined}
+          />
+          <div style={{ display: "flex", gap: 20, marginTop: 12 }}>
+            <div style={{ fontSize: 12, color: C.muted }}>
+              Total: <span style={{ color: "#fff", fontWeight: 700 }}>{activeMetric === "messages" ? (msgData.reduce((s, d) => s + d.value, 0)).toLocaleString() : `$${(revData.reduce((s, d) => s + d.value, 0)).toLocaleString()}`}</span>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted }}>
+              Daily Avg: <span style={{ color: "#fff", fontWeight: 700 }}>{activeMetric === "messages" ? Math.round(msgData.reduce((s, d) => s + d.value, 0) / msgData.length).toLocaleString() : `$${Math.round(revData.reduce((s, d) => s + d.value, 0) / revData.length).toLocaleString()}`}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Channel Distribution */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Channel Distribution</h3>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+            <DonutChart segments={channelData} />
+          </div>
+          {channelData.map(ch => (
+            <div key={ch.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 3, background: ch.color, flexShrink: 0 }} />
+              <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, flex: 1 }}>{ch.name}</span>
+              <span style={{ color: ch.color, fontSize: 12, fontWeight: 700 }}>{ch.pct}%</span>
+              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, width: 70, textAlign: "right" }}>{ch.value.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Second Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 20 }}>
+        {/* Hourly Distribution */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Hourly Distribution</h3>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>Peak hours: 12PM — 4PM EST</div>
+          <BarChart data={hourlyData} color={C.accent} height={120} />
+        </div>
+
+        {/* Delivery Performance */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Delivery Performance</h3>
+          {[
+            { label: "Delivered", value: 96.9, color: "#00E676" },
+            { label: "Opened", value: 52.7, color: C.primary },
+            { label: "Clicked", value: 18.4, color: C.accent },
+            { label: "Replied", value: 8.2, color: "#FF6B35" },
+            { label: "Failed", value: 1.3, color: "#FF3B30" },
+            { label: "Opted Out", value: 0.4, color: "#6B8BAE" },
+          ].map(m => (
+            <div key={m.label} style={{ marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{m.label}</span>
+                <span style={{ color: m.color, fontSize: 13, fontWeight: 700 }}>{m.value}%</span>
+              </div>
+              <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
+                <div style={{ height: "100%", width: `${m.value}%`, background: m.color, borderRadius: 3, transition: "width 0.5s" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* AI Performance */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>AI Chatbot Performance</h3>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ fontSize: 48, fontWeight: 900, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>94.2%</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Automated Resolution Rate</div>
+          </div>
+          {[
+            { label: "Conversations Handled", value: "42,847", icon: "💬" },
+            { label: "Avg Response Time", value: "0.3s", icon: "⚡" },
+            { label: "Escalated to Human", value: "5.8%", icon: "🙋" },
+            { label: "Customer Satisfaction", value: "4.7/5", icon: "⭐" },
+            { label: "Top Intent", value: "Order Status", icon: "📦" },
+          ].map(s => (
+            <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <span style={{ fontSize: 16 }}>{s.icon}</span>
+              <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, flex: 1 }}>{s.label}</span>
+              <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tenant Comparison Table */}
+      <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, marginBottom: 20 }}>
+        <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Tenant Performance Comparison</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["Tenant", "Messages", "Revenue", "Campaigns", "Contacts", "Delivery %", "Open %", "Status"].map(h => (
+                <th key={h} style={{ textAlign: h === "Tenant" ? "left" : "center", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.07)", color: C.muted, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {customers.map(c => (
+              <tr key={c.id}>
+                <td style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{c.logo}</div>
+                    <div>
+                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}</div>
+                      <div style={{ color: c.brand.primary, fontSize: 11 }}>{c.brand.name}</div>
+                    </div>
+                  </div>
+                </td>
+                {[
+                  c.stats.messages.toLocaleString(),
+                  `$${c.stats.revenue.toLocaleString()}`,
+                  c.stats.campaigns,
+                  c.stats.contacts.toLocaleString(),
+                  `${c.stats.deliveryRate}%`,
+                  `${c.stats.openRate}%`,
+                ].map((val, j) => (
+                  <td key={j} style={{ textAlign: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff", fontSize: 14, fontWeight: j < 2 ? 700 : 400 }}>{val}</td>
+                ))}
+                <td style={{ textAlign: "center", padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                  <span style={{ background: "rgba(0,230,118,0.1)", color: "#00E676", border: "1px solid rgba(0,230,118,0.2)", borderRadius: 4, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>● Active</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td style={{ padding: "14px 16px", fontWeight: 700, color: C.primary, fontSize: 14 }}>Platform Total</td>
+              {[
+                customers.reduce((s, c) => s + c.stats.messages, 0).toLocaleString(),
+                `$${customers.reduce((s, c) => s + c.stats.revenue, 0).toLocaleString()}`,
+                customers.reduce((s, c) => s + c.stats.campaigns, 0),
+                customers.reduce((s, c) => s + c.stats.contacts, 0).toLocaleString(),
+                `${(customers.reduce((s, c) => s + c.stats.deliveryRate, 0) / customers.length).toFixed(1)}%`,
+                `${(customers.reduce((s, c) => s + c.stats.openRate, 0) / customers.length).toFixed(1)}%`,
+              ].map((val, j) => (
+                <td key={j} style={{ textAlign: "center", padding: "14px 16px", color: C.primary, fontSize: 14, fontWeight: 700 }}>{val}</td>
+              ))}
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Revenue by Tenant */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Revenue by Tenant</h3>
+          {customers.map(c => {
+            const maxRev = 500000;
+            const pct = Math.round((c.stats.revenue / maxRev) * 100);
+            return (
+              <div key={c.id} style={{ marginBottom: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{c.name}</span>
+                  <span style={{ color: c.brand.primary, fontSize: 13, fontWeight: 700 }}>${c.stats.revenue.toLocaleString()}</span>
+                </div>
+                <div style={{ height: 10, background: "rgba(255,255,255,0.05)", borderRadius: 5 }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 5, transition: "width 0.5s" }} />
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 3 }}>{c.stats.messages.toLocaleString()} messages · {c.stats.campaigns} campaigns</div>
+              </div>
+            );
+          })}
+          <div style={{ marginTop: 20, padding: "14px 16px", background: "rgba(255,255,255,0.04)", borderRadius: 10, display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: C.muted, fontSize: 13 }}>Platform MRR</span>
+            <span style={{ color: "#00E676", fontWeight: 800, fontSize: 15 }}>${Math.round(customers.reduce((s, c) => s + c.stats.revenue, 0) / 12).toLocaleString()}/mo</span>
+          </div>
+        </div>
+
+        {/* Campaign Performance */}
+        <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Campaign Insights</h3>
+          {[
+            { label: "Total Campaigns", value: "87", sub: "32 currently live", color: "#FF6B35", icon: "🚀" },
+            { label: "Best Performing", value: "Flash Sale — RetailCo", sub: "97.1% delivery · 62% open rate", color: "#00E676", icon: "🏆" },
+            { label: "Avg Click Rate", value: "18.4%", sub: "+2.1% vs industry avg", color: C.primary, icon: "🖱️" },
+            { label: "Avg Revenue per Campaign", value: "$10,258", sub: "Across all tenants", color: C.accent, icon: "💵" },
+            { label: "Most Used Channel", value: "SMS (42%)", sub: "Followed by Email (24%)", color: "#00C9FF", icon: "📱" },
+            { label: "AI Generated Campaigns", value: "34%", sub: "29 of 87 used AI copy", color: "#7C4DFF", icon: "🤖" },
+          ].map((item, i) => (
+            <div key={i} style={{ display: "flex", gap: 12, padding: "12px 0", borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: `${item.color}15`, border: `1px solid ${item.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{item.label}</span>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{item.value}</span>
+                </div>
+                <div style={{ color: item.color, fontSize: 11, marginTop: 2 }}>{item.sub}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 function TenantManagement({ C, onBrandingSaved }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
@@ -1078,7 +1462,8 @@ export default function App() {
           supabase.from("tenant_branding").select("branding").eq("tenant_id", "sp_root").limit(1).single()
             .then(({ data }) => { if (data && data.branding) setLiveBranding(data.branding); });
         }} />}
-        {["analytics", "api", "settings"].includes(spPage) && (
+        {spPage === "analytics" && <GlobalAnalytics C={C} />}
+        {["api", "settings"].includes(spPage) && (
           <div style={{ padding: "32px 40px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
             <p style={{ color: C.muted }}>Full {spPage} module available here</p>
