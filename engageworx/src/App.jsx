@@ -1,9 +1,15 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
@@ -190,9 +196,10 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
 }
 
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
-function TenantManagement({ C }) {
+function TenantManagement({ C, onBrandingSaved }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
+  const [brandingTenant, setBrandingTenant] = useState("sp_root");
 
   return (
     <div style={{ padding: "32px 40px" }}>
@@ -275,7 +282,40 @@ function TenantManagement({ C }) {
         </div>
       )}
 
-      {activeTab === "branding" && <WhiteLabelBranding tenantId="sp_root" />}
+      {activeTab === "branding" && (
+        <div>
+          {/* Tenant selector for branding */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+            <button onClick={() => setBrandingTenant("sp_root")} style={{
+              background: brandingTenant === "sp_root" ? `${C.primary}22` : "rgba(255,255,255,0.04)",
+              border: `2px solid ${brandingTenant === "sp_root" ? C.primary : "rgba(255,255,255,0.08)"}`,
+              borderRadius: 10, padding: "10px 18px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 10, transition: "all 0.2s",
+            }}>
+              <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>EW</div>
+              <div style={{ textAlign: "left" }}>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>EngageWorx</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
+              </div>
+            </button>
+            {Object.values(TENANTS).filter(t => t.role === "customer").map(t => (
+              <button key={t.id} onClick={() => setBrandingTenant(t.id)} style={{
+                background: brandingTenant === t.id ? `${t.brand.primary}22` : "rgba(255,255,255,0.04)",
+                border: `2px solid ${brandingTenant === t.id ? t.brand.primary : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 10, padding: "10px 18px", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 10, transition: "all 0.2s",
+              }}>
+                <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${t.brand.primary}, ${t.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{t.logo}</div>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{t.brand.name}</div>
+                  <div style={{ color: C.muted, fontSize: 11 }}>{t.name}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <WhiteLabelBranding key={brandingTenant} tenantId={brandingTenant} onSaved={brandingTenant === "sp_root" ? onBrandingSaved : undefined} />
+        </div>
+      )}
 
       {activeTab === "permissions" && (
         <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 28 }}>
@@ -342,8 +382,46 @@ function TenantManagement({ C }) {
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
 function CustomerPortal({ tenantId, onBack }) {
   const tenant = TENANTS[tenantId];
-  const C = tenant.colors;
+  const defaultColors = tenant.colors;
   const [page, setPage] = useState("dashboard");
+  const [brandColors, setBrandColors] = useState(defaultColors);
+  const [brandName, setBrandName] = useState(tenant.brand.name);
+  const [brandLogo, setBrandLogo] = useState("");
+  const [brandTagline, setBrandTagline] = useState("");
+  const [poweredByVisible, setPoweredByVisible] = useState(true);
+
+  // Load tenant-specific branding from Supabase
+  useEffect(() => {
+    const loadTenantBranding = async () => {
+      try {
+        const { data } = await supabase
+          .from("tenant_branding")
+          .select("branding")
+          .eq("tenant_id", tenantId)
+          .limit(1)
+          .single();
+        if (data && data.branding) {
+          const b = data.branding;
+          setBrandColors({
+            primary: b.primaryColor || defaultColors.primary,
+            accent: b.secondaryColor || defaultColors.accent,
+            bg: b.bgColor || defaultColors.bg,
+            surface: b.surfaceColor || defaultColors.surface,
+            border: b.borderColor || defaultColors.border,
+            text: b.textColor || defaultColors.text,
+            muted: b.mutedColor || defaultColors.muted,
+          });
+          if (b.companyName) setBrandName(b.companyName);
+          if (b.logoUrl) setBrandLogo(b.logoUrl);
+          if (b.tagline) setBrandTagline(b.tagline);
+          if (b.poweredByVisible !== undefined) setPoweredByVisible(b.poweredByVisible);
+        }
+      } catch (err) { /* No branding saved for this tenant — use defaults */ }
+    };
+    loadTenantBranding();
+  }, [tenantId]);
+
+  const C = brandColors;
 
   const navItems = [
   { id: "dashboard", label: "Dashboard", icon: "⊞" },
@@ -361,8 +439,13 @@ function CustomerPortal({ tenantId, onBack }) {
       {/* White-labeled Sidebar */}
       <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0 }}>
         <div style={{ marginBottom: 28, paddingLeft: 8 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
+          {brandLogo ? (
+            <img src={brandLogo} alt={brandName} style={{ maxHeight: 32, marginBottom: 4 }} />
+          ) : (
+            <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{brandName}</div>
+          )}
+          {brandTagline && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{brandTagline}</div>}
+          {poweredByVisible && !brandTagline && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>}
         </div>
 
         <nav style={{ flex: 1 }}>
@@ -427,11 +510,11 @@ function CustomerPortal({ tenantId, onBack }) {
         {page !== "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
-            <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
+            <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {brandName}</p>
             <div style={{ marginTop: 24, background: `${C.primary}08`, border: `1px solid ${C.primary}22`, borderRadius: 14, padding: 32, textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>{navItems.find(n => n.id === page)?.icon}</div>
               <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>{navItems.find(n => n.id === page)?.label} Module</div>
-              <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {tenant.brand.name}</div>
+              <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {brandName}</div>
             </div>
           </div>
         )}
@@ -446,6 +529,26 @@ export default function App() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
+  const [liveBranding, setLiveBranding] = useState(null);
+
+  // Load saved branding from Supabase
+  useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const { data } = await supabase
+          .from("tenant_branding")
+          .select("branding")
+          .eq("tenant_id", "sp_root")
+          .limit(1)
+          .single();
+        if (data && data.branding) {
+          setLiveBranding(data.branding);
+        }
+      } catch (err) { /* No branding saved yet */ }
+    };
+    loadBranding();
+  }, []);
+
   // Check for signup success redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -461,7 +564,24 @@ export default function App() {
     return <LandingPage />;
   }
 
-  const C = TENANTS.serviceProvider.colors;
+  // Apply saved branding colors over defaults
+  const applyBranding = (defaultColors) => {
+    if (!liveBranding) return defaultColors;
+    return {
+      primary: liveBranding.primaryColor || defaultColors.primary,
+      accent: liveBranding.secondaryColor || defaultColors.accent,
+      bg: liveBranding.bgColor || defaultColors.bg,
+      surface: liveBranding.surfaceColor || defaultColors.surface,
+      border: liveBranding.borderColor || defaultColors.border,
+      text: liveBranding.textColor || defaultColors.text,
+      muted: liveBranding.mutedColor || defaultColors.muted,
+    };
+  };
+
+  const C = applyBranding(TENANTS.serviceProvider.colors);
+  const brandName = (liveBranding && liveBranding.companyName) || "EngageWorx";
+  const brandTagline = (liveBranding && liveBranding.tagline) || "AI-Powered Engagement";
+  const brandLogo = (liveBranding && liveBranding.logoUrl) || "";
 
   const spNavItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
@@ -489,8 +609,14 @@ export default function App() {
         <div style={{ width: 480 }}>
           {/* Logo */}
           <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
-            <div style={{ color: C.muted, marginTop: 6 }}>Multi-Tenant Communications Platform</div>
+            {brandLogo ? (
+              <img src={brandLogo} alt={brandName} style={{ maxHeight: 48, marginBottom: 8 }} />
+            ) : (
+              <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>
+                {brandName === "EngageWorx" ? <>Engage<span style={{ color: C.primary }}>Worx</span></> : <span style={{ color: C.primary }}>{brandName}</span>}
+              </div>
+            )}
+            <div style={{ color: C.muted, marginTop: 6 }}>{brandTagline}</div>
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
@@ -542,7 +668,7 @@ export default function App() {
               Enter Portal →
             </button>
             <div style={{ marginTop: 16, textAlign: "center" }}>
-              <span style={{ color: C.muted, fontSize: 14 }}>New to EngageWorx? </span>
+              <span style={{ color: C.muted, fontSize: 14 }}>New to {brandName}? </span>
               <button onClick={() => setView("signup")} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
                 Sign Up →
               </button>
@@ -574,7 +700,13 @@ export default function App() {
       {/* SP Sidebar */}
       <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh" }}>
         <div style={{ marginBottom: 32, paddingLeft: 8 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          {brandLogo ? (
+            <img src={brandLogo} alt={brandName} style={{ maxHeight: 32, marginBottom: 4 }} />
+          ) : (
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>
+              {brandName === "EngageWorx" ? <>Engage<span style={{ color: C.primary }}>Worx</span></> : <span style={{ color: C.primary }}>{brandName}</span>}
+            </div>
+          )}
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
           <div style={{ marginTop: 8 }}><Badge color={C.primary}>🌐 Super Admin</Badge></div>
         </div>
@@ -600,9 +732,9 @@ export default function App() {
 
         <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>{brandName.substring(0,2).toUpperCase()}</div>
             <div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{brandName} Admin</div>
               <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
             </div>
           </div>
@@ -612,7 +744,10 @@ export default function App() {
       {/* Main Content */}
       <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} />}
-        {spPage === "tenants" && <TenantManagement C={C} />}
+        {spPage === "tenants" && <TenantManagement C={C} onBrandingSaved={() => {
+          supabase.from("tenant_branding").select("branding").eq("tenant_id", "sp_root").limit(1).single()
+            .then(({ data }) => { if (data && data.branding) setLiveBranding(data.branding); });
+        }} />}
         {["analytics", "api", "settings"].includes(spPage) && (
           <div style={{ padding: "32px 40px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
