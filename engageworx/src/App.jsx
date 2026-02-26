@@ -892,21 +892,18 @@ function CustomerPortal({ tenantId, onBack }) {
           </div>
         )}
 
-        {page !== "dashboard" && (
-          <div style={{ padding: "32px 36px" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
-            <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {brandName}</p>
-            <div style={{ marginTop: 24, background: `${C.primary}08`, border: `1px solid ${C.primary}22`, borderRadius: 14, padding: 32, textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{navItems.find(n => n.id === page)?.icon}</div>
-              <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>{navItems.find(n => n.id === page)?.label} Module</div>
-              <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {brandName}</div>
-            </div>
-          </div>
-        )}
-      </div>
+        {page === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />}
+{page !== "dashboard" && page !== "analytics" && (
+  <div style={{ padding: "32px 36px" }}>
+    <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
+    <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
+    <div style={{ marginTop: 24, background: `${C.primary}08`, border: `1px solid ${C.primary}22`, borderRadius: 14, padding: 32, textAlign: "center" }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>{navItems.find(n => n.id === page)?.icon}</div>
+      <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>{navItems.find(n => n.id === page)?.label} Module</div>
+      <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {tenant.brand.name}</div>
     </div>
-  );
-}
+  </div>
+)}
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
