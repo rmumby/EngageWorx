@@ -1,7 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
+const PORTAL_URL = 'https://portal.engwx.com';
 
 const LandingPage = () => {
   const observerRef = useRef(null);
+  const [legalPage, setLegalPage] = useState(null);
 
   useEffect(() => {
     // Scroll reveal observer
@@ -43,8 +46,135 @@ const LandingPage = () => {
 
   // Navigate to signup page
   const goToSignup = () => {
-    window.location.href = '/';
+    window.location.href = PORTAL_URL;
   };
+
+  const goToLogin = () => {
+    window.location.href = PORTAL_URL;
+  };
+
+  // Legal page content
+  const legalContent = {
+    privacy: {
+      title: 'Privacy Policy',
+      updated: 'February 26, 2026',
+      content: `EngageWorx ("we," "us," or "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our platform.
+
+Information We Collect
+We collect information you provide directly, including: account registration details (name, email, company name), billing information processed securely through Stripe, communication data sent through our platform on behalf of your business, and usage analytics to improve our services.
+
+How We Use Your Information
+We use collected information to: provide and maintain our messaging platform, process transactions and send billing notifications, improve and personalize your experience, comply with legal obligations including TCPA and telecommunications regulations, and communicate service updates and security alerts.
+
+Data Storage & Security
+All data is encrypted in transit (TLS 1.3) and at rest (AES-256). We use Supabase for secure database hosting with row-level security. Message content is retained per your account settings and applicable regulations.
+
+Third-Party Services
+We integrate with: Twilio (message delivery), Stripe (payment processing), and Supabase (data storage). Each provider maintains their own privacy policies and security certifications.
+
+Your Rights
+You may request access to, correction of, or deletion of your personal data at any time by contacting privacy@engwx.com. California residents have additional rights under the CCPA.
+
+Contact
+For privacy-related inquiries: privacy@engwx.com`
+    },
+    terms: {
+      title: 'Terms of Service',
+      updated: 'February 26, 2026',
+      content: `Welcome to EngageWorx. By accessing or using our platform, you agree to be bound by these Terms of Service.
+
+Acceptance of Terms
+By creating an account or using EngageWorx services, you agree to these terms. If you do not agree, do not use our services.
+
+Description of Service
+EngageWorx provides an AI-powered customer engagement platform including SMS, RCS, WhatsApp, and Email messaging services, automation tools, analytics, and related features.
+
+Account Responsibilities
+You are responsible for maintaining the confidentiality of your account credentials, all activities under your account, ensuring your use complies with applicable laws including TCPA, CAN-SPAM, and telecommunications regulations, and the content of messages sent through the platform.
+
+Acceptable Use
+You agree not to: send unsolicited messages (spam), transmit harmful, illegal, or deceptive content, violate any applicable laws or regulations, attempt to access other users' accounts or data, or reverse-engineer or disrupt the platform.
+
+Billing & Payments
+Subscription fees are billed monthly or annually through Stripe. You may cancel at any time; cancellation takes effect at the end of the current billing period. Refunds are handled on a case-by-case basis.
+
+Limitation of Liability
+EngageWorx is provided "as is." We are not liable for indirect, incidental, or consequential damages. Our total liability shall not exceed the amount paid by you in the twelve months preceding the claim.
+
+Modifications
+We may update these terms at any time. Continued use after changes constitutes acceptance. Material changes will be communicated via email.
+
+Contact
+For questions about these terms: legal@engwx.com`
+    },
+    accessibility: {
+      title: 'Accessibility Statement',
+      updated: 'February 26, 2026',
+      content: `EngageWorx is committed to ensuring digital accessibility for people of all abilities. We continually improve the user experience for everyone and apply relevant accessibility standards.
+
+Our Commitment
+We strive to conform to the Web Content Accessibility Guidelines (WCAG) 2.1 Level AA. These guidelines explain how to make web content more accessible to people with disabilities.
+
+Measures Taken
+We have taken the following measures to ensure accessibility: keyboard navigation support throughout the platform, sufficient color contrast ratios for text and interactive elements, screen reader compatibility with ARIA labels, responsive design that works across devices and screen sizes, and clear, consistent navigation patterns.
+
+Feedback
+We welcome your feedback on the accessibility of EngageWorx. If you encounter any barriers or have suggestions for improvement, please contact us:
+
+Email: accessibility@engwx.com
+
+We aim to respond to accessibility feedback within 2 business days and to resolve issues as quickly as possible.
+
+Limitations
+While we strive for full accessibility, some third-party integrations may have their own accessibility limitations. We actively work with our partners to improve these experiences.`
+    }
+  };
+
+  // If showing a legal page, render it
+  if (legalPage) {
+    const page = legalContent[legalPage];
+    return (
+      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '0' }}>
+        <style>{`
+          .lp-legal-nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 16px 40px; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(5,8,16,0.95); backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(26,37,64,0.5);
+          }
+          .lp-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
+          .lp-logo-icon {
+            width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB);
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 16px; color: #000;
+          }
+          .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
+          .lp-logo-text span { color: #00C9FF; }
+        `}</style>
+        <nav className="lp-legal-nav">
+          <div className="lp-logo" onClick={() => setLegalPage(null)} style={{ cursor: 'pointer' }}>
+            <div className="lp-logo-icon">EW</div>
+            <div className="lp-logo-text">Engage<span>Worx</span></div>
+          </div>
+          <button onClick={() => setLegalPage(null)} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8,
+            padding: '8px 20px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14,
+            fontFamily: "'Outfit', sans-serif"
+          }}>← Back to Home</button>
+        </nav>
+        <div style={{ maxWidth: 760, margin: '0 auto', padding: '120px 40px 80px' }}>
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>{page.title}</h1>
+          <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 40 }}>Last updated: {page.updated}</p>
+          {page.content.split('\n\n').map((para, i) => {
+            const isHeading = para.length < 60 && !para.includes('.');
+            return isHeading
+              ? <h2 key={i} style={{ fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF' }}>{para}</h2>
+              : <p key={i} style={{ color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16 }}>{para}</p>;
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
@@ -404,6 +534,7 @@ const LandingPage = () => {
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
             <li><span onClick={() => scrollTo('lp-pricing')}>Pricing</span></li>
             <li><span onClick={() => scrollTo('lp-how')}>How It Works</span></li>
+            <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
           </ul>
         </nav>
@@ -586,7 +717,7 @@ const LandingPage = () => {
                 <li>Unlimited team members</li>
                 <li>Dedicated account manager</li>
               </ul>
-              <button className="lp-price-btn lp-price-btn-outline">Contact Sales</button>
+              <button className="lp-price-btn lp-price-btn-outline" onClick={() => window.location.href='mailto:sales@engwx.com'}>Contact Sales</button>
             </div>
           </div>
         </section>
@@ -625,7 +756,7 @@ const LandingPage = () => {
             <p>Start your free trial today. No credit card required.<br />Set up in under 10 minutes.</p>
             <div className="lp-hero-actions" style={{ marginTop: 0 }}>
               <button className="lp-btn-primary" onClick={goToSignup}>Start Free Trial →</button>
-              <button className="lp-btn-secondary">Book a Demo</button>
+              <button className="lp-btn-secondary" onClick={() => window.location.href='mailto:sales@engwx.com'}>Book a Demo</button>
             </div>
           </div>
         </section>
@@ -645,21 +776,20 @@ const LandingPage = () => {
               <a onClick={() => scrollTo('lp-channels')}>Channels</a>
               <a onClick={() => scrollTo('lp-features')}>Features</a>
               <a onClick={() => scrollTo('lp-pricing')}>Pricing</a>
-              <a href="#">API Docs</a>
+              <a href={PORTAL_URL}>Login</a>
             </div>
             <div className="lp-footer-col">
               <h4>Company</h4>
-              <a href="#">About</a>
-              <a href="#">Blog</a>
-              <a href="#">Careers</a>
-              <a href="#">Contact</a>
+              <a onClick={goToSignup}>Get Started</a>
+              <a href={PORTAL_URL}>Customer Portal</a>
+              <a href="mailto:support@engwx.com">Support</a>
+              <a href="mailto:sales@engwx.com">Contact Sales</a>
             </div>
             <div className="lp-footer-col">
               <h4>Legal</h4>
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms of Service</a>
-              <a href="#">TCPA Compliance</a>
-              <a href="#">Security</a>
+              <a onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
+              <a onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
+              <a onClick={() => { setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
           <div className="lp-footer-bottom">
