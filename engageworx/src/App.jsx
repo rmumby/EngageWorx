@@ -5,6 +5,7 @@ import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import WhiteLabelBranding from './WhiteLabelBranding';
 import LandingPage from './components/LandingPage';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -1462,7 +1463,7 @@ export default function App() {
           supabase.from("tenant_branding").select("branding").eq("tenant_id", "sp_root").limit(1).single()
             .then(({ data }) => { if (data && data.branding) setLiveBranding(data.branding); });
         }} />}
-        {spPage === "analytics" && <GlobalAnalytics C={C} />}
+        {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" />}
         {["api", "settings"].includes(spPage) && (
           <div style={{ padding: "32px 40px" }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
