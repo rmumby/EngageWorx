@@ -9,6 +9,7 @@ import LiveInbox from './LiveInbox';
 import AIChatbot from './AIChatbot';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
+import Registration from './Registration';
 import LandingPage from './components/LandingPage';
 
 const TENANTS = {
@@ -196,6 +197,25 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
 function TenantManagement({ C }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
+  const [editingBrand, setEditingBrand] = useState(null);
+  const [brandForm, setBrandForm] = useState({ name: "", primary: "", secondary: "", logo: "" });
+
+  const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
+  const themePresets = [
+    { name: "Sunset", primary: "#FF6B35", secondary: "#FF8C42" },
+    { name: "Emerald", primary: "#00E676", secondary: "#00BFA5" },
+    { name: "Violet", primary: "#7C4DFF", secondary: "#651FFF" },
+    { name: "Ocean", primary: "#00C9FF", secondary: "#0091EA" },
+    { name: "Ruby", primary: "#FF3B30", secondary: "#FF6B6B" },
+    { name: "Gold", primary: "#FFD600", secondary: "#FFAB00" },
+    { name: "Coral", primary: "#E040FB", secondary: "#AA00FF" },
+    { name: "Slate", primary: "#6B8BAE", secondary: "#4A6FA5" },
+  ];
+
+  const openBrandEditor = (tenant) => {
+    setEditingBrand(tenant.id);
+    setBrandForm({ name: tenant.brand.name, primary: tenant.brand.primary, secondary: tenant.brand.secondary, logo: "" });
+  };
 
   return (
     <div style={{ padding: "32px 40px" }}>
@@ -278,9 +298,104 @@ function TenantManagement({ C }) {
       )}
 
       {activeTab === "branding" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div>
+          {/* Brand Editor Panel */}
+          {editingBrand && (
+            <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 18 }}>Edit Brand — {Object.values(TENANTS).find(t => t.id === editingBrand)?.name}</h3>
+                <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 14px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>✕ Close</button>
+              </div>
+
+              {/* Theme Presets */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Theme Presets</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {themePresets.map(p => (
+                    <button key={p.name} onClick={() => setBrandForm(prev => ({ ...prev, primary: p.primary, secondary: p.secondary }))} style={{
+                      background: brandForm.primary === p.primary ? `${p.primary}22` : "rgba(255,255,255,0.03)",
+                      border: `2px solid ${brandForm.primary === p.primary ? p.primary : "rgba(255,255,255,0.06)"}`,
+                      borderRadius: 10, padding: "10px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>
+                      <div style={{ display: "flex", gap: 3 }}>
+                        <div style={{ width: 18, height: 18, borderRadius: 4, background: p.primary }} />
+                        <div style={{ width: 18, height: 18, borderRadius: 4, background: p.secondary }} />
+                      </div>
+                      <span style={{ color: brandForm.primary === p.primary ? p.primary : "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600 }}>{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+                <div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Brand Name</div>
+                  <input value={brandForm.name} onChange={e => setBrandForm(prev => ({ ...prev, name: e.target.value }))} style={inputStyleTM} />
+                </div>
+                <div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Primary Color</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="color" value={brandForm.primary} onChange={e => setBrandForm(prev => ({ ...prev, primary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: "2px solid rgba(255,255,255,0.2)", cursor: "pointer", padding: 2 }} />
+                    <input value={brandForm.primary} onChange={e => setBrandForm(prev => ({ ...prev, primary: e.target.value }))} style={{ ...inputStyleTM, flex: 1, fontFamily: "monospace" }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Secondary Color</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input type="color" value={brandForm.secondary} onChange={e => setBrandForm(prev => ({ ...prev, secondary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: "2px solid rgba(255,255,255,0.2)", cursor: "pointer", padding: 2 }} />
+                    <input value={brandForm.secondary} onChange={e => setBrandForm(prev => ({ ...prev, secondary: e.target.value }))} style={{ ...inputStyleTM, flex: 1, fontFamily: "monospace" }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL</div>
+                  <input value={brandForm.logo} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://..." style={inputStyleTM} />
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Live Preview</div>
+                <div style={{ background: "#0a0a14", borderRadius: 12, padding: 20, border: `1px solid ${brandForm.primary}33` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${brandForm.primary}, ${brandForm.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{brandForm.name.slice(0, 2).toUpperCase()}</div>
+                    <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{brandForm.name || "Brand Name"}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <div style={{ flex: 1, height: 6, background: brandForm.primary, borderRadius: 3 }} />
+                    <div style={{ flex: 1, height: 6, background: brandForm.secondary, borderRadius: 3 }} />
+                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <div style={{ background: brandForm.primary, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: "#000", fontWeight: 700 }}>Primary Button</div>
+                    <div style={{ background: "transparent", border: `1px solid ${brandForm.primary}`, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: brandForm.primary, fontWeight: 600 }}>Secondary</div>
+                    <div style={{ background: `${brandForm.primary}22`, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: brandForm.primary }}>Ghost</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ background: `${brandForm.primary}18`, border: `1px solid ${brandForm.primary}33`, borderRadius: 8, padding: "8px 14px", flex: 1 }}>
+                      <div style={{ color: brandForm.primary, fontSize: 11, fontWeight: 700 }}>Card Component</div>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 2 }}>With branded accent</div>
+                    </div>
+                    <div style={{ background: `${brandForm.secondary}18`, border: `1px solid ${brandForm.secondary}33`, borderRadius: 8, padding: "8px 14px", flex: 1 }}>
+                      <div style={{ color: brandForm.secondary, fontSize: 11, fontWeight: 700 }}>Secondary Card</div>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 2 }}>With secondary accent</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setEditingBrand(null)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
+                <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Tenant Brand Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
-            <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 24, overflow: "hidden" }}>
+            <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${editingBrand === c.id ? C.primary + "66" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 24, overflow: "hidden", transition: "border-color 0.2s" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                 <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{c.logo}</div>
                 <div>
@@ -317,9 +432,10 @@ function TenantManagement({ C }) {
                   </div>
                 ))}
               </div>
-              <button style={{ marginTop: 14, width: "100%", background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 8, padding: "9px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Edit Brand Settings</button>
+              <button onClick={() => openBrandEditor(c)} style={{ marginTop: 14, width: "100%", background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 8, padding: "9px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Edit Brand Settings</button>
             </div>
           ))}
+          </div>
         </div>
       )}
 
@@ -399,6 +515,7 @@ function CustomerPortal({ tenantId, onBack }) {
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "contacts", label: "Contacts", icon: "👥" },
+    { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
@@ -495,7 +612,11 @@ function CustomerPortal({ tenantId, onBack }) {
           <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
         )}
 
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && (
+        {page === "registration" && (
+          <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+        )}
+
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -536,6 +657,7 @@ export default function App() {
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
+    { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
@@ -678,6 +800,7 @@ export default function App() {
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
+        {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
       </div>
     </div>
