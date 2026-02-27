@@ -758,7 +758,7 @@ function AppInner() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
-  const [loginTab, setLoginTab] = useState("demo"); // "demo" | "login" | "signup" | "reset"
+  const [loginTab, setLoginTab] = useState("login"); // "login" | "signup" | "reset" | "demo"
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState(null);
@@ -770,16 +770,16 @@ function AppInner() {
     }
   }, []);
 
-  // Auto-route authenticated users
+  // Auto-route authenticated users directly to their portal
   useEffect(() => {
-    if (!demoMode && isAuthenticated && profile) {
-      if (isSuperAdmin) {
+    if (isAuthenticated && profile && view === "login") {
+      if (profile.role === "superadmin") {
         setView("sp");
       } else if (profile.tenant_id) {
         setView("tenant_" + profile.tenant_id);
       }
     }
-  }, [demoMode, isAuthenticated, profile, isSuperAdmin]);
+  }, [isAuthenticated, profile, view]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -803,7 +803,7 @@ function AppInner() {
     if (error) {
       setLoginMessage({ type: "error", text: error });
     } else {
-      setLoginMessage({ type: "success", text: "Check your email to confirm your account!" });
+      setLoginMessage({ type: "success", text: "Account created! Check your email for a confirmation link. Once confirmed, you'll be taken directly to your portal." });
       setLoginTab("login");
     }
     setLoginLoading(false);
@@ -851,6 +851,18 @@ function AppInner() {
     return <LandingPage />;
   }
 
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
   }
@@ -875,7 +887,6 @@ function AppInner() {
             {/* Mode Toggle */}
             <div style={{ display: "flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 10 }}>
               {[
-                { id: "demo", label: "Demo Mode" },
                 { id: "login", label: "Sign In" },
                 { id: "signup", label: "Sign Up" },
               ].map(t => (
@@ -1049,15 +1060,12 @@ function AppInner() {
             )}
           </div>
 
-          {/* Auth status indicator */}
-          {isAuthenticated && (
-            <div style={{ marginTop: 16, textAlign: "center", background: `${C.primary}12`, border: `1px solid ${C.primary}33`, borderRadius: 10, padding: "10px 16px" }}>
-              <span style={{ color: "#00E676", fontSize: 12 }}>● Signed in as </span>
-              <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{profile?.email || user?.email}</span>
-              <span style={{ color: C.muted, fontSize: 12 }}> · {profile?.role || "user"}</span>
-              <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#FF3B30", cursor: "pointer", fontSize: 12, marginLeft: 8 }}>Sign out</button>
-            </div>
-          )}
+          {/* Demo Mode link */}
+          <div style={{ marginTop: 20, textAlign: "center" }}>
+            <button onClick={() => { setLoginTab("demo"); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+              🎮 Try Demo Mode
+            </button>
+          </div>
         </div>
       </div>
     );
