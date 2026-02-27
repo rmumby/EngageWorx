@@ -4,6 +4,8 @@ import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
+import LandingPage from './components/LandingPage';
+
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
@@ -509,6 +511,17 @@ export default function App() {
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
+  // ─── DOMAIN-BASED ROUTING ───────────────────────────────────────────────
+  // engwx.com (non-portal) → show landing page
+  // portal.engwx.com → show app portal
+  const hostname = window.location.hostname;
+  const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
+
+  if (!isPortal) {
+    return <LandingPage />;
+  }
+
+  // ─── PORTAL APP ─────────────────────────────────────────────────────────
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
   }
