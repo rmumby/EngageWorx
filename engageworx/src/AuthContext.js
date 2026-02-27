@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(() => {
     const stored = localStorage.getItem('engwx_demo_mode');
-    return stored !== null ? stored === 'true' : true; // default to demo
+    return stored !== null ? stored === 'true' : false; // default to live
   });
   const [authError, setAuthError] = useState(null);
 
