@@ -1,5 +1,6 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect } from "react";
+import { AuthProvider, useAuth } from './AuthContext';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -751,17 +752,81 @@ function CustomerPortal({ tenantId, onBack }) {
 }
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-export default function App() {
+function AppInner() {
+  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, authError, isSuperAdmin, isAuthenticated } = useAuth();
   const [view, setView] = useState("login");
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
+  const [loginTab, setLoginTab] = useState("demo"); // "demo" | "login" | "signup" | "reset"
+  const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginMessage, setLoginMessage] = useState(null);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("signup") === "success") {
       setView("signup");
     }
   }, []);
+
+  // Auto-route authenticated users
+  useEffect(() => {
+    if (!demoMode && isAuthenticated && profile) {
+      if (isSuperAdmin) {
+        setView("sp");
+      } else if (profile.tenant_id) {
+        setView("tenant_" + profile.tenant_id);
+      }
+    }
+  }, [demoMode, isAuthenticated, profile, isSuperAdmin]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginMessage(null);
+    const { error } = await signIn({ email: loginForm.email, password: loginForm.password });
+    if (error) setLoginMessage({ type: "error", text: error });
+    setLoginLoading(false);
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginMessage(null);
+    const { error } = await signUp({
+      email: loginForm.email,
+      password: loginForm.password,
+      fullName: loginForm.fullName,
+      companyName: loginForm.companyName,
+    });
+    if (error) {
+      setLoginMessage({ type: "error", text: error });
+    } else {
+      setLoginMessage({ type: "success", text: "Check your email to confirm your account!" });
+      setLoginTab("login");
+    }
+    setLoginLoading(false);
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginMessage(null);
+    const { error } = await resetPassword(loginForm.email);
+    if (error) {
+      setLoginMessage({ type: "error", text: error });
+    } else {
+      setLoginMessage({ type: "success", text: "Password reset email sent!" });
+    }
+    setLoginLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setView("login");
+    setLoginTab("demo");
+  };
 
   const C = TENANTS.serviceProvider.colors;
 
@@ -796,6 +861,8 @@ export default function App() {
     return <AdminTenants onBack={() => setView("sp")} />;
   }
   if (view === "login") {
+    const inputLogin = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
+
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ width: 480 }}>
@@ -805,59 +872,192 @@ export default function App() {
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
-            <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 22 }}>Select Portal</h2>
-            <p style={{ color: C.muted, textAlign: "center", marginBottom: 28, fontSize: 14 }}>Choose your access level to continue</p>
-
-            <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
-              <button onClick={() => setSelectedRole("sp")} style={{
-                background: selectedRole === "sp" ? `${C.primary}22` : "rgba(255,255,255,0.03)",
-                border: `2px solid ${selectedRole === "sp" ? C.primary : "rgba(255,255,255,0.1)"}`,
-                borderRadius: 12, padding: "16px 20px", cursor: "pointer", textAlign: "left",
-                display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
-              }}>
-                <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌐</div>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Service Provider</div>
-                  <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Holistic view · All tenants · Platform management</div>
-                </div>
-                {selectedRole === "sp" && <div style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</div>}
-              </button>
-
-              {Object.values(TENANTS).filter(t => t.role === "customer").map(t => (
-                <button key={t.id} onClick={() => setSelectedRole(t.id)} style={{
-                  background: selectedRole === t.id ? `${t.brand.primary}22` : "rgba(255,255,255,0.03)",
-                  border: `2px solid ${selectedRole === t.id ? t.brand.primary : "rgba(255,255,255,0.1)"}`,
-                  borderRadius: 12, padding: "16px 20px", cursor: "pointer", textAlign: "left",
-                  display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
-                }}>
-                  <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${t.brand.primary}, ${t.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 16 }}>{t.logo}</div>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{t.brand.name}</div>
-                    <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.name} · Customer Portal</div>
-                  </div>
-                  {selectedRole === t.id && <div style={{ marginLeft: "auto", color: t.brand.primary, fontSize: 20 }}>✓</div>}
-                </button>
+            {/* Mode Toggle */}
+            <div style={{ display: "flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 10 }}>
+              {[
+                { id: "demo", label: "Demo Mode" },
+                { id: "login", label: "Sign In" },
+                { id: "signup", label: "Sign Up" },
+              ].map(t => (
+                <button key={t.id} onClick={() => { setLoginTab(t.id); setLoginMessage(null); }} style={{
+                  flex: 1, background: loginTab === t.id ? C.primary : "transparent",
+                  border: "none", borderRadius: 8, padding: "8px 12px",
+                  color: loginTab === t.id ? "#000" : C.muted,
+                  fontWeight: loginTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13,
+                  fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                }}>{t.label}</button>
               ))}
             </div>
 
-            <button
-              onClick={() => selectedRole && setView(selectedRole === "sp" ? "sp" : "tenant_" + selectedRole)}
-              disabled={!selectedRole}
-              style={{
-                width: "100%", background: selectedRole ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : "rgba(255,255,255,0.1)",
-                border: "none", borderRadius: 10, padding: "14px",
-                color: selectedRole ? "#000" : C.muted, fontWeight: 700, cursor: selectedRole ? "pointer" : "not-allowed",
-                fontSize: 16, transition: "all 0.2s",
-              }}>
-              Enter Portal →
-            </button>
-            <div style={{ marginTop: 16, textAlign: "center" }}>
-              <span style={{ color: C.muted, fontSize: 14 }}>New to EngageWorx? </span>
-              <button onClick={() => setView("signup")} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
-                Sign Up →
-              </button>
-            </div>
+            {/* Status message */}
+            {loginMessage && (
+              <div style={{ background: loginMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${loginMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: loginMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
+                {loginMessage.text}
+              </div>
+            )}
+
+            {/* ═══ DEMO MODE ═══ */}
+            {loginTab === "demo" && (
+              <>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Demo Portal Selector</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 20, fontSize: 13 }}>Explore the platform with sample data — no account needed</p>
+
+                <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+                  <button onClick={() => setSelectedRole("sp")} style={{
+                    background: selectedRole === "sp" ? `${C.primary}22` : "rgba(255,255,255,0.03)",
+                    border: `2px solid ${selectedRole === "sp" ? C.primary : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left",
+                    display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
+                  }}>
+                    <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌐</div>
+                    <div>
+                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Service Provider</div>
+                      <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Holistic view · All tenants · Platform management</div>
+                    </div>
+                    {selectedRole === "sp" && <div style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</div>}
+                  </button>
+
+                  {Object.values(TENANTS).filter(t => t.role === "customer").map(t => (
+                    <button key={t.id} onClick={() => setSelectedRole(t.id)} style={{
+                      background: selectedRole === t.id ? `${t.brand.primary}22` : "rgba(255,255,255,0.03)",
+                      border: `2px solid ${selectedRole === t.id ? t.brand.primary : "rgba(255,255,255,0.1)"}`,
+                      borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left",
+                      display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
+                    }}>
+                      <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${t.brand.primary}, ${t.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 16 }}>{t.logo}</div>
+                      <div>
+                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{t.brand.name}</div>
+                        <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.name} · Customer Portal</div>
+                      </div>
+                      {selectedRole === t.id && <div style={{ marginLeft: "auto", color: t.brand.primary, fontSize: 20 }}>✓</div>}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => { toggleDemoMode(true); selectedRole && setView(selectedRole === "sp" ? "sp" : "tenant_" + selectedRole); }}
+                  disabled={!selectedRole}
+                  style={{
+                    width: "100%", background: selectedRole ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : "rgba(255,255,255,0.1)",
+                    border: "none", borderRadius: 10, padding: "14px",
+                    color: selectedRole ? "#000" : C.muted, fontWeight: 700, cursor: selectedRole ? "pointer" : "not-allowed",
+                    fontSize: 15, transition: "all 0.2s",
+                  }}>
+                  Enter Demo →
+                </button>
+              </>
+            )}
+
+            {/* ═══ SIGN IN ═══ */}
+            {loginTab === "login" && (
+              <form onSubmit={handleLogin}>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Sign In</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Access your account with email and password</p>
+
+                <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Email</label>
+                    <input type="email" required value={loginForm.email} onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))} placeholder="you@company.com" style={inputLogin} />
+                  </div>
+                  <div>
+                    <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Password</label>
+                    <input type="password" required value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" style={inputLogin} />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loginLoading} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
+                  {loginLoading ? "Signing in..." : "Sign In →"}
+                </button>
+
+                <div style={{ marginTop: 14, textAlign: "center" }}>
+                  <button type="button" onClick={() => { setLoginTab("reset"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>
+                    Forgot password?
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ═══ SIGN UP ═══ */}
+            {loginTab === "signup" && (
+              <form onSubmit={handleSignup}>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Create Account</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Start your free trial — no credit card required</p>
+
+                <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Full Name</label>
+                      <input type="text" required value={loginForm.fullName} onChange={e => setLoginForm(p => ({ ...p, fullName: e.target.value }))} placeholder="Jane Smith" style={inputLogin} />
+                    </div>
+                    <div>
+                      <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Company</label>
+                      <input type="text" required value={loginForm.companyName} onChange={e => setLoginForm(p => ({ ...p, companyName: e.target.value }))} placeholder="Acme Inc" style={inputLogin} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Email</label>
+                    <input type="email" required value={loginForm.email} onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))} placeholder="you@company.com" style={inputLogin} />
+                  </div>
+                  <div>
+                    <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Password</label>
+                    <input type="password" required minLength={6} value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 characters" style={inputLogin} />
+                  </div>
+                </div>
+
+                <button type="submit" disabled={loginLoading} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
+                  {loginLoading ? "Creating account..." : "Create Account →"}
+                </button>
+              </form>
+            )}
+
+            {/* ═══ RESET PASSWORD ═══ */}
+            {loginTab === "reset" && (
+              <form onSubmit={handleReset}>
+                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Reset Password</h2>
+                <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your email and we'll send a reset link</p>
+
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Email</label>
+                  <input type="email" required value={loginForm.email} onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))} placeholder="you@company.com" style={inputLogin} />
+                </div>
+
+                <button type="submit" disabled={loginLoading} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
+                  {loginLoading ? "Sending..." : "Send Reset Link"}
+                </button>
+
+                <div style={{ marginTop: 14, textAlign: "center" }}>
+                  <button type="button" onClick={() => { setLoginTab("login"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                    ← Back to Sign In
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
+
+          {/* Auth status indicator */}
+          {isAuthenticated && (
+            <div style={{ marginTop: 16, textAlign: "center", background: `${C.primary}12`, border: `1px solid ${C.primary}33`, borderRadius: 10, padding: "10px 16px" }}>
+              <span style={{ color: "#00E676", fontSize: 12 }}>● Signed in as </span>
+              <span style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>{profile?.email || user?.email}</span>
+              <span style={{ color: C.muted, fontSize: 12 }}> · {profile?.role || "user"}</span>
+              <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#FF3B30", cursor: "pointer", fontSize: 12, marginLeft: 8 }}>Sign out</button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -895,7 +1095,7 @@ export default function App() {
           ))}
         </nav>
 
-        <button onClick={() => setView("login")} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
+        <button onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
 
         <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -922,5 +1122,14 @@ export default function App() {
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
       </div>
     </div>
+  );
+}
+
+// ─── WRAP WITH AUTH PROVIDER ──────────────────────────────────────────────────
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
