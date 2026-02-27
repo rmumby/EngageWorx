@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import CampaignsModule from './CampaignsModule';
 const TENANTS = {
   serviceProvider: {
     id: "sp_root",
@@ -460,11 +461,15 @@ function CustomerPortal({ tenantId, onBack }) {
           </div>
         )}
 
+        {page === "campaigns" && (
+          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+        )}
+
         {page === "analytics" && (
           <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
         )}
 
-        {page !== "dashboard" && page !== "analytics" && (
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -498,6 +503,7 @@ export default function App() {
   const spNavItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
+    { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
@@ -628,6 +634,7 @@ export default function App() {
       <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
+        {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" />}
         {["api", "settings"].includes(spPage) && (
           <div style={{ padding: "32px 40px" }}>
