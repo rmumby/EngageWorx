@@ -289,54 +289,34 @@ function TenantManagement({ C }) {
                   <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.brand.name}</span>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                 <div style={{ flex: 1, overflowY: "auto" }}>
-        {page === "dashboard" && (
-          <div style={{ padding: "32px 36px" }}>
-            <div style={{ marginBottom: 28 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
-              <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Welcome back, {tenant.name} team</p>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, marginBottom: 28 }}>
-              <StatCard label="Messages Sent" value={tenant.stats.messages.toLocaleString()} sub={`Delivery: ${tenant.stats.deliveryRate}%`} color={C.primary} icon="📨" />
-              <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
-              <StatCard label="Open Rate" value={`${tenant.stats.openRate}%`} sub="Industry avg: 38%" color={C.accent} icon="👁️" />
-            </div>
-            <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: 24 }}>
-              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
-              <div style={{ display: "flex", gap: 12 }}>
-                {tenant.channels.map(ch => (
-                  <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>
-                    ● {ch}
+                  <div style={{ flex: 1, height: 6, background: c.brand.primary, borderRadius: 3 }} />
+                  <div style={{ flex: 1, height: 6, background: c.brand.secondary + "66", borderRadius: 3 }} />
+                  <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }} />
+                </div>
+                <div style={{ marginTop: 10, display: "flex", gap: 6 }}>
+                  <div style={{ background: c.brand.primary, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: "#000", fontWeight: 700 }}>Button</div>
+                  <div style={{ background: "transparent", border: `1px solid ${c.brand.primary}`, borderRadius: 5, padding: "4px 12px", fontSize: 11, color: c.brand.primary }}>Outline</div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Primary", color: c.brand.primary },
+                  { label: "Secondary", color: c.brand.secondary },
+                ].map(sw => (
+                  <div key={sw.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, background: sw.color, borderRadius: 6, border: "2px solid rgba(255,255,255,0.2)" }} />
+                    <div>
+                      <div style={{ color: "#fff", fontSize: 12 }}>{sw.label}</div>
+                      <div style={{ color: C.muted, fontSize: 11 }}>{sw.color}</div>
+                    </div>
                   </div>
                 ))}
               </div>
+              <button style={{ marginTop: 14, width: "100%", background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 8, padding: "9px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Edit Brand Settings</button>
             </div>
-          </div>
-        )}
-
-        {page === "campaigns" && (
-          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
-        )}
-
-        {page === "analytics" && (
-          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
-        )}
-
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && (
-          <div style={{ padding: "32px 36px" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
-            <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
-            <div style={{ marginTop: 24, background: `${C.primary}08`, border: `1px solid ${C.primary}22`, borderRadius: 14, padding: 32, textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{navItems.find(n => n.id === page)?.icon}</div>
-              <div style={{ color: C.text, fontWeight: 700, fontSize: 18 }}>{navItems.find(n => n.id === page)?.label} Module</div>
-              <div style={{ color: C.muted, marginTop: 8 }}>Fully white-labeled — branded as {tenant.brand.name}</div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          ))}
+        </div>
+      )}
 
       {activeTab === "permissions" && (
         <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 14, padding: 28 }}>
@@ -469,7 +449,6 @@ function CustomerPortal({ tenantId, onBack }) {
               <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
               <StatCard label="Open Rate" value={`${tenant.stats.openRate}%`} sub="Industry avg: 38%" color={C.accent} icon="👁️" />
             </div>
-
             <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: 24 }}>
               <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
               <div style={{ display: "flex", gap: 12 }}>
@@ -480,22 +459,6 @@ function CustomerPortal({ tenantId, onBack }) {
                 ))}
               </div>
             </div>
-          </div>
-        )}
-
-        {page === "campaigns" && (
-          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
-        )}
-
-        {page === "analytics" && (
-          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
-        )}
-
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && (
-         <div style={{ flex: 1, overflowY: "auto" }}>
-        {page === "dashboard" && (
-          <div style={{ padding: "32px 36px" }}>
-            ...existing dashboard code stays the same...
           </div>
         )}
 
@@ -541,15 +504,12 @@ export default function App() {
   const spNavItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
-    { id: "analytics", label: "Global Analytics", icon: "📊" },  // no campaigns!
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
+    { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
-  // ─── DOMAIN-BASED ROUTING ───────────────────────────────────────────────
-  // engwx.com (non-portal) → show landing page
-  // portal.engwx.com → show app portal
   const hostname = window.location.hostname;
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
 
@@ -557,7 +517,6 @@ export default function App() {
     return <LandingPage />;
   }
 
-  // ─── PORTAL APP ─────────────────────────────────────────────────────────
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
   }
@@ -690,7 +649,7 @@ export default function App() {
             <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
             <p style={{ color: C.muted }}>Full {spPage} module available here</p>
           </div>
-       )}
+        )}
       </div>
     </div>
   );
