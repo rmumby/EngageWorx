@@ -5,6 +5,7 @@ import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import LandingPage from './components/LandingPage';
+const TENANTS = {
 
 const TENANTS = {
   serviceProvider: {
