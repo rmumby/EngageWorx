@@ -955,9 +955,11 @@ function AppInner() {
   };
 
   const handleLogout = async () => {
+    toggleDemoMode(false);
     await signOut();
     setView("login");
-    setLoginTab("demo");
+    setLoginTab("login");
+    setSpPage("dashboard");
   };
 
   const C = TENANTS.serviceProvider.colors;
