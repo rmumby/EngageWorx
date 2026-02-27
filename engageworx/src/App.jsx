@@ -8,6 +8,7 @@ import ContactsModule from './ContactsModule';
 import LiveInbox from './LiveInbox';
 import AIChatbot from './AIChatbot';
 import FlowBuilder from './FlowBuilder';
+import Settings from './Settings';
 import LandingPage from './components/LandingPage';
 
 const TENANTS = {
@@ -490,7 +491,11 @@ function CustomerPortal({ tenantId, onBack }) {
           <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
         )}
 
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && (
+        {page === "settings" && (
+          <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+        )}
+
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -672,12 +677,8 @@ export default function App() {
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" />}
-        {["api", "settings"].includes(spPage) && (
-          <div style={{ padding: "32px 40px" }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{spNavItems.find(n => n.id === spPage)?.label}</h1>
-            <p style={{ color: C.muted }}>Full {spPage} module available here</p>
-          </div>
-        )}
+        {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
+        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
       </div>
     </div>
   );
