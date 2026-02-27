@@ -199,6 +199,9 @@ function TenantManagement({ C }) {
   const [showNew, setShowNew] = useState(false);
   const [editingBrand, setEditingBrand] = useState(null);
   const [brandForm, setBrandForm] = useState({ name: "", primary: "", secondary: "", logo: "" });
+  const [configuringTenant, setConfiguringTenant] = useState(null);
+  const [suspendedTenants, setSuspendedTenants] = useState({});
+  const [confirmSuspend, setConfirmSuspend] = useState(null);
 
   const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const themePresets = [
@@ -269,8 +272,12 @@ function TenantManagement({ C }) {
           )}
 
           <div style={{ display: "grid", gap: 12 }}>
-            {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
-              <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`, borderLeft: `4px solid ${c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 200px", alignItems: "center", gap: 20 }}>
+            {Object.values(TENANTS).filter(t => t.role === "customer").map(c => {
+              const isSuspended = suspendedTenants[c.id];
+              const isConfiguring = configuringTenant === c.id;
+              return (
+              <div key={c.id}>
+                <div style={{ background: isConfiguring ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${isConfiguring ? C.primary + "44" : "rgba(255,255,255,0.07)"}`, borderLeft: `4px solid ${isSuspended ? "#FF3B30" : c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 240px", alignItems: "center", gap: 20, opacity: isSuspended ? 0.6 : 1, transition: "all 0.2s" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000" }}>{c.logo}</div>
                   <div>
@@ -286,13 +293,75 @@ function TenantManagement({ C }) {
                   <div style={{ color: "#fff", fontSize: 13 }}>{c.stats.contacts.toLocaleString()} contacts</div>
                   <div style={{ color: C.muted, fontSize: 11 }}>{c.stats.campaigns} campaigns</div>
                 </div>
-                <div><Badge color="#00E676">● Active</Badge></div>
+                <div><Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge></div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}55`, borderRadius: 7, padding: "7px 14px", color: c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Configure</button>
-                  <button style={{ background: "transparent", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 7, padding: "7px 14px", color: C.muted, cursor: "pointer", fontSize: 12 }}>Suspend</button>
+                  <button onClick={() => setConfiguringTenant(isConfiguring ? null : c.id)} style={{ background: isConfiguring ? C.primary : `${c.brand.primary}22`, border: `1px solid ${isConfiguring ? C.primary : c.brand.primary + "55"}`, borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
+                  {confirmSuspend === c.id ? (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => { setSuspendedTenants(prev => ({ ...prev, [c.id]: !isSuspended })); setConfirmSuspend(null); }} style={{ background: isSuspended ? "#00E67622" : "#FF3B3022", border: `1px solid ${isSuspended ? "#00E67644" : "#FF3B3044"}`, borderRadius: 7, padding: "7px 10px", color: isSuspended ? "#00E676" : "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Confirm"}</button>
+                      <button onClick={() => setConfirmSuspend(null)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "7px 8px", color: C.muted, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmSuspend(c.id)} style={{ background: "transparent", border: `1px solid ${isSuspended ? "#00E67644" : "rgba(255,255,255,0.1)"}`, borderRadius: 7, padding: "7px 14px", color: isSuspended ? "#00E676" : C.muted, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Suspend"}</button>
+                  )}
                 </div>
+                </div>
+
+                {/* Inline Configure Panel */}
+                {isConfiguring && (
+                  <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.primary}33`, borderRadius: "0 0 12px 12px", borderTop: "none", padding: "20px 24px", marginTop: -1 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Tenant Name</div>
+                        <input defaultValue={c.name} style={inputStyleTM} />
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Admin Email</div>
+                        <input defaultValue={`admin@${c.name.toLowerCase().replace(/\s/g, "")}.com`} style={inputStyleTM} />
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
+                        <select defaultValue="growth" style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="enterprise">Enterprise (Custom)</option></select>
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Active Channels</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"].map(ch => (
+                          <label key={ch} style={{ display: "flex", alignItems: "center", gap: 4, background: c.channels.includes(ch) ? `${c.brand.primary}15` : "rgba(255,255,255,0.03)", border: `1px solid ${c.channels.includes(ch) ? c.brand.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: c.channels.includes(ch) ? c.brand.primary : "rgba(255,255,255,0.4)" }}>
+                            <input type="checkbox" defaultChecked={c.channels.includes(ch)} style={{ accentColor: c.brand.primary }} /> {ch}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
+                        <input type="number" defaultValue={250000} style={inputStyleTM} />
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Contact Limit</div>
+                        <input type="number" defaultValue={100000} style={inputStyleTM} />
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>User Seats</div>
+                        <input type="number" defaultValue={10} style={inputStyleTM} />
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>API Rate Limit</div>
+                        <select style={inputStyleTM}><option>100 req/sec</option><option>50 req/sec</option><option>200 req/sec</option><option>Unlimited</option></select>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setConfiguringTenant(null)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                      <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎨 Edit Branding</button>
+                      <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -349,8 +418,53 @@ function TenantManagement({ C }) {
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL</div>
-                  <input value={brandForm.logo} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://..." style={inputStyleTM} />
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo</div>
+                  {brandForm.logo ? (
+                    <div style={{ position: "relative", width: 44, height: 44 }}>
+                      <img src={brandForm.logo} alt="Logo" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: "2px solid rgba(255,255,255,0.15)" }} />
+                      <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#FF3B30", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 44, background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}10`; }}
+                      onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                      onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
+                    >
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
+                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>📁 Upload</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Logo Upload Area (expanded) */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Logo Upload</div>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <label style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", textAlign: "center" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary + "66"; e.currentTarget.style.background = `${C.primary}08`; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}15`; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
+                  >
+                    <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>📁</div>
+                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 2 }}>Drop logo here or click to upload</div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>PNG, JPG, SVG, or WebP · Max 2MB · Recommended 224×224px</div>
+                  </label>
+                  {brandForm.logo && (
+                    <div style={{ textAlign: "center" }}>
+                      <img src={brandForm.logo} alt="Logo preview" style={{ width: 80, height: 80, borderRadius: 12, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: `2px solid ${brandForm.primary}44`, padding: 8 }} />
+                      <div style={{ marginTop: 6 }}>
+                        <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ background: "#FF3B3022", border: "1px solid #FF3B3044", borderRadius: 6, padding: "3px 10px", color: "#FF3B30", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginBottom: 4 }}>Or paste a URL:</div>
+                  <input value={brandForm.logo && !brandForm.logo.startsWith("data:") ? brandForm.logo : ""} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://your-domain.com/logo.png" style={{ ...inputStyleTM, fontSize: 12 }} />
                 </div>
               </div>
 
@@ -359,7 +473,11 @@ function TenantManagement({ C }) {
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Live Preview</div>
                 <div style={{ background: "#0a0a14", borderRadius: 12, padding: 20, border: `1px solid ${brandForm.primary}33` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${brandForm.primary}, ${brandForm.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{brandForm.name.slice(0, 2).toUpperCase()}</div>
+                    {brandForm.logo ? (
+                      <img src={brandForm.logo} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", background: "rgba(255,255,255,0.06)" }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${brandForm.primary}, ${brandForm.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{brandForm.name.slice(0, 2).toUpperCase()}</div>
+                    )}
                     <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{brandForm.name || "Brand Name"}</span>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
