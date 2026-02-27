@@ -472,6 +472,22 @@ function CustomerPortal({ tenantId, onBack }) {
         )}
 
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && (
+         <div style={{ flex: 1, overflowY: "auto" }}>
+        {page === "dashboard" && (
+          <div style={{ padding: "32px 36px" }}>
+            ...existing dashboard code stays the same...
+          </div>
+        )}
+
+        {page === "campaigns" && (
+          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+        )}
+
+        {page === "analytics" && (
+          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+        )}
+
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -505,8 +521,8 @@ export default function App() {
   const spNavItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
+    { id: "analytics", label: "Global Analytics", icon: "📊" },  // no campaigns!
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
-    { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
@@ -656,6 +672,5 @@ export default function App() {
           </div>
         )}
       </div>
-    </div>
   );
 }
