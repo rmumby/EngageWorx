@@ -198,6 +198,10 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
 function TenantManagement({ C }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
+  const [showDemoForm, setShowDemoForm] = useState(false);
+  const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
+  const [demoCreating, setDemoCreating] = useState(false);
+  const [demoResult, setDemoResult] = useState(null);
   const [editingBrand, setEditingBrand] = useState(null);
   const [brandForm, setBrandForm] = useState({ name: "", primary: "", secondary: "", logo: "" });
   const [configuringTenant, setConfiguringTenant] = useState(null);
@@ -228,9 +232,14 @@ function TenantManagement({ C }) {
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Tenant Management</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage white-label customers, branding & access</p>
         </div>
-        <button onClick={() => setShowNew(true)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
-          + New Tenant
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+            🎮 Create Demo Account
+          </button>
+          <button onClick={() => { setShowNew(true); setShowDemoForm(false); }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
+            + New Tenant
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10, width: "fit-content" }}>
@@ -247,6 +256,129 @@ function TenantManagement({ C }) {
 
       {activeTab === "tenants" && (
         <div>
+          {/* Demo Account Creator */}
+          {showDemoForm && (
+            <div style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div>
+                  <h3 style={{ color: "#fff", margin: "0 0 4px" }}>🎮 Create Demo Account</h3>
+                  <p style={{ color: C.muted, margin: 0, fontSize: 12 }}>Generate credentials for a prospect to explore the platform with demo data</p>
+                </div>
+                <button onClick={() => { setShowDemoForm(false); setDemoResult(null); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 14px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>✕ Close</button>
+              </div>
+
+              {demoResult ? (
+                <div style={{ background: "#00E67612", border: "1px solid #00E67633", borderRadius: 12, padding: 24 }}>
+                  <div style={{ color: "#00E676", fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Demo Account Created</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Login Email</div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>{demoResult.email}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Password</div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>{demoResult.password}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Portal URL</div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>portal.engwx.com</div>
+                    </div>
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Company</div>
+                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14 }}>{demoResult.company}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
+                    <button onClick={() => { navigator.clipboard.writeText(`Portal: portal.engwx.com\nEmail: ${demoResult.email}\nPassword: ${demoResult.password}`); }} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 8, padding: "8px 18px", color: C.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📋 Copy Credentials</button>
+                    <button onClick={() => { setDemoResult(null); setDemoForm({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" }); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Create Another</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Prospect Email</label>
+                      <input value={demoForm.email} onChange={e => setDemoForm(p => ({ ...p, email: e.target.value }))} placeholder="prospect@company.com" style={inputStyleTM} />
+                    </div>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Password</label>
+                      <input value={demoForm.password} onChange={e => setDemoForm(p => ({ ...p, password: e.target.value }))} placeholder="demo1234" style={inputStyleTM} />
+                    </div>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Company Name</label>
+                      <input value={demoForm.companyName} onChange={e => setDemoForm(p => ({ ...p, companyName: e.target.value }))} placeholder="Prospect Corp" style={inputStyleTM} />
+                    </div>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Brand Color</label>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input type="color" value={demoForm.brandColor} onChange={e => setDemoForm(p => ({ ...p, brandColor: e.target.value }))} style={{ width: 40, height: 36, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, cursor: "pointer", background: "transparent" }} />
+                        <input value={demoForm.brandColor} onChange={e => setDemoForm(p => ({ ...p, brandColor: e.target.value }))} style={{ ...inputStyleTM, fontFamily: "monospace" }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
+                      <select value={demoForm.plan} onChange={e => setDemoForm(p => ({ ...p, plan: e.target.value }))} style={{ ...inputStyleTM, cursor: "pointer" }}>
+                        <option value="starter">Starter ($299/mo)</option>
+                        <option value="growth">Growth ($799/mo)</option>
+                        <option value="enterprise">Enterprise (Custom)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Access Duration</label>
+                      <select value={demoForm.expiresIn} onChange={e => setDemoForm(p => ({ ...p, expiresIn: e.target.value }))} style={{ ...inputStyleTM, cursor: "pointer" }}>
+                        <option value="3">3 days</option>
+                        <option value="7">7 days</option>
+                        <option value="14">14 days</option>
+                        <option value="30">30 days</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                    <button onClick={async () => {
+                      if (!demoForm.email || !demoForm.companyName) return;
+                      setDemoCreating(true);
+                      try {
+                        const { supabase } = await import('./supabaseClient');
+                        const slug = demoForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-demo";
+                        const { data: tenant, error: tErr } = await supabase.from("tenants").insert({
+                          name: demoForm.companyName, slug, brand_primary: demoForm.brandColor,
+                          brand_name: demoForm.companyName, plan: demoForm.plan, status: "trial",
+                          channels_enabled: ["sms", "email", "whatsapp", "rcs"],
+                        }).select().single();
+                        if (tErr) throw tErr;
+                        const { data: authData, error: aErr } = await supabase.auth.admin?.createUser?.({
+                          email: demoForm.email, password: demoForm.password,
+                          email_confirm: true,
+                          user_metadata: { full_name: "Demo User", company_name: demoForm.companyName },
+                        }) || await supabase.auth.signUp({
+                          email: demoForm.email, password: demoForm.password,
+                          options: { data: { full_name: "Demo User", company_name: demoForm.companyName } },
+                        });
+                        if (aErr) throw aErr;
+                        const userId = authData?.user?.id;
+                        if (userId) {
+                          await supabase.from("user_profiles").update({
+                            tenant_id: tenant.id, role: "admin", company_name: demoForm.companyName,
+                          }).eq("id", userId);
+                          await supabase.from("tenant_members").insert({
+                            tenant_id: tenant.id, user_id: userId, role: "admin", status: "active", joined_at: new Date().toISOString(),
+                          });
+                        }
+                        setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: tenant.id });
+                      } catch (err) { alert("Error: " + err.message); }
+                      setDemoCreating(false);
+                    }} disabled={demoCreating || !demoForm.email || !demoForm.companyName} style={{
+                      background: `linear-gradient(135deg, ${C.accent}, ${C.primary})`, border: "none", borderRadius: 8, padding: "10px 22px",
+                      color: "#000", fontWeight: 700, cursor: demoCreating ? "wait" : "pointer", fontSize: 13,
+                      fontFamily: "'DM Sans', sans-serif", opacity: demoCreating ? 0.7 : 1,
+                    }}>{demoCreating ? "Creating..." : "🎮 Create Demo Account"}</button>
+                    <button onClick={() => setShowDemoForm(false)} style={{ background: "transparent", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "10px 22px", color: C.muted, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {showNew && (
             <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
               <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Onboard New Tenant</h3>
@@ -907,58 +1039,6 @@ function AppInner() {
               </div>
             )}
 
-            {/* ═══ DEMO MODE ═══ */}
-            {loginTab === "demo" && (
-              <>
-                <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Demo Portal Selector</h2>
-                <p style={{ color: C.muted, textAlign: "center", marginBottom: 20, fontSize: 13 }}>Explore the platform with sample data — no account needed</p>
-
-                <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-                  <button onClick={() => setSelectedRole("sp")} style={{
-                    background: selectedRole === "sp" ? `${C.primary}22` : "rgba(255,255,255,0.03)",
-                    border: `2px solid ${selectedRole === "sp" ? C.primary : "rgba(255,255,255,0.1)"}`,
-                    borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left",
-                    display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
-                  }}>
-                    <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🌐</div>
-                    <div>
-                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Service Provider</div>
-                      <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Holistic view · All tenants · Platform management</div>
-                    </div>
-                    {selectedRole === "sp" && <div style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</div>}
-                  </button>
-
-                  {Object.values(TENANTS).filter(t => t.role === "customer").map(t => (
-                    <button key={t.id} onClick={() => setSelectedRole(t.id)} style={{
-                      background: selectedRole === t.id ? `${t.brand.primary}22` : "rgba(255,255,255,0.03)",
-                      border: `2px solid ${selectedRole === t.id ? t.brand.primary : "rgba(255,255,255,0.1)"}`,
-                      borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left",
-                      display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s",
-                    }}>
-                      <div style={{ width: 44, height: 44, background: `linear-gradient(135deg, ${t.brand.primary}, ${t.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 16 }}>{t.logo}</div>
-                      <div>
-                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{t.brand.name}</div>
-                        <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{t.name} · Customer Portal</div>
-                      </div>
-                      {selectedRole === t.id && <div style={{ marginLeft: "auto", color: t.brand.primary, fontSize: 20 }}>✓</div>}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => { toggleDemoMode(true); selectedRole && setView(selectedRole === "sp" ? "sp" : "tenant_" + selectedRole); }}
-                  disabled={!selectedRole}
-                  style={{
-                    width: "100%", background: selectedRole ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : "rgba(255,255,255,0.1)",
-                    border: "none", borderRadius: 10, padding: "14px",
-                    color: selectedRole ? "#000" : C.muted, fontWeight: 700, cursor: selectedRole ? "pointer" : "not-allowed",
-                    fontSize: 15, transition: "all 0.2s",
-                  }}>
-                  Enter Demo →
-                </button>
-              </>
-            )}
-
             {/* ═══ SIGN IN ═══ */}
             {loginTab === "login" && (
               <form onSubmit={handleLogin}>
@@ -1059,13 +1139,6 @@ function AppInner() {
               </form>
             )}
           </div>
-
-          {/* Demo Mode link */}
-          <div style={{ marginTop: 20, textAlign: "center" }}>
-            <button onClick={() => { setLoginTab("demo"); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-              🎮 Try Demo Mode
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -1103,7 +1176,37 @@ function AppInner() {
           ))}
         </nav>
 
-        <button onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Switch Portal</button>
+        {/* Demo Mode Toggle — superadmin only */}
+        <button onClick={() => toggleDemoMode(!demoMode)} style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 12px", borderRadius: 9, marginBottom: 8,
+          background: demoMode ? `${C.accent}22` : "rgba(255,255,255,0.03)",
+          border: `1px solid ${demoMode ? C.accent + "44" : "rgba(255,255,255,0.08)"}`,
+          color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 13,
+          fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+        }}>
+          <span>🎮 Demo Mode</span>
+          <span style={{
+            width: 36, height: 20, borderRadius: 10, position: "relative",
+            background: demoMode ? C.accent : "rgba(255,255,255,0.15)",
+            display: "inline-block", transition: "all 0.2s",
+          }}>
+            <span style={{
+              width: 16, height: 16, borderRadius: "50%", background: "#fff",
+              position: "absolute", top: 2, left: demoMode ? 18 : 2,
+              transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            }} />
+          </span>
+        </button>
+
+        {/* Demo Credentials Manager */}
+        {demoMode && (
+          <div style={{ background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: C.accent }}>
+            ● Demo data active — all modules show sample data
+          </div>
+        )}
+
+        <button onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Sign Out</button>
 
         <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
