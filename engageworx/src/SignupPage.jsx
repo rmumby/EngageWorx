@@ -130,37 +130,39 @@ export default function SignupPage({ onBack }) {
         .insert({
           name: form.businessName,
           slug,
-          brand_color: form.brandColor,
-          logo_url: form.logoUrl || null,
+          brand_primary: form.brandColor,
+          brand_logo_url: form.logoUrl || null,
           plan: selectedPlan,
-          stripe_price_id: PLANS.find(p => p.id === selectedPlan)?.priceId,
-          twilio_option: twilioOption,
-          twilio_account_sid: twilioOption === "own" ? form.twilioAccountSid : null,
-          twilio_auth_token: twilioOption === "own" ? form.twilioAuthToken : null,
-          twilio_phone_number: twilioOption === "own" ? form.twilioPhoneNumber : null,
-          status: "pending",
-          owner_id: authData.user?.id,
+          status: "trial",
         })
         .select()
         .single();
 
       if (tenantError) throw tenantError;
 
-      await supabase.from("users").insert({
+      // Link user to tenant via tenant_members
+      await supabase.from("tenant_members").insert({
         tenant_id: tenant.id,
-        auth_id: authData.user?.id,
-        email: form.email,
-        role: "owner",
+        user_id: authData.user?.id,
+        role: "admin",
+        status: "active",
+        joined_at: new Date().toISOString(),
       });
+
+      // Update user_profiles with tenant_id
+      await supabase.from("user_profiles").update({
+        tenant_id: tenant.id,
+        company_name: form.businessName,
+        role: "admin",
+      }).eq("id", authData.user?.id);
 
       if (form.teamEmails) {
         const emails = form.teamEmails.split(",").map(e => e.trim()).filter(Boolean);
         for (const email of emails) {
-          await supabase.from("tenant_invites").insert({
+          await supabase.from("tenant_members").insert({
             tenant_id: tenant.id,
-            email,
-            invited_by: authData.user?.id,
-            status: "pending",
+            role: "member",
+            status: "invited",
           });
         }
       }
@@ -585,4 +587,3 @@ const styles = {
   planFeature: { color: "#94a3b8", fontSize: 12 },
   planOverage: { color: "#475569", fontSize: 11, borderTop: "1px solid #334155", paddingTop: 8, marginTop: 4 },
 };
-
