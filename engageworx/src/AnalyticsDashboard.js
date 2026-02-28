@@ -271,7 +271,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           </div>
         </div>
         <AnalyticsDashboard C={{ ...C, primary: t.color }} tenants={tenants} viewLevel="tenant" currentTenantId={t.id} />
-      </div>
+    </div>
     );
   }
 
@@ -285,12 +285,6 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
             <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Platform-wide performance metrics across all tenants</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* Demo toggle */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: demoMode ? "rgba(255,107,53,0.1)" : "rgba(0,230,118,0.1)", border: `1px solid ${demoMode ? "rgba(255,107,53,0.3)" : "rgba(0,230,118,0.3)"}`, borderRadius: 8, padding: "6px 14px" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: demoMode ? "#FF6B35" : "#00E676" }} />
-              <span style={{ fontSize: 12, color: demoMode ? "#FF6B35" : "#00E676", fontWeight: 600 }}>{demoMode ? "Demo Data" : "Live Data"}</span>
-              <button onClick={() => setDemoMode(!demoMode)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 4, padding: "2px 8px", color: "#fff", fontSize: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Switch</button>
-            </div>
             {/* Export */}
             <button onClick={() => exportToCSV(data.daily.map(d => ({ date: d.label, sent: d.sent, delivered: d.delivered, failed: d.failed, opened: d.opened, clicked: d.clicked, replied: d.replied, optOut: d.optOut, revenue: d.revenue })), `analytics-${startDate.toISOString().split("T")[0]}-${endDate.toISOString().split("T")[0]}.csv`)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
               📥 Export CSV
