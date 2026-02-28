@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-);
 
 export default function AdminTenants() {
   const [tenants, setTenants] = useState([]);
