@@ -27,36 +27,63 @@ export function AuthProvider({ children }) {
   // Fetch user profile from user_profiles table
   const fetchProfile = useCallback(async (userId) => {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .single()
+        .abortSignal(controller.signal);
 
+      clearTimeout(timeout);
       if (error) throw error;
       setProfile(data);
       return data;
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      if (err.name === 'AbortError') {
+        console.warn('Profile fetch timed out');
+      } else {
+        console.error('Error fetching profile:', err);
+      }
+      // Set a minimal profile so the app doesn't hang
+      setProfile({ id: userId, role: 'user' });
       return null;
     }
   }, []);
 
   // Listen for auth state changes
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        fetchProfile(s.user.id);
+    let mounted = true;
+
+    // Get initial session with timeout
+    const initAuth = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user) {
+          fetchProfile(s.user.id);
+        }
+      } catch (err) {
+        console.error('Auth init error:', err);
       }
-      setLoading(false);
-    });
+      if (mounted) setLoading(false);
+    };
+
+    // Force loading to false after 3 seconds no matter what
+    const safetyTimeout = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 3000);
+
+    initAuth();
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
+        if (!mounted) return;
         setSession(s);
         setUser(s?.user ?? null);
 
@@ -70,7 +97,11 @@ export function AuthProvider({ children }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   // ─── Auth Methods ───────────────────────────────────────────────────────
