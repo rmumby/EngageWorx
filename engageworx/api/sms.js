@@ -185,6 +185,83 @@ module.exports = async function handler(req, res) {
           .eq('phone', From);
       }
 
+      // ─── AI AUTO-RESPONSE ───────────────────────────────────────────
+      // Only respond to regular inbound messages (not opt-in/out/help)
+      if (messageType === 'inbound' && process.env.ANTHROPIC_API_KEY) {
+        try {
+          // Look up tenant config based on the To number
+          const { data: channelConfig } = await supabase
+            .from('channel_configs')
+            .select('tenant_id, config')
+            .eq('phone_number', To)
+            .single();
+
+          let tenantConfig = {};
+          if (channelConfig?.tenant_id) {
+            const { data: tenant } = await supabase
+              .from('tenants')
+              .select('name, industry')
+              .eq('id', channelConfig.tenant_id)
+              .single();
+
+            const { data: chatbotConfig } = await supabase
+              .from('chatbot_configs')
+              .select('*')
+              .eq('tenant_id', channelConfig.tenant_id)
+              .single();
+
+            tenantConfig = {
+              businessName: tenant?.name || 'our business',
+              industry: tenant?.industry || 'general business',
+              personality: chatbotConfig?.personality || 'friendly and professional',
+              knowledgeBase: chatbotConfig?.knowledge_base || '',
+              escalationRules: chatbotConfig?.escalation_rules || '',
+              maxResponseLength: 160,
+            };
+          }
+
+          // Fetch recent conversation history
+          const { data: history } = await supabase
+            .from('messages')
+            .select('direction, body, created_at')
+            .or(`from_number.eq.${From},to_number.eq.${From}`)
+            .order('created_at', { ascending: true })
+            .limit(10);
+
+          // Call AI endpoint
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : 'https://engwx.com';
+
+          const aiResponse = await fetch(`${baseUrl}/api/ai?action=respond`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: Body,
+              conversationHistory: history || [],
+              tenantConfig,
+            }),
+          });
+
+          const aiData = await aiResponse.json();
+
+          if (aiData.success && aiData.response && !aiData.escalate) {
+            // Send AI response via TwiML
+            res.setHeader('Content-Type', 'text/xml');
+            return res.status(200).send(
+              `<Response><Message>${aiData.response.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Message></Response>`
+            );
+          }
+
+          // If escalate=true or AI failed, don't auto-respond (goes to Live Inbox)
+          console.log(`[AI] Escalating message from ${From}: ${aiData.escalate ? 'escalation requested' : 'AI failed'}`);
+
+        } catch (aiErr) {
+          console.error('[AI] Auto-response error:', aiErr);
+          // Fail silently — don't block the webhook
+        }
+      }
+
       res.setHeader('Content-Type', 'text/xml');
       return res.status(200).send('<Response></Response>');
 
