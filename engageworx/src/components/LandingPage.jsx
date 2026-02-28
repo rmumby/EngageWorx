@@ -15,6 +15,22 @@ const LandingPage = () => {
     window.scrollTo(0, 0);
   };
 
+  // Handle direct URL paths for TCR/legal reviewers
+  useEffect(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/privacypolicy') {
+      setLegalPage('privacy');
+    } else if (path === '/termsandconditions') {
+      setLegalPage('terms');
+    } else if (path === '/smsconsent' || path === '/sms-consent') {
+      // Scroll to SMS consent section after render
+      setTimeout(() => {
+        const el = document.getElementById('lp-sms-consent');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
+  }, []);
+
   useEffect(() => {
     // Scroll reveal observer
     observerRef.current = new IntersectionObserver((entries) => {
@@ -1280,6 +1296,75 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           </div>
         </section>
 
+        {/* SMS CONSENT & OPT-IN — Required for TCR/A2P compliance */}
+        <section className="lp-section" id="lp-sms-consent" style={{ background: 'linear-gradient(180deg, #050810, #0a1018, #050810)' }}>
+          <div style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto' }} className="lp-fade-up">
+            <div className="lp-section-label">📱 SMS Communications</div>
+            <h2 className="lp-section-title">Stay connected<br />via SMS.</h2>
+            <p className="lp-section-sub" style={{ margin: '0 auto 40px' }}>
+              EngageWorx enables businesses to communicate with their customers through compliant, consent-based SMS messaging.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, textAlign: 'left', maxWidth: 700, margin: '0 auto' }}>
+              {/* How to Opt In */}
+              <div style={{ background: 'rgba(0,201,255,0.04)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 16, padding: 28 }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>✅</div>
+                <h3 style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>How to Opt In</h3>
+                <ul style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 2, paddingLeft: 18 }}>
+                  <li>Text <strong style={{ color: '#00C9FF' }}>START</strong> to a business's dedicated EngageWorx number</li>
+                  <li>Submit your phone number through a business's web form with SMS consent checkbox</li>
+                  <li>Provide verbal or written consent to the business</li>
+                </ul>
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(0,0,0,0.2)', borderRadius: 10, fontSize: 12, color: '#6B8BAE', lineHeight: 1.6 }}>
+                  <strong style={{ color: '#E8F4FD' }}>Consent language:</strong> "I agree to receive SMS messages from [Business Name] powered by EngageWorx. Message frequency varies. Message and data rates may apply. Reply STOP to opt out at any time. Reply HELP for help."
+                </div>
+              </div>
+
+              {/* How to Opt Out */}
+              <div style={{ background: 'rgba(255,59,48,0.04)', border: '1px solid rgba(255,59,48,0.15)', borderRadius: 16, padding: 28 }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>🛑</div>
+                <h3 style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>How to Opt Out</h3>
+                <ul style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 2, paddingLeft: 18 }}>
+                  <li>Reply <strong style={{ color: '#FF3B30' }}>STOP</strong> to any message to unsubscribe instantly</li>
+                  <li>Reply <strong style={{ color: '#FF3B30' }}>CANCEL</strong>, <strong style={{ color: '#FF3B30' }}>END</strong>, <strong style={{ color: '#FF3B30' }}>QUIT</strong>, or <strong style={{ color: '#FF3B30' }}>UNSUBSCRIBE</strong></li>
+                  <li>Reply <strong style={{ color: '#FFD600' }}>HELP</strong> for assistance at any time</li>
+                </ul>
+                <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(0,0,0,0.2)', borderRadius: 10, fontSize: 12, color: '#6B8BAE', lineHeight: 1.6 }}>
+                  <strong style={{ color: '#E8F4FD' }}>Opt-out confirmation:</strong> "You have been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe."
+                </div>
+              </div>
+            </div>
+
+            {/* Compliance details */}
+            <div style={{ maxWidth: 700, margin: '32px auto 0', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, textAlign: 'left' }}>
+              <h3 style={{ color: '#E8F4FD', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📋 SMS Messaging Compliance</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13, color: '#6B8BAE', lineHeight: 1.8 }}>
+                <div>
+                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Types</div>
+                  Transactional notifications, appointment reminders, customer support responses, account alerts, and marketing messages (with explicit consent).
+                </div>
+                <div>
+                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Frequency</div>
+                  Message frequency varies by the type of communication and the business you've opted in with. Typically 1-10 messages per month.
+                </div>
+                <div>
+                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Data Rates</div>
+                  Message and data rates may apply. Contact your wireless carrier for details about your messaging plan.
+                </div>
+                <div>
+                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Supported Carriers</div>
+                  EngageWorx supports all major US carriers including AT&T, T-Mobile, Verizon, and their subsidiaries.
+                </div>
+              </div>
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6B8BAE', lineHeight: 1.7 }}>
+                For questions about SMS messaging, contact us at <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>. 
+                View our <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details on data handling and compliance.
+                EngageWorx complies with TCPA, CTIA guidelines, and 10DLC/A2P messaging standards.
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA */}
         <section className="lp-section" style={{ textAlign: 'center' }}>
           <div className="lp-cta-box lp-fade-up">
@@ -1320,6 +1405,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               <h4>Legal</h4>
               <a onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
               <a onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
+              <a onClick={() => { const el = document.getElementById('lp-sms-consent'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>SMS Consent</a>
               <a onClick={() => { setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
