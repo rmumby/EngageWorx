@@ -224,7 +224,7 @@ function exportToCSV(data, filename) {
 }
 
 // ─── MAIN ANALYTICS DASHBOARD ──────────────────────────────────────────────────
-export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", currentTenantId = null }) {
+export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", currentTenantId = null, demoMode = true }) {
   const now = new Date();
   const thirtyAgo = new Date(); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
   const [startDate, setStartDate] = useState(thirtyAgo);
@@ -232,7 +232,6 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
   const [tenantFilter, setTenantFilter] = useState(currentTenantId || "all");
   const [channelFilter, setChannelFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("overview");
-  const [demoMode, setDemoMode] = useState(true);
   const [chartMetric, setChartMetric] = useState("sent");
   const [drillTenant, setDrillTenant] = useState(null);
 
