@@ -1,7 +1,7 @@
 // /api/webhook/twilio.js — Vercel Serverless Function
 // Handles inbound SMS and delivery status callbacks from Twilio
 
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
