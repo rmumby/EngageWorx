@@ -1229,7 +1229,7 @@ function AppInner() {
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" />}
+        {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
