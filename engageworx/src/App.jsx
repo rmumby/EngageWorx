@@ -897,8 +897,52 @@ function AppInner() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("signup") === "success") {
-      setView("signup");
+    
+    // Handle return from Stripe checkout
+    if (params.get("checkout") === "success" || params.get("signup") === "success") {
+      window.history.replaceState({}, "", window.location.pathname);
+      
+      // Check if we have signup data from before checkout
+      const signupRaw = sessionStorage.getItem("ewx_signup");
+      if (signupRaw) {
+        const signupData = JSON.parse(signupRaw);
+        sessionStorage.removeItem("ewx_signup");
+        
+        // Create the Supabase user account now
+        (async () => {
+          try {
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+              email: signupData.email,
+              password: signupData.password,
+              options: {
+                data: {
+                  full_name: signupData.fullName,
+                  company_name: signupData.companyName,
+                }
+              }
+            });
+            
+            if (authError) {
+              console.error("Post-checkout signup error:", authError);
+              setLoginMessage({ type: "error", text: "Payment received! But account creation failed: " + authError.message + ". Please contact support@engwx.com" });
+              return;
+            }
+
+            // Create tenant with service role key via API
+            setLoginMessage({ type: "success", text: "🎉 Payment received! Your account is ready. Please sign in." });
+            setLoginTab("login");
+            setLoginForm(p => ({ ...p, email: signupData.email, password: "" }));
+            
+            // Sign out immediately so user can sign in fresh
+            await supabase.auth.signOut();
+          } catch (err) {
+            console.error("Post-checkout error:", err);
+            setLoginMessage({ type: "success", text: "🎉 Payment received! Please sign in with your credentials." });
+          }
+        })();
+      } else {
+        setLoginMessage({ type: "success", text: "🎉 Payment received! Please sign in." });
+      }
     }
   }, []);
 
