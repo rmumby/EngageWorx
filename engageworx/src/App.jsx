@@ -900,49 +900,11 @@ function AppInner() {
     
     // Handle return from Stripe checkout
     if (params.get("checkout") === "success" || params.get("signup") === "success") {
+      const email = params.get("email") || "";
       window.history.replaceState({}, "", window.location.pathname);
-      
-      // Check if we have signup data from before checkout
-      const signupRaw = sessionStorage.getItem("ewx_signup");
-      if (signupRaw) {
-        const signupData = JSON.parse(signupRaw);
-        sessionStorage.removeItem("ewx_signup");
-        
-        // Create the Supabase user account now
-        (async () => {
-          try {
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-              email: signupData.email,
-              password: signupData.password,
-              options: {
-                data: {
-                  full_name: signupData.fullName,
-                  company_name: signupData.companyName,
-                }
-              }
-            });
-            
-            if (authError) {
-              console.error("Post-checkout signup error:", authError);
-              setLoginMessage({ type: "error", text: "Payment received! But account creation failed: " + authError.message + ". Please contact support@engwx.com" });
-              return;
-            }
-
-            // Create tenant with service role key via API
-            setLoginMessage({ type: "success", text: "🎉 Payment received! Your account is ready. Please sign in." });
-            setLoginTab("login");
-            setLoginForm(p => ({ ...p, email: signupData.email, password: "" }));
-            
-            // Sign out immediately so user can sign in fresh
-            await supabase.auth.signOut();
-          } catch (err) {
-            console.error("Post-checkout error:", err);
-            setLoginMessage({ type: "success", text: "🎉 Payment received! Please sign in with your credentials." });
-          }
-        })();
-      } else {
-        setLoginMessage({ type: "success", text: "🎉 Payment received! Please sign in." });
-      }
+      setLoginMessage({ type: "success", text: "🎉 Payment received! Your account is ready. Please sign in." });
+      setLoginTab("login");
+      if (email) setLoginForm(p => ({ ...p, email: decodeURIComponent(email) }));
     }
   }, []);
 
@@ -1160,24 +1122,19 @@ function AppInner() {
                   setLoginLoading(true);
                   setLoginMessage(null);
                   try {
-                    const checkoutRes = await fetch("/api/billing?action=checkout", {
+                    const checkoutRes = await fetch("/api/billing?action=signup", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
                         plan: "starter",
                         email: loginForm.email,
-                        tenantName: loginForm.companyName,
+                        password: loginForm.password,
+                        fullName: loginForm.fullName,
+                        companyName: loginForm.companyName,
                       }),
                     });
                     const checkoutData = await checkoutRes.json();
                     if (checkoutData.url) {
-                      // Store signup data in sessionStorage for after checkout
-                      sessionStorage.setItem("ewx_signup", JSON.stringify({
-                        email: loginForm.email,
-                        password: loginForm.password,
-                        fullName: loginForm.fullName,
-                        companyName: loginForm.companyName,
-                      }));
                       // Send admin notification in background
                       fetch("/api/email?action=send", {
                         method: "POST",
