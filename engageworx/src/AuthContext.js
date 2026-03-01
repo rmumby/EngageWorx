@@ -2,124 +2,102 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { supabase } from './supabaseClient';
 
 const AuthContext = createContext({});
-
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [demoMode, setDemoMode] = useState(() => {
-    const stored = localStorage.getItem('engwx_demo_mode');
-    return stored !== null ? stored === 'true' : false; // default to live
-  });
   const [authError, setAuthError] = useState(null);
+  const [demoMode, setDemoMode] = useState(true);
 
-  // Toggle demo mode
-  const toggleDemoMode = useCallback((enabled) => {
-    setDemoMode(enabled);
-    localStorage.setItem('engwx_demo_mode', String(enabled));
-  }, []);
+  const toggleDemoMode = useCallback((val) => {
+    setDemoMode(typeof val === 'boolean' ? val : !demoMode);
+  }, [demoMode]);
 
-  // Fetch user profile from user_profiles table
+  // Fetch profile — never throws, never hangs
   const fetchProfile = useCallback(async (userId) => {
+    if (!userId) return null;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
-        .single()
-        .abortSignal(controller.signal);
+        .single();
 
-      clearTimeout(timeout);
-      if (error) throw error;
+      if (error) {
+        console.warn('Profile fetch error:', error.message);
+        setProfile({ id: userId, role: 'user' });
+        return null;
+      }
       setProfile(data);
       return data;
     } catch (err) {
-      if (err.name === 'AbortError') {
-        console.warn('Profile fetch timed out');
-      } else {
-        console.error('Error fetching profile:', err);
-      }
-      // Set a minimal profile so the app doesn't hang
+      console.warn('Profile fetch failed:', err.message);
       setProfile({ id: userId, role: 'user' });
       return null;
     }
   }, []);
 
-  // Listen for auth state changes
+  // Init auth on mount
   useEffect(() => {
     let mounted = true;
 
-    // Get initial session with timeout
-    const initAuth = async () => {
+    const init = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mounted) return;
-        setSession(s);
-        setUser(s?.user ?? null);
         if (s?.user) {
-          fetchProfile(s.user.id);
+          setSession(s);
+          setUser(s.user);
+          await fetchProfile(s.user.id);
         }
       } catch (err) {
-        console.error('Auth init error:', err);
+        console.warn('Auth init error:', err.message);
       }
       if (mounted) setLoading(false);
     };
 
-    // Force loading to false after 3 seconds no matter what
-    const safetyTimeout = setTimeout(() => {
-      if (mounted) setLoading(false);
-    }, 3000);
+    // Safety: force loading off after 3s
+    const safety = setTimeout(() => { if (mounted) setLoading(false); }, 3000);
 
-    initAuth();
+    init();
 
-    // Subscribe to auth changes
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, s) => {
         if (!mounted) return;
         setSession(s);
         setUser(s?.user ?? null);
-
         if (event === 'SIGNED_IN' && s?.user) {
-          await fetchProfile(s.user.id);
+          fetchProfile(s.user.id); // Don't await — let it run in background
         }
         if (event === 'SIGNED_OUT') {
           setProfile(null);
         }
-        setLoading(false);
       }
     );
 
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
+      clearTimeout(safety);
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
 
-  // ─── Auth Methods ───────────────────────────────────────────────────────
+  // ─── Auth Methods ─────────────────────────────────────────────
 
-  const signUp = async ({ email, password, fullName, companyName }) => {
+  const signIn = async ({ email, password }) => {
     setAuthError(null);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            company_name: companyName,
-          },
-        },
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      // Manually set user/session immediately so we don't wait for onAuthStateChange
+      setUser(data.user);
+      setSession(data.session);
+      // Fetch profile in background
+      fetchProfile(data.user.id);
       return { data, error: null };
     } catch (err) {
       setAuthError(err.message);
@@ -127,12 +105,13 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signIn = async ({ email, password }) => {
+  const signUp = async ({ email, password, fullName, companyName }) => {
     setAuthError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: { data: { full_name: fullName, company_name: companyName } },
       });
       if (error) throw error;
       return { data, error: null };
@@ -143,78 +122,35 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) console.error('Sign out error:', error);
+    await supabase.auth.signOut();
     setUser(null);
-    setProfile(null);
     setSession(null);
+    setProfile(null);
   };
 
   const resetPassword = async (email) => {
-    setAuthError(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: window.location.origin,
       });
       if (error) throw error;
       return { error: null };
     } catch (err) {
-      setAuthError(err.message);
       return { error: err.message };
     }
   };
 
-  const updateProfile = async (updates) => {
-    if (!user) return { error: 'Not authenticated' };
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      setProfile(data);
-      return { data, error: null };
-    } catch (err) {
-      return { data: null, error: err.message };
-    }
-  };
-
-  // ─── Helpers ────────────────────────────────────────────────────────────
-
-  const isSuperAdmin = profile?.role === 'superadmin';
-  const isAdmin = profile?.role === 'admin' || isSuperAdmin;
   const isAuthenticated = !!user && !!session;
-
-  const value = {
-    // State
-    user,
-    profile,
-    session,
-    loading,
-    demoMode,
-    authError,
-    // Auth methods
-    signUp,
-    signIn,
-    signOut,
-    resetPassword,
-    updateProfile,
-    // Demo
-    toggleDemoMode,
-    // Helpers
-    isSuperAdmin,
-    isAdmin,
-    isAuthenticated,
-  };
+  const isSuperAdmin = profile?.role === 'superadmin';
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user, session, profile, loading,
+      demoMode, toggleDemoMode,
+      signIn, signUp, signOut, resetPassword,
+      authError, isAuthenticated, isSuperAdmin,
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-export default AuthContext;
