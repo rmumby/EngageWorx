@@ -1,4 +1,5 @@
-// /api/billing.js — Single Vercel Serverless Function for all Stripe operations
+// /api/billing.js — Single Vercel Serverless Function for all Stripe + signup operations
+// POST /api/billing?action=signup    → Create user + Stripe Checkout in one call
 // POST /api/billing?action=checkout  → Create Stripe Checkout session
 // POST /api/billing?action=portal    → Create Customer Portal session
 // POST /api/billing?action=webhook   → Stripe webhook handler
@@ -35,6 +36,86 @@ module.exports = async function handler(req, res) {
   if (!secretKey) return res.status(500).json({ error: 'STRIPE_SECRET_KEY not configured' });
 
   const action = req.query.action || 'checkout';
+
+  // ─── SIGNUP: Create user + checkout in one call ───────────────────
+  if (action === 'signup' && req.method === 'POST') {
+    const { email, password, fullName, companyName, plan } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Missing email or password' });
+    }
+
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' });
+    }
+
+    try {
+      // Create user via admin API (server-side, no client session)
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName || '',
+          company_name: companyName || '',
+        },
+      });
+
+      if (authError) {
+        // If user already exists, that's OK — continue to checkout
+        if (!authError.message.includes('already') && !authError.message.includes('exists')) {
+          return res.status(400).json({ error: authError.message });
+        }
+      }
+
+      // Create Stripe checkout session
+      const selectedPlan = (plan || 'starter').toLowerCase();
+      const priceId = PRICE_IDS[selectedPlan];
+      if (!priceId) {
+        return res.status(400).json({ error: `Invalid plan: ${selectedPlan}` });
+      }
+
+      const successUrl = 'https://portal.engwx.com?checkout=success&email=' + encodeURIComponent(email);
+      const cancelUrl = 'https://portal.engwx.com?checkout=cancelled';
+
+      const params = {
+        'mode': 'subscription',
+        'payment_method_types[0]': 'card',
+        'line_items[0][price]': priceId,
+        'line_items[0][quantity]': '1',
+        'success_url': successUrl,
+        'cancel_url': cancelUrl,
+        'customer_email': email,
+        'allow_promotion_codes': 'true',
+        'billing_address_collection': 'required',
+        'subscription_data[trial_period_days]': '14',
+        'subscription_data[metadata][plan]': selectedPlan,
+        'subscription_data[metadata][tenant_name]': companyName || 'My Business',
+      };
+
+      const result = await stripeRequest('/checkout/sessions', 'POST', params);
+
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.data.error?.message || 'Stripe error' });
+      }
+
+      return res.status(200).json({
+        success: true,
+        sessionId: result.data.id,
+        url: result.data.url,
+        userId: authData?.user?.id || null,
+      });
+    } catch (err) {
+      console.error('Signup error:', err);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  }
 
   // ─── CREATE CHECKOUT SESSION ──────────────────────────────────────
   if (action === 'checkout' && req.method === 'POST') {
