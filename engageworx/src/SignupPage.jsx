@@ -109,78 +109,33 @@ export default function SignupPage({ onBack }) {
     setError("");
 
     try {
+      // Step 1: Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
-          data: { business_name: form.businessName }
+          data: {
+            business_name: form.businessName,
+            brand_color: form.brandColor,
+            logo_url: form.logoUrl || "",
+            plan: selectedPlan,
+            team_emails: form.teamEmails || "",
+          }
         }
       });
 
       if (authError) throw authError;
 
-      // Wait for session to be ready (signUp returns session but client needs to set it)
-      if (authData.session) {
-        await supabase.auth.setSession({
-          access_token: authData.session.access_token,
-          refresh_token: authData.session.refresh_token,
-        });
-      } else {
-        // If no session returned, wait briefly for auth state to propagate
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      // Step 2: Immediately sign out to prevent AuthContext from re-rendering
+      await supabase.auth.signOut();
 
-      const slug = form.businessName.toLowerCase().replace(/[^a-z0-9]/g, "-");
-      const { data: tenant, error: tenantError } = await supabase
-        .from("tenants")
-        .insert({
-          name: form.businessName,
-          slug,
-          brand_primary: form.brandColor,
-          brand_logo_url: form.logoUrl || null,
-          plan: selectedPlan,
-          status: "trial",
-        })
-        .select()
-        .single();
-
-      if (tenantError) throw tenantError;
-
-      // Link user to tenant via tenant_members
-      await supabase.from("tenant_members").insert({
-        tenant_id: tenant.id,
-        user_id: authData.user?.id,
-        role: "admin",
-        status: "active",
-        joined_at: new Date().toISOString(),
-      });
-
-      // Update user_profiles with tenant_id
-      await supabase.from("user_profiles").update({
-        tenant_id: tenant.id,
-        company_name: form.businessName,
-        role: "admin",
-      }).eq("id", authData.user?.id);
-
-      if (form.teamEmails) {
-        const emails = form.teamEmails.split(",").map(e => e.trim()).filter(Boolean);
-        for (const email of emails) {
-          await supabase.from("tenant_members").insert({
-            tenant_id: tenant.id,
-            role: "member",
-            status: "invited",
-          });
-        }
-      }
-
-      // Fire Stripe checkout redirect IMMEDIATELY (before auth state catches up)
+      // Step 3: Redirect to Stripe checkout (tenant creation happens in webhook after payment)
       const checkoutRes = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan: selectedPlan,
           email: form.email,
-          tenantId: tenant.id,
           tenantName: form.businessName,
         }),
       });
@@ -200,7 +155,7 @@ export default function SignupPage({ onBack }) {
 
         // Redirect to Stripe
         window.location.href = checkoutData.url;
-        return; // Prevent any further state updates
+        return;
       } else {
         throw new Error(checkoutData.error || "Failed to create checkout session");
       }
