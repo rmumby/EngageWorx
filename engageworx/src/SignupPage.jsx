@@ -162,23 +162,8 @@ export default function SignupPage({ onBack }) {
         }
       }
 
-      // Send welcome email notification
-      try {
-        await fetch("/api/email?action=send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: "rob@engwx.com",
-            subject: `🎉 New Signup: ${form.businessName} (${selectedPlan})`,
-            html: `<h2>New EngageWorx Signup</h2><p><strong>Business:</strong> ${form.businessName}</p><p><strong>Email:</strong> ${form.email}</p><p><strong>Plan:</strong> ${selectedPlan}</p>`,
-          }),
-        });
-      } catch (e) {
-        console.log("Admin notification failed:", e);
-      }
-
-      // Move to Stripe checkout with success redirect
-      const res = await fetch("/api/billing?action=checkout", {
+      // Fire Stripe checkout redirect IMMEDIATELY (before auth state catches up)
+      const checkoutRes = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -188,8 +173,26 @@ export default function SignupPage({ onBack }) {
           tenantName: form.businessName,
         }),
       });
-      const { url } = await res.json();
-      window.location.href = url;
+      const checkoutData = await checkoutRes.json();
+      
+      if (checkoutData.url) {
+        // Send admin email in background (don't await)
+        fetch("/api/email?action=send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: "rob@engwx.com",
+            subject: `🎉 New Signup: ${form.businessName} (${selectedPlan})`,
+            html: `<h2>New EngageWorx Signup</h2><p><strong>Business:</strong> ${form.businessName}</p><p><strong>Email:</strong> ${form.email}</p><p><strong>Plan:</strong> ${selectedPlan}</p>`,
+          }),
+        }).catch(() => {});
+
+        // Redirect to Stripe
+        window.location.href = checkoutData.url;
+        return; // Prevent any further state updates
+      } else {
+        throw new Error(checkoutData.error || "Failed to create checkout session");
+      }
 
     } catch (err) {
       setError(err.message);
