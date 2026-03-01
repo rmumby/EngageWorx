@@ -1079,7 +1079,7 @@ function AppInner() {
 
             {/* ═══ SIGN UP ═══ */}
             {loginTab === "signup" && (
-              <form onSubmit={handleSignup}>
+              <div>
                 <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Create Account</h2>
                 <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Start your free trial — no credit card required</p>
 
@@ -1104,7 +1104,56 @@ function AppInner() {
                   </div>
                 </div>
 
-                <button type="submit" disabled={loginLoading} style={{
+                <button type="button" disabled={loginLoading} onClick={async () => {
+                  if (!loginForm.fullName || !loginForm.companyName || !loginForm.email || !loginForm.password) {
+                    setLoginMessage({ type: "error", text: "Please fill all fields" });
+                    return;
+                  }
+                  if (loginForm.password.length < 6) {
+                    setLoginMessage({ type: "error", text: "Password must be at least 6 characters" });
+                    return;
+                  }
+                  setLoginLoading(true);
+                  setLoginMessage(null);
+                  try {
+                    const checkoutRes = await fetch("/api/billing?action=checkout", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        plan: "starter",
+                        email: loginForm.email,
+                        tenantName: loginForm.companyName,
+                      }),
+                    });
+                    const checkoutData = await checkoutRes.json();
+                    if (checkoutData.url) {
+                      // Store signup data in sessionStorage for after checkout
+                      sessionStorage.setItem("ewx_signup", JSON.stringify({
+                        email: loginForm.email,
+                        password: loginForm.password,
+                        fullName: loginForm.fullName,
+                        companyName: loginForm.companyName,
+                      }));
+                      // Send admin notification in background
+                      fetch("/api/email?action=send", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          to: "rob@engwx.com",
+                          subject: "🎉 New Signup: " + loginForm.companyName + " (starter)",
+                          html: "<h2>New EngageWorx Signup</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Business:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p>",
+                        }),
+                      }).catch(() => {});
+                      window.location.href = checkoutData.url;
+                    } else {
+                      throw new Error(checkoutData.error || "Checkout failed");
+                    }
+                  } catch (err) {
+                    console.error("SIGNUP ERROR:", err);
+                    setLoginMessage({ type: "error", text: err.message });
+                    setLoginLoading(false);
+                  }
+                }} style={{
                   width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
                   border: "none", borderRadius: 10, padding: "14px",
                   color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
@@ -1112,7 +1161,7 @@ function AppInner() {
                 }}>
                   {loginLoading ? "Creating account..." : "Create Account →"}
                 </button>
-              </form>
+              </div>
             )}
 
             {/* ═══ RESET PASSWORD ═══ */}
