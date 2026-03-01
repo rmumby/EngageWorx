@@ -119,6 +119,17 @@ export default function SignupPage({ onBack }) {
 
       if (authError) throw authError;
 
+      // Wait for session to be ready (signUp returns session but client needs to set it)
+      if (authData.session) {
+        await supabase.auth.setSession({
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token,
+        });
+      } else {
+        // If no session returned, wait briefly for auth state to propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
       const slug = form.businessName.toLowerCase().replace(/[^a-z0-9]/g, "-");
       const { data: tenant, error: tenantError } = await supabase
         .from("tenants")
@@ -195,6 +206,7 @@ export default function SignupPage({ onBack }) {
       }
 
     } catch (err) {
+      console.error("SIGNUP ERROR:", err);
       setError(err.message);
       setLoading(false);
     }
