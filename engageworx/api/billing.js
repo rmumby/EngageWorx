@@ -222,30 +222,96 @@ module.exports = async function handler(req, res) {
           const session = event.data.object;
           console.log(`[Stripe] Checkout completed: ${session.customer_email}, sub: ${session.subscription}`);
 
-          // Update tenant billing status in Supabase
           const { createClient } = require('@supabase/supabase-js');
           const supabase = createClient(
             process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
           );
 
-          // Find tenant by email and update
-          const { data: profiles } = await supabase
+          const email = session.customer_email;
+          const metadata = session.metadata || {};
+          const subMetadata = session.subscription_data?.metadata || metadata;
+          const plan = subMetadata.plan || metadata.plan || 'starter';
+          const tenantName = subMetadata.tenant_name || metadata.tenant_name || 'My Business';
+
+          // Find auth user by email
+          const { data: authUsers } = await supabase.auth.admin.listUsers();
+          const authUser = authUsers?.users?.find(u => u.email === email);
+          const userId = authUser?.id;
+          const userMeta = authUser?.user_metadata || {};
+
+          // Check if tenant already exists for this user
+          const { data: existingProfile } = await supabase
             .from('user_profiles')
             .select('tenant_id')
-            .eq('email', session.customer_email)
+            .eq('email', email)
             .single();
 
-          if (profiles?.tenant_id) {
+          if (existingProfile?.tenant_id) {
+            // Tenant already exists — just update billing info
             await supabase
               .from('tenants')
               .update({
                 status: 'active',
                 stripe_customer_id: session.customer,
-                stripe_subscription_id: session.subscription,
                 updated_at: new Date().toISOString(),
               })
-              .eq('id', profiles.tenant_id);
+              .eq('id', existingProfile.tenant_id);
+          } else {
+            // Create tenant
+            const slug = (userMeta.business_name || tenantName || 'business')
+              .toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+            const { data: tenant, error: tenantError } = await supabase
+              .from('tenants')
+              .insert({
+                name: userMeta.business_name || tenantName,
+                slug,
+                brand_primary: userMeta.brand_color || '#00C9FF',
+                brand_logo_url: userMeta.logo_url || null,
+                plan,
+                status: 'active',
+              })
+              .select()
+              .single();
+
+            if (tenantError) {
+              console.error('[Stripe] Tenant create error:', tenantError);
+              break;
+            }
+
+            // Link user to tenant
+            if (userId) {
+              await supabase.from('tenant_members').insert({
+                tenant_id: tenant.id,
+                user_id: userId,
+                role: 'admin',
+                status: 'active',
+                joined_at: new Date().toISOString(),
+              });
+
+              // Update user profile
+              await supabase.from('user_profiles').upsert({
+                id: userId,
+                email,
+                tenant_id: tenant.id,
+                company_name: tenant.name,
+                role: 'admin',
+              });
+
+              // Handle team invites from signup metadata
+              const teamEmails = userMeta.team_emails;
+              if (teamEmails) {
+                const emails = teamEmails.split(',').map(e => e.trim()).filter(Boolean);
+                for (const inviteEmail of emails) {
+                  await supabase.from('tenant_members').insert({
+                    tenant_id: tenant.id,
+                    role: 'member',
+                    status: 'invited',
+                  });
+                }
+              }
+            }
           }
           break;
         }
