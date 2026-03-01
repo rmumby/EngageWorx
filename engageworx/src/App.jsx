@@ -985,6 +985,11 @@ function AppInner() {
     return <LandingPage />;
   }
 
+  // Signup page should NEVER be interrupted by loading state
+  if (view === "signup") {
+    return <SignupPage onBack={() => setView("login")} />;
+  }
+
   // Show loading while checking auth state
   if (loading) {
     return (
@@ -999,9 +1004,6 @@ function AppInner() {
 
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
-  }
-  if (view === "signup") {
-    return <SignupPage onBack={() => setView("login")} />;
   }
   if (view === "admin_tenants") {
     return <AdminTenants onBack={() => setView("sp")} />;
