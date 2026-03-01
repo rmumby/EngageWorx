@@ -1,4 +1,3 @@
-// force rebuild
 import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -80,7 +79,7 @@ export default function SignupPage({ onBack }) {
   // Check if returning from Stripe checkout success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("signup") === "success") {
+    if (params.get("checkout") === "success" || params.get("signup") === "success") {
       setStep(6);
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -163,16 +162,15 @@ export default function SignupPage({ onBack }) {
         }
       }
 
-      // Send admin notification
+      // Send welcome email notification
       try {
-        await fetch("/api/notify-admin", {
+        await fetch("/api/email?action=send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            businessName: form.businessName,
-            email: form.email,
-            plan: selectedPlan,
-            twilioOption,
+            to: "rob@engwx.com",
+            subject: `🎉 New Signup: ${form.businessName} (${selectedPlan})`,
+            html: `<h2>New EngageWorx Signup</h2><p><strong>Business:</strong> ${form.businessName}</p><p><strong>Email:</strong> ${form.email}</p><p><strong>Plan:</strong> ${selectedPlan}</p>`,
           }),
         });
       } catch (e) {
@@ -180,14 +178,14 @@ export default function SignupPage({ onBack }) {
       }
 
       // Move to Stripe checkout with success redirect
-      const res = await fetch("/api/create-checkout-session", {
+      const res = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          priceId: PLANS.find(p => p.id === selectedPlan)?.priceId,
-          tenantId: tenant.id,
+          plan: selectedPlan,
           email: form.email,
-          successUrl: window.location.origin + "?signup=success",
+          tenantId: tenant.id,
+          tenantName: form.businessName,
         }),
       });
       const { url } = await res.json();
