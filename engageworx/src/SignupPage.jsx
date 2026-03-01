@@ -109,27 +109,7 @@ export default function SignupPage({ onBack }) {
     setError("");
 
     try {
-      // Step 1: Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: {
-          data: {
-            business_name: form.businessName,
-            brand_color: form.brandColor,
-            logo_url: form.logoUrl || "",
-            plan: selectedPlan,
-            team_emails: form.teamEmails || "",
-          }
-        }
-      });
-
-      if (authError) throw authError;
-
-      // Step 2: Immediately sign out to prevent AuthContext from re-rendering
-      await supabase.auth.signOut();
-
-      // Step 3: Redirect to Stripe checkout (tenant creation happens in webhook after payment)
+      // Go straight to Stripe — user account creation happens server-side in webhook
       const checkoutRes = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,12 +117,21 @@ export default function SignupPage({ onBack }) {
           plan: selectedPlan,
           email: form.email,
           tenantName: form.businessName,
+          // Pass signup data as metadata for the webhook to use
+          metadata: {
+            password: form.password,
+            businessName: form.businessName,
+            brandColor: form.brandColor,
+            logoUrl: form.logoUrl || "",
+            teamEmails: form.teamEmails || "",
+          },
         }),
       });
       const checkoutData = await checkoutRes.json();
+      console.log("CHECKOUT RESPONSE:", checkoutData);
       
       if (checkoutData.url) {
-        // Send admin email in background (don't await)
+        // Send admin email in background
         fetch("/api/email?action=send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -155,7 +144,6 @@ export default function SignupPage({ onBack }) {
 
         // Redirect to Stripe
         window.location.href = checkoutData.url;
-        return;
       } else {
         throw new Error(checkoutData.error || "Failed to create checkout session");
       }
