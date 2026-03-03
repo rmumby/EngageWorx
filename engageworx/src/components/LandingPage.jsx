@@ -71,7 +71,7 @@ const LandingPage = () => {
 
   // Navigate to signup page
   const goToSignup = () => {
-    window.location.href = PORTAL_URL + '?view=signup';
+    window.location.href = PORTAL_URL;
   };
 
   const goToLogin = () => {
@@ -311,6 +311,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
   }
 
   // Shared sub-page wrapper with nav
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const SubPageNav = () => (
     <>
       <style>{`
@@ -343,6 +344,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
         @media (max-width: 768px) {
           .lp-sub-nav { padding: 12px 20px; }
           .lp-sub-nav-links { display: none !important; }
+          .lp-sub-hamburger { display: block !important; }
         }
       `}</style>
       <nav className="lp-sub-nav">
@@ -357,6 +359,17 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
           <li><button className="lp-sub-cta" onClick={goToSignup}>Get Started Free</button></li>
         </ul>
+        <button className="lp-sub-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ display: 'none', background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer' }}>☰</button>
+        {mobileMenuOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: '#080d1aee', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+            <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
+            <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
+            <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
+            <span onClick={() => { navigateTo('contact'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Contact</span>
+            <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
+            <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
+          </div>
+        )}
       </nav>
     </>
   );
@@ -418,7 +431,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           </div>
 
           {/* Plan Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginBottom: 80 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 80 }}>
             {plans.map((p, i) => (
               <div key={i} style={{
                 background: '#0d1220', border: p.featured ? '2px solid #00C9FF' : '1px solid #1a2540',
@@ -549,7 +562,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
 
           {/* Values */}
           <h2 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 24 }}>What drives us</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20, marginBottom: 48 }}>
             {[
               { icon: '⚡', title: 'Speed Over Complexity', desc: 'We obsess over reducing time-to-value. If it takes more than 10 minutes to set up, we haven\'t done our job.' },
               { icon: '🤖', title: 'AI That Helps, Not Hypes', desc: 'We use AI where it genuinely saves you time — generating campaigns, handling conversations, and surfacing insights.' },
@@ -567,7 +580,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           </div>
 
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
             {[
               { num: '50M+', label: 'Messages delivered' },
               { num: '500+', label: 'Businesses trust us' },
@@ -629,7 +642,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
             <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Have a question, want a demo, or ready to get started? We'd love to hear from you.</p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 48, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 48, alignItems: 'start' }}>
             {/* Contact Form */}
             <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px' }}>
               {contactSubmitted ? (
@@ -1050,6 +1063,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
         @media (max-width: 768px) {
           .lp-nav { padding: 12px 20px; }
           .lp-nav-links { display: none !important; }
+          .lp-main-hamburger { display: block !important; }
           .lp-hero { padding: 100px 20px 60px; }
           .lp-hero h1 { letter-spacing: -1.5px; }
           .lp-hero-actions { flex-direction: column; align-items: center; }
@@ -1084,6 +1098,18 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
           </ul>
+        <button className="lp-main-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ display: 'none', background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer' }}>☰</button>
+        {mobileMenuOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: '#080d1aee', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+            <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
+            <span onClick={() => scrollTo('lp-channels')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Channels</span>
+            <span onClick={() => scrollTo('lp-features')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Features</span>
+            <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
+            <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
+            <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
+            <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
+          </div>
+        )}
         </nav>
 
         {/* HERO */}
@@ -1109,7 +1135,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               <div className="lp-hero-badge-dot" />
               Now with <strong>RCS Business Messaging</strong>
             </div>
-            <h1>Smarter conversations.<br /><span className="lp-gradient-text">One platform.</span></h1>
+            <h1>Conversations that<br /><span className="lp-gradient-text">close deals.</span></h1>
             <p className="lp-hero-sub">
               The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email.
               Automate conversations, build campaigns, and delight customers at scale.
@@ -1305,7 +1331,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               EngageWorx enables businesses to communicate with their customers through compliant, consent-based SMS messaging.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, textAlign: 'left', maxWidth: 700, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, textAlign: 'left', maxWidth: 700, margin: '0 auto' }}>
               {/* How to Opt In */}
               <div style={{ background: 'rgba(0,201,255,0.04)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 16, padding: 28 }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>✅</div>
