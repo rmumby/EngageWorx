@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from './supabaseClient';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -70,14 +71,66 @@ function generateAICopy(template, tone, channel, brandName) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function CampaignsModule({ C, tenants, viewLevel = "tenant", currentTenantId }) {
+export default function CampaignsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [view, setView] = useState("list"); // list, detail, create
-  const [campaigns, setCampaigns] = useState(() => generateDemoCampaigns(currentTenantId));
+  const [campaigns, setCampaigns] = useState(() => demoMode ? generateDemoCampaigns(currentTenantId) : []);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterChannel, setFilterChannel] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date"); // date, name, performance
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // Fetch live campaigns from Supabase
+  useEffect(() => {
+    if (demoMode) {
+      setCampaigns(generateDemoCampaigns(currentTenantId));
+      return;
+    }
+    const fetchCampaigns = async () => {
+      setLiveLoading(true);
+      try {
+        let query = supabase.from('campaigns').select('*').order('created_at', { ascending: false });
+        if (currentTenantId && viewLevel === 'tenant') {
+          query = query.eq('tenant_id', currentTenantId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const mapped = (data || []).map(c => ({
+          id: c.id,
+          name: c.name || 'Untitled',
+          channel: c.type || 'SMS',
+          status: c.status || 'draft',
+          audience: 'All Contacts',
+          audienceSize: c.target_count || 0,
+          sent: c.sent_count || 0,
+          delivered: c.delivered_count || 0,
+          opened: c.opened_count || 0,
+          clicked: c.clicked_count || 0,
+          replied: c.replied_count || 0,
+          failed: c.failed_count || 0,
+          optOut: c.unsubscribed_count || 0,
+          revenue: 0,
+          startDate: c.started_at ? new Date(c.started_at) : null,
+          endDate: c.completed_at ? new Date(c.completed_at) : null,
+          scheduledDate: c.scheduled_at ? new Date(c.scheduled_at) : null,
+          abTest: c.ab_enabled || false,
+          abVariants: c.ab_variants || [],
+          body: c.message_body || '',
+          tags: c.target_tags || [],
+          aiGenerated: false,
+          tone: 'Professional',
+          tenant_id: c.tenant_id,
+        }));
+        setCampaigns(mapped);
+      } catch (err) {
+        console.warn('Campaigns fetch error:', err.message);
+        setCampaigns([]);
+      }
+      setLiveLoading(false);
+    };
+    fetchCampaigns();
+  }, [demoMode, currentTenantId, viewLevel]);
 
   // Create campaign state
   const [createStep, setCreateStep] = useState(1); // 1: basics, 2: content, 3: audience, 4: schedule, 5: review
