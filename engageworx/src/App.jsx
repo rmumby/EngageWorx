@@ -977,12 +977,15 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, authError, isSuperAdmin, isAuthenticated } = useAuth();
+  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isAuthenticated, passwordRecovery } = useAuth();
   const [view, setView] = useState("login");
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
   const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState(null);
   const [loginTab, setLoginTab] = useState("login"); // "login" | "signup" | "reset" | "demo"
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
@@ -1110,6 +1113,67 @@ function AppInner() {
   if (drillDownTenant) {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
+
+  // Password recovery screen
+  if (passwordRecovery && isAuthenticated) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ width: 420 }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontSize: 28, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          </div>
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "36px 32px" }}>
+            <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Set New Password</h2>
+            <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your new password below</p>
+            
+            {resetMessage && (
+              <div style={{ background: resetMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${resetMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: resetMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
+                {resetMessage.text}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
+              <div>
+                <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>New Password</label>
+                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+              </div>
+              <div>
+                <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Confirm New Password</label>
+                <input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} placeholder="Repeat password" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+              </div>
+            </div>
+
+            <button onClick={async () => {
+              if (!newPassword || newPassword.length < 6) {
+                setResetMessage({ type: "error", text: "Password must be at least 6 characters" });
+                return;
+              }
+              if (newPassword !== confirmNewPassword) {
+                setResetMessage({ type: "error", text: "Passwords don't match" });
+                return;
+              }
+              const { error } = await updatePassword(newPassword);
+              if (error) {
+                setResetMessage({ type: "error", text: error });
+              } else {
+                setResetMessage({ type: "success", text: "Password updated! Redirecting..." });
+                setNewPassword("");
+                setConfirmNewPassword("");
+                setTimeout(() => setResetMessage(null), 2000);
+              }
+            }} style={{
+              width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+              border: "none", borderRadius: 10, padding: "14px",
+              color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 15,
+            }}>
+              Update Password
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === "admin_tenants") {
     return <AdminTenants onBack={() => setView("sp")} />;
   }
