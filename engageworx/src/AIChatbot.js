@@ -81,7 +81,7 @@ const BOT_ANALYTICS = {
 };
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId }) {
+export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("personality");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
   const [botName, setBotName] = useState("EngageBot");
