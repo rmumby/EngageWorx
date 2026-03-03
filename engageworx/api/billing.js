@@ -202,9 +202,8 @@ module.exports = async function handler(req, res) {
         'billing_address_collection': 'required',
       };
 
-      // Add subscription-specific params
+      // Add subscription-specific params (no trial for upgrades/downgrades)
       if (checkoutMode === 'subscription') {
-        params['subscription_data[trial_period_days]'] = '14';
         if (tenantId) params['subscription_data[metadata][tenant_id]'] = tenantId;
         if (tenantName) params['subscription_data[metadata][tenant_name]'] = tenantName;
         if (plan) params['subscription_data[metadata][plan]'] = plan;
@@ -290,16 +289,17 @@ module.exports = async function handler(req, res) {
     if (!email) return res.status(400).json({ error: 'Missing email query param' });
 
     try {
-      const searchResult = await stripeRequest(
-        `/customers/search?query=email:'${encodeURIComponent(email)}'`,
+      // Try list endpoint (most reliable)
+      const listResult = await stripeRequest(
+        `/customers?email=${encodeURIComponent(email)}&limit=1`,
         'GET'
       );
 
-      if (!searchResult.ok || !searchResult.data.data?.length) {
+      if (!listResult.ok || !listResult.data.data?.length) {
         return res.status(200).json({ subscribed: false, plan: null });
       }
 
-      const customerId = searchResult.data.data[0].id;
+      const customerId = listResult.data.data[0].id;
 
       const subs = await stripeRequest(
         `/subscriptions?customer=${customerId}&status=active&limit=1`,
