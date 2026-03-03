@@ -44,10 +44,22 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [activeTab, setActiveTab] = useState("api");
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
+  const [stripePlan, setStripePlan] = useState(null);
+  const [stripeStatus, setStripeStatus] = useState(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.email) setUserEmail(data.user.email);
+      if (data?.user?.email) {
+        setUserEmail(data.user.email);
+        // Fetch subscription status from Stripe
+        fetch(`/api/billing?action=status&email=${encodeURIComponent(data.user.email)}`)
+          .then(r => r.json())
+          .then(status => {
+            if (status.plan) setStripePlan(status.plan);
+            if (status.status) setStripeStatus(status.status);
+          })
+          .catch(() => {});
+      }
     });
   }, []);
 
@@ -92,11 +104,12 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     { id: "pro", name: "Pro", price: "$499", priceId: "price_1T4Of6PEs1sluBAURFjaViRv", features: ["10 phone numbers", "20,000 SMS/month", "AI bot included", "Overage: $0.025/SMS"] },
   ];
 
-  // Determine current plan from tenant data or default
+  // Determine current plan — prefer live Stripe data, fall back to tenant data
   const tenantsArray = Array.isArray(tenants) ? tenants : Object.values(tenants || {});
   const currentTenant = tenantsArray.find(t => t.id === currentTenantId) || tenantsArray[0];
-  const currentPlanId = currentTenant?.plan || currentTenant?.billing_plan || "starter";
+  const currentPlanId = stripePlan || currentTenant?.plan || currentTenant?.billing_plan || "starter";
   const currentPlanInfo = PLANS.find(p => p.id === currentPlanId.toLowerCase()) || PLANS[0];
+  const planStatus = stripeStatus === "trialing" ? "Trial" : stripeStatus === "active" ? "Active" : stripePlan ? "Active" : "Active";
 
   const handleUpgrade = async (plan) => {
     setUpgradeLoading(plan.id);
@@ -540,7 +553,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ color: C.primary, fontSize: 22, fontWeight: 800 }}>{currentPlanInfo.name} Plan</span>
-                  <span style={badge("#00E676")}>● Active</span>
+                  <span style={badge(stripeStatus === "trialing" ? "#FFD600" : "#00E676")}>● {planStatus}</span>
                 </div>
                 <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{currentPlanInfo.price}/month · Billed monthly</div>
               </div>
