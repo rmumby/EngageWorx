@@ -561,18 +561,93 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 {!newCampaign.sendNow && <span style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</span>}
               </button>
             </div>
-            {!newCampaign.sendNow && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-                <div>
-                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Date</label>
-                  <input type="date" value={newCampaign.scheduledDate} onChange={e => setNewCampaign({ ...newCampaign, scheduledDate: e.target.value })} style={inputStyle} />
+            {!newCampaign.sendNow && (() => {
+              const today = new Date();
+              const selDate = newCampaign.scheduledDate ? new Date(newCampaign.scheduledDate + "T00:00:00") : null;
+              const calMonth = newCampaign._calMonth !== undefined ? newCampaign._calMonth : (selDate || today).getMonth();
+              const calYear = newCampaign._calYear !== undefined ? newCampaign._calYear : (selDate || today).getFullYear();
+              const firstDay = new Date(calYear, calMonth, 1).getDay();
+              const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+              const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+              const days = [];
+              for (let i = 0; i < firstDay; i++) days.push(null);
+              for (let d = 1; d <= daysInMonth; d++) days.push(d);
+
+              const setCalMonth = (m, y) => setNewCampaign({ ...newCampaign, _calMonth: m, _calYear: y });
+              const prevMonth = () => { const m = calMonth === 0 ? 11 : calMonth - 1; const y = calMonth === 0 ? calYear - 1 : calYear; setCalMonth(m, y); };
+              const nextMonth = () => { const m = calMonth === 11 ? 0 : calMonth + 1; const y = calMonth === 11 ? calYear + 1 : calYear; setCalMonth(m, y); };
+
+              const isToday = (d) => d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+              const isSelected = (d) => selDate && d === selDate.getDate() && calMonth === selDate.getMonth() && calYear === selDate.getFullYear();
+              const isPast = (d) => {
+                const check = new Date(calYear, calMonth, d);
+                const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                return check < todayStart;
+              };
+
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 16, marginTop: 20 }}>
+                  {/* Calendar */}
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <button onClick={prevMonth} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: "4px 10px" }}>‹</button>
+                      <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{monthNames[calMonth]} {calYear}</span>
+                      <button onClick={nextMonth} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: "4px 10px" }}>›</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+                      {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
+                        <div key={d} style={{ textAlign: "center", color: C.muted, fontSize: 10, fontWeight: 700, padding: "6px 0", textTransform: "uppercase" }}>{d}</div>
+                      ))}
+                      {days.map((d, i) => (
+                        <div key={i} style={{ textAlign: "center" }}>
+                          {d ? (
+                            <button
+                              onClick={() => {
+                                if (!isPast(d)) {
+                                  const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+                                  setNewCampaign({ ...newCampaign, scheduledDate: dateStr, _calMonth: calMonth, _calYear: calYear });
+                                }
+                              }}
+                              disabled={isPast(d)}
+                              style={{
+                                width: 34, height: 34, borderRadius: "50%", border: "none", cursor: isPast(d) ? "default" : "pointer",
+                                background: isSelected(d) ? C.primary : isToday(d) ? "rgba(255,255,255,0.08)" : "transparent",
+                                color: isPast(d) ? "rgba(255,255,255,0.15)" : isSelected(d) ? "#000" : isToday(d) ? C.primary : "rgba(255,255,255,0.7)",
+                                fontWeight: isSelected(d) || isToday(d) ? 800 : 500, fontSize: 13,
+                                fontFamily: "'DM Sans', sans-serif",
+                                transition: "all 0.15s",
+                              }}
+                            >{d}</button>
+                          ) : <div style={{ width: 34, height: 34 }} />}
+                        </div>
+                      ))}
+                    </div>
+                    {selDate && (
+                      <div style={{ textAlign: "center", marginTop: 12, color: C.primary, fontSize: 12, fontWeight: 600 }}>
+                        Selected: {monthNames[selDate.getMonth()]} {selDate.getDate()}, {selDate.getFullYear()}
+                      </div>
+                    )}
+                  </div>
+                  {/* Time picker */}
+                  <div style={{ minWidth: 140 }}>
+                    <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Time</label>
+                    <input type="time" value={newCampaign.scheduledTime} onChange={e => setNewCampaign({ ...newCampaign, scheduledTime: e.target.value })} style={inputStyle} />
+                    <div style={{ marginTop: 12 }}>
+                      <label style={{ display: "block", color: C.muted, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Quick Pick</label>
+                      {["09:00", "12:00", "15:00", "18:00"].map(t => (
+                        <button key={t} onClick={() => setNewCampaign({ ...newCampaign, scheduledTime: t })} style={{
+                          display: "block", width: "100%", padding: "8px", marginBottom: 4, borderRadius: 6, cursor: "pointer",
+                          background: newCampaign.scheduledTime === t ? C.primary + "22" : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${newCampaign.scheduledTime === t ? C.primary : "rgba(255,255,255,0.08)"}`,
+                          color: newCampaign.scheduledTime === t ? C.primary : "rgba(255,255,255,0.6)",
+                          fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                        }}>{t === "09:00" ? "9:00 AM" : t === "12:00" ? "12:00 PM" : t === "15:00" ? "3:00 PM" : "6:00 PM"}</button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Time</label>
-                  <input type="time" value={newCampaign.scheduledTime} onChange={e => setNewCampaign({ ...newCampaign, scheduledTime: e.target.value })} style={inputStyle} />
-                </div>
-              </div>
-            )}
+              );
+            })()}
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>
               <button onClick={() => setCreateStep(3)} style={btnSecondary}>← Back</button>
               <button onClick={() => setCreateStep(5)} style={btnPrimary}>Next: Review →</button>
