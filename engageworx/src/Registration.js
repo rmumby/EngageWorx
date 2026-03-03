@@ -81,7 +81,7 @@ const RCS_STEPS = [
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function Registration({ C, tenants, viewLevel = "tenant", currentTenantId }) {
+export default function Registration({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [mainTab, setMainTab] = useState("10dlc");
   const [tcrView, setTcrView] = useState("overview");
   const [rcsView, setRcsView] = useState("overview");
