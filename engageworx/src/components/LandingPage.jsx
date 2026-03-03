@@ -395,27 +395,27 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
   if (page === 'pricing') {
     const plans = [
       {
-        name: 'Starter', price: '$49', period: '/mo', desc: 'Perfect for small teams getting started with customer messaging.',
-        features: ['1,000 messages/month', 'SMS + Email channels', 'AI Chatbot (basic)', '5 automation flows', '1 team member', 'Community support', 'Basic analytics'],
+        name: 'Starter', price: '$99', period: '/mo', desc: '1 phone number, 1,000 SMS/month, AI bot included.',
+        features: ['1,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', '5 automation flows', '1 phone number', 'Email support', 'Analytics dashboard'],
         cta: 'Start Free Trial', featured: false
       },
       {
-        name: 'Growth', price: '$149', period: '/mo', desc: 'For growing teams that need full omnichannel power and automation.',
-        features: ['10,000 messages/month', 'All channels (SMS, RCS, WhatsApp, Email)', 'AI Chatbot (advanced + custom personality)', 'Unlimited automation flows', '5 team members', 'Priority support', 'Advanced analytics + A/B testing', 'Custom sender IDs'],
+        name: 'Growth', price: '$249', period: '/mo', desc: '3 phone numbers, 5,000 SMS/month, AI bot included.',
+        features: ['5,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', 'Unlimited automation flows', '3 phone numbers', 'Priority support', 'Advanced analytics'],
         cta: 'Start Free Trial', featured: true
       },
       {
-        name: 'Enterprise', price: 'Custom', period: '', desc: 'White-label, unlimited volume, and dedicated support for service providers.',
-        features: ['Unlimited messages', 'All channels + API access', 'White-label branding', 'Custom integrations', 'Unlimited team members', 'Dedicated account manager', 'SLA guarantee (99.9%)', 'Custom domain + SSO', 'Multi-tenant management'],
-        cta: 'Contact Sales', featured: false
+        name: 'Pro', price: '$499', period: '/mo', desc: '10 phone numbers, 20,000 SMS/month, AI bot included.',
+        features: ['20,000 SMS/month', 'All channels + API access', 'White-label branding', 'Custom integrations', '10 phone numbers', 'Dedicated support', 'Full analytics suite', 'Custom domain', 'Multi-tenant management'],
+        cta: 'Start Free Trial', featured: false
       }
     ];
     const faqs = [
       { q: 'Is there a free trial?', a: 'Yes! All paid plans come with a 14-day free trial. No credit card required to start.' },
       { q: 'Can I change plans later?', a: 'Absolutely. You can upgrade or downgrade at any time. Changes take effect at your next billing cycle.' },
       { q: 'What counts as a message?', a: 'Each SMS segment, email, WhatsApp message, or RCS message counts as one message. MMS counts as 3 messages.' },
-      { q: 'Do you offer annual billing?', a: 'Yes — save 20% with annual billing on Starter and Growth plans. Contact us for Enterprise pricing.' },
-      { q: 'What happens if I exceed my message limit?', a: 'We will notify you at 80% and 100% usage. Overage messages are billed at a per-message rate based on your plan.' },
+      { q: 'Do you offer annual billing?', a: 'Yes — save 20% with annual billing on Starter and Growth plans. Contact us for custom enterprise pricing.' },
+      { q: 'What happens if I exceed my message limit?', a: 'We will notify you at 80% and 100% usage. Overage messages are billed at $0.025/SMS across all plans.' },
       { q: 'Is there a setup fee?', a: 'No. There are no setup fees, hidden charges, or long-term contracts on Starter and Growth plans.' },
     ];
 
@@ -468,14 +468,14 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'left', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#6B8BAE', fontSize: 13, fontWeight: 600 }}>Feature</th>
-                    {['Starter', 'Growth', 'Enterprise'].map(h => (
+                    {['Starter', 'Growth', 'Pro'].map(h => (
                       <th key={h} style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#00C9FF', fontSize: 13, fontWeight: 700 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ['Monthly messages', '1,000', '10,000', 'Unlimited'],
+                    ['Monthly SMS', '1,000', '5,000', '20,000'],
                     ['SMS & Email', '✓', '✓', '✓'],
                     ['RCS & WhatsApp', '—', '✓', '✓'],
                     ['AI Chatbot', 'Basic', 'Advanced', 'Custom'],
@@ -1253,44 +1253,44 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           <div className="lp-pricing-grid">
             <div className="lp-price-card lp-fade-up">
               <div className="lp-price-name">Starter</div>
-              <div className="lp-price-amount">$49<span>/mo</span></div>
-              <div className="lp-price-desc">Perfect for small teams getting started with messaging.</div>
+              <div className="lp-price-amount">$99<span>/mo</span></div>
+              <div className="lp-price-desc">1 phone number, 1,000 SMS/month, AI bot included.</div>
               <ul className="lp-price-features">
-                <li>1,000 messages/month</li>
+                <li>1,000 SMS/month</li>
                 <li>SMS + Email channels</li>
-                <li>AI Chatbot (basic)</li>
-                <li>5 automation flows</li>
-                <li>1 team member</li>
+                <li>AI Chatbot included</li>
+                <li>1 phone number</li>
+                <li>Overage: $0.025/SMS</li>
               </ul>
               <button className="lp-price-btn lp-price-btn-outline" onClick={goToSignup}>Start Free Trial</button>
             </div>
             <div className="lp-price-card lp-featured lp-fade-up">
               <div className="lp-price-name">Growth</div>
-              <div className="lp-price-amount">$149<span>/mo</span></div>
-              <div className="lp-price-desc">For growing teams that need full omnichannel power.</div>
+              <div className="lp-price-amount">$249<span>/mo</span></div>
+              <div className="lp-price-desc">3 phone numbers, 5,000 SMS/month, AI bot included.</div>
               <ul className="lp-price-features">
-                <li>10,000 messages/month</li>
-                <li>All channels (SMS, RCS, WhatsApp, Email)</li>
-                <li>AI Chatbot (advanced)</li>
-                <li>Unlimited flows</li>
-                <li>5 team members</li>
+                <li>5,000 SMS/month</li>
+                <li>SMS + Email channels</li>
+                <li>AI Chatbot included</li>
+                <li>3 phone numbers</li>
+                <li>Overage: $0.025/SMS</li>
                 <li>Priority support</li>
               </ul>
               <button className="lp-price-btn lp-price-btn-primary" onClick={goToSignup}>Start Free Trial</button>
             </div>
             <div className="lp-price-card lp-fade-up">
-              <div className="lp-price-name">Enterprise</div>
-              <div className="lp-price-amount">Custom</div>
-              <div className="lp-price-desc">White-label, unlimited volume, and dedicated support.</div>
+              <div className="lp-price-name">Pro</div>
+              <div className="lp-price-amount">$499<span>/mo</span></div>
+              <div className="lp-price-desc">10 phone numbers, 20,000 SMS/month, AI bot included.</div>
               <ul className="lp-price-features">
-                <li>Unlimited messages</li>
+                <li>20,000 SMS/month</li>
                 <li>All channels + API access</li>
                 <li>White-label branding</li>
                 <li>Custom integrations</li>
-                <li>Unlimited team members</li>
-                <li>Dedicated account manager</li>
+                <li>10 phone numbers</li>
+                <li>Overage: $0.025/SMS</li>
               </ul>
-              <button className="lp-price-btn lp-price-btn-outline" onClick={() => window.location.href='mailto:sales@engwx.com'}>Contact Sales</button>
+              <button className="lp-price-btn lp-price-btn-outline" onClick={goToSignup}>Start Free Trial</button>
             </div>
           </div>
         </section>
