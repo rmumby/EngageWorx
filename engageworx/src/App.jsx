@@ -998,6 +998,14 @@ function AppInner() {
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
