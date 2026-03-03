@@ -522,7 +522,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 24 }}>💬</span>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>SMS (Twilio)</div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>SMS</div>
                     <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
                   </div>
                 </div>
@@ -550,7 +550,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 24 }}>📧</span>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Email (SendGrid)</div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Email</div>
                     <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
                   </div>
                 </div>
@@ -645,7 +645,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 24 }}>📞</span>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Voice (Twilio)</div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Voice</div>
                     <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
                   </div>
                 </div>
@@ -653,7 +653,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <div><label style={label}>Voice Number</label><input defaultValue="+1 (555) 000-9999" style={inputStyle} /></div>
-                <div><label style={label}>SIP Domain</label><input defaultValue="acme.sip.twilio.com" style={inputStyle} /></div>
+                <div><label style={label}>SIP Domain</label><input defaultValue="sip.engwx.com" style={inputStyle} /></div>
                 <div><label style={label}>TTS Voice</label><select style={inputStyle}><option>Polly (Neural)</option><option>Google WaveNet</option><option>Amazon Nova</option></select></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
@@ -668,7 +668,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 24 }}>📷</span>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>MMS (via Twilio)</div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>MMS</div>
                     <div style={{ color: "#00E676", fontSize: 11 }}>● Connected (shares SMS config)</div>
                   </div>
                 </div>
