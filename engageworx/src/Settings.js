@@ -9,12 +9,7 @@ const API_KEYS = [
   { id: "key_4", name: "Legacy Key (deprecated)", prefix: "ewx_old_1a2b", created: "Nov 5, 2024", lastUsed: "45 days ago", status: "revoked", permissions: ["messages"] },
 ];
 
-const WEBHOOKS = [
-  { id: "wh_1", name: "Message Delivered", url: "https://api.acmecorp.com/webhooks/delivered", events: ["message.delivered", "message.failed"], status: "active", successRate: 99.8, lastTriggered: "1 min ago" },
-  { id: "wh_2", name: "Campaign Events", url: "https://hooks.acmecorp.com/campaigns", events: ["campaign.started", "campaign.completed", "campaign.paused"], status: "active", successRate: 100, lastTriggered: "15 min ago" },
-  { id: "wh_3", name: "Contact Sync", url: "https://crm.acmecorp.com/api/contacts/sync", events: ["contact.created", "contact.updated", "contact.deleted"], status: "active", successRate: 97.2, lastTriggered: "5 min ago" },
-  { id: "wh_4", name: "Billing Notifications", url: "https://billing.acmecorp.com/hooks", events: ["invoice.created", "payment.received"], status: "paused", successRate: 0, lastTriggered: "Never" },
-];
+// Webhooks are loaded from Supabase — see liveWebhooks state
 
 const TEAM_MEMBERS = [
   { id: "tm_1", name: "Sarah Mitchell", email: "sarah.m@acmecorp.com", role: "Admin", avatar: "SM", status: "active", lastLogin: "2 min ago" },
@@ -158,6 +153,86 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
+
+  // ── Webhooks: live Supabase data ──
+  const [liveWebhooks, setLiveWebhooks] = useState([]);
+  const [webhooksLoading, setWebhooksLoading] = useState(true);
+  const [editingWebhook, setEditingWebhook] = useState(null); // null = not editing, object = editing
+  const [newWebhookData, setNewWebhookData] = useState({ name: "", url: "", events: [], secret: "", retry_policy: "3_exponential" });
+  const [webhookTestResult, setWebhookTestResult] = useState({});
+
+  const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
+
+  const loadWebhooks = async () => {
+    setWebhooksLoading(true);
+    try {
+      const { data, error } = await supabase.from("webhooks").select("*").order("created_at", { ascending: false });
+      if (!error && data) setLiveWebhooks(data);
+    } catch (err) { console.error("Failed to load webhooks:", err); }
+    setWebhooksLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "webhooks") loadWebhooks(); }, [activeTab]);
+
+  const generateSecret = () => "whsec_" + Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, "0")).join("");
+
+  const createWebhook = async () => {
+    if (!newWebhookData.name || !newWebhookData.url) return alert("Name and URL are required");
+    if (!newWebhookData.url.startsWith("https://")) return alert("Webhook URL must use HTTPS");
+    if (newWebhookData.events.length === 0) return alert("Select at least one event");
+    const secret = newWebhookData.secret || generateSecret();
+    const { data: userData } = await supabase.auth.getUser();
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    if (!tenantId) return alert("No tenant found");
+    const { error } = await supabase.from("webhooks").insert({
+      tenant_id: tenantId, name: newWebhookData.name, url: newWebhookData.url,
+      events: newWebhookData.events, secret, retry_policy: newWebhookData.retry_policy, status: "active",
+    });
+    if (error) return alert("Error creating webhook: " + error.message);
+    setNewWebhookData({ name: "", url: "", events: [], secret: "", retry_policy: "3_exponential" });
+    setShowNewWebhook(false);
+    loadWebhooks();
+  };
+
+  const updateWebhook = async () => {
+    if (!editingWebhook) return;
+    const { error } = await supabase.from("webhooks").update({
+      name: editingWebhook.name, url: editingWebhook.url,
+      events: editingWebhook.events, retry_policy: editingWebhook.retry_policy,
+    }).eq("id", editingWebhook.id);
+    if (error) return alert("Error updating webhook: " + error.message);
+    setEditingWebhook(null);
+    loadWebhooks();
+  };
+
+  const deleteWebhook = async (id) => {
+    if (!window.confirm("Delete this webhook? This cannot be undone.")) return;
+    const { error } = await supabase.from("webhooks").delete().eq("id", id);
+    if (error) return alert("Error deleting webhook: " + error.message);
+    loadWebhooks();
+  };
+
+  const toggleWebhookStatus = async (wh) => {
+    const newStatus = wh.status === "active" ? "paused" : "active";
+    const { error } = await supabase.from("webhooks").update({ status: newStatus }).eq("id", wh.id);
+    if (error) return alert("Error updating status: " + error.message);
+    loadWebhooks();
+  };
+
+  const testWebhook = async (wh) => {
+    setWebhookTestResult({ ...webhookTestResult, [wh.id]: "testing" });
+    try {
+      const res = await fetch(wh.url, {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Webhook-Secret": wh.secret || "" },
+        body: JSON.stringify({ event: "test.ping", timestamp: new Date().toISOString(), data: { message: "EngageWorx webhook test" } }),
+      });
+      setWebhookTestResult({ ...webhookTestResult, [wh.id]: res.ok ? "success" : `failed (${res.status})` });
+    } catch (err) {
+      setWebhookTestResult({ ...webhookTestResult, [wh.id]: "failed (network)" });
+    }
+    setTimeout(() => setWebhookTestResult(prev => { const n = { ...prev }; delete n[wh.id]; return n; }), 5000);
+  };
 
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
@@ -309,64 +384,130 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Webhooks</h2>
-            <button onClick={() => setShowNewWebhook(!showNewWebhook)} style={btnPrimary}>+ Add Webhook</button>
+            <button onClick={() => { setShowNewWebhook(!showNewWebhook); setEditingWebhook(null); }} style={btnPrimary}>+ Add Webhook</button>
           </div>
 
-          {showNewWebhook && (
-            <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>New Webhook Endpoint</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div><label style={label}>Name</label><input placeholder="e.g. CRM Sync" style={inputStyle} /></div>
-                <div><label style={label}>URL</label><input placeholder="https://your-domain.com/webhook" style={inputStyle} /></div>
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={label}>Events</label>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"].map(ev => (
-                    <label key={ev} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: "monospace" }}>
-                      <input type="checkbox" style={{ accentColor: C.primary }} /> {ev}
-                    </label>
-                  ))}
+          {/* Create / Edit Form */}
+          {(showNewWebhook || editingWebhook) && (() => {
+            const isEdit = !!editingWebhook;
+            const data = isEdit ? editingWebhook : newWebhookData;
+            const setData = isEdit
+              ? (updates) => setEditingWebhook({ ...editingWebhook, ...updates })
+              : (updates) => setNewWebhookData({ ...newWebhookData, ...updates });
+            const toggleEvent = (ev) => {
+              const events = data.events.includes(ev) ? data.events.filter(e => e !== ev) : [...data.events, ev];
+              setData({ events });
+            };
+            return (
+              <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
+                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>{isEdit ? "Edit Webhook" : "New Webhook Endpoint"}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div><label style={label}>Name</label><input value={data.name} onChange={e => setData({ name: e.target.value })} placeholder="e.g. CRM Sync" style={inputStyle} /></div>
+                  <div><label style={label}>URL (HTTPS required)</label><input value={data.url} onChange={e => setData({ url: e.target.value })} placeholder="https://your-domain.com/webhook" style={inputStyle} /></div>
                 </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div><label style={label}>Secret (for signature verification)</label><input placeholder="Auto-generated" style={inputStyle} readOnly /></div>
-                <div><label style={label}>Retry Policy</label><select style={inputStyle}><option>3 retries with exponential backoff</option><option>5 retries</option><option>No retries</option></select></div>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button style={btnPrimary}>Create Webhook</button>
-                <button onClick={() => setShowNewWebhook(false)} style={btnSec}>Cancel</button>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "grid", gap: 10 }}>
-            {WEBHOOKS.map(wh => (
-              <div key={wh.id} style={{
-                ...card, display: "grid", gridTemplateColumns: "1fr 180px 100px 80px 100px",
-                alignItems: "center", gap: 14,
-                borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : "#FFD600"}`,
-              }}>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{wh.name}</div>
-                  <div style={{ fontFamily: "monospace", color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis" }}>{wh.url}</div>
-                  <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                    {wh.events.map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={label}>Events</label>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {ALL_EVENTS.map(ev => (
+                      <label key={ev} onClick={() => toggleEvent(ev)} style={{
+                        display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontFamily: "monospace",
+                        background: data.events.includes(ev) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.08)"}`,
+                        color: data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.5)",
+                      }}>
+                        {data.events.includes(ev) ? "✓" : "○"} {ev}
+                      </label>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <button onClick={() => setData({ events: [...ALL_EVENTS] })} style={{ background: "none", border: "none", color: C.primary, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>Select All</button>
+                    <button onClick={() => setData({ events: [] })} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>Clear</button>
                   </div>
                 </div>
-                <div>
-                  <div style={{ color: wh.successRate >= 99 ? "#00E676" : wh.successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{wh.successRate}%</div>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Success rate</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <label style={label}>Signing Secret</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={data.secret || ""} onChange={e => setData({ secret: e.target.value })} placeholder="Auto-generated on create" style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} />
+                      {!isEdit && <button onClick={() => setData({ secret: generateSecret() })} style={{ ...btnSec, padding: "8px 12px", fontSize: 11, whiteSpace: "nowrap" }}>Generate</button>}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={label}>Retry Policy</label>
+                    <select value={data.retry_policy || "3_exponential"} onChange={e => setData({ retry_policy: e.target.value })} style={inputStyle}>
+                      <option value="3_exponential">3 retries with exponential backoff</option>
+                      <option value="5_linear">5 retries with linear backoff</option>
+                      <option value="none">No retries</option>
+                    </select>
+                  </div>
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>{wh.lastTriggered}</div>
-                <div><span style={badge(wh.status === "active" ? "#00E676" : "#FFD600")}>{wh.status}</span></div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Test</button>
-                  <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={isEdit ? updateWebhook : createWebhook} style={btnPrimary}>{isEdit ? "Save Changes" : "Create Webhook"}</button>
+                  <button onClick={() => { setShowNewWebhook(false); setEditingWebhook(null); }} style={btnSec}>Cancel</button>
+                  {isEdit && <button onClick={() => { deleteWebhook(editingWebhook.id); setEditingWebhook(null); }} style={{ ...btnSec, color: "#FF3B30", borderColor: "#FF3B3044" }}>Delete</button>}
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
+
+          {/* Webhook List */}
+          {webhooksLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading webhooks...</div>
+          ) : liveWebhooks.length === 0 ? (
+            <div style={{ ...card, textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No webhooks configured</div>
+              <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Webhooks let you receive real-time notifications when events happen in your account.</div>
+              <button onClick={() => setShowNewWebhook(true)} style={btnPrimary}>Create Your First Webhook</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {liveWebhooks.map(wh => {
+                const successRate = wh.total_deliveries > 0 ? Math.round((wh.successful_deliveries / wh.total_deliveries) * 1000) / 10 : null;
+                const lastTriggered = wh.last_triggered_at ? new Date(wh.last_triggered_at).toLocaleString() : "Never";
+                const testStatus = webhookTestResult[wh.id];
+                return (
+                  <div key={wh.id} style={{
+                    ...card, display: "grid", gridTemplateColumns: "1fr 120px 140px 80px auto",
+                    alignItems: "center", gap: 14,
+                    borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"}`,
+                  }}>
+                    <div>
+                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{wh.name}</div>
+                      <div style={{ fontFamily: "monospace", color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wh.url}</div>
+                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                        {(wh.events || []).map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}
+                      </div>
+                    </div>
+                    <div>
+                      {successRate !== null ? (
+                        <>
+                          <div style={{ color: successRate >= 99 ? "#00E676" : successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{successRate}%</div>
+                          <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{wh.total_deliveries} deliveries</div>
+                        </>
+                      ) : (
+                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>No data yet</div>
+                      )}
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>{lastTriggered}</div>
+                    <div>
+                      <button onClick={() => toggleWebhookStatus(wh)} style={{ ...badge(wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"), cursor: "pointer", border: "none", background: (wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600") + "18" }}>
+                        {wh.status}
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => testWebhook(wh)} disabled={testStatus === "testing"} style={{
+                        ...btnSec, padding: "6px 10px", fontSize: 11,
+                        color: testStatus === "success" ? "#00E676" : testStatus && testStatus.startsWith("failed") ? "#FF3B30" : "#fff",
+                      }}>{testStatus === "testing" ? "..." : testStatus === "success" ? "✓ OK" : testStatus ? "✗ Fail" : "Test"}</button>
+                      <button onClick={() => { setEditingWebhook({ ...wh }); setShowNewWebhook(false); }} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button>
+                      <button onClick={() => deleteWebhook(wh.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
