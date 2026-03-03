@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "./supabaseClient";
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const API_KEYS = [
@@ -42,6 +43,13 @@ const NOTIFICATION_PREFS = [
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("api");
   const [topupLoading, setTopupLoading] = useState(null);
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) setUserEmail(data.user.email);
+    });
+  }, []);
 
   const SMS_TOPUPS = [
     { id: "topup_500", name: "500 SMS", credits: 500, price: "$12.50", priceId: "price_1T4OfbPEs1sluBAUCYOGvoDQ", perSms: "$0.025" },
@@ -57,6 +65,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           priceId: topup.priceId,
+          email: userEmail,
           mode: "payment",
           successUrl: window.location.href + "?topup=success",
           cancelUrl: window.location.href,
