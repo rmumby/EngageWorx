@@ -291,7 +291,6 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: demoMode ? "#FF6B35" : "#00E676" }} />
               <span style={{ fontSize: 12, color: demoMode ? "#FF6B35" : "#00E676", fontWeight: 600 }}>{demoMode ? "Demo Data" : "Live Data"}</span>
             </div>
-            </div>
             {/* Export */}
             <button onClick={() => exportToCSV(data.daily.map(d => ({ date: d.label, sent: d.sent, delivered: d.delivered, failed: d.failed, opened: d.opened, clicked: d.clicked, replied: d.replied, optOut: d.optOut, revenue: d.revenue })), `analytics-${startDate.toISOString().split("T")[0]}-${endDate.toISOString().split("T")[0]}.csv`)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
               📥 Export CSV
