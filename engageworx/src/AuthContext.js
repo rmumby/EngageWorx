@@ -16,6 +16,8 @@ export function AuthProvider({ children }) {
     setDemoMode(typeof val === 'boolean' ? val : !demoMode);
   }, [demoMode]);
 
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+
   // Fetch profile — never throws, never hangs
   const fetchProfile = useCallback(async (userId) => {
     if (!userId) return null;
@@ -72,6 +74,9 @@ export function AuthProvider({ children }) {
         setUser(s?.user ?? null);
         if (event === 'SIGNED_IN' && s?.user) {
           fetchProfile(s.user.id); // Don't await — let it run in background
+        }
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordRecovery(true);
         }
         if (event === 'SIGNED_OUT') {
           setProfile(null);
@@ -140,6 +145,17 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updatePassword = async (newPassword) => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setPasswordRecovery(false);
+      return { error: null };
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
+
   const isAuthenticated = !!user && !!session;
   const isSuperAdmin = profile?.role === 'superadmin';
 
@@ -147,8 +163,8 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, session, profile, loading,
       demoMode, toggleDemoMode,
-      signIn, signUp, signOut, resetPassword,
-      authError, isAuthenticated, isSuperAdmin,
+      signIn, signUp, signOut, resetPassword, updatePassword,
+      authError, isAuthenticated, isSuperAdmin, passwordRecovery,
     }}>
       {children}
     </AuthContext.Provider>
