@@ -87,10 +87,15 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const PLANS = [
-    { id: "starter", name: "Starter", price: "$99", priceId: "price_1T4OeIPEs1sluBAUuRIaD8Cq", features: ["1,000 SMS/mo", "1 user", "Basic AI chatbot", "Email support"] },
-    { id: "growth", name: "Growth", price: "$249", priceId: "price_1T4OefPEs1sluBAUuZVAaBJ3", features: ["5,000 SMS/mo", "5 users", "Advanced AI chatbot", "Priority support"], popular: true },
-    { id: "pro", name: "Pro", price: "$499", priceId: "price_1T4Of6PEs1sluBAURFjaViRv", features: ["15,000 SMS/mo", "Unlimited users", "Custom AI training", "Dedicated support"] },
+    { id: "starter", name: "Starter", price: "$99", priceId: "price_1T4OeIPEs1sluBAUuRIaD8Cq", features: ["1 phone number", "1,000 SMS/month", "AI bot included", "Overage: $0.025/SMS"] },
+    { id: "growth", name: "Growth", price: "$249", priceId: "price_1T4OefPEs1sluBAUuZVAaBJ3", features: ["3 phone numbers", "5,000 SMS/month", "AI bot included", "Overage: $0.025/SMS"], popular: true },
+    { id: "pro", name: "Pro", price: "$499", priceId: "price_1T4Of6PEs1sluBAURFjaViRv", features: ["10 phone numbers", "20,000 SMS/month", "AI bot included", "Overage: $0.025/SMS"] },
   ];
+
+  // Determine current plan from tenant data or default
+  const currentTenant = tenants?.find(t => t.id === currentTenantId) || tenants?.[0];
+  const currentPlanId = currentTenant?.plan || currentTenant?.billing_plan || "starter";
+  const currentPlanInfo = PLANS.find(p => p.id === currentPlanId.toLowerCase()) || PLANS[0];
 
   const handleUpgrade = async (plan) => {
     setUpgradeLoading(plan.id);
@@ -533,13 +538,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: C.primary, fontSize: 22, fontWeight: 800 }}>Growth Plan</span>
+                  <span style={{ color: C.primary, fontSize: 22, fontWeight: 800 }}>{currentPlanInfo.name} Plan</span>
                   <span style={badge("#00E676")}>● Active</span>
                 </div>
-                <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>$799/month · Billed monthly · Next invoice: Mar 15, 2025</div>
+                <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{currentPlanInfo.price}/month · Billed monthly</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: "#fff", fontSize: 28, fontWeight: 800 }}>$799<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div>
+                <div style={{ color: "#fff", fontSize: 28, fontWeight: 800 }}>{currentPlanInfo.price}<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div>
                 <button onClick={() => setShowUpgradeModal(true)} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button>
                 <button onClick={handleManageBilling} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6, marginLeft: 6, background: "transparent", border: "1px solid rgba(255,255,255,0.15)" }}>Manage Billing</button>
               </div>
