@@ -21,7 +21,6 @@ function useLiveData(demoMode) {
   const [liveLoading, setLiveLoading] = useState(false);
 
   const fetchLiveData = useCallback(async () => {
-    if (demoMode) return;
     setLiveLoading(true);
     try {
       const { data: tenants, error } = await supabase
@@ -31,7 +30,6 @@ function useLiveData(demoMode) {
 
       if (error) throw error;
 
-      // Build TENANTS-compatible objects from live data
       const formatted = (tenants || []).map(t => ({
         id: t.id,
         name: t.name,
@@ -69,9 +67,12 @@ function useLiveData(demoMode) {
       console.warn('Live data fetch error:', err.message);
     }
     setLiveLoading(false);
-  }, [demoMode]);
+  }, []);
 
-  useEffect(() => { fetchLiveData(); }, [fetchLiveData]);
+  // Fetch when demoMode turns off
+  useEffect(() => {
+    if (!demoMode) fetchLiveData();
+  }, [demoMode, fetchLiveData]);
 
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
 }
