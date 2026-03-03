@@ -41,6 +41,39 @@ const NOTIFICATION_PREFS = [
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("api");
+  const [topupLoading, setTopupLoading] = useState(null);
+
+  const SMS_TOPUPS = [
+    { id: "topup_500", name: "500 SMS", credits: 500, price: "$12.50", priceId: "price_1T4OfbPEs1sluBAUCYOGvoDQ", perSms: "$0.025" },
+    { id: "topup_2000", name: "2,000 SMS", credits: 2000, price: "$45.00", priceId: "price_1T4OfvPEs1sluBAUlLDJppyQ", perSms: "$0.0225", savings: "10% off" },
+    { id: "topup_5000", name: "5,000 SMS", credits: 5000, price: "$100.00", priceId: "price_1T4OgUPEs1sluBAUZ24cjbfP", perSms: "$0.02", savings: "20% off" },
+  ];
+
+  const handleTopup = async (topup) => {
+    setTopupLoading(topup.id);
+    try {
+      const response = await fetch("/api/billing?action=checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId: topup.priceId,
+          mode: "payment",
+          successUrl: window.location.href + "?topup=success",
+          cancelUrl: window.location.href,
+        }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Error creating checkout session");
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setTopupLoading(null);
+    }
+  };
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
@@ -474,6 +507,30 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* SMS Top-Ups */}
+          <div style={{ ...card, marginBottom: 20, borderLeft: "4px solid #FFD600" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3>
+                <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div>
+              </div>
+              <span style={{ fontSize: 24 }}>📲</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {SMS_TOPUPS.map(t => (
+                <div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "20px 16px", textAlign: "center", position: "relative" }}>
+                  {t.savings && <div style={{ position: "absolute", top: -8, right: 12, background: "linear-gradient(135deg, #FFD600, #FF6B35)", color: "#000", padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 800 }}>{t.savings}</div>}
+                  <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.name}</div>
+                  <div style={{ color: C.primary, fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t.price}</div>
+                  <div style={{ color: C.muted, fontSize: 11, marginBottom: 12 }}>{t.perSms}/SMS</div>
+                  <button onClick={() => handleTopup(t)} disabled={topupLoading === t.id} style={{ width: "100%", background: topupLoading === t.id ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "10px", color: topupLoading === t.id ? C.muted : "#000", fontWeight: 700, cursor: topupLoading === t.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+                    {topupLoading === t.id ? "Loading..." : "Buy Now"}
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 
