@@ -826,7 +826,7 @@ function TenantManagement({ C }) {
 }
 
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
-function CustomerPortal({ tenantId, onBack, liveTenants }) {
+function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const demoTenant = TENANTS[tenantId];
   const liveTenant = liveTenants?.find(t => t.id === tenantId);
   const tenant = demoTenant || liveTenant || {
@@ -879,9 +879,16 @@ function CustomerPortal({ tenantId, onBack, liveTenants }) {
           ))}
         </nav>
 
-        <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
-          ← Back to Provider
-        </button>
+        {onBack && (
+          <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
+            ← Back to Provider
+          </button>
+        )}
+        {onLogout && (
+          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
+            Sign Out
+          </button>
+        )}
 
         <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1291,7 +1298,7 @@ function AppInner() {
 
   if (view.startsWith("tenant_")) {
     const tenantId = view.replace("tenant_", "");
-    return <CustomerPortal tenantId={tenantId} onBack={() => setView("login")} liveTenants={liveTenants} />;
+    return <CustomerPortal tenantId={tenantId} onLogout={handleLogout} liveTenants={liveTenants} />;
   }
 
   // Service Provider portal
