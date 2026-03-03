@@ -53,7 +53,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const SMS_TOPUPS = [
     { id: "topup_500", name: "500 SMS", credits: 500, price: "$15.00", priceId: "price_1T4OfbPEs1sluBAUCYOGvoDQ", perSms: "$0.03" },
-    { id: "topup_2000", name: "2,000 SMS", credits: 2000, price: "$45.00", priceId: "price_1T4OfvPEs1sluBAUlLDJppyQ", perSms: "$0.0225", savings: "10% off" },
+    { id: "topup_2000", name: "2,000 SMS", credits: 2000, price: "$45.00", priceId: "price_1T6x6sPEs1sluBAUwaBzwHxA", perSms: "$0.0225", savings: "10% off" },
     { id: "topup_5000", name: "5,000 SMS", credits: 5000, price: "$100.00", priceId: "price_1T4OgUPEs1sluBAUZ24cjbfP", perSms: "$0.02", savings: "20% off" },
   ];
 
