@@ -616,8 +616,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <span style={{ ...badge("#00E676"), marginLeft: "auto" }}>Default</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button style={btnSec}>Update Payment Method</button>
-                <button style={btnSec}>View Invoices</button>
+                <button onClick={handleManageBilling} style={btnSec}>Update Payment Method</button>
+                <button onClick={handleManageBilling} style={btnSec}>View Invoices</button>
               </div>
             </div>
           </div>
