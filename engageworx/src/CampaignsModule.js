@@ -143,6 +143,19 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   });
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const TEMPLATES = [
+    { id: 'promo', name: 'Promotional Offer', icon: '🏷️', channel: 'SMS', desc: 'Drive sales with a limited-time discount', body: 'Hey {first_name}! {business_name} is having a special sale - get {discount}% OFF for the next 24 hours! Shop now: {link}. Reply STOP to opt out.', tags: ['sale', 'promotional'] },
+    { id: 'welcome', name: 'Welcome Message', icon: '👋', channel: 'SMS', desc: 'Greet new subscribers with a warm intro', body: 'Welcome to {business_name}! We are thrilled to have you. Expect great deals, helpful tips, and updates. Reply HELP for assistance or STOP to opt out.', tags: ['welcome', 'onboarding'] },
+    { id: 'reminder', name: 'Appointment Reminder', icon: '📅', channel: 'SMS', desc: 'Reduce no-shows with timely reminders', body: 'Hi {first_name}, reminder from {business_name}: your appointment is {date} at {time}. Reply YES to confirm or RESCHEDULE to change. Reply STOP to opt out.', tags: ['appointment', 'reminder'] },
+    { id: 'followup', name: 'Follow-Up', icon: '💬', channel: 'SMS', desc: 'Re-engage after a visit or purchase', body: 'Hi {first_name}, thanks for visiting {business_name}! We would love to hear about your experience. Reply with feedback or questions. Reply STOP to opt out.', tags: ['followup', 'feedback'] },
+    { id: 'survey', name: 'Customer Survey', icon: '📋', channel: 'Email', desc: 'Gather feedback to improve your service', body: 'Hi {first_name}, we value your opinion! Take our quick 2-minute survey: {link} Thank you, {business_name}', tags: ['survey', 'feedback'] },
+    { id: 'reengagement', name: 'Win-Back', icon: '🔄', channel: 'SMS', desc: 'Win back inactive contacts', body: 'We miss you, {first_name}! Here is {discount}% off to welcome you back to {business_name}: {link}. Reply STOP to opt out.', tags: ['winback', 'reengagement'] },
+    { id: 'announcement', name: 'Product Announcement', icon: '🎉', channel: 'Email', desc: 'Share exciting updates and launches', body: 'Hi {first_name}, exciting news from {business_name}! Something new we think you will love. Check it out: {link}', tags: ['product', 'announcement'] },
+    { id: 'shipping', name: 'Order Update', icon: '📦', channel: 'SMS', desc: 'Keep customers informed on delivery', body: 'Hi {first_name}, your order from {business_name} has shipped! Track here: {link}. Questions? Reply to this message. Reply STOP to opt out.', tags: ['shipping', 'transactional'] },
+  ];
+
 
   const brandName = currentTenantId
     ? (tenants[currentTenantId]?.brand?.name || "Your Brand")
@@ -705,6 +718,25 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Create, manage, and track your messaging campaigns</p>
         </div>
         <button onClick={() => setView("create")} style={btnPrimary}>+ New Campaign</button>
+      </div>
+
+      {/* Quick Start Templates */}
+      <div style={{ marginBottom: 24 }}>
+        <button onClick={() => setShowTemplates(!showTemplates)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 20px', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+          📝 Quick Start Templates <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>{showTemplates ? '▲ Hide' : '▼ Show ' + TEMPLATES.length + ' templates'}</span>
+        </button>
+        {showTemplates && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 12 }}>
+            {TEMPLATES.map(t => (
+              <div key={t.id} onClick={() => { setNewCampaign(prev => ({ ...prev, name: t.name, channel: t.channel, body: t.body, tags: t.tags, aiTemplate: t.id })); setView('create'); setCreateStep(2); }} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer' }}>
+                <div style={{ fontSize: 28, marginBottom: 8 }}>{t.icon}</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t.name}</div>
+                <div style={{ color: C.muted, fontSize: 12, marginBottom: 8 }}>{t.desc}</div>
+                <span style={{ background: (CHANNEL_COLORS[t.channel] || C.primary) + '18', color: CHANNEL_COLORS[t.channel] || C.primary, border: '1px solid ' + (CHANNEL_COLORS[t.channel] || C.primary) + '44', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{t.channel}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* KPI Summary */}
