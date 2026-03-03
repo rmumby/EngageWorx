@@ -1377,7 +1377,15 @@ function AppInner() {
   // Service Provider portal
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh" }}>
+      {isMobile && !sidebarOpen && (
+        <button onClick={() => setSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
+          ☰
+        </button>
+      )}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
+      )}
+      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "transform 0.3s ease" }}>
         <div style={{ marginBottom: 32, paddingLeft: 8 }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
@@ -1386,7 +1394,7 @@ function AppInner() {
 
         <nav style={{ flex: 1 }}>
           {spNavItems.map(item => (
-            <button key={item.id} onClick={() => setSpPage(item.id)} style={{
+            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 12,
               padding: "11px 12px", borderRadius: 9, border: "none",
               background: spPage === item.id ? `${C.primary}22` : "transparent",
@@ -1444,7 +1452,7 @@ function AppInner() {
         </div>
       </div>
 
-      <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : 240, overflowY: "auto" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
