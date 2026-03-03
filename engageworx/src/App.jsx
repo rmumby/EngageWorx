@@ -162,9 +162,6 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Platform Overview</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Holistic view across all customer tenants</p>
         </div>
-        <button style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
-          + Onboard New Customer
-        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
@@ -928,35 +925,35 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
 
         {page === "campaigns" && (
-          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "analytics" && (
-          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "contacts" && (
-          <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "inbox" && (
-          <LiveInbox C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <LiveInbox C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "chatbot" && (
-          <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "flows" && (
-          <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "settings" && (
-          <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page === "registration" && (
-          <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} />
+          <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && (
