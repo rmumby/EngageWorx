@@ -6,9 +6,9 @@
 // GET  /api/billing?action=status    → Check subscription status
 
 const PRICE_IDS = {
-  starter: 'price_1T4QhrPEs1sluBAUvF8Jt7tx',
-  growth: 'price_1T4QqZPEs1sluBAUFNhNczt1',
-  pro: 'price_1T4QqhPEs1sluBAUNd6yUGYd',
+  starter: 'price_1T4OeIPEs1sluBAUuRIaD8Cq',
+  growth: 'price_1T4OefPEs1sluBAUuZVAaBJ3',
+  pro: 'price_1T4Of6PEs1sluBAURFjaViRv',
 };
 
 async function stripeRequest(endpoint, method, body) {
@@ -85,16 +85,16 @@ module.exports = async function handler(req, res) {
       const cancelUrl = 'https://portal.engwx.com?checkout=cancelled';
 
       const params = {
-        'mode': 'subscription',
+        'mode': checkoutMode,
         'payment_method_types[0]': 'card',
         'line_items[0][price]': priceId,
         'line_items[0][quantity]': '1',
-        'success_url': successUrl,
-        'cancel_url': cancelUrl,
+        'success_url': customSuccessUrl || successUrl,
+        'cancel_url': customCancelUrl || cancelUrl,
         'customer_email': email,
         'allow_promotion_codes': 'true',
         'billing_address_collection': 'required',
-        'subscription_data[trial_period_days]': '14',
+        ...(checkoutMode === 'subscription' ? {'subscription_data[trial_period_days]': '14'} : {}),
         'subscription_data[metadata][plan]': selectedPlan,
         'subscription_data[metadata][tenant_name]': companyName || 'My Business',
       };
@@ -119,16 +119,20 @@ module.exports = async function handler(req, res) {
 
   // ─── CREATE CHECKOUT SESSION ──────────────────────────────────────
   if (action === 'checkout' && req.method === 'POST') {
-    const { plan, email, tenantId, tenantName } = req.body;
+    const { plan, email, tenantId, tenantName, priceId: directPriceId, mode, successUrl: customSuccessUrl, cancelUrl: customCancelUrl } = req.body;
 
-    if (!plan || !email) {
-      return res.status(400).json({ error: 'Missing required fields: plan, email' });
-    }
-
-    const priceId = PRICE_IDS[plan.toLowerCase()];
+    // Support direct priceId for top-ups or plan name for subscriptions
+    let priceId = directPriceId;
     if (!priceId) {
-      return res.status(400).json({ error: `Invalid plan: ${plan}. Use starter, growth, or pro` });
+      if (!plan || !email) {
+        return res.status(400).json({ error: 'Missing required fields: plan and email, or priceId' });
+      }
+      priceId = PRICE_IDS[plan.toLowerCase()];
+      if (!priceId) {
+        return res.status(400).json({ error: `Invalid plan: ${plan}. Use starter, growth, or pro` });
+      }
     }
+    const checkoutMode = mode || 'subscription';
 
     const successUrl = `https://portal.engwx.com?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `https://portal.engwx.com?checkout=cancelled`;
@@ -149,21 +153,23 @@ module.exports = async function handler(req, res) {
 
       // Build checkout params
       const params = {
-        'mode': 'subscription',
+        'mode': checkoutMode,
         'payment_method_types[0]': 'card',
         'line_items[0][price]': priceId,
         'line_items[0][quantity]': '1',
-        'success_url': successUrl,
-        'cancel_url': cancelUrl,
+        'success_url': customSuccessUrl || successUrl,
+        'cancel_url': customCancelUrl || cancelUrl,
         'allow_promotion_codes': 'true',
         'billing_address_collection': 'required',
-        'subscription_data[trial_period_days]': '14',
+        ...(checkoutMode === 'subscription' ? {'subscription_data[trial_period_days]': '14'} : {}),
       };
 
-      // Add metadata
-      if (tenantId) params['subscription_data[metadata][tenant_id]'] = tenantId;
-      if (tenantName) params['subscription_data[metadata][tenant_name]'] = tenantName;
-      params['subscription_data[metadata][plan]'] = plan;
+      // Add metadata (subscription_data only for subscription mode)
+      if (checkoutMode === 'subscription') {
+        if (tenantId) params['subscription_data[metadata][tenant_id]'] = tenantId;
+        if (tenantName) params['subscription_data[metadata][tenant_name]'] = tenantName;
+        if (plan) params['subscription_data[metadata][plan]'] = plan;
+      }
 
       if (customerId) {
         params['customer'] = customerId;
