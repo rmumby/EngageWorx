@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from './supabaseClient';
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const CHANNELS = {
@@ -199,8 +200,8 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTenantId }) {
-  const [conversations] = useState(() => generateConversations());
+export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+  const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
@@ -212,6 +213,50 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   const [sortBy, setSortBy] = useState("recent");
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
+
+  // Fetch live conversations from Supabase
+  useEffect(() => {
+    if (demoMode) {
+      setConversations(generateConversations());
+      return;
+    }
+    const fetchConversations = async () => {
+      try {
+        let query = supabase.from('conversations').select('*, contacts(first_name, last_name, email, phone, company, tags)').order('last_message_at', { ascending: false });
+        if (currentTenantId && viewLevel === 'tenant') {
+          query = query.eq('tenant_id', currentTenantId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const mapped = (data || []).map(conv => ({
+          id: conv.id,
+          channel: (conv.channel || 'sms').toLowerCase(),
+          status: conv.status || 'active',
+          priority: conv.priority || 'normal',
+          unread: conv.unread_count || 0,
+          lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+          subject: conv.subject || '',
+          contact: {
+            name: conv.contacts ? `${conv.contacts.first_name || ''} ${conv.contacts.last_name || ''}`.trim() : 'Unknown',
+            email: conv.contacts?.email || '',
+            phone: conv.contacts?.phone || '',
+            company: conv.contacts?.company || '',
+            tags: conv.contacts?.tags || [],
+            avatar: null,
+          },
+          messages: [],
+          aiSummary: conv.ai_summary || '',
+          sentiment: conv.sentiment_score || 0,
+          tenant_id: conv.tenant_id,
+        }));
+        setConversations(mapped);
+      } catch (err) {
+        console.warn('Conversations fetch error:', err.message);
+        setConversations([]);
+      }
+    };
+    fetchConversations();
+  }, [demoMode, currentTenantId, viewLevel]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
