@@ -1,6 +1,7 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthProvider, useAuth } from './AuthContext';
+import { supabase } from './supabaseClient';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -12,6 +13,68 @@ import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
+
+// ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
+function useLiveData(demoMode) {
+  const [liveTenants, setLiveTenants] = useState([]);
+  const [liveStats, setLiveStats] = useState({ totalMessages: 0, totalRevenue: 0, totalCampaigns: 0 });
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  const fetchLiveData = useCallback(async () => {
+    if (demoMode) return;
+    setLiveLoading(true);
+    try {
+      const { data: tenants, error } = await supabase
+        .from('tenants')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Build TENANTS-compatible objects from live data
+      const formatted = (tenants || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        logo: (t.brand_name || t.name || '??').substring(0, 2).toUpperCase(),
+        role: "customer",
+        brand: {
+          primary: t.brand_primary || '#00C9FF',
+          secondary: t.brand_secondary || '#E040FB',
+          name: t.brand_name || t.name,
+        },
+        colors: {
+          primary: t.brand_primary || '#00C9FF',
+          accent: t.brand_secondary || '#E040FB',
+          bg: "#080d1a", surface: "#0d1425", border: "#182440",
+          text: "#E8F4FD", muted: "#6B8BAE",
+        },
+        stats: {
+          messages: 0, revenue: 0, campaigns: 0,
+          contacts: 0, deliveryRate: 0, openRate: 0,
+        },
+        channels: (t.channels_enabled || ['SMS', 'Email']),
+        plan: t.plan,
+        status: t.status,
+        slug: t.slug,
+      }));
+
+      setLiveTenants(formatted);
+      setLiveStats({
+        totalMessages: 0,
+        totalRevenue: 0,
+        activeCustomers: formatted.length,
+        totalCampaigns: 0,
+      });
+    } catch (err) {
+      console.warn('Live data fetch error:', err.message);
+    }
+    setLiveLoading(false);
+  }, [demoMode]);
+
+  useEffect(() => { fetchLiveData(); }, [fetchLiveData]);
+
+  return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
+}
 
 const TENANTS = {
   serviceProvider: {
@@ -80,9 +143,12 @@ function StatCard({ label, value, sub, color, icon }) {
 }
 
 // ─── SUPER ADMIN VIEW (Service Provider) ─────────────────────────────────────
-function SuperAdminDashboard({ tenant, onDrillDown, C }) {
+function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, liveStats }) {
   const sp = TENANTS.serviceProvider;
-  const customers = sp.customers.map(id => TENANTS[id]);
+  const customers = demoMode
+    ? sp.customers.map(id => TENANTS[id])
+    : liveTenants;
+  const stats = demoMode ? sp.stats : liveStats;
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
@@ -101,14 +167,21 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
-        <StatCard label="Total Messages Sent" value="1.28M" sub="Across all tenants" color={C.primary} icon="📨" />
-        <StatCard label="Platform Revenue" value="$892,450" sub="+18.4% this month" color="#00E676" icon="💰" />
-        <StatCard label="Active Customers" value="3" sub="All tenants healthy" color={C.accent} icon="🏢" />
-        <StatCard label="Total Campaigns" value="87" sub="32 currently live" color="#FF6B35" icon="🚀" />
+        <StatCard label="Total Messages Sent" value={stats.totalMessages >= 1000000 ? (stats.totalMessages / 1000000).toFixed(2) + 'M' : stats.totalMessages.toLocaleString()} sub="Across all tenants" color={C.primary} icon="📨" />
+        <StatCard label="Platform Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} sub="+18.4% this month" color="#00E676" icon="💰" />
+        <StatCard label="Active Customers" value={String(stats.activeCustomers || customers.length)} sub="All tenants healthy" color={C.accent} icon="🏢" />
+        <StatCard label="Total Campaigns" value={String(stats.totalCampaigns)} sub={demoMode ? "32 currently live" : ""} color="#FF6B35" icon="🚀" />
       </div>
 
       <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Customer Tenants</h2>
       <div style={{ display: "grid", gap: 16, marginBottom: 32 }}>
+        {customers.length === 0 && !demoMode && (
+          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 40, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🏢</div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No tenants yet</div>
+            <div style={{ color: C.muted, fontSize: 14 }}>Tenants will appear here as customers sign up and complete payment.</div>
+          </div>
+        )}
         {customers.map(c => (
           <div key={c.id} style={{
             background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.08)`,
@@ -136,7 +209,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C }) {
               </div>
             ))}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <Badge color="#00E676">● Active</Badge>
+              <Badge color={c.status === 'suspended' ? '#FF3B30' : c.status === 'trial' ? '#F59E0B' : '#00E676'}>● {(c.status || 'active').charAt(0).toUpperCase() + (c.status || 'active').slice(1)}</Badge>
               <button onClick={() => onDrillDown(c.id)} style={{
                 background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}66`,
                 borderRadius: 7, padding: "7px 14px", color: c.brand.primary,
@@ -753,8 +826,19 @@ function TenantManagement({ C }) {
 }
 
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
-function CustomerPortal({ tenantId, onBack }) {
-  const tenant = TENANTS[tenantId];
+function CustomerPortal({ tenantId, onBack, liveTenants }) {
+  const demoTenant = TENANTS[tenantId];
+  const liveTenant = liveTenants?.find(t => t.id === tenantId);
+  const tenant = demoTenant || liveTenant || {
+    id: tenantId,
+    name: "My Business",
+    logo: "MB",
+    role: "customer",
+    brand: { primary: "#00C9FF", secondary: "#E040FB", name: "My Business" },
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
+    stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
+    channels: ["SMS", "Email"],
+  };
   const C = tenant.colors;
   const [page, setPage] = useState("dashboard");
 
@@ -890,6 +974,7 @@ function AppInner() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
   const [spPage, setSpPage] = useState("dashboard");
+  const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode);
   const [loginTab, setLoginTab] = useState("login"); // "login" | "signup" | "reset" | "demo"
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
@@ -905,6 +990,12 @@ function AppInner() {
       setLoginMessage({ type: "success", text: "🎉 Payment received! Your account is ready. Please sign in." });
       setLoginTab("login");
       if (email) setLoginForm(p => ({ ...p, email: decodeURIComponent(email) }));
+    }
+    
+    // Handle direct signup link from landing page
+    if (params.get("view") === "signup") {
+      window.history.replaceState({}, "", window.location.pathname);
+      setLoginTab("signup");
     }
   }, []);
 
@@ -1009,7 +1100,7 @@ function AppInner() {
   }
 
   if (drillDownTenant) {
-    return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} />;
+    return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
   if (view === "admin_tenants") {
     return <AdminTenants onBack={() => setView("sp")} />;
@@ -1200,7 +1291,7 @@ function AppInner() {
 
   if (view.startsWith("tenant_")) {
     const tenantId = view.replace("tenant_", "");
-    return <CustomerPortal tenantId={tenantId} onBack={() => setView("login")} />;
+    return <CustomerPortal tenantId={tenantId} onBack={() => setView("login")} liveTenants={liveTenants} />;
   }
 
   // Service Provider portal
@@ -1274,17 +1365,17 @@ function AppInner() {
       </div>
 
       <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
-        {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} />}
+        {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
-        {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" />}
+        {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" />}
-        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" />}
+        {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
       </div>
     </div>
   );
