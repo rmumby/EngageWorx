@@ -6,9 +6,9 @@
 // GET  /api/billing?action=status    → Check subscription status
 
 const PRICE_IDS = {
-  starter: 'price_1T4QhrPEs1sluBAUvF8Jt7tx',
-  growth: 'price_1T4QqZPEs1sluBAUFNhNczt1',
-  pro: 'price_1T4QqhPEs1sluBAUNd6yUGYd',
+  starter: 'price_1T4OeIPEs1sluBAUuRIaD8Cq',
+  growth: 'price_1T4OefPEs1sluBAUuZVAaBJ3',
+  pro: 'price_1T4Of6PEs1sluBAURFjaViRv',
 };
 
 async function stripeRequest(endpoint, method, body) {
