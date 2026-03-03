@@ -84,6 +84,26 @@ module.exports = async function handler(req, res) {
       const successUrl = 'https://portal.engwx.com?checkout=success&email=' + encodeURIComponent(email);
       const cancelUrl = 'https://portal.engwx.com?checkout=cancelled';
 
+      // Find or create Stripe customer for signup
+      let signupCustomerId;
+      const listResult = await stripeRequest(
+        `/customers?email=${encodeURIComponent(email)}&limit=1`,
+        'GET'
+      );
+      if (listResult.ok && listResult.data.data?.length > 0) {
+        signupCustomerId = listResult.data.data[0].id;
+      } else {
+        const createResult = await stripeRequest('/customers', 'POST', {
+          'email': email,
+          'name': fullName || '',
+          'metadata[source]': 'engageworx_signup',
+          'metadata[company]': companyName || '',
+        });
+        if (createResult.ok) {
+          signupCustomerId = createResult.data.id;
+        }
+      }
+
       const params = {
         'mode': 'subscription',
         'payment_method_types[0]': 'card',
@@ -91,13 +111,18 @@ module.exports = async function handler(req, res) {
         'line_items[0][quantity]': '1',
         'success_url': successUrl,
         'cancel_url': cancelUrl,
-        'customer_email': email,
         'allow_promotion_codes': 'true',
         'billing_address_collection': 'required',
         'subscription_data[trial_period_days]': '14',
         'subscription_data[metadata][plan]': selectedPlan,
         'subscription_data[metadata][tenant_name]': companyName || 'My Business',
       };
+
+      if (signupCustomerId) {
+        params['customer'] = signupCustomerId;
+      } else {
+        params['customer_email'] = email;
+      }
 
       const result = await stripeRequest('/checkout/sessions', 'POST', params);
 
@@ -139,15 +164,29 @@ module.exports = async function handler(req, res) {
     const cancelUrl = customCancelUrl || `https://portal.engwx.com?checkout=cancelled`;
 
     try {
-      // Check if customer already exists by email
+      // Always find or create a Stripe customer
       let customerId;
       if (email) {
-        const searchResult = await stripeRequest(
-          `/customers/search?query=email:'${encodeURIComponent(email)}'`,
+        // Try list endpoint (most reliable)
+        const listResult = await stripeRequest(
+          `/customers?email=${encodeURIComponent(email)}&limit=1`,
           'GET'
         );
-        if (searchResult.ok && searchResult.data.data && searchResult.data.data.length > 0) {
-          customerId = searchResult.data.data[0].id;
+        if (listResult.ok && listResult.data.data?.length > 0) {
+          customerId = listResult.data.data[0].id;
+        }
+
+        // If no customer exists, create one
+        if (!customerId) {
+          const createResult = await stripeRequest('/customers', 'POST', {
+            'email': email,
+            'metadata[source]': 'engageworx_portal',
+            'metadata[tenant_id]': tenantId || '',
+            'metadata[tenant_name]': tenantName || '',
+          });
+          if (createResult.ok) {
+            customerId = createResult.data.id;
+          }
         }
       }
 
@@ -173,8 +212,6 @@ module.exports = async function handler(req, res) {
 
       if (customerId) {
         params['customer'] = customerId;
-      } else if (email) {
-        params['customer_email'] = email;
       }
 
       const result = await stripeRequest('/checkout/sessions', 'POST', params);
