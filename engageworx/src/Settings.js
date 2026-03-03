@@ -39,7 +39,7 @@ const NOTIFICATION_PREFS = [
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId }) {
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("api");
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
