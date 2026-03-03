@@ -85,7 +85,7 @@ const SAVED_FLOWS = [
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId }) {
+export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [view, setView] = useState("list");
   const [flow, setFlow] = useState(null);
   const [nodes, setNodes] = useState([]);
