@@ -152,7 +152,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
   const stats = demoMode ? sp.stats : liveStats;
 
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
+    <div style={{ padding: isMobile ? "16px" : "32px 40px", maxWidth: 1400 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
@@ -164,7 +164,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
         <StatCard label="Total Messages Sent" value={stats.totalMessages >= 1000000 ? (stats.totalMessages / 1000000).toFixed(2) + 'M' : stats.totalMessages.toLocaleString()} sub="Across all tenants" color={C.primary} icon="📨" />
         <StatCard label="Platform Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} sub="+18.4% this month" color="#00E676" icon="💰" />
         <StatCard label="Active Customers" value={String(stats.activeCustomers || customers.length)} sub="All tenants healthy" color={C.accent} icon="🏢" />
@@ -481,7 +481,7 @@ function TenantManagement({ C }) {
               const isConfiguring = configuringTenant === c.id;
               return (
               <div key={c.id}>
-                <div style={{ background: isConfiguring ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${isConfiguring ? C.primary + "44" : "rgba(255,255,255,0.07)"}`, borderLeft: `4px solid ${isSuspended ? "#FF3B30" : c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 240px", alignItems: "center", gap: 20, opacity: isSuspended ? 0.6 : 1, transition: "all 0.2s" }}>
+                <div style={{ background: isConfiguring ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${isConfiguring ? C.primary + "44" : "rgba(255,255,255,0.07)"}`, borderLeft: `4px solid ${isSuspended ? "#FF3B30" : c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr 1fr 240px", alignItems: "center", gap: 20, opacity: isSuspended ? 0.6 : 1, transition: "all 0.2s" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000" }}>{c.logo}</div>
                   <div>
@@ -987,6 +987,15 @@ function AppInner() {
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1115,7 +1124,7 @@ function AppInner() {
   if (passwordRecovery && isAuthenticated) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ width: 420 }}>
+        <div style={{ width: "100%", maxWidth: 420, padding: isMobile ? "0 20px" : 0 }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 28, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
           </div>
@@ -1179,7 +1188,7 @@ function AppInner() {
 
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ width: 480 }}>
+        <div style={{ width: "100%", maxWidth: 480, padding: isMobile ? "0 20px" : 0 }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
             <div style={{ color: C.muted, marginTop: 6 }}>Multi-Tenant Communications Platform</div>
@@ -1366,7 +1375,17 @@ function AppInner() {
   // Service Provider portal
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh" }}>
+      {/* Mobile hamburger */}
+      {isMobile && !sidebarOpen && (
+        <button onClick={() => setSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
+          ☰
+        </button>
+      )}
+      {/* Mobile overlay */}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
+      )}
+      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "transform 0.3s ease" }}>
         <div style={{ marginBottom: 32, paddingLeft: 8 }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
@@ -1375,7 +1394,7 @@ function AppInner() {
 
         <nav style={{ flex: 1 }}>
           {spNavItems.map(item => (
-            <button key={item.id} onClick={() => setSpPage(item.id)} style={{
+            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} style={{
               width: "100%", display: "flex", alignItems: "center", gap: 12,
               padding: "11px 12px", borderRadius: 9, border: "none",
               background: spPage === item.id ? `${C.primary}22` : "transparent",
@@ -1433,7 +1452,7 @@ function AppInner() {
         </div>
       </div>
 
-      <div style={{ flex: 1, marginLeft: 240, overflowY: "auto" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : 240, overflowY: "auto" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
