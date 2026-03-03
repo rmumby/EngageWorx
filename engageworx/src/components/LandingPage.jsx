@@ -71,7 +71,7 @@ const LandingPage = () => {
 
   // Navigate to signup page
   const goToSignup = () => {
-    window.location.href = PORTAL_URL;
+    window.location.href = PORTAL_URL + '?view=signup';
   };
 
   const goToLogin = () => {
@@ -1109,7 +1109,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               <div className="lp-hero-badge-dot" />
               Now with <strong>RCS Business Messaging</strong>
             </div>
-            <h1>Conversations that<br /><span className="lp-gradient-text">close deals.</span></h1>
+            <h1>Smarter conversations.<br /><span className="lp-gradient-text">One platform.</span></h1>
             <p className="lp-hero-sub">
               The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email.
               Automate conversations, build campaigns, and delight customers at scale.
