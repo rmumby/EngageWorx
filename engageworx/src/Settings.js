@@ -154,7 +154,89 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
 
-  // ── Webhooks: live Supabase data ──
+  // ── Channel Configs: live Supabase data ──
+  const [channelConfigs, setChannelConfigs] = useState({});
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [channelSaving, setChannelSaving] = useState(null);
+
+  const CHANNEL_DEFS = [
+    { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
+      { key: "account_sid", label: "Account SID", type: "password" },
+      { key: "auth_token", label: "Auth Token", type: "password" },
+      { key: "phone_number", label: "Phone Number", placeholder: "+1 (xxx) xxx-xxxx" },
+      { key: "messaging_service_sid", label: "Messaging Service SID", type: "text" },
+    ]},
+    { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
+      { key: "api_key", label: "API Key", type: "password" },
+      { key: "from_email", label: "From Email", placeholder: "noreply@yourdomain.com" },
+      { key: "from_name", label: "From Name", placeholder: "Your Brand" },
+      { key: "domain", label: "Domain", placeholder: "mail.yourdomain.com" },
+    ]},
+    { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
+      { key: "business_account_id", label: "Business Account ID" },
+      { key: "phone_number_id", label: "Phone Number ID" },
+      { key: "access_token", label: "Access Token", type: "password" },
+    ]},
+    { id: "rcs", label: "RCS Business Messaging", icon: "✨", color: "#7C4DFF", fields: [
+      { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
+      { key: "service_account", label: "Service Account Email" },
+    ]},
+    { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+      { key: "phone_number", label: "Voice Number", placeholder: "+1 (xxx) xxx-xxxx" },
+      { key: "sip_domain", label: "SIP Domain" },
+      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Default", "Polly (Neural)", "Google WaveNet"] },
+    ]},
+    { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
+      { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
+    ]},
+  ];
+
+  const loadChannelConfigs = async () => {
+    setChannelsLoading(true);
+    try {
+      const { data, error } = await supabase.from("channel_configs").select("*");
+      if (!error && data) {
+        const map = {};
+        data.forEach(c => { map[c.channel] = c; });
+        setChannelConfigs(map);
+      }
+    } catch (err) { console.error("Failed to load channel configs:", err); }
+    setChannelsLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab]);
+
+  const saveChannelConfig = async (channelId, config, enabled) => {
+    setChannelSaving(channelId);
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
+
+    const existing = channelConfigs[channelId];
+    const payload = {
+      tenant_id: tenantId, channel: channelId, enabled: enabled !== undefined ? enabled : (existing?.enabled || false),
+      config_encrypted: config || existing?.config_encrypted || {},
+      status: enabled ? "connected" : "disconnected",
+      updated_at: new Date().toISOString(),
+    };
+
+    let error;
+    if (existing) {
+      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id));
+    } else {
+      ({ error } = await supabase.from("channel_configs").insert(payload));
+    }
+    if (error) alert("Error saving: " + error.message);
+    else loadChannelConfigs();
+    setChannelSaving(null);
+  };
+
+  const updateChannelField = (channelId, key, value) => {
+    setChannelConfigs(prev => {
+      const existing = prev[channelId] || { config_encrypted: {} };
+      return { ...prev, [channelId]: { ...existing, config_encrypted: { ...existing.config_encrypted, [key]: value } } };
+    });
+  };
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
   const [editingWebhook, setEditingWebhook] = useState(null); // null = not editing, object = editing
@@ -515,171 +597,84 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       {activeTab === "channels" && (
         <div>
           <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Channel Configuration</h2>
-          <div style={{ display: "grid", gap: 16 }}>
-            {/* SMS / Twilio */}
-            <div style={{ ...card, borderLeft: "4px solid #00C9FF" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>💬</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>SMS</div>
-                    <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
-                  </div>
-                </div>
-                <Toggle enabled={true} color="#00C9FF" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <div><label style={label}>Account SID</label><input defaultValue="AC••••••••••••••••4f2a" style={inputStyle} /></div>
-                <div><label style={label}>Auth Token</label><input type="password" defaultValue="••••••••••••" style={inputStyle} /></div>
-                <div><label style={label}>Phone Number</label><input defaultValue="+1 (555) 000-1234" style={inputStyle} /></div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
-                <div><label style={label}>Messaging Service SID</label><input defaultValue="MG••••••••••••••••8b1c" style={inputStyle} /></div>
-                <div><label style={label}>Webhook URL (Inbound)</label><input defaultValue="https://api.engwx.com/v1/sms/inbound" style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} readOnly /></div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Test Connection</button>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Send Test SMS</button>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>View Logs</button>
-              </div>
-            </div>
+          {channelsLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading channels...</div>
+          ) : (
+            <div style={{ display: "grid", gap: 16 }}>
+              {CHANNEL_DEFS.map(ch => {
+                const config = channelConfigs[ch.id] || {};
+                const configData = config.config_encrypted || {};
+                const isEnabled = config.enabled || false;
+                const status = config.status || "disconnected";
+                const isSaving = channelSaving === ch.id;
+                return (
+                  <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.15)"}`, opacity: isEnabled ? 1 : 0.7 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 24 }}>{ch.icon}</span>
+                        <div>
+                          <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{ch.label}</div>
+                          <div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>
+                            {status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}
+                          </div>
+                        </div>
+                      </div>
+                      <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{
+                        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative",
+                        background: isEnabled ? ch.color : "rgba(255,255,255,0.15)", transition: "background 0.2s",
+                      }}>
+                        <div style={{
+                          width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3,
+                          left: isEnabled ? 23 : 3, transition: "left 0.2s",
+                        }} />
+                      </button>
+                    </div>
 
-            {/* Email / SMTP */}
-            <div style={{ ...card, borderLeft: "4px solid #FF6B35" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>📧</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Email</div>
-                    <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
-                  </div>
-                </div>
-                <Toggle enabled={true} color="#FF6B35" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <div><label style={label}>API Key</label><input type="password" defaultValue="SG.••••••••••••" style={inputStyle} /></div>
-                <div><label style={label}>From Email</label><input defaultValue="noreply@acmecorp.com" style={inputStyle} /></div>
-                <div><label style={label}>From Name</label><input defaultValue="AcmeEngage" style={inputStyle} /></div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 14 }}>
-                <div><label style={label}>Domain</label><input defaultValue="mail.acmecorp.com" style={inputStyle} /></div>
-                <div>
-                  <label style={label}>DKIM</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={badge("#00E676")}>✓ Verified</span></div>
-                </div>
-                <div>
-                  <label style={label}>SPF</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={badge("#00E676")}>✓ Verified</span></div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Test Connection</button>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Send Test Email</button>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>DNS Records</button>
-              </div>
-            </div>
+                    {isEnabled && (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: ch.fields.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 14 }}>
+                          {ch.fields.map(f => (
+                            <div key={f.key}>
+                              <label style={label}>{f.label}</label>
+                              {f.type === "select" ? (
+                                <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
+                                  {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              ) : (
+                                <input
+                                  type={f.type || "text"}
+                                  value={configData[f.key] || ""}
+                                  onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
+                                  placeholder={f.placeholder || ""}
+                                  style={inputStyle}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                          <button onClick={() => saveChannelConfig(ch.id, channelConfigs[ch.id]?.config_encrypted || configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>
+                            {isSaving ? "Saving..." : "Save Configuration"}
+                          </button>
+                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => {
+                            saveChannelConfig(ch.id, configData, isEnabled).then(() => {
+                              supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).then(() => loadChannelConfigs());
+                            });
+                          }}>Test Connection</button>
+                        </div>
+                      </>
+                    )}
 
-            {/* WhatsApp */}
-            <div style={{ ...card, borderLeft: "4px solid #25D366" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>📱</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>WhatsApp Business API</div>
-                    <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
+                    {!isEnabled && (
+                      <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>
+                        Enable this channel to configure your {ch.label} integration.
+                      </div>
+                    )}
                   </div>
-                </div>
-                <Toggle enabled={true} color="#25D366" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <div><label style={label}>Business Account ID</label><input defaultValue="WBA-••••••••4821" style={inputStyle} /></div>
-                <div><label style={label}>Phone Number ID</label><input defaultValue="+1 (555) 000-5678" style={inputStyle} /></div>
-                <div><label style={label}>Access Token</label><input type="password" defaultValue="EAAx••••••••" style={inputStyle} /></div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
-                <div>
-                  <label style={label}>Approved Templates</label>
-                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>12 templates <span style={{ color: "#00E676", fontSize: 11 }}>· 3 pending</span></div>
-                </div>
-                <div>
-                  <label style={label}>Quality Rating</label>
-                  <div style={{ color: "#00E676", fontSize: 14, fontWeight: 700 }}>High ⭐⭐⭐</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Manage Templates</button>
-                <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }}>Test Message</button>
-              </div>
+                );
+              })}
             </div>
-
-            {/* RCS */}
-            <div style={{ ...card, borderLeft: "4px solid #7C4DFF" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>✨</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>RCS Business Messaging</div>
-                    <div style={{ color: "#FFD600", fontSize: 11 }}>◉ Pending Approval</div>
-                  </div>
-                </div>
-                <Toggle enabled={false} color="#7C4DFF" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <div><label style={label}>Agent ID</label><input defaultValue="brands/acme/agents/engage" style={inputStyle} /></div>
-                <div><label style={label}>Service Account</label><input defaultValue="rcs-agent@acme.iam.gserviceaccount.com" style={{ ...inputStyle, fontSize: 11 }} /></div>
-                <div>
-                  <label style={label}>Status</label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-                    <span style={badge("#FFD600")}>⏳ Carrier review</span>
-                  </div>
-                </div>
-              </div>
-              <div style={{ background: "#FFD60010", border: "1px solid #FFD60033", borderRadius: 8, padding: "10px 14px", marginTop: 14, color: "#FFD600", fontSize: 12 }}>
-                ⚠️ RCS agent is awaiting carrier approval. Estimated 5-10 business days. SMS fallback is active for unsupported devices.
-              </div>
-            </div>
-
-            {/* Voice */}
-            <div style={{ ...card, borderLeft: "4px solid #FFD600" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>📞</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Voice</div>
-                    <div style={{ color: "#00E676", fontSize: 11 }}>● Connected</div>
-                  </div>
-                </div>
-                <Toggle enabled={true} color="#FFD600" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                <div><label style={label}>Voice Number</label><input defaultValue="+1 (555) 000-9999" style={inputStyle} /></div>
-                <div><label style={label}>SIP Domain</label><input defaultValue="sip.engwx.com" style={inputStyle} /></div>
-                <div><label style={label}>TTS Voice</label><select style={inputStyle}><option>Polly (Neural)</option><option>Google WaveNet</option><option>Amazon Nova</option></select></div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
-                <div><label style={label}>IVR Webhook</label><input defaultValue="https://api.engwx.com/v1/voice/ivr" style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} readOnly /></div>
-                <div><label style={label}>Recording Storage</label><select style={inputStyle}><option>EngageWorx Cloud (encrypted)</option><option>AWS S3</option><option>Google Cloud Storage</option></select></div>
-              </div>
-            </div>
-
-            {/* MMS */}
-            <div style={{ ...card, borderLeft: "4px solid #E040FB" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>📷</span>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>MMS</div>
-                    <div style={{ color: "#00E676", fontSize: 11 }}>● Connected (shares SMS config)</div>
-                  </div>
-                </div>
-                <Toggle enabled={true} color="#E040FB" />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <div><label style={label}>Max Media Size</label><select style={inputStyle}><option>5 MB (default)</option><option>1 MB</option><option>10 MB</option></select></div>
-                <div><label style={label}>Supported Formats</label><div style={{ ...inputStyle, background: "rgba(0,0,0,0.2)", color: "rgba(255,255,255,0.4)", fontSize: 12 }}>JPEG, PNG, GIF, MP4, PDF</div></div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
