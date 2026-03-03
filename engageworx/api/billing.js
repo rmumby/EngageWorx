@@ -311,7 +311,17 @@ module.exports = async function handler(req, res) {
 
           const email = session.customer_email;
           const metadata = session.metadata || {};
-          const subMetadata = session.subscription_data?.metadata || metadata;
+
+          // Fetch subscription from Stripe to get metadata (plan, tenant_name)
+          let subMetadata = {};
+          if (session.subscription) {
+            const subResult = await stripeRequest(`/subscriptions/${session.subscription}`, 'GET');
+            if (subResult.ok) {
+              subMetadata = subResult.data.metadata || {};
+              console.log('[Stripe] Subscription metadata:', JSON.stringify(subMetadata));
+            }
+          }
+
           const plan = subMetadata.plan || metadata.plan || 'starter';
           const tenantName = subMetadata.tenant_name || metadata.tenant_name || 'My Business';
 
@@ -340,13 +350,14 @@ module.exports = async function handler(req, res) {
               .eq('id', existingProfile.tenant_id);
           } else {
             // Create tenant
-            const slug = (userMeta.business_name || tenantName || 'business')
-              .toLowerCase().replace(/[^a-z0-9]/g, '-');
+            const name = userMeta.company_name || tenantName || 'My Business';
+            const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            console.log('[Stripe] Creating tenant:', name, 'for', email);
 
             const { data: tenant, error: tenantError } = await supabase
               .from('tenants')
               .insert({
-                name: userMeta.business_name || tenantName,
+                name,
                 slug,
                 brand_primary: userMeta.brand_color || '#00C9FF',
                 brand_logo_url: userMeta.logo_url || null,
