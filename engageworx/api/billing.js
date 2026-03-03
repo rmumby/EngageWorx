@@ -203,12 +203,24 @@ module.exports = async function handler(req, res) {
 
       // Look up customer by email if no ID provided
       if (!stripeCustomerId && email) {
+        // Try search API first
         const searchResult = await stripeRequest(
-          `/customers/search?query=email:'${encodeURIComponent(email)}'`,
+          `/customers/search?query=email:'${email}'`,
           'GET'
         );
         if (searchResult.ok && searchResult.data.data?.length > 0) {
           stripeCustomerId = searchResult.data.data[0].id;
+        }
+
+        // Fallback: list customers filtered by email
+        if (!stripeCustomerId) {
+          const listResult = await stripeRequest(
+            `/customers?email=${encodeURIComponent(email)}&limit=1`,
+            'GET'
+          );
+          if (listResult.ok && listResult.data.data?.length > 0) {
+            stripeCustomerId = listResult.data.data[0].id;
+          }
         }
       }
 
