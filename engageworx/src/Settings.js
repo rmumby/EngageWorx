@@ -2,23 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
-const API_KEYS = [
-  { id: "key_1", name: "Production API Key", prefix: "ewx_live_8f3k", created: "Jan 15, 2025", lastUsed: "2 min ago", status: "active", permissions: ["messages", "contacts", "campaigns", "analytics"] },
-  { id: "key_2", name: "Staging API Key", prefix: "ewx_test_2m9p", created: "Feb 1, 2025", lastUsed: "3 hours ago", status: "active", permissions: ["messages", "contacts"] },
-  { id: "key_3", name: "Analytics Read-Only", prefix: "ewx_ro_7x4d", created: "Feb 10, 2025", lastUsed: "1 day ago", status: "active", permissions: ["analytics"] },
-  { id: "key_4", name: "Legacy Key (deprecated)", prefix: "ewx_old_1a2b", created: "Nov 5, 2024", lastUsed: "45 days ago", status: "revoked", permissions: ["messages"] },
-];
+// API keys loaded from Supabase — see liveApiKeys state
 
 // Webhooks are loaded from Supabase — see liveWebhooks state
 
-const TEAM_MEMBERS = [
-  { id: "tm_1", name: "Sarah Mitchell", email: "sarah.m@acmecorp.com", role: "Admin", avatar: "SM", status: "active", lastLogin: "2 min ago" },
-  { id: "tm_2", name: "James Kumar", email: "james.k@acmecorp.com", role: "Campaign Manager", avatar: "JK", status: "active", lastLogin: "1 hour ago" },
-  { id: "tm_3", name: "Priya Rao", email: "priya.r@acmecorp.com", role: "Analyst", avatar: "PR", status: "active", lastLogin: "3 hours ago" },
-  { id: "tm_4", name: "Alex Dumont", email: "alex.d@acmecorp.com", role: "Support Agent", avatar: "AD", status: "invited", lastLogin: "Never" },
-  { id: "tm_5", name: "Maria Chen", email: "maria.c@acmecorp.com", role: "Admin", avatar: "MC", status: "active", lastLogin: "Yesterday" },
-];
-
+// Team members loaded from Supabase — see liveTeam state
 const ROLES = ["Admin", "Campaign Manager", "Analyst", "Support Agent", "Read Only"];
 
 const NOTIFICATION_PREFS = [
@@ -153,6 +141,124 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
+
+  // ── API Keys: live Supabase data ──
+  const [liveApiKeys, setLiveApiKeys] = useState([]);
+  const [apiKeysLoading, setApiKeysLoading] = useState(true);
+  const [newKeyData, setNewKeyData] = useState({ name: "", environment: "production", permissions: ["messages"] });
+  const [generatedKey, setGeneratedKey] = useState(null);
+
+  const ALL_PERMISSIONS = ["messages", "contacts", "campaigns", "analytics", "webhooks", "flows", "settings"];
+
+  const loadApiKeys = async () => {
+    setApiKeysLoading(true);
+    try {
+      const { data, error } = await supabase.from("api_keys").select("*").order("created_at", { ascending: false });
+      if (!error && data) setLiveApiKeys(data);
+    } catch (err) { console.error("Failed to load API keys:", err); }
+    setApiKeysLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "api") loadApiKeys(); }, [activeTab]);
+
+  const generateApiKey = async () => {
+    if (!newKeyData.name) return alert("Key name is required");
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    if (!tenantId) return alert("No tenant found");
+    const envPrefix = newKeyData.environment === "production" ? "ewx_live_" : newKeyData.environment === "staging" ? "ewx_test_" : "ewx_dev_";
+    const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(36)).join("").slice(0, 32);
+    const fullKey = envPrefix + randomPart;
+    const keyPrefix = fullKey.slice(0, 12);
+    const { error } = await supabase.from("api_keys").insert({
+      tenant_id: tenantId, name: newKeyData.name, key_prefix: keyPrefix,
+      key_hash: fullKey, environment: newKeyData.environment, permissions: newKeyData.permissions,
+    });
+    if (error) return alert("Error creating key: " + error.message);
+    setGeneratedKey(fullKey);
+    setNewKeyData({ name: "", environment: "production", permissions: ["messages"] });
+    setShowNewKey(false);
+    loadApiKeys();
+  };
+
+  const revokeApiKey = async (id) => {
+    if (!window.confirm("Revoke this API key? Any integrations using it will stop working.")) return;
+    const { error } = await supabase.from("api_keys").update({ status: "revoked", revoked_at: new Date().toISOString() }).eq("id", id);
+    if (error) return alert("Error revoking key: " + error.message);
+    loadApiKeys();
+  };
+
+  const deleteApiKey = async (id) => {
+    if (!window.confirm("Permanently delete this API key?")) return;
+    const { error } = await supabase.from("api_keys").delete().eq("id", id);
+    if (error) return alert("Error deleting: " + error.message);
+    loadApiKeys();
+  };
+
+  // ── Team: live Supabase data ──
+  const [liveTeam, setLiveTeam] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteData, setInviteData] = useState({ email: "", role: "member" });
+
+  const ROLE_MAP = { admin: "Admin", campaign_manager: "Campaign Manager", analyst: "Analyst", support_agent: "Support Agent", member: "Member", read_only: "Read Only" };
+  const ROLE_MAP_REV = Object.fromEntries(Object.entries(ROLE_MAP).map(([k, v]) => [v, k]));
+
+  const loadTeam = async () => {
+    setTeamLoading(true);
+    try {
+      const { data, error } = await supabase.from("tenant_members").select("*, user:user_id(email, raw_user_meta_data)").order("created_at", { ascending: true });
+      if (!error && data) setLiveTeam(data);
+    } catch (err) { console.error("Failed to load team:", err); }
+    setTeamLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "team") loadTeam(); }, [activeTab]);
+
+  const inviteMember = async () => {
+    if (!inviteData.email) return alert("Email is required");
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    if (!tenantId) return alert("No tenant found");
+    const { error } = await supabase.from("tenant_members").insert({
+      tenant_id: tenantId, user_id: (await supabase.auth.getUser()).data.user.id,
+      role: ROLE_MAP_REV[inviteData.role] || inviteData.role, status: "invited",
+    });
+    if (error) return alert("Error inviting: " + error.message);
+    setShowInvite(false);
+    setInviteData({ email: "", role: "member" });
+    loadTeam();
+  };
+
+  const updateMemberRole = async (memberId, newRole) => {
+    const { error } = await supabase.from("tenant_members").update({ role: ROLE_MAP_REV[newRole] || newRole }).eq("id", memberId);
+    if (error) alert("Error: " + error.message);
+    else loadTeam();
+  };
+
+  const removeMember = async (memberId) => {
+    if (!window.confirm("Remove this team member?")) return;
+    const { error } = await supabase.from("tenant_members").delete().eq("id", memberId);
+    if (error) alert("Error: " + error.message);
+    else loadTeam();
+  };
+
+  // ── Audit Log: live Supabase data ──
+  const [auditLog, setAuditLog] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(true);
+
+  const loadAuditLog = async () => {
+    setAuditLoading(true);
+    try {
+      const { data, error } = await supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(20);
+      if (!error && data) setAuditLog(data);
+    } catch (err) { console.error("Failed to load audit log:", err); }
+    setAuditLoading(false);
+  };
+
+  useEffect(() => { if (activeTab === "security") loadAuditLog(); }, [activeTab]);
+
+  const AUDIT_ICONS = { "api_key.created": "🔑", "api_key.revoked": "🔑", "team.invited": "👤", "team.removed": "👤", "password.changed": "🔒", "2fa.enabled": "🛡️", "2fa.disabled": "🛡️", "login.success": "✅", "login.failed": "🚫", "webhook.created": "🔗", "channel.updated": "📡", "campaign.created": "📣", default: "📋" };
 
   // ── Channel Configs: live Supabase data ──
   const [channelConfigs, setChannelConfigs] = useState({});
@@ -367,28 +473,46 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>API Keys</h2>
-            <button onClick={() => setShowNewKey(!showNewKey)} style={btnPrimary}>+ Generate Key</button>
+            <button onClick={() => { setShowNewKey(!showNewKey); setGeneratedKey(null); }} style={btnPrimary}>+ Generate Key</button>
           </div>
+
+          {/* Generated key banner */}
+          {generatedKey && (
+            <div style={{ ...card, marginBottom: 16, border: "1px solid #00E67644", background: "#00E67608" }}>
+              <div style={{ color: "#00E676", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>✓ API Key Generated — Copy it now! It won't be shown again.</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <code style={{ flex: 1, background: "rgba(0,0,0,0.4)", padding: "10px 14px", borderRadius: 8, color: C.primary, fontSize: 13, fontFamily: "monospace", wordBreak: "break-all" }}>{generatedKey}</code>
+                <button onClick={() => { navigator.clipboard.writeText(generatedKey); }} style={{ ...btnPrimary, padding: "10px 16px", whiteSpace: "nowrap" }}>Copy</button>
+              </div>
+              <button onClick={() => setGeneratedKey(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginTop: 8 }}>Dismiss</button>
+            </div>
+          )}
 
           {showNewKey && (
             <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Generate New API Key</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div><label style={label}>Key Name</label><input placeholder="e.g. Production API Key" style={inputStyle} /></div>
-                <div><label style={label}>Environment</label><select style={inputStyle}><option>Production</option><option>Staging</option><option>Development</option></select></div>
+                <div><label style={label}>Key Name</label><input value={newKeyData.name} onChange={e => setNewKeyData({ ...newKeyData, name: e.target.value })} placeholder="e.g. Production API Key" style={inputStyle} /></div>
+                <div><label style={label}>Environment</label><select value={newKeyData.environment} onChange={e => setNewKeyData({ ...newKeyData, environment: e.target.value })} style={inputStyle}><option value="production">Production</option><option value="staging">Staging</option><option value="development">Development</option></select></div>
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label style={label}>Permissions</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {["Messages", "Contacts", "Campaigns", "Analytics", "Webhooks", "Flows", "Settings"].map(p => (
-                    <label key={p} style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
-                      <input type="checkbox" defaultChecked={["Messages", "Contacts"].includes(p)} style={{ accentColor: C.primary }} /> {p}
-                    </label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {ALL_PERMISSIONS.map(p => (
+                    <label key={p} onClick={() => {
+                      const perms = newKeyData.permissions.includes(p) ? newKeyData.permissions.filter(x => x !== p) : [...newKeyData.permissions, p];
+                      setNewKeyData({ ...newKeyData, permissions: perms });
+                    }} style={{
+                      display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11,
+                      background: newKeyData.permissions.includes(p) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.08)"}`,
+                      color: newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.5)",
+                    }}>{newKeyData.permissions.includes(p) ? "✓" : "○"} {p}</label>
                   ))}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <button style={btnPrimary}>Generate Key</button>
+                <button onClick={generateApiKey} style={btnPrimary}>Generate Key</button>
                 <button onClick={() => setShowNewKey(false)} style={btnSec}>Cancel</button>
               </div>
             </div>
@@ -401,63 +525,54 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <label style={label}>Base URL</label>
                 <div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", fontFamily: "monospace", fontSize: 13, color: C.primary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span>https://api.engwx.com/v1</span>
-                  <button style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11 }}>Copy</button>
+                  <button onClick={() => navigator.clipboard.writeText("https://api.engwx.com/v1")} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11 }}>Copy</button>
                 </div>
               </div>
               <div>
                 <label style={label}>API Version</label>
-                <div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.5)" }}>v1 (Latest) — Released Feb 2025</div>
+                <div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.5)" }}>v1 (Latest)</div>
               </div>
             </div>
           </div>
 
           {/* Key List */}
-          <div style={{ display: "grid", gap: 10 }}>
-            {API_KEYS.map(key => (
-              <div key={key.id} style={{
-                ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px 120px",
-                alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1,
-                borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}`,
-              }}>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{key.name}</div>
-                  <div style={{ fontFamily: "monospace", color: C.primary, fontSize: 12, marginTop: 2 }}>{key.prefix}...••••••</div>
-                  <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>Created {key.created}</div>
-                </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  {key.permissions.map(p => (
-                    <span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>
-                  ))}
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Last used: {key.lastUsed}</div>
-                <div><span style={badge(key.status === "active" ? "#00E676" : "#FF3B30")}>{key.status === "active" ? "● Active" : "● Revoked"}</span></div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {key.status === "active" && <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Revoke</button>}
-                  <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Copy</button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Rate Limits */}
-          <div style={{ ...card, marginTop: 16 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 15 }}>Rate Limits</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-              {[
-                { label: "Requests/sec", value: "100", plan: "Growth" },
-                { label: "Messages/month", value: "250,000", used: "142,800" },
-                { label: "Contacts", value: "Unlimited", plan: "Growth" },
-                { label: "Webhooks", value: "50", used: "4" },
-              ].map((r, i) => (
-                <div key={i} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: "14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", marginBottom: 6 }}>{r.label}</div>
-                  <div style={{ color: "#fff", fontSize: 18, fontWeight: 800 }}>{r.value}</div>
-                  {r.used && <div style={{ color: C.primary, fontSize: 11, marginTop: 2 }}>{r.used} used</div>}
-                  {r.plan && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{r.plan} plan</div>}
+          {apiKeysLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading API keys...</div>
+          ) : liveApiKeys.length === 0 ? (
+            <div style={{ ...card, textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🔑</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No API keys yet</div>
+              <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Generate your first API key to start integrating with EngageWorx.</div>
+              <button onClick={() => setShowNewKey(true)} style={btnPrimary}>Generate Key</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {liveApiKeys.map(key => (
+                <div key={key.id} style={{
+                  ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px auto",
+                  alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1,
+                  borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}`,
+                }}>
+                  <div>
+                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{key.name}</div>
+                    <div style={{ fontFamily: "monospace", color: C.primary, fontSize: 12, marginTop: 2 }}>{key.key_prefix}...••••••</div>
+                    <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>{key.environment} · Created {new Date(key.created_at).toLocaleDateString()}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {(key.permissions || []).map(p => (
+                      <span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>
+                    ))}
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Used: {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}</div>
+                  <div><span style={badge(key.status === "active" ? "#00E676" : "#FF3B30")}>{key.status === "active" ? "● Active" : "● Revoked"}</span></div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {key.status === "active" && <button onClick={() => revokeApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Revoke</button>}
+                    {key.status === "revoked" && <button onClick={() => deleteApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Delete</button>}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -796,36 +911,69 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Team Members</h2>
-            <button style={btnPrimary}>+ Invite Member</button>
+            <button onClick={() => setShowInvite(!showInvite)} style={btnPrimary}>+ Invite Member</button>
           </div>
-          <div style={{ display: "grid", gap: 10 }}>
-            {TEAM_MEMBERS.map(tm => (
-              <div key={tm.id} style={{
-                ...card, display: "grid", gridTemplateColumns: "1fr 140px 120px 80px 100px",
-                alignItems: "center", gap: 14,
-                borderLeft: `4px solid ${tm.status === "active" ? "#00E676" : "#FFD600"}`,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.primary }}>{tm.avatar}</div>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{tm.name}</div>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>{tm.email}</div>
-                  </div>
-                </div>
-                <div>
-                  <select defaultValue={tm.role} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{tm.lastLogin}</div>
-                <div><span style={badge(tm.status === "active" ? "#00E676" : "#FFD600")}>{tm.status}</span></div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button>
-                  <button style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Remove</button>
-                </div>
+
+          {showInvite && (
+            <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Invite Team Member</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div><label style={label}>Email Address</label><input value={inviteData.email} onChange={e => setInviteData({ ...inviteData, email: e.target.value })} placeholder="colleague@company.com" style={inputStyle} /></div>
+                <div><label style={label}>Role</label><select value={inviteData.role} onChange={e => setInviteData({ ...inviteData, role: e.target.value })} style={inputStyle}>
+                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                </select></div>
               </div>
-            ))}
-          </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={inviteMember} style={btnPrimary}>Send Invitation</button>
+                <button onClick={() => setShowInvite(false)} style={btnSec}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {teamLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading team...</div>
+          ) : liveTeam.length === 0 ? (
+            <div style={{ ...card, textAlign: "center", padding: 40 }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
+              <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Invite your team to collaborate on campaigns, manage contacts, and view analytics.</div>
+              <button onClick={() => setShowInvite(true)} style={btnPrimary}>Invite Your First Member</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {liveTeam.map(tm => {
+                const email = tm.user?.email || "Unknown";
+                const name = tm.user?.raw_user_meta_data?.full_name || tm.user?.raw_user_meta_data?.name || email.split("@")[0];
+                const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+                const roleName = ROLE_MAP[tm.role] || tm.role;
+                return (
+                  <div key={tm.id} style={{
+                    ...card, display: "grid", gridTemplateColumns: "1fr 160px 80px auto",
+                    alignItems: "center", gap: 14,
+                    borderLeft: `4px solid ${tm.status === "active" ? "#00E676" : "#FFD600"}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.primary }}>{initials}</div>
+                      <div>
+                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{name}</div>
+                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>{email}</div>
+                        <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Joined {tm.joined_at ? new Date(tm.joined_at).toLocaleDateString() : "Pending"}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <select value={roleName} onChange={e => updateMemberRole(tm.id, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}>
+                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div><span style={badge(tm.status === "active" ? "#00E676" : "#FFD600")}>{tm.status}</span></div>
+                    <div>
+                      <button onClick={() => removeMember(tm.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Remove</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -945,22 +1093,34 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
             <div style={card}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Recent Security Events</h3>
-              {[
-                { event: "API key generated", user: "sarah.m@acmecorp.com", time: "2 hours ago", icon: "🔑" },
-                { event: "Team member invited", user: "sarah.m@acmecorp.com", time: "Yesterday", icon: "👤" },
-                { event: "Password changed", user: "james.k@acmecorp.com", time: "3 days ago", icon: "🔒" },
-                { event: "2FA enabled", user: "priya.r@acmecorp.com", time: "1 week ago", icon: "🛡️" },
-                { event: "Failed login attempt (blocked)", user: "unknown@attacker.com", time: "2 weeks ago", icon: "🚫" },
-              ].map((ev, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                  <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{ev.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{ev.event}</div>
-                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>{ev.user}</div>
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>{ev.time}</div>
-                </div>
-              ))}
+              {auditLoading ? (
+                <div style={{ color: C.muted, fontSize: 13, padding: "12px 0" }}>Loading audit log...</div>
+              ) : auditLog.length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 13, padding: "12px 0" }}>No security events recorded yet.</div>
+              ) : (
+                auditLog.map((ev, i) => {
+                  const icon = AUDIT_ICONS[ev.action] || AUDIT_ICONS.default;
+                  const timeAgo = (() => {
+                    const diff = Date.now() - new Date(ev.created_at).getTime();
+                    const mins = Math.floor(diff / 60000);
+                    if (mins < 60) return `${mins} min ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+                    const days = Math.floor(hrs / 24);
+                    return `${days} day${days > 1 ? "s" : ""} ago`;
+                  })();
+                  return (
+                    <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < auditLog.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{ev.action.replace(/\./g, " → ")}</div>
+                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>{ev.details?.email || ev.details?.user_email || ev.resource_type || ""}</div>
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>{timeAgo}</div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
