@@ -24,8 +24,8 @@ const AI_TEMPLATES = [
 function generateDemoCampaigns(tenantId) {
   const now = new Date();
   const campaigns = [
-    { id: "c001", name: "Spring Flash Sale", channel: "SMS", status: "active", audience: "All Contacts", audienceSize: 12400, sent: 11800, delivered: 11350, opened: 5890, clicked: 2100, replied: 340, failed: 450, optOut: 28, revenue: 18420, startDate: new Date(now - 2 * 86400000), endDate: null, scheduledDate: null, abTest: true, abVariants: [{ name: "A", subject: "🔥 50% OFF Today Only!", ctr: 18.2, openRate: 52.1 }, { name: "B", subject: "Flash Sale: Save Big This Spring", ctr: 14.8, openRate: 47.3 }], body: "Hey {first_name}! Our biggest sale of the season is HERE. Get 50% off everything for the next 24 hours. Shop now: {link}", tags: ["sale", "spring", "promotional"], aiGenerated: true, tone: "Urgent" },
-    { id: "c002", name: "Welcome Series - Day 1", channel: "Email", status: "active", audience: "New Subscribers", audienceSize: 3200, sent: 3180, delivered: 3120, opened: 2340, clicked: 890, replied: 0, failed: 60, optOut: 5, revenue: 4200, startDate: new Date(now - 14 * 86400000), endDate: null, scheduledDate: null, abTest: false, body: "Welcome to {brand_name}! We're thrilled to have you. Here's what you can expect...", tags: ["welcome", "onboarding", "automated"], aiGenerated: true, tone: "Friendly" },
+    { id: "c001", name: "Spring Flash Sale", channel: "SMS", status: "active", audience: "All Contacts", audienceSize: 12400, sent: 11800, delivered: 11350, opened: 5890, clicked: 2100, replied: 340, failed: 450, optOut: 28, revenue: 18420, startDate: new Date(now - 2 * 86400000), endDate: null, scheduledDate: null, abTest: true, abVariants: [{ name: "A", subject: "🔥 50% OFF Today Only!", ctr: 18.2, openRate: 52.1 }, { name: "B", subject: "Flash Sale: Save Big This Spring", ctr: 14.8, openRate: 47.3 }], body: "Hey {first_name}! Our biggest sale of the season is HERE. Get 50% off everything for the next 24 hours. Shop now: {link}", tags: ["sale", "spring", "promotional"], aiGenerated: true, tone: "Urgent", fallbacks: [{ channel: "Email", waitMinutes: 30 }] },
+    { id: "c002", name: "Welcome Series - Day 1", channel: "RCS", status: "active", audience: "New Subscribers", audienceSize: 3200, sent: 3180, delivered: 3120, opened: 2340, clicked: 890, replied: 0, failed: 60, optOut: 5, revenue: 4200, startDate: new Date(now - 14 * 86400000), endDate: null, scheduledDate: null, abTest: false, body: "Welcome to {brand_name}! We're thrilled to have you. Here's what you can expect...", tags: ["welcome", "onboarding", "automated"], aiGenerated: true, tone: "Friendly", fallbacks: [{ channel: "SMS", waitMinutes: 5 }, { channel: "Email", waitMinutes: 60 }] },
     { id: "c003", name: "Monthly Newsletter - March", channel: "Email", status: "completed", audience: "Newsletter List", audienceSize: 28500, sent: 28200, delivered: 27800, opened: 11120, clicked: 3340, replied: 0, failed: 400, optOut: 82, revenue: 12800, startDate: new Date(now - 10 * 86400000), endDate: new Date(now - 3 * 86400000), scheduledDate: null, abTest: false, body: "Hi {first_name}, here's your monthly roundup of the latest news, features, and tips...", tags: ["newsletter", "monthly"], aiGenerated: false, tone: "Professional" },
     { id: "c004", name: "Cart Abandonment Reminder", channel: "SMS", status: "active", audience: "Cart Abandoners", audienceSize: 4800, sent: 4650, delivered: 4500, opened: 3600, clicked: 1620, replied: 210, failed: 150, optOut: 12, revenue: 22300, startDate: new Date(now - 30 * 86400000), endDate: null, scheduledDate: null, abTest: false, body: "Hey {first_name}, you left something behind! Complete your order and get free shipping: {link}", tags: ["cart", "recovery", "automated"], aiGenerated: true, tone: "Casual" },
     { id: "c005", name: "VIP Early Access", channel: "WhatsApp", status: "scheduled", audience: "VIP Segment", audienceSize: 1850, sent: 0, delivered: 0, opened: 0, clicked: 0, replied: 0, failed: 0, optOut: 0, revenue: 0, startDate: null, endDate: null, scheduledDate: new Date(now.getTime() + 2 * 86400000), abTest: true, abVariants: [{ name: "A", subject: "🌟 Exclusive: You're invited", ctr: 0, openRate: 0 }, { name: "B", subject: "VIP Access: New Collection", ctr: 0, openRate: 0 }], body: "Hi {first_name}! As a valued VIP, you get early access to our new collection. Browse now before anyone else: {link}", tags: ["vip", "exclusive", "early-access"], aiGenerated: true, tone: "Professional" },
@@ -140,6 +140,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
     scheduledDate: "", scheduledTime: "", sendNow: false,
     tags: [], tone: "Professional", aiTemplate: null,
     useAI: false,
+    fallbackEnabled: false,
+    fallbacks: [], // e.g. [{ channel: "Email", waitMinutes: 30 }, { channel: "SMS", waitMinutes: 60 }]
   });
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
@@ -217,7 +219,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       <div style={{ padding: "32px 40px", maxWidth: 900 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <button onClick={() => { setView("list"); setCreateStep(1); setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false }); setAiSuggestions([]); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>← Back</button>
+          <button onClick={() => { setView("list"); setCreateStep(1); setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] }); setAiSuggestions([]); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>← Back</button>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", margin: 0 }}>Create Campaign</h1>
         </div>
 
@@ -263,6 +265,84 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 ))}
               </div>
             </div>
+
+            {/* Channel Fallback Cascade */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <label style={{ color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Smart Fallback</label>
+                <button onClick={() => setNewCampaign({ ...newCampaign, fallbackEnabled: !newCampaign.fallbackEnabled, fallbacks: !newCampaign.fallbackEnabled ? [] : newCampaign.fallbacks })} style={{
+                  background: newCampaign.fallbackEnabled ? C.primary + "22" : "rgba(255,255,255,0.05)",
+                  border: `1px solid ${newCampaign.fallbackEnabled ? C.primary : "rgba(255,255,255,0.1)"}`,
+                  borderRadius: 20, padding: "4px 12px", color: newCampaign.fallbackEnabled ? C.primary : C.muted,
+                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                }}>{newCampaign.fallbackEnabled ? "✓ Enabled" : "Off"}</button>
+              </div>
+              {!newCampaign.fallbackEnabled && (
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, padding: "10px 14px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.08)" }}>
+                  Enable Smart Fallback to automatically retry delivery on alternate channels if the primary fails or goes unread.
+                </div>
+              )}
+              {newCampaign.fallbackEnabled && (
+                <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", padding: 16 }}>
+                  {/* Visual cascade */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <div style={{ background: CHANNEL_COLORS[newCampaign.channel] + "22", border: `2px solid ${CHANNEL_COLORS[newCampaign.channel]}`, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, color: CHANNEL_COLORS[newCampaign.channel] }}>
+                      {CHANNEL_ICONS[newCampaign.channel]} {newCampaign.channel}
+                    </div>
+                    <span style={{ color: C.muted, fontSize: 11 }}>Primary</span>
+                  </div>
+
+                  {newCampaign.fallbacks.map((fb, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, paddingLeft: 16, borderLeft: `2px solid rgba(255,255,255,0.1)` }}>
+                      <div style={{ color: "#FFD600", fontSize: 11, fontWeight: 600, minWidth: 80 }}>
+                        ↳ after {fb.waitMinutes}min
+                      </div>
+                      <select value={fb.channel} onChange={e => {
+                        const updated = [...newCampaign.fallbacks];
+                        updated[i].channel = e.target.value;
+                        setNewCampaign({ ...newCampaign, fallbacks: updated });
+                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                        {CHANNELS.filter(ch => ch !== newCampaign.channel && !newCampaign.fallbacks.some((f, fi) => fi !== i && f.channel === ch)).map(ch => (
+                          <option key={ch} value={ch}>{CHANNEL_ICONS[ch]} {ch}</option>
+                        ))}
+                      </select>
+                      <select value={fb.waitMinutes} onChange={e => {
+                        const updated = [...newCampaign.fallbacks];
+                        updated[i].waitMinutes = parseInt(e.target.value);
+                        setNewCampaign({ ...newCampaign, fallbacks: updated });
+                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                        {[5, 10, 15, 30, 60, 120, 240, 1440].map(m => (
+                          <option key={m} value={m}>{m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hr` : "24 hr"}</option>
+                        ))}
+                      </select>
+                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>if undelivered</div>
+                      <button onClick={() => {
+                        const updated = newCampaign.fallbacks.filter((_, fi) => fi !== i);
+                        setNewCampaign({ ...newCampaign, fallbacks: updated });
+                      }} style={{ background: "none", border: "none", color: "#FF3B30", cursor: "pointer", fontSize: 14, padding: "2px 6px" }}>✕</button>
+                    </div>
+                  ))}
+
+                  {newCampaign.fallbacks.length < CHANNELS.length - 1 && (
+                    <button onClick={() => {
+                      const usedChannels = [newCampaign.channel, ...newCampaign.fallbacks.map(f => f.channel)];
+                      const nextChannel = CHANNELS.find(ch => !usedChannels.includes(ch)) || "SMS";
+                      setNewCampaign({ ...newCampaign, fallbacks: [...newCampaign.fallbacks, { channel: nextChannel, waitMinutes: 30 }] });
+                    }} style={{
+                      background: "none", border: "1px dashed rgba(255,255,255,0.15)", borderRadius: 8,
+                      padding: "8px 14px", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      width: "100%", marginTop: 4,
+                    }}>+ Add fallback channel</button>
+                  )}
+
+                  <div style={{ marginTop: 12, padding: "8px 12px", background: "rgba(0,201,255,0.06)", borderRadius: 8, fontSize: 11, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>
+                    💡 Messages cascade automatically. If {newCampaign.channel} fails or goes unread, the next channel fires after the wait time.
+                    {newCampaign.fallbacks.length > 0 && ` Cascade: ${newCampaign.channel} → ${newCampaign.fallbacks.map(f => f.channel).join(" → ")}`}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Tags</label>
               <input value={newCampaign.tags.join(", ")} onChange={e => setNewCampaign({ ...newCampaign, tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) })} placeholder="e.g. sale, spring, promotional" style={inputStyle} />
@@ -508,6 +588,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               {[
                 { label: "Campaign Name", value: newCampaign.name, icon: "📋" },
                 { label: "Channel", value: newCampaign.channel, icon: CHANNEL_ICONS[newCampaign.channel] },
+                { label: "Smart Fallback", value: newCampaign.fallbackEnabled && newCampaign.fallbacks.length > 0 ? `${newCampaign.channel} → ${newCampaign.fallbacks.map(f => `${f.channel} (${f.waitMinutes}min)`).join(" → ")}` : "Disabled", icon: "🔄" },
                 { label: "Audience", value: `${newCampaign.audience} (${newCampaign.audienceSize.toLocaleString()} contacts)`, icon: "👥" },
                 { label: "A/B Testing", value: newCampaign.abTest ? "Enabled (2 variants)" : "Disabled", icon: "🧪" },
                 { label: "AI Generated", value: newCampaign.useAI ? `Yes (${newCampaign.tone} tone)` : "No — manual copy", icon: "🤖" },
@@ -547,7 +628,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   };
                   setCampaigns([newC, ...campaigns]);
                   setView("list"); setCreateStep(1);
-                  setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false });
+                  setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
                   setAiSuggestions([]);
                 }} style={btnPrimary}>
                   {newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign"}
@@ -583,6 +664,9 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <h1 style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0 }}>{c.name}</h1>
               <span style={badge(STATUS_COLORS[c.status])}>{STATUS_ICONS[c.status]} {c.status.charAt(0).toUpperCase() + c.status.slice(1)}</span>
               <span style={badge(CHANNEL_COLORS[c.channel])}>{CHANNEL_ICONS[c.channel]} {c.channel}</span>
+              {c.fallbacks && c.fallbacks.length > 0 && (
+                <span style={{ ...badge("rgba(255,215,0,0.15)"), color: "#FFD600", fontSize: 10 }}>🔄 → {c.fallbacks.map(f => f.channel).join(" → ")}</span>
+              )}
               {c.aiGenerated && <span style={badge(C.accent)}>🤖 AI</span>}
               {c.abTest && <span style={badge("#FFD600")}>🧪 A/B</span>}
             </div>
