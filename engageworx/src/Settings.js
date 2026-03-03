@@ -93,7 +93,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   ];
 
   // Determine current plan from tenant data or default
-  const currentTenant = tenants?.find(t => t.id === currentTenantId) || tenants?.[0];
+  const tenantsArray = Array.isArray(tenants) ? tenants : Object.values(tenants || {});
+  const currentTenant = tenantsArray.find(t => t.id === currentTenantId) || tenantsArray[0];
   const currentPlanId = currentTenant?.plan || currentTenant?.billing_plan || "starter";
   const currentPlanInfo = PLANS.find(p => p.id === currentPlanId.toLowerCase()) || PLANS[0];
 
