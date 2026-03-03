@@ -83,6 +83,59 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       setTopupLoading(null);
     }
   };
+  const [upgradeLoading, setUpgradeLoading] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const PLANS = [
+    { id: "starter", name: "Starter", price: "$99", priceId: "price_1T4OeIPEs1sluBAUuRIaD8Cq", features: ["1,000 SMS/mo", "1 user", "Basic AI chatbot", "Email support"] },
+    { id: "growth", name: "Growth", price: "$249", priceId: "price_1T4OefPEs1sluBAUuZVAaBJ3", features: ["5,000 SMS/mo", "5 users", "Advanced AI chatbot", "Priority support"], popular: true },
+    { id: "pro", name: "Pro", price: "$499", priceId: "price_1T4Of6PEs1sluBAURFjaViRv", features: ["15,000 SMS/mo", "Unlimited users", "Custom AI training", "Dedicated support"] },
+  ];
+
+  const handleUpgrade = async (plan) => {
+    setUpgradeLoading(plan.id);
+    try {
+      const response = await fetch("/api/billing?action=checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plan: plan.id,
+          email: userEmail,
+          successUrl: window.location.href + "?upgrade=success",
+          cancelUrl: window.location.href,
+        }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Error: " + (data.error || "Could not create checkout session"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setUpgradeLoading(null);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const response = await fetch("/api/billing?action=portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Error: " + (data.error || "Could not open billing portal"));
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
@@ -487,7 +540,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ color: "#fff", fontSize: 28, fontWeight: 800 }}>$799<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div>
-                <button style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button>
+                <button onClick={() => setShowUpgradeModal(true)} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button>
+                <button onClick={handleManageBilling} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6, marginLeft: 6, background: "transparent", border: "1px solid rgba(255,255,255,0.15)" }}>Manage Billing</button>
               </div>
             </div>
           </div>
@@ -620,6 +674,51 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         </div>
       )}
 
+      {/* ═══════════ UPGRADE MODAL ═══════════ */}
+      {showUpgradeModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setShowUpgradeModal(false)}>
+          <div style={{ background: "#1A1D2E", borderRadius: 16, padding: 32, maxWidth: 720, width: "90%", maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ color: "#fff", margin: 0, fontSize: 20 }}>Choose Your Plan</h2>
+              <button onClick={() => setShowUpgradeModal(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>✕</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+              {PLANS.map(plan => (
+                <div key={plan.id} style={{ background: "rgba(255,255,255,0.04)", border: plan.popular ? `2px solid ${C.primary}` : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 20, position: "relative" }}>
+                  {plan.popular && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: C.primary, color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 10 }}>POPULAR</div>}
+                  <div style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{plan.name}</div>
+                  <div style={{ color: C.primary, fontSize: 28, fontWeight: 800, marginBottom: 12 }}>{plan.price}<span style={{ color: C.muted, fontSize: 13, fontWeight: 400 }}>/mo</span></div>
+                  <div style={{ marginBottom: 16 }}>
+                    {plan.features.map((f, i) => (
+                      <div key={i} style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ color: "#00E676" }}>✓</span> {f}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => handleUpgrade(plan)}
+                    disabled={upgradeLoading === plan.id}
+                    style={{
+                      width: "100%",
+                      background: upgradeLoading === plan.id ? "rgba(255,255,255,0.1)" : plan.popular ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.1)",
+                      border: "none", borderRadius: 8, padding: "10px", color: plan.popular ? "#000" : "#fff",
+                      fontWeight: 700, cursor: upgradeLoading === plan.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif"
+                    }}
+                  >
+                    {upgradeLoading === plan.id ? "Redirecting..." : "Select Plan"}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", marginTop: 16 }}>
+              <button onClick={handleManageBilling} style={{ background: "none", border: "none", color: C.primary, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
+                Or manage your existing subscription →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══════════ NOTIFICATIONS TAB ═══════════ */}
       {activeTab === "notifications" && (
         <div>
@@ -714,4 +813,3 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     </div>
   );
 }
-
