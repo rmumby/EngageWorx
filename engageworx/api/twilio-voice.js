@@ -62,13 +62,18 @@ async function getVoiceConfig(toNumber) {
 
   if (error || !data || data.length === 0) return null;
 
-  // Match by phone number in config
+  // Match by phone number in config (handles country_code + phone_number or full number)
   const match = data.find(c => {
-    const phone = c.config_encrypted?.phone_number || '';
-    // Normalize: strip spaces, dashes, parens
-    const normalized = phone.replace(/[\s\-\(\)]/g, '');
+    const cfg = c.config_encrypted || {};
+    // Build full number from parts if available
+    const countryCode = cfg.phone_country?.match(/\+\d+/)?.[0] || '+44';
+    const localNum = (cfg.phone_number || '').replace(/[\s\-\(\)]/g, '').replace(/^0+/, '');
+    const fullConfigNumber = localNum ? `${countryCode}${localNum}` : '';
+    
     const normalizedTo = toNumber.replace(/[\s\-\(\)]/g, '');
-    return normalized === normalizedTo || normalizedTo.endsWith(normalized.slice(-10));
+    return fullConfigNumber === normalizedTo || 
+           normalizedTo.endsWith(localNum.slice(-9)) ||
+           normalizedTo.endsWith(fullConfigNumber.slice(-10));
   });
 
   if (!match) return data[0]; // Fallback to first voice config
@@ -200,6 +205,11 @@ module.exports = async function handler(req, res) {
         const dept = departments.find(d => d.digit === Digits);
 
         if (dept && dept.number) {
+          // Assemble full E.164 number from country code + local number
+          const countryCode = dept.country || '+44';
+          const localNum = dept.number.replace(/[\s\-\(\)]/g, '').replace(/^0+/, '');
+          const fullNumber = localNum.startsWith('+') ? localNum : `${countryCode}${localNum}`;
+
           // Update call record
           await supabase.from('calls').update({
             status: 'in-progress',
@@ -211,7 +221,7 @@ module.exports = async function handler(req, res) {
           await supabase.from('call_messages').insert({
             call_id: (await supabase.from('calls').select('id').eq('call_sid', CallSid).single()).data?.id,
             role: 'system',
-            content: `Caller pressed ${Digits} — routing to ${dept.name} (${dept.number})`,
+            content: `Caller pressed ${Digits} — routing to ${dept.name} (${fullNumber})`,
             intent: `route:${dept.name}`,
           });
 
@@ -219,7 +229,7 @@ module.exports = async function handler(req, res) {
             say(`Connecting you to ${dept.name} now. Please hold.`, voice) +
             `<Dial callerId="${body.To}" timeout="30" ` +
             `action="/api/twilio-voice?action=dial-complete&tenant=${tId}&dept=${encodeURIComponent(dept.name)}">` +
-            `<Number>${dept.number}</Number>` +
+            `<Number>${fullNumber}</Number>` +
             `</Dial>`
           ));
         }
