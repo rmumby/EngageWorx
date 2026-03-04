@@ -278,6 +278,46 @@ function TenantManagement({ C }) {
   const [configuringTenant, setConfiguringTenant] = useState(null);
   const [suspendedTenants, setSuspendedTenants] = useState({});
   const [confirmSuspend, setConfirmSuspend] = useState(null);
+  const [liveTenants, setLiveTenants] = useState([]);
+  const [tenantsLoading, setTenantsLoading] = useState(true);
+
+  // Fetch live tenants from Supabase
+  useEffect(() => {
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const { data, error } = await supabase
+          .from('tenants')
+          .select('id, name, slug, plan, status, brand_primary, brand_secondary, brand_name, channels_enabled, created_at')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          const mapped = data.map(t => ({
+            id: t.id,
+            name: t.name,
+            logo: (t.name || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
+            role: 'customer',
+            brand: {
+              primary: t.brand_primary || '#00C9FF',
+              secondary: t.brand_secondary || '#E040FB',
+              name: t.brand_name || t.name,
+            },
+            colors: {
+              primary: t.brand_primary || '#00C9FF',
+              accent: t.brand_secondary || '#E040FB',
+            },
+            plan: t.plan || 'starter',
+            status: t.status || 'active',
+            channels: t.channels_enabled || ['sms', 'email'],
+            stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
+            slug: t.slug,
+            created_at: t.created_at,
+          }));
+          setLiveTenants(mapped);
+        }
+      } catch (err) { console.error('Tenant fetch error:', err); }
+      setTenantsLoading(false);
+    })();
+  }, [demoResult]); // Refetch after demo creation
 
   const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const themePresets = [
@@ -476,8 +516,12 @@ function TenantManagement({ C }) {
           )}
 
           <div style={{ display: "grid", gap: 12 }}>
-            {Object.values(TENANTS).filter(t => t.role === "customer").map(c => {
-              const isSuspended = suspendedTenants[c.id];
+            {tenantsLoading ? (
+              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 40 }}>Loading tenants...</div>
+            ) : liveTenants.length === 0 ? (
+              <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 40 }}>No tenants yet. Create one above to get started.</div>
+            ) : liveTenants.map(c => {
+              const isSuspended = suspendedTenants[c.id] || c.status === 'suspended';
               const isConfiguring = configuringTenant === c.id;
               return (
               <div key={c.id}>
@@ -716,7 +760,7 @@ function TenantManagement({ C }) {
 
           {/* Tenant Brand Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {Object.values(TENANTS).filter(t => t.role === "customer").map(c => (
+          {Object.values(liveTenants).map(c => (
             <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${editingBrand === c.id ? C.primary + "66" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 24, overflow: "hidden", transition: "border-color 0.2s" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                 <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{c.logo}</div>
