@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
@@ -816,32 +816,69 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             </div>
           </div>
 
-          {/* Usage */}
-          <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Current Usage</h3>
-            <div style={{ display: "grid", gap: 14 }}>
-              {[
-                { label: "Messages", used: 142800, limit: 250000, color: C.primary },
-                { label: "Contacts", used: 48200, limit: 100000, color: "#00E676" },
-                { label: "Campaigns", used: 24, limit: 50, color: "#FFD600" },
-                { label: "Users", used: 5, limit: 10, color: "#E040FB" },
-                { label: "API Calls (today)", used: 12400, limit: 100000, color: "#FF6B35" },
-              ].map((u, i) => {
-                const pct = Math.round((u.used / u.limit) * 100);
-                return (
-                  <div key={i}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{u.label}</span>
-                      <span style={{ color: pct > 80 ? "#FF6B35" : "#fff", fontSize: 13, fontWeight: 600 }}>{u.used.toLocaleString()} / {u.limit.toLocaleString()} <span style={{ color: u.color, fontSize: 11 }}>({pct}%)</span></span>
-                    </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
-                      <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#FF3B30" : pct > 80 ? "#FF6B35" : u.color, borderRadius: 3, transition: "width 0.3s" }} />
-                    </div>
+          {/* Usage — live from Supabase */}
+          {(() => {
+            const [usageData, setUsageData] = React.useState(null);
+            React.useEffect(() => {
+              (async () => {
+                try {
+                  const [msgs, contacts, campaigns, members, apiKeys] = await Promise.all([
+                    supabase.from("messages").select("id", { count: "exact", head: true }),
+                    supabase.from("contacts").select("id", { count: "exact", head: true }),
+                    supabase.from("campaigns").select("id", { count: "exact", head: true }),
+                    supabase.from("tenant_members").select("id", { count: "exact", head: true }),
+                    supabase.from("api_keys").select("id", { count: "exact", head: true }).eq("status", "active"),
+                  ]);
+                  setUsageData({
+                    messages: msgs.count || 0,
+                    contacts: contacts.count || 0,
+                    campaigns: campaigns.count || 0,
+                    members: members.count || 0,
+                    apiKeys: apiKeys.count || 0,
+                  });
+                } catch (err) {
+                  setUsageData({ messages: 0, contacts: 0, campaigns: 0, members: 0, apiKeys: 0 });
+                }
+              })();
+            }, []);
+
+            const planLimits = stripePlan?.includes("Pro") ? { messages: 500000, contacts: 500000, campaigns: 200, users: 50 }
+              : stripePlan?.includes("Growth") ? { messages: 250000, contacts: 100000, campaigns: 50, users: 10 }
+              : { messages: 50000, contacts: 10000, campaigns: 10, users: 3 };
+
+            const items = usageData ? [
+              { label: "Messages", used: usageData.messages, limit: planLimits.messages, color: C.primary },
+              { label: "Contacts", used: usageData.contacts, limit: planLimits.contacts, color: "#00E676" },
+              { label: "Campaigns", used: usageData.campaigns, limit: planLimits.campaigns, color: "#FFD600" },
+              { label: "Team Members", used: usageData.members, limit: planLimits.users, color: "#E040FB" },
+            ] : null;
+
+            return (
+              <div style={{ ...card, marginBottom: 20 }}>
+                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Current Usage</h3>
+                {!items ? (
+                  <div style={{ color: C.muted, fontSize: 13 }}>Loading usage data...</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {items.map((u, i) => {
+                      const pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 0;
+                      return (
+                        <div key={i}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{u.label}</span>
+                            <span style={{ color: pct > 80 ? "#FF6B35" : "#fff", fontSize: 13, fontWeight: 600 }}>{u.used.toLocaleString()} / {u.limit.toLocaleString()} <span style={{ color: u.color, fontSize: 11 }}>({pct}%)</span></span>
+                          </div>
+                          <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
+                            <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#FF3B30" : pct > 80 ? "#FF6B35" : u.color, borderRadius: 3, transition: "width 0.3s" }} />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* SMS Top-Ups */}
           <div style={{ ...card, marginBottom: 20, borderLeft: "4px solid #FFD600" }}>
@@ -867,17 +904,16 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             </div>
           </div>
 
-          {/* Stripe Config */}
+          {/* Payment Method — managed via Stripe */}
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Payment Method (Stripe)</h3>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Payment Method</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ fontSize: 28 }}>💳</div>
                 <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Visa ending in 4821</div>
-                  <div style={{ color: C.muted, fontSize: 12 }}>Expires 12/2027</div>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Managed by Stripe</div>
+                  <div style={{ color: C.muted, fontSize: 12 }}>View and update your payment details securely</div>
                 </div>
-                <span style={{ ...badge("#00E676"), marginLeft: "auto" }}>Default</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={handleManageBilling} style={btnSec}>Update Payment Method</button>
