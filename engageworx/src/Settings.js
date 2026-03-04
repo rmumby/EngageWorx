@@ -288,7 +288,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "service_account", label: "Service Account Email" },
     ]},
     { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
-      { key: "phone_number", label: "Voice Number", placeholder: "+44 xxx xxxx xxxx" },
+      { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
       { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Amy (UK Female)", "Polly.Brian (UK Male)", "Polly.Emma (UK Female)", "Polly.Joanna (US Female)", "Polly.Matthew (US Male)"] },
       { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
@@ -816,12 +817,27 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                                       placeholder="Department name"
                                       style={{ ...inputStyle, fontSize: 12 }}
                                     />
-                                    <input
-                                      value={d.number}
-                                      onChange={e => updateDept(i, "number", e.target.value)}
-                                      placeholder="+44 xxx xxxx xxxx"
-                                      style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace" }}
-                                    />
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                      <select
+                                        value={d.country || "+44"}
+                                        onChange={e => updateDept(i, "country", e.target.value)}
+                                        style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}
+                                      >
+                                        <option value="+44">🇬🇧 +44</option>
+                                        <option value="+1">🇺🇸 +1</option>
+                                        <option value="+61">🇦🇺 +61</option>
+                                        <option value="+49">🇩🇪 +49</option>
+                                        <option value="+33">🇫🇷 +33</option>
+                                        <option value="+34">🇪🇸 +34</option>
+                                        <option value="+353">🇮🇪 +353</option>
+                                      </select>
+                                      <input
+                                        value={d.number}
+                                        onChange={e => updateDept(i, "number", e.target.value)}
+                                        placeholder="7700 900000"
+                                        style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace", flex: 1 }}
+                                      />
+                                    </div>
                                     <button onClick={() => removeDept(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
                                   </div>
                                 ))}
