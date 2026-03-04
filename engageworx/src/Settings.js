@@ -288,9 +288,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "service_account", label: "Service Account Email" },
     ]},
     { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
-      { key: "phone_number", label: "Voice Number", placeholder: "+1 (xxx) xxx-xxxx" },
-      { key: "sip_domain", label: "SIP Domain" },
-      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Default", "Polly (Neural)", "Google WaveNet"] },
+      { key: "phone_number", label: "Voice Number", placeholder: "+44 xxx xxxx xxxx" },
+      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Amy (UK Female)", "Polly.Brian (UK Male)", "Polly.Emma (UK Female)", "Polly.Joanna (US Female)", "Polly.Matthew (US Male)"] },
+      { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
+      { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
+      { key: "timezone", label: "Timezone", type: "select", options: ["Europe/London", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"] },
+      { key: "business_hours_start", label: "Open (Hour, 24h)", placeholder: "9" },
+      { key: "business_hours_end", label: "Close (Hour, 24h)", placeholder: "17" },
+      { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
     ]},
     { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
       { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
@@ -767,6 +772,67 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                             </div>
                           ))}
                         </div>
+
+                        {/* ── Voice-only: IVR Department Routing ── */}
+                        {ch.id === "voice" && (() => {
+                          const depts = configData.departments || [
+                            { digit: "1", name: "", number: "" },
+                            { digit: "2", name: "", number: "" },
+                            { digit: "3", name: "", number: "" },
+                          ];
+                          const updateDept = (idx, field, value) => {
+                            const updated = [...depts];
+                            updated[idx] = { ...updated[idx], [field]: value };
+                            updateChannelField(ch.id, "departments", updated);
+                          };
+                          const addDept = () => {
+                            if (depts.length >= 9) return;
+                            const nextDigit = String(depts.length + 1);
+                            updateChannelField(ch.id, "departments", [...depts, { digit: nextDigit, name: "", number: "" }]);
+                          };
+                          const removeDept = (idx) => {
+                            const updated = depts.filter((_, i) => i !== idx);
+                            updateChannelField(ch.id, "departments", updated);
+                          };
+
+                          return (
+                            <div style={{ marginTop: 18, padding: 16, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                <div>
+                                  <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 14 }}>📋 IVR Department Routing</div>
+                                  <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Configure "Press 1 for Sales, Press 2 for Support..." menu</div>
+                                </div>
+                                <button onClick={addDept} disabled={depts.length >= 9} style={{ ...btnSec, padding: "6px 12px", fontSize: 11, opacity: depts.length >= 9 ? 0.4 : 1 }}>+ Add</button>
+                              </div>
+                              <div style={{ display: "grid", gap: 8 }}>
+                                {depts.map((d, i) => (
+                                  <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 32px", gap: 8, alignItems: "center" }}>
+                                    <div style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, textAlign: "center", padding: "8px 0", color: "#FFD600", fontWeight: 800, fontSize: 16 }}>
+                                      {d.digit}
+                                    </div>
+                                    <input
+                                      value={d.name}
+                                      onChange={e => updateDept(i, "name", e.target.value)}
+                                      placeholder="Department name"
+                                      style={{ ...inputStyle, fontSize: 12 }}
+                                    />
+                                    <input
+                                      value={d.number}
+                                      onChange={e => updateDept(i, "number", e.target.value)}
+                                      placeholder="+44 xxx xxxx xxxx"
+                                      style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace" }}
+                                    />
+                                    <button onClick={() => removeDept(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+                                  </div>
+                                ))}
+                              </div>
+                              {depts.length === 0 && (
+                                <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>No departments configured. Calls will go directly to voicemail.</div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                           <button onClick={() => saveChannelConfig(ch.id, channelConfigs[ch.id]?.config_encrypted || configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>
                             {isSaving ? "Saving..." : "Save Configuration"}
