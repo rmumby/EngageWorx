@@ -294,8 +294,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
       { key: "timezone", label: "Timezone", type: "select", options: ["Europe/London", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"] },
-      { key: "business_hours_start", label: "Open (Hour, 24h)", placeholder: "9" },
-      { key: "business_hours_end", label: "Close (Hour, 24h)", placeholder: "17" },
+      { key: "business_hours_start", label: "Open (e.g. 9.5 = 9:30)", placeholder: "9.5" },
+      { key: "business_hours_end", label: "Close (e.g. 17.5 = 5:30)", placeholder: "17.5" },
       { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
     ]},
     { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
@@ -844,6 +844,82 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                               </div>
                               {depts.length === 0 && (
                                 <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>No departments configured. Calls will go directly to voicemail.</div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── Voice-only: Working Days ── */}
+                        {ch.id === "voice" && (() => {
+                          const workDays = configData.work_days || [1, 2, 3, 4, 5];
+                          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                          return (
+                            <div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                {dayNames.map((d, i) => (
+                                  <button key={i} onClick={() => {
+                                    const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort();
+                                    updateChannelField(ch.id, "work_days", updated);
+                                  }} style={{
+                                    flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                                    fontFamily: "'DM Sans', sans-serif", border: "1px solid",
+                                    background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)",
+                                    borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)",
+                                    color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)",
+                                  }}>{d}</button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── Voice-only: Hours Overrides (weddings, events, holidays) ── */}
+                        {ch.id === "voice" && (() => {
+                          const overrides = configData.hours_overrides || [];
+                          const addOverride = () => {
+                            const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+                            updateChannelField(ch.id, "hours_overrides", [...overrides, { date: tomorrow, closed: false, open: "10", close: "22" }]);
+                          };
+                          const updateOverride = (idx, field, value) => {
+                            const updated = [...overrides];
+                            updated[idx] = { ...updated[idx], [field]: value };
+                            updateChannelField(ch.id, "hours_overrides", updated);
+                          };
+                          const removeOverride = (idx) => updateChannelField(ch.id, "hours_overrides", overrides.filter((_, i) => i !== idx));
+
+                          return (
+                            <div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                <div>
+                                  <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13 }}>🗓️ Hours Overrides</div>
+                                  <div style={{ color: C.muted, fontSize: 11 }}>Set custom hours for weddings, events, holidays, etc.</div>
+                                </div>
+                                <button onClick={addOverride} style={{ ...btnSec, padding: "5px 10px", fontSize: 11 }}>+ Add Date</button>
+                              </div>
+                              {overrides.length === 0 ? (
+                                <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "8px 0" }}>No overrides set. Default hours will apply every working day.</div>
+                              ) : (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  {overrides.map((o, i) => (
+                                    <div key={i} style={{ display: "grid", gridTemplateColumns: "140px auto 70px 70px 32px", gap: 8, alignItems: "center" }}>
+                                      <input type="date" value={o.date} onChange={e => updateOverride(i, "date", e.target.value)}
+                                        style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }} />
+                                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: o.closed ? "#FF3B30" : C.muted, fontSize: 12 }}>
+                                        <input type="checkbox" checked={o.closed || false} onChange={e => updateOverride(i, "closed", e.target.checked)} />
+                                        Closed all day
+                                      </label>
+                                      {!o.closed && <>
+                                        <input value={o.open || "10"} onChange={e => updateOverride(i, "open", e.target.value)}
+                                          placeholder="Open" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} />
+                                        <input value={o.close || "17"} onChange={e => updateOverride(i, "close", e.target.value)}
+                                          placeholder="Close" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} />
+                                      </>}
+                                      {o.closed && <><span /><span /></>}
+                                      <button onClick={() => removeOverride(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           );
