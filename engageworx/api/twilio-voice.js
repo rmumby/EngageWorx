@@ -29,7 +29,7 @@ function escapeXml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ─── Business hours check ────────────────────────────────────────────
+// ─── Business hours check (with date overrides for events/weddings) ───
 function isBusinessHours(config) {
   const tz = config.timezone || 'Europe/London';
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
@@ -38,10 +38,24 @@ function isBusinessHours(config) {
   const minute = now.getMinutes();
   const currentMinutes = hour * 60 + minute;
 
-  const startHour = config.business_hours_start || 9;
-  const endHour = config.business_hours_end || 17;
-  const startMinutes = startHour * 60;
-  const endMinutes = endHour * 60;
+  // Check for date-specific overrides first (e.g., weddings, events, holidays)
+  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const overrides = config.hours_overrides || [];
+  const todayOverride = overrides.find(o => o.date === today);
+  
+  if (todayOverride) {
+    // Override found for today
+    if (todayOverride.closed) return false; // Explicitly closed all day
+    const ovStart = (parseInt(todayOverride.open) || 0) * 60;
+    const ovEnd = (parseInt(todayOverride.close) || 0) * 60;
+    return currentMinutes >= ovStart && currentMinutes < ovEnd;
+  }
+
+  // Default schedule (supports half-hours: 9.5 = 9:30)
+  const startHour = parseFloat(config.business_hours_start) || 9;
+  const endHour = parseFloat(config.business_hours_end) || 17;
+  const startMinutes = Math.round(startHour * 60);
+  const endMinutes = Math.round(endHour * 60);
 
   // Weekdays only by default
   const workDays = config.work_days || [1, 2, 3, 4, 5];
@@ -150,7 +164,7 @@ module.exports = async function handler(req, res) {
 
         const menuOptions = departments
           .filter(d => d.number) // Only show departments with numbers configured
-          .map(d => `Press ${d.digit} for ${d.name}`)
+          .map(d => `Press ${d.digit} ${d.description || ('for ' + d.name)}`)
           .join('. ');
 
         const recordingNotice = config.recording_enabled !== false
