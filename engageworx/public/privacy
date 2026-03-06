@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | EngageWorx</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', -apple-system, sans-serif; background: #080d1a; color: #E8F4FD; line-height: 1.8; }
+    .container { max-width: 800px; margin: 0 auto; padding: 60px 24px; }
+    h1 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+    h2 { font-size: 20px; font-weight: 700; margin: 36px 0 12px; color: #00C9FF; }
+    h3 { font-size: 16px; font-weight: 700; margin: 24px 0 8px; color: #E8F4FD; }
+    p { margin-bottom: 16px; color: #B0C4DE; font-size: 15px; }
+    .updated { color: #6B8BAE; font-size: 13px; margin-bottom: 40px; }
+    ul { margin: 0 0 16px 24px; color: #B0C4DE; font-size: 15px; }
+    li { margin-bottom: 8px; }
+    a { color: #00C9FF; }
+    .logo { font-size: 24px; font-weight: 800; color: #00C9FF; margin-bottom: 40px; display: block; text-decoration: none; }
+    .back { color: #6B8BAE; font-size: 13px; text-decoration: none; display: inline-block; margin-bottom: 24px; }
+    .back:hover { color: #00C9FF; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="logo">EngageWorx</a>
+    <a href="/" class="back">&larr; Back to home</a>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: March 2026</p>
+
+    <h2>1. Introduction</h2>
+    <p>EngageWorx ("we", "our", "us") is an AI-powered omnichannel customer communications platform operated by EngageWorx Ltd. We are committed to protecting the privacy and security of your personal information. This Privacy Policy explains how we collect, use, store, and share your data when you use our platform, website (engwx.com), and related services.</p>
+
+    <h2>2. Information We Collect</h2>
+    <h3>Account Information</h3>
+    <p>When you create an account, we collect your name, email address, company name, phone number, and billing information (processed securely via Stripe).</p>
+    <h3>Usage Data</h3>
+    <p>We collect information about how you use the platform, including messages sent and received, campaign activity, feature usage, login times, and device/browser information.</p>
+    <h3>Customer Communications Data</h3>
+    <p>As a communications platform, we process messages (SMS, email, voice) sent between you and your customers. This data is stored securely and is only accessible to your organisation and authorised personnel.</p>
+    <h3>Voice Call Data</h3>
+    <p>When voice features are enabled, we may collect call recordings, voicemail recordings, call transcripts, call duration, and caller identification data. Call recording is optional and configurable per tenant. Where recording is enabled, callers are informed via an automated disclosure at the start of the call.</p>
+    <h3>AI Interaction Data</h3>
+    <p>When AI-powered features are used (chatbot, voice AI, intent classification), we process the content of customer interactions to generate appropriate responses. AI interactions are logged for quality assurance and service improvement.</p>
+
+    <h2>3. How We Use Your Information</h2>
+    <p>We use your information to:</p>
+    <ul>
+      <li>Provide, operate, and maintain the EngageWorx platform</li>
+      <li>Process and deliver SMS, email, and voice communications on your behalf</li>
+      <li>Provide AI-powered customer support and chatbot functionality</li>
+      <li>Process payments and manage your subscription</li>
+      <li>Send you service-related notifications and updates</li>
+      <li>Improve our platform, features, and user experience</li>
+      <li>Comply with legal obligations and enforce our terms of service</li>
+    </ul>
+
+    <h2>4. Data Sharing</h2>
+    <p>We do not sell your personal data or your customers' data to third parties. We share data only with the following categories of service providers who are essential to operating the platform:</p>
+    <ul>
+      <li><strong>Messaging Infrastructure:</strong> Twilio (SMS, voice), Resend/SendGrid (email) — to deliver messages on your behalf</li>
+      <li><strong>AI Services:</strong> Anthropic (Claude AI) — to provide AI-powered responses and intent classification</li>
+      <li><strong>Payment Processing:</strong> Stripe — to process subscription payments securely</li>
+      <li><strong>Hosting & Database:</strong> Vercel (hosting), Supabase (database) — to operate the platform infrastructure</li>
+    </ul>
+    <p>Each of these providers is bound by their own privacy policies and data processing agreements. We select providers who maintain appropriate security standards and data protection practices.</p>
+
+    <h2>5. Data Retention</h2>
+    <p>We retain your account data for as long as your account is active. Message data, call recordings, and interaction logs are retained for 12 months by default, after which they are automatically deleted unless you configure a different retention period. You may request deletion of your data at any time by contacting us.</p>
+
+    <h2>6. Data Security</h2>
+    <p>We implement appropriate technical and organisational measures to protect your data, including:</p>
+    <ul>
+      <li>Encryption of data in transit (TLS/SSL) and at rest</li>
+      <li>Row-level security policies ensuring tenants can only access their own data</li>
+      <li>Role-based access controls within the platform</li>
+      <li>Regular security reviews and monitoring</li>
+      <li>Secure API key management and webhook signature verification</li>
+    </ul>
+
+    <h2>7. Your Rights</h2>
+    <p>Depending on your jurisdiction, you may have the following rights regarding your personal data:</p>
+    <ul>
+      <li><strong>Access:</strong> Request a copy of the personal data we hold about you</li>
+      <li><strong>Rectification:</strong> Request correction of inaccurate data</li>
+      <li><strong>Erasure:</strong> Request deletion of your personal data</li>
+      <li><strong>Portability:</strong> Request your data in a machine-readable format</li>
+      <li><strong>Objection:</strong> Object to certain processing of your data</li>
+      <li><strong>Restriction:</strong> Request that we limit how we use your data</li>
+    </ul>
+    <p>To exercise any of these rights, contact us at <a href="mailto:privacy@engwx.com">privacy@engwx.com</a>.</p>
+
+    <h2>8. SMS & Messaging Consent</h2>
+    <p>For details on how SMS consent is collected, managed, and how to opt out of messages, please see our <a href="/smsconsent">SMS Consent Policy</a>.</p>
+
+    <h2>9. Cookies</h2>
+    <p>Our website uses essential cookies required for authentication and platform functionality. We do not use advertising or tracking cookies. Analytics data is collected in aggregate form to improve our services.</p>
+
+    <h2>10. International Data Transfers</h2>
+    <p>Our infrastructure providers may process data in the United States and other jurisdictions. Where data is transferred internationally, we ensure appropriate safeguards are in place, including standard contractual clauses where applicable.</p>
+
+    <h2>11. Children's Privacy</h2>
+    <p>EngageWorx is a business-to-business platform and is not directed at individuals under the age of 18. We do not knowingly collect personal data from children.</p>
+
+    <h2>12. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the updated policy on our website and updating the "Last updated" date. Your continued use of the platform after changes constitutes acceptance of the revised policy.</p>
+
+    <h2>13. Contact Us</h2>
+    <p>For questions about this Privacy Policy or our data practices:</p>
+    <p>Email: <a href="mailto:privacy@engwx.com">privacy@engwx.com</a><br>
+    Web: <a href="https://www.engwx.com">www.engwx.com</a></p>
+  </div>
+</body>
+</html>
