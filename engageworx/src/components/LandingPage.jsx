@@ -303,6 +303,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
   // If showing a legal page, render it
   if (legalPage) {
     const legalData = legalContent[legalPage];
+    console.log('LEGAL DEBUG:', { legalPage, hasData: !!legalData, keys: Object.keys(legalContent), contentLength: legalData?.content?.length });
     if (!legalData || !legalData.content) {
       return (
         <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '120px 40px', textAlign: 'center' }}>
@@ -430,8 +431,8 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
           <span onClick={() => navigateTo('pricing')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Pricing</span>
           <span onClick={() => navigateTo('about')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>About</span>
           <span onClick={() => navigateTo('contact')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Contact</span>
-          <a href="/privacy.html" style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer', textDecoration: 'none' }}>Privacy</a>
-          <a href="/terms.html" style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer', textDecoration: 'none' }}>Terms</a>
+          <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Privacy</span>
+          <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
         </div>
         <span style={{ color: '#3A5068', fontSize: 13 }}>© 2026 EngageWorx. All rights reserved.</span>
       </div>
@@ -1431,7 +1432,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
               </div>
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6B8BAE', lineHeight: 1.7 }}>
                 For questions about SMS messaging, contact us at <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>. 
-                View our <a href="/privacy.html" style={{ color: '#00C9FF' }}>Privacy Policy</a> and <a href="/terms.html" style={{ color: '#00C9FF' }}>Terms of Service</a> for complete details on data handling and compliance.
+                View our <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details on data handling and compliance.
                 EngageWorx complies with TCPA, CTIA guidelines, and 10DLC/A2P messaging standards.
               </div>
             </div>
@@ -1476,10 +1477,10 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
             </div>
             <div className="lp-footer-col">
               <h4>Legal</h4>
-              <a href="/privacy.html">Privacy Policy</a>
-              <a href="/terms.html">Terms of Service</a>
+              <a onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
+              <a onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
               <a onClick={() => { const el = document.getElementById('lp-sms-consent'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>SMS Consent</a>
-              <a href="/accessibility.html">Accessibility</a>
+              <a onClick={() => { setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
           <div className="lp-footer-bottom">
