@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { legalPages } from './legalContent';
+import { legalPages } from './LegalContent';
 
 const PORTAL_URL = 'https://portal.engwx.com';
 
