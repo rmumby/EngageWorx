@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { legalPages } from './LegalContent';
 
 const PORTAL_URL = 'https://portal.engwx.com';
 
@@ -80,23 +79,14 @@ const LandingPage = () => {
 
     // If showing a legal page, render it
   if (legalPage) {
-    const pageData = legalPages[legalPage];
-    if (!pageData) return (<div style={{fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '120px 40px', textAlign: 'center'}}><h1 style={{fontSize: 36, fontWeight: 900}}>Page Not Found</h1><button onClick={() => setLegalPage(null)} style={{marginTop: 20, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 8, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer'}}>Back to Home</button></div>);
     return (
-      <div style={{fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '60px 24px'}}>
-        <div style={{maxWidth: 760, margin: '0 auto'}}>
-          <button onClick={() => setLegalPage(null)} style={{background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif", marginBottom: 40, display: 'block'}}>Back to Home</button>
-          <h1 style={{fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8, color: '#E8F4FD'}}>{pageData.title}</h1>
-          <p style={{color: '#6B8BAE', fontSize: 14, marginBottom: 40}}>{"Last updated: " + pageData.updated}</p>
-          {pageData.sections.map(function(s, i) {
-            if (s.type === "h") return <h2 key={"lh" + i} style={{fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF'}}>{s.text}</h2>;
-            return <p key={"lp" + i} style={{color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16}}>{s.text}</p>;
-          })}
-        </div>
+      <div style={{background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: 60}}>
+        <button onClick={() => setLegalPage(null)} style={{background: '#1a2540', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', marginBottom: 40, display: 'block'}}>Back to Home</button>
+        <h1 style={{fontSize: 36, marginBottom: 20}}>TEST: Legal page for: {legalPage}</h1>
+        <p style={{color: '#9BB0C7'}}>If you can see this text, the rendering works. The issue was in the content.</p>
       </div>
     );
   }
-
 
   // Shared sub-page wrapper with nav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
