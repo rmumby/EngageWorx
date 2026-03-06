@@ -180,69 +180,35 @@ const LandingPage = () => {
 
   // ─── PRICING PAGE ───────────────────────────────────────────────────────────
   if (page === 'pricing') {
-    const plans = [
-      {
-        name: 'Starter', price: '$99', period: '/mo', desc: '1 phone number, 1,000 SMS/month, AI bot included.',
-        features: ['1,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', '5 automation flows', '1 phone number', 'Email support', 'Analytics dashboard'],
-        cta: 'Start Free Trial', featured: false
-      },
-      {
-        name: 'Growth', price: '$249', period: '/mo', desc: '3 phone numbers, 5,000 SMS/month, AI bot included.',
-        features: ['5,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', 'Unlimited automation flows', '3 phone numbers', 'Priority support', 'Advanced analytics'],
-        cta: 'Start Free Trial', featured: true
-      },
-      {
-        name: 'Pro', price: '$499', period: '/mo', desc: '10 phone numbers, 20,000 SMS/month, AI bot included.',
-        features: ['20,000 SMS/month', 'All channels + API access', 'White-label branding', 'Custom integrations', '10 phone numbers', 'Dedicated support', 'Full analytics suite', 'Custom domain', 'Multi-tenant management'],
-        cta: 'Start Free Trial', featured: false
-      }
-    ];
-    const faqs = [
-      { q: 'Is there a free trial?', a: 'Yes! All paid plans come with a 14-day free trial. No credit card required to start.' },
-      { q: 'Can I change plans later?', a: 'Absolutely. You can upgrade or downgrade at any time. Changes take effect at your next billing cycle.' },
-      { q: 'What counts as a message?', a: 'Each SMS segment, email, WhatsApp message, or RCS message counts as one message. MMS counts as 3 messages.' },
-      { q: 'Do you offer annual billing?', a: 'Yes — save 20% with annual billing on Starter and Growth plans. Contact us for custom enterprise pricing.' },
-      { q: 'What happens if I exceed my message limit?', a: 'We will notify you at 80% and 100% usage. Overage messages are billed at $0.025/SMS across all plans.' },
-      { q: 'Is there a setup fee?', a: 'No. There are no setup fees, hidden charges, or long-term contracts on Starter and Growth plans.' },
-    ];
-
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
         <SubPageNav />
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 40px 0' }}>
-          {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>💎 Pricing</div>
-            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Simple, transparent<br />pricing.</h1>
-            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Start free, scale as you grow. No hidden fees, no surprises, no long-term contracts.</p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>Pricing</div>
+            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Simple, transparent pricing.</h1>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Start free, scale as you grow. No hidden fees, no long-term contracts.</p>
           </div>
 
-          {/* Plan Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 80 }}>
-            {plans.map((p, i) => (
-              <div key={i} style={{
-                background: '#0d1220', border: p.featured ? '2px solid #00C9FF' : '1px solid #1a2540',
-                borderRadius: 20, padding: '36px 28px', position: 'relative',
-                boxShadow: p.featured ? '0 0 40px rgba(0,201,255,0.15), 0 20px 60px rgba(0,0,0,0.3)' : 'none'
-              }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 40 }}>
+            {[
+              { name: 'Starter', price: '$99', period: '/mo', desc: 'Everything you need to start engaging customers with SMS and AI.', features: ['1,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', '1 phone number', 'Analytics dashboard'], featured: false },
+              { name: 'Growth', price: '$249', period: '/mo', desc: 'More messages, more numbers, more insights for growing businesses.', features: ['5,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', '3 phone numbers', 'Advanced analytics'], featured: true },
+              { name: 'Pro', price: '$499', period: '/mo', desc: 'Full platform control with white-label branding and API access.', features: ['20,000 SMS/month', 'All channels + API access', 'White-label branding', '10 phone numbers', 'Custom integrations'], featured: false },
+            ].map((p, i) => (
+              <div key={i} style={{ background: '#0d1220', border: p.featured ? '2px solid #00C9FF' : '1px solid #1a2540', borderRadius: 20, padding: '36px 28px', position: 'relative', boxShadow: p.featured ? '0 0 40px rgba(0,201,255,0.15)' : 'none' }}>
                 {p.featured && <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '4px 16px', borderRadius: 100, fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>MOST POPULAR</div>}
                 <div style={{ fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: '#6B8BAE', marginBottom: 12 }}>{p.name}</div>
-                <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: -2, marginBottom: 4 }}>{p.price}<span style={{ fontSize: 16, fontWeight: 500, color: '#6B8BAE', letterSpacing: 0 }}>{p.period}</span></div>
+                <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: -2, marginBottom: 4 }}>{p.price}<span style={{ fontSize: 16, fontWeight: 500, color: '#6B8BAE' }}>{p.period}</span></div>
                 <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>{p.desc}</p>
                 <ul style={{ listStyle: 'none', padding: 0, marginBottom: 28 }}>
                   {p.features.map((f, j) => (
                     <li key={j} style={{ padding: '8px 0', fontSize: 14, color: '#6B8BAE', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ color: '#00E676', fontWeight: 800, fontSize: 14 }}>✓</span> {f}
+                      <span style={{ color: '#00E676', fontWeight: 800 }}>&#10003;</span> {f}
                     </li>
                   ))}
                 </ul>
-                <button onClick={p.cta === 'Contact Sales' ? () => navigateTo('contact') : goToSignup} style={{
-                  display: 'block', width: '100%', padding: 14, borderRadius: 10, textAlign: 'center',
-                  fontSize: 15, fontWeight: 700, cursor: 'pointer', border: 'none', fontFamily: "'Outfit', sans-serif",
-                  background: p.featured ? 'linear-gradient(135deg, #00C9FF, #E040FB)' : 'transparent',
-                  color: p.featured ? '#000' : '#E8F4FD',
-                  ...(p.featured ? {} : { border: '1px solid #1a2540' })
-                }}>{p.cta}</button>
+                <button onClick={goToSignup} style={{ display: 'block', width: '100%', padding: 14, borderRadius: 10, textAlign: 'center', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Outfit', sans-serif", border: 'none', background: p.featured ? 'linear-gradient(135deg, #00C9FF, #E040FB)' : 'transparent', color: p.featured ? '#000' : '#E8F4FD', ...(p.featured ? {} : { border: '1px solid #1a2540' }) }}>Start Free Trial</button>
               </div>
             ))}
           </div>
@@ -252,8 +218,8 @@ const LandingPage = () => {
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <div style={{ flex: 1, minWidth: 280 }}>
               <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#E040FB', marginBottom: 8 }}>Enterprise & Partners</div>
-              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8 }}>Need more? Let's talk.</h3>
-              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7, margin: 0 }}>For service providers, multi-tenant deployments, white-label partnerships, custom integrations, high-volume messaging, or dedicated infrastructure — we'll build a plan that fits.</p>
+              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8 }}>Need more? Let&#39;s talk.</h3>
+              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7, margin: 0 }}>For service providers, white-label partnerships, high-volume messaging, or custom requirements.</p>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
               <button onClick={() => navigateTo('contact')} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Contact Sales</button>
@@ -261,69 +227,12 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Feature Comparison */}
-          <div style={{ marginBottom: 80 }}>
-            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, textAlign: 'center', marginBottom: 40 }}>Compare plans</h2>
-            <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#6B8BAE', fontSize: 13, fontWeight: 600 }}>Feature</th>
-                    {['Starter', 'Growth', 'Pro'].map(h => (
-                      <th key={h} style={{ textAlign: 'center', padding: '16px 24px', borderBottom: '1px solid #1a2540', color: '#00C9FF', fontSize: 13, fontWeight: 700 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ['Monthly SMS', '1,000', '5,000', '20,000'],
-                    ['SMS & Email', '✓', '✓', '✓'],
-                    ['RCS & WhatsApp', '—', '✓', '✓'],
-                    ['AI Chatbot', 'Basic', 'Advanced', 'Custom'],
-                    ['Automation flows', '5', 'Unlimited', 'Unlimited'],
-                    ['Team members', '1', '5', 'Unlimited'],
-                    ['Analytics', 'Basic', 'Advanced', 'Custom'],
-                    ['A/B testing', '—', '✓', '✓'],
-                    ['White-label branding', '—', '—', '✓'],
-                    ['Custom domain', '—', '—', '✓'],
-                    ['API access', '—', '✓', '✓'],
-                    ['SSO / SAML', '—', '—', '✓'],
-                    ['Dedicated support', '—', '—', '✓'],
-                    ['SLA guarantee', '—', '—', '99.9%'],
-                    ['TCR/10DLC registration', '✓', '✓', '✓'],
-                    ['GDPR compliance tools', '✓', '✓', '✓'],
-                  ].map(([feature, ...vals], i) => (
-                    <tr key={i}>
-                      <td style={{ padding: '12px 24px', borderBottom: '1px solid rgba(26,37,64,0.5)', color: '#E8F4FD', fontSize: 14 }}>{feature}</td>
-                      {vals.map((v, j) => (
-                        <td key={j} style={{ textAlign: 'center', padding: '12px 24px', borderBottom: '1px solid rgba(26,37,64,0.5)', color: v === '✓' ? '#00E676' : v === '—' ? '#3A5068' : '#6B8BAE', fontSize: 14, fontWeight: v === '✓' || v === '—' ? 400 : 600 }}>{v}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* FAQ */}
-          <div style={{ marginBottom: 60 }}>
-            <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, textAlign: 'center', marginBottom: 40 }}>Frequently asked questions</h2>
-            <div style={{ maxWidth: 760, margin: '0 auto', display: 'grid', gap: 16 }}>
-              {faqs.map((f, i) => (
-                <div key={i} style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 12, padding: '24px 28px' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{f.q}</h3>
-                  <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>{f.a}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CTA */}
+          {/* Simple CTA */}
           <div style={{ textAlign: 'center', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 24, padding: '60px 48px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 12 }}>Ready to get started?</h2>
-            <p style={{ color: '#6B8BAE', fontSize: 17, marginBottom: 28 }}>Start your free 14-day trial. No credit card required.</p>
-            <button onClick={goToSignup} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px 36px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
+            <p style={{ color: '#6B8BAE', fontSize: 17, marginBottom: 28 }}>14-day free trial. No credit card required.</p>
+            <button onClick={goToSignup} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px 36px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial</button>
           </div>
         </div>
         <SubPageFooter />
@@ -331,7 +240,7 @@ const LandingPage = () => {
     );
   }
 
-  // ─── ABOUT PAGE ─────────────────────────────────────────────────────────────
+    // ─── ABOUT PAGE ─────────────────────────────────────────────────────────────
   if (page === 'about') {
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
@@ -1077,7 +986,6 @@ const LandingPage = () => {
                 <li>AI Chatbot included</li>
                 <li>3 phone numbers</li>
                 <li>Overage: $0.025/SMS</li>
-                <li>Priority support</li>
               </ul>
               <button className="lp-price-btn lp-price-btn-primary" onClick={goToSignup}>Start Free Trial</button>
             </div>
