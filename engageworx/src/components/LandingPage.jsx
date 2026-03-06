@@ -247,6 +247,20 @@ const LandingPage = () => {
             ))}
           </div>
 
+          {/* Enterprise CTA */}
+          <div style={{ maxWidth: 1000, margin: '0 auto 60px', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#E040FB', marginBottom: 8 }}>Enterprise & Partners</div>
+              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8 }}>Need more? Let's talk.</h3>
+              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7, margin: 0 }}>For service providers, multi-tenant deployments, white-label partnerships, custom integrations, high-volume messaging, or dedicated infrastructure — we'll build a plan that fits.</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
+              <button onClick={() => navigateTo('contact')} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Contact Sales</button>
+              <a href="tel:+13058108877" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (305) 810-8877</a>
+            </div>
+          </div>
+
           {/* Feature Comparison */}
           <div style={{ marginBottom: 80 }}>
             <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, textAlign: 'center', marginBottom: 40 }}>Compare plans</h2>
@@ -485,7 +499,8 @@ const LandingPage = () => {
                 <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
                   General: <a href="mailto:hello@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>hello@engwx.com</a><br />
                   Sales: <a href="mailto:sales@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>sales@engwx.com</a><br />
-                  Support: <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>
+                  Support: <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a><br />
+                  Phone: <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none' }}>+1 (305) 810-8877</a>
                 </p>
               </div>
 
@@ -502,6 +517,7 @@ const LandingPage = () => {
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Location</h3>
                 <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
                   Miami, Florida, USA<br />
+                  <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none' }}>+1 (305) 810-8877</a><br />
                   Serving customers in the US, UK & EU
                 </p>
               </div>
@@ -1080,6 +1096,20 @@ const LandingPage = () => {
               <button className="lp-price-btn lp-price-btn-outline" onClick={goToSignup}>Start Free Trial</button>
             </div>
           </div>
+
+          {/* Enterprise CTA */}
+          <div className="lp-fade-up" style={{ maxWidth: 1000, margin: '40px auto 0', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#E040FB', marginBottom: 8 }}>Enterprise</div>
+              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5, marginBottom: 8 }}>Need more? Let's talk.</h3>
+              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7, margin: 0 }}>For service providers, multi-tenant deployments, white-label partnerships, custom integrations, or high-volume messaging — we'll build a plan that fits your business.</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
+              <button onClick={() => navigateTo('contact')} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Contact Sales</button>
+              <a href="tel:+13058108877" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (305) 810-8877</a>
+            </div>
+          </div>
         </section>
 
         {/* TESTIMONIALS */}
@@ -1199,6 +1229,7 @@ const LandingPage = () => {
                 <div className="lp-logo-text">Engage<span>Worx</span></div>
               </div>
               <p>AI-powered customer engagement across every channel. Built for teams that move fast.</p>
+              <p style={{fontSize: 13, color: '#6B8BAE', marginTop: 8}}><a href="tel:+13058108877" style={{color: '#00C9FF', textDecoration: 'none'}}>+1 (305) 810-8877</a></p>
             </div>
             <div className="lp-footer-col">
               <h4>Product</h4>
