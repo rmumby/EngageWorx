@@ -303,60 +303,27 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
   // If showing a legal page, render it
   if (legalPage) {
     const legalData = legalContent[legalPage];
-    console.log('LEGAL DEBUG:', { legalPage, hasData: !!legalData, keys: Object.keys(legalContent), contentLength: legalData?.content?.length });
-    if (!legalData || !legalData.content) {
-      return (
-        <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '120px 40px', textAlign: 'center' }}>
-          <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 16 }}>Page Not Found</h1>
-          <p style={{ color: '#6B8BAE', marginBottom: 8 }}>Page key: "{legalPage}"</p>
-          <p style={{ color: '#6B8BAE', marginBottom: 8 }}>Available keys: {Object.keys(legalContent).join(', ')}</p>
-          <p style={{ color: '#FF3B30', marginBottom: 24 }}>v2026.03.05 — If you see this, the file deployed correctly but content failed to load.</p>
-          <button onClick={() => { setLegalPage(null); window.location.href = '/'; }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 8, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>← Back to Home</button>
-        </div>
-      );
-    }
+    const paragraphs = legalData && legalData.content ? legalData.content.split(/\n\n+/) : [];
     return (
-      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '0' }}>
-        <style>{`
-          .lp-legal-nav {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            padding: 16px 40px; display: flex; align-items: center; justify-content: space-between;
-            background: rgba(5,8,16,0.95); backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(26,37,64,0.5);
-          }
-          .lp-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
-          .lp-logo-icon {
-            width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB);
-            border-radius: 10px; display: flex; align-items: center; justify-content: center;
-            font-weight: 900; font-size: 16px; color: #000;
-          }
-          .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
-          .lp-logo-text span { color: #00C9FF; }
-        `}</style>
-        <nav className="lp-legal-nav">
-          <div className="lp-logo" onClick={() => navigateTo('home')} style={{ cursor: 'pointer' }}>
-            <div className="lp-logo-icon">EW</div>
-            <div className="lp-logo-text">Engage<span>Worx</span></div>
-          </div>
-          <button onClick={() => navigateTo('home')} style={{
-            background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8,
-            padding: '8px 20px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14,
-            fontFamily: "'Outfit', sans-serif"
-          }}>← Back to Home</button>
-        </nav>
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '120px 40px 80px' }}>
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>{legalData.title}</h1>
-          <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 40 }}>Last updated: {legalData.updated}</p>
-          {legalData.content.split('\n\n').map((para, i) => {
-            const isHeading = para.length < 60 && !para.includes('.');
+      <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '60px 24px' }}>
+        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+          <button onClick={() => setLegalPage(null)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif", marginBottom: 40 }}>&larr; Back to Home</button>
+          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8, color: '#E8F4FD' }}>{legalData ? legalData.title : 'Page Not Found'}</h1>
+          <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 40 }}>{legalData ? 'Last updated: ' + legalData.updated : 'The requested page could not be loaded.'}</p>
+          {paragraphs.map((para, i) => {
+            const trimmed = para.trim();
+            if (!trimmed) return null;
+            const isHeading = trimmed.length < 80 && !trimmed.includes('. ') && !trimmed.includes(',');
             return isHeading
-              ? <h2 key={i} style={{ fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF' }}>{para}</h2>
-              : <p key={i} style={{ color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16 }}>{para}</p>;
+              ? <h2 key={i} style={{ fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF' }}>{trimmed}</h2>
+              : <p key={i} style={{ color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16 }}>{trimmed}</p>;
           })}
+          {paragraphs.length === 0 && <p style={{ color: '#FF3B30' }}>Debug: legalPage="{legalPage}", hasData={legalData ? 'yes' : 'no'}, keys={Object.keys(legalContent).join(',')}</p>}
         </div>
       </div>
     );
   }
+
 
   // Shared sub-page wrapper with nav
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
