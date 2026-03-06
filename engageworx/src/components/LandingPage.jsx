@@ -18,16 +18,14 @@ const LandingPage = () => {
   // Handle direct URL paths for TCR/legal reviewers
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
-    if (path === '/privacypolicy') {
+    if (path === '/privacypolicy' || path === '/privacy') {
       setLegalPage('privacy');
-    } else if (path === '/termsandconditions') {
+    } else if (path === '/termsandconditions' || path === '/terms') {
       setLegalPage('terms');
+    } else if (path === '/accessibility') {
+      setLegalPage('accessibility');
     } else if (path === '/smsconsent' || path === '/sms-consent') {
-      // Scroll to SMS consent section after render
-      setTimeout(() => {
-        const el = document.getElementById('lp-sms-consent');
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 500);
+      setLegalPage('smsconsent');
     }
   }, []);
 
@@ -213,6 +211,44 @@ These Terms, together with our Privacy Policy and any Data Processing Agreement,
 Contact
 For questions about these Terms: legal@engwx.com
 EngageWorx, Miami, Florida, USA`
+    },
+    smsconsent: {
+      title: 'SMS Consent Policy',
+      updated: 'March 5, 2026',
+      content: `How We Collect Consent
+EngageWorx and its service provider partners collect consent to send SMS messages through the following methods:
+
+Web Form Opt-In: When a customer submits a form on a business's website powered by EngageWorx, they are presented with a clear SMS consent checkbox. The checkbox is not pre-checked. The customer must actively opt in before any messages are sent.
+
+Keyword Opt-In: Customers may text START to a business's dedicated phone number to opt in to receive SMS messages.
+
+Point of Service: Customers may provide verbal or written consent during in-person interactions, which is recorded by the business in the EngageWorx platform.
+
+What Messages You Will Receive
+Once opted in, you may receive the following types of SMS messages from the business you consented to: transactional notifications (appointment confirmations, order updates, service alerts), customer support responses to your enquiries, AI-assisted responses to your questions, and promotional messages and offers (only if you specifically consent to marketing messages).
+
+Message Frequency
+Message frequency varies based on your interactions with the business. Transactional messages are sent as needed. Marketing messages, if opted in, are typically limited to 4-8 per month. You can adjust your preferences at any time.
+
+How to Opt Out
+You can stop receiving messages at any time by replying STOP to any message, or by replying CANCEL, END, QUIT, UNSUBSCRIBE, or OPTOUT. You may also contact the business directly. After opting out, you will receive a confirmation message and no further messages will be sent. You can opt back in at any time by texting START.
+
+How to Get Help
+Reply HELP or INFO to any message for assistance. You can also contact the business directly or email support@engwx.com.
+
+Costs
+Message and data rates may apply. Check with your mobile carrier for details about your text messaging plan.
+
+Privacy
+Your phone number and personal information are handled in accordance with our Privacy Policy. We do not sell or share your phone number with third parties for marketing purposes. Consent data is securely stored and auditable.
+
+About EngageWorx
+EngageWorx is an AI-powered omnichannel customer communications platform. Businesses use EngageWorx to manage customer messaging across SMS, email, and voice channels. For more information, visit www.engwx.com.
+
+Contact
+For questions about SMS consent or messaging practices:
+Email: support@engwx.com
+Web: www.engwx.com`
     },
     accessibility: {
       title: 'Accessibility Statement',
