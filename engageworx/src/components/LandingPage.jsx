@@ -303,7 +303,7 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
   // If showing a legal page, render it
   if (legalPage) {
     const legalData = legalContent[legalPage];
-    const paragraphs = legalData && legalData.content ? legalData.content.split(/\n\n+/) : [];
+    const paragraphs = legalData && legalData.content ? legalData.content.split(String.fromCharCode(10) + String.fromCharCode(10)) : [];
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '60px 24px' }}>
         <div style={{ maxWidth: 760, margin: '0 auto' }}>
