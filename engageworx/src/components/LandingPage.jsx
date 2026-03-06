@@ -1444,10 +1444,10 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
             </div>
             <div className="lp-footer-col">
               <h4>Legal</h4>
-              <a onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
-              <a onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
               <a onClick={() => { const el = document.getElementById('lp-sms-consent'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>SMS Consent</a>
-              <a onClick={() => { setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
           <div className="lp-footer-bottom">
