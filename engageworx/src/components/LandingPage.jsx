@@ -307,7 +307,9 @@ Accessibility is an ongoing effort. We are committed to regularly reviewing and 
       return (
         <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '120px 40px', textAlign: 'center' }}>
           <h1 style={{ fontSize: 36, fontWeight: 900, marginBottom: 16 }}>Page Not Found</h1>
-          <p style={{ color: '#6B8BAE', marginBottom: 24 }}>The page "{legalPage}" could not be loaded.</p>
+          <p style={{ color: '#6B8BAE', marginBottom: 8 }}>Page key: "{legalPage}"</p>
+          <p style={{ color: '#6B8BAE', marginBottom: 8 }}>Available keys: {Object.keys(legalContent).join(', ')}</p>
+          <p style={{ color: '#FF3B30', marginBottom: 24 }}>v2026.03.05 — If you see this, the file deployed correctly but content failed to load.</p>
           <button onClick={() => { setLegalPage(null); window.location.href = '/'; }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 8, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>← Back to Home</button>
         </div>
       );
