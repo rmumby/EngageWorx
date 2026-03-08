@@ -179,6 +179,12 @@ const LandingPage = ({ onBlog }) => {
           <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
         </div>
         <span style={{ color: '#3A5068', fontSize: 13 }}>© 2026 EngageWorx. All rights reserved.</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <a href="https://www.linkedin.com/company/engwx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>in</a>
+          <a href="https://x.com/EngageWorx22" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 14, fontWeight: 700, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>𝕏</a>
+          <a href="https://www.instagram.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>📷</a>
+          <a href="https://www.facebook.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>f</a>
+        </div>
       </div>
     </footer>
   );
@@ -1172,6 +1178,12 @@ const LandingPage = ({ onBlog }) => {
           </div>
           <div className="lp-footer-bottom">
             <span>© 2026 EngageWorx. All rights reserved.</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <a href="https://www.linkedin.com/company/engwx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="LinkedIn">in</a>
+              <a href="https://x.com/EngageWorx22" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, fontWeight: 700, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="X / Twitter">𝕏</a>
+              <a href="https://www.instagram.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="Instagram">📷</a>
+              <a href="https://www.facebook.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="Facebook">f</a>
+            </div>
             <span>Built with 🤖 in Miami</span>
           </div>
         </footer>
