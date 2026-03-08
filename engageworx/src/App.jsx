@@ -10,6 +10,7 @@ import ContactsModule from './ContactsModule';
 import LiveInbox from './LiveInbox';
 import AIChatbot from './AIChatbot';
 import FlowBuilder from './FlowBuilder';
+import Blog from './Blog';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
@@ -1150,7 +1151,10 @@ function AppInner() {
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
 
   if (!isPortal) {
-    return <LandingPage />;
+    if (window.location.pathname === '/blog' || view === 'blog') {
+      return <Blog onBack={() => { setView('landing'); window.history.pushState({}, '', '/'); }} />;
+    }
+    return <LandingPage onBlog={() => { setView('blog'); window.history.pushState({}, '', '/blog'); }} />;
   }
 
   // Signup page should NEVER be interrupted by loading state
