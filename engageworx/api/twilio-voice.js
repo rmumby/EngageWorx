@@ -324,10 +324,23 @@ module.exports = async function handler(req, res) {
             intent: 'voicemail',
           });
 
-          // ── Send notification to tenant ──
-          // TODO: Send email/SMS notification with recording link
-          // For now, log it so it appears in the inbox
-          console.log(`📞 Voicemail from ${callData.from_number} for tenant ${tenantId} — ${RecordingUrl}`);
+          // ── Send voicemail notification email ──
+          try {
+            const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://portal.engwx.com';
+            await fetch(`${baseUrl}/api/send-voicemail-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tenant_id: callData.tenant_id || tenantId,
+                caller_number: callData.from_number,
+                recording_url: RecordingUrl ? `${RecordingUrl}.mp3` : null,
+                duration_seconds: parseInt(RecordingDuration) || 0,
+                call_sid: CallSid,
+              }),
+            });
+          } catch (emailErr) {
+            console.error('Voicemail email error:', emailErr);
+          }
         }
 
         return res.send(twiml(
@@ -363,6 +376,32 @@ module.exports = async function handler(req, res) {
               content: `[Transcript] ${TranscriptionText}`,
               intent: 'transcription',
             });
+
+            // Send follow-up email with transcript
+            try {
+              const { data: callRecord } = await supabase
+                .from('calls')
+                .select('tenant_id, from_number, recording_url')
+                .eq('call_sid', CallSid)
+                .single();
+
+              if (callRecord) {
+                const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://portal.engwx.com';
+                await fetch(`${baseUrl}/api/send-voicemail-email`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    tenant_id: callRecord.tenant_id || tenantId,
+                    caller_number: callRecord.from_number,
+                    recording_url: callRecord.recording_url,
+                    transcript: TranscriptionText,
+                    call_sid: CallSid,
+                  }),
+                });
+              }
+            } catch (emailErr) {
+              console.error('Transcript email error:', emailErr);
+            }
           }
         }
 
