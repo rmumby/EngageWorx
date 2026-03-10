@@ -43,6 +43,8 @@ const terms = [
   { type: 'p', text: 'You agree not to: send unsolicited or spam messages, send messages without proper recipient consent, transmit illegal or harmful content, use the Service for fraud or phishing, attempt unauthorized access to other accounts, reverse-engineer the Service, or exceed rate limits.' },
   { type: 'h', text: '5. Messaging Compliance' },
   { type: 'p', text: 'You are solely responsible for ensuring your messaging activities comply with all applicable laws including TCPA, CAN-SPAM, CTIA guidelines, TCR/10DLC requirements (US), PECR, UK GDPR, Ofcom regulations (UK), and ePrivacy Directive, EU GDPR (EU). We may suspend accounts that violate messaging regulations.' },
+  { type: 'h', text: 'SMS Program Details' },
+  { type: 'p', text: 'Program Name: EngageWorx SMS Messaging Service. Message frequency varies by business and interaction type. Message and data rates may apply. For help, text HELP to any EngageWorx-powered number. To opt out, text STOP to any EngageWorx-powered number. For support, contact support@engwx.com or call +1 (305) 810-8877.' },
   { type: 'h', text: '6. Intellectual Property' },
   { type: 'p', text: 'The Service is owned by EngageWorx and protected by intellectual property laws. Your subscription grants a limited, non-exclusive, non-transferable license to use the Service. You retain ownership of your content and data.' },
   { type: 'h', text: '7. Billing and Payments' },
