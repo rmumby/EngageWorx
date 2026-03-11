@@ -50,7 +50,7 @@ const SCREENS = [
     id: "voice",
     title: "Voice & IVR System",
     subtitle: "Replace your call service",
-    narration: "Our newest feature — built for our first client, Delamere Manor. Inbound voice with intelligent IVR routing. During business hours, callers get a professional menu — Press 1 for Sales, Press 2 for Events. After hours, it automatically switches to voicemail with transcription emailed to the team. We replaced their £650/month MoneyPenny service. The same AI brain handles SMS, email, and voice — one platform, one inbox.",
+    narration: "Our newest feature — already deployed for a hospitality client. Inbound voice with intelligent IVR routing. During business hours, callers get a professional menu — Press 1 for Sales, Press 2 for Events. After hours, it automatically switches to voicemail with transcription emailed to the team. We replaced their £650/month MoneyPenny service. The same AI brain handles SMS, email, and voice — one platform, one inbox.",
     visual: "voice",
     cta: "Next: Analytics →",
     deepDives: ["How does after-hours handling work?", "Can I port my existing number?", "What does the voicemail email look like?"],
@@ -142,7 +142,7 @@ function ScreenVisual({ id }) {
         </div>
         <div style={cardStyle}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#00C9FF", marginBottom: 12 }}>Active Customers</div>
-          {["Delamere Manor", "TechFlow Inc", "GreenLeaf Agency", "SwiftShip"].map((name, i) => (
+          {["Oakridge Retreat", "TechFlow Inc", "GreenLeaf Agency", "SwiftShip"].map((name, i) => (
             <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: ["#FF6B35", "#00C9FF", "#00E676", "#E040FB"][i], display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#000" }}>{name.split(" ").map(w => w[0]).join("")}</div>
@@ -162,7 +162,7 @@ function ScreenVisual({ id }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "16px 20px", background: "rgba(255,107,53,0.08)", border: "1px solid rgba(255,107,53,0.2)", borderRadius: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: "#FF6B35", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, color: "#000" }}>DM</div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>Delamere Manor</div>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>Oakridge Retreat</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>White-label portal • Growth plan</div>
           </div>
         </div>
@@ -186,7 +186,7 @@ function ScreenVisual({ id }) {
           </div>
           <div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 4 }}>Message (AI Generated ✨)</div>
-            <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(224,64,251,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>Hi {'{{first_name}}'}, you're invited to Delamere Manor's Spring Open Day on March 22nd! Enjoy guided tours, tastings & exclusive offers. RSVP: reply YES. Msg&data rates apply. Reply STOP to opt out.</div>
+            <div style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(224,64,251,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>Hi {'{{first_name}}'}, you're invited to Oakridge Retreat's Spring Open Day on March 22nd! Enjoy guided tours, tastings & exclusive offers. RSVP: reply YES. Msg&data rates apply. Reply STOP to opt out.</div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {["SMS", "Email", "WhatsApp"].map((ch, i) => (
@@ -204,7 +204,7 @@ function ScreenVisual({ id }) {
       <div style={cardStyle}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "#E040FB", marginBottom: 16 }}>AI Conversation</div>
         {[
-          { role: "customer", text: "Hi, I'd like to book a tour of Delamere Manor for next Saturday", time: "2:14 PM" },
+          { role: "customer", text: "Hi, I'd like to book a tour of Oakridge Retreat for next Saturday", time: "2:14 PM" },
           { role: "ai", text: "Hello! I'd be happy to help you book a tour. We have two options available for next Saturday: a 10:30 AM guided tour and a 2:00 PM self-guided tour. Which would you prefer?", time: "2:14 PM", badge: "Intent: booking_request • Sentiment: positive" },
           { role: "customer", text: "The 10:30 guided tour please, for 2 people", time: "2:15 PM" },
           { role: "ai", text: "Perfect! I've reserved 2 spots for the guided tour at 10:30 AM on Saturday, March 15th. You'll receive a confirmation email shortly. Is there anything else I can help with?", time: "2:15 PM", badge: "AI Resolved ✓ • No escalation needed" },
@@ -225,8 +225,8 @@ function ScreenVisual({ id }) {
     return (
       <div>
         <div style={{ ...cardStyle, marginBottom: 12, borderLeft: "3px solid #FFD600" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#FFD600", marginBottom: 12 }}>📞 IVR Configuration — Delamere Manor</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 12, fontStyle: "italic" }}>"Thank you for calling Delamere Manor. Please choose from the following options."</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#FFD600", marginBottom: 12 }}>📞 IVR Configuration — Oakridge Retreat</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 12, fontStyle: "italic" }}>"Thank you for calling Oakridge Retreat. Please choose from the following options."</div>
           {[
             { digit: "1", name: "Sales", desc: "Book appointments, pricing enquiries" },
             { digit: "2", name: "Events", desc: "Weddings, corporate events" },
