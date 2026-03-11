@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { legalPages } from './LegalContent';
+import EngageWorxDemo from './EngageWorxDemo';
 
 const PORTAL_URL = 'https://portal.engwx.com';
 
-const LandingPage = ({ onBlog }) => {
+const LandingPage = () => {
   const observerRef = useRef(null);
   const [legalPage, setLegalPage] = useState(null);
   const [page, setPage] = useState('home');
   const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', type: 'general', message: '' });
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [demoUnlocked, setDemoUnlocked] = useState(false);
+  const [demoCode, setDemoCode] = useState('');
 
   const navigateTo = (p) => {
     setPage(p);
@@ -26,10 +29,10 @@ const LandingPage = ({ onBlog }) => {
       setLegalPage('terms');
     } else if (path === '/accessibility') {
       setLegalPage('accessibility');
+    } else if (path === '/demo') {
+      setPage('demo');
     } else if (path === '/smsconsent' || path === '/sms-consent') {
       setLegalPage('smsconsent');
-    } else if (path === '/blog') {
-      if (onBlog) onBlog();
     }
   }, []);
 
@@ -144,7 +147,6 @@ const LandingPage = ({ onBlog }) => {
         <ul className="lp-sub-nav-links">
           <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
           <li><span onClick={() => navigateTo('about')}>About</span></li>
-          <li><span onClick={onBlog}>Blog</span></li>
           <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
           <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
           <li><button className="lp-sub-cta" onClick={goToSignup}>Get Started Free</button></li>
@@ -155,7 +157,6 @@ const LandingPage = ({ onBlog }) => {
             <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
             <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
-            <span onClick={() => { if(onBlog) onBlog(); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Blog</span>
             <span onClick={() => { navigateTo('contact'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Contact</span>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
@@ -173,24 +174,55 @@ const LandingPage = ({ onBlog }) => {
           <span onClick={() => navigateTo('home')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Home</span>
           <span onClick={() => navigateTo('pricing')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Pricing</span>
           <span onClick={() => navigateTo('about')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>About</span>
-          <span onClick={onBlog} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Blog</span>
           <span onClick={() => navigateTo('contact')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Contact</span>
           <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Privacy</span>
           <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
         </div>
         <span style={{ color: '#3A5068', fontSize: 13 }}>© 2026 EngageWorx. All rights reserved.</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <a href="https://www.linkedin.com/company/engwx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>in</a>
-          <a href="https://x.com/EngageWorx22" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 14, fontWeight: 700, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>𝕏</a>
-          <a href="https://www.instagram.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>📷</a>
-          <a href="https://www.facebook.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'}>f</a>
-        </div>
       </div>
     </footer>
   );
 
   // ─── PRICING PAGE ───────────────────────────────────────────────────────────
-  if (page === 'pricing') {
+  // Demo page (password-protected)
+  if (page === 'demo') {
+    if (!demoUnlocked) {
+      return (
+        <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', maxWidth: 400 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+              <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000' }}>EW</div>
+              <span style={{ fontSize: 24, fontWeight: 900 }}>Engage<span style={{ color: '#00C9FF' }}>Worx</span></span>
+            </div>
+            <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>Interactive Demo</h1>
+            <p style={{ color: '#6B8BAE', fontSize: 14, marginBottom: 32 }}>Enter your access code to begin the demo.</p>
+            <input
+              type="text"
+              value={demoCode}
+              onChange={(e) => setDemoCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => { if (e.key === 'Enter' && demoCode === 'EWDEMO2026') setDemoUnlocked(true); }}
+              placeholder="Access Code"
+              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '14px 18px', color: '#E8F4FD', fontSize: 16, fontFamily: "'Outfit', sans-serif", textAlign: 'center', letterSpacing: 3, fontWeight: 700, boxSizing: 'border-box', marginBottom: 16, outline: 'none' }}
+            />
+            {demoCode.length >= 10 && demoCode !== 'EWDEMO2026' && (
+              <p style={{ color: '#FF3B30', fontSize: 13, marginBottom: 16 }}>Invalid access code.</p>
+            )}
+            <button
+              onClick={() => { if (demoCode === 'EWDEMO2026') setDemoUnlocked(true); }}
+              style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginBottom: 16 }}
+            >Enter Demo</button>
+            <button
+              onClick={() => navigateTo('home')}
+              style={{ background: 'none', border: 'none', color: '#6B8BAE', fontSize: 13, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}
+            >Back to Home</button>
+          </div>
+        </div>
+      );
+    }
+    return <EngageWorxDemo />;
+  }
+
+    if (page === 'pricing') {
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
         <SubPageNav />
@@ -817,7 +849,6 @@ const LandingPage = ({ onBlog }) => {
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
             <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
             <li><span onClick={() => navigateTo('about')}>About</span></li>
-            <li><span onClick={onBlog}>Blog</span></li>
             <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
@@ -830,8 +861,6 @@ const LandingPage = ({ onBlog }) => {
             <span onClick={() => scrollTo('lp-features')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Features</span>
             <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
-            <span onClick={() => { if(onBlog) onBlog(); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Blog</span>
-            <span onClick={() => { navigateTo('contact'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Contact</span>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
           </div>
@@ -1163,7 +1192,6 @@ const LandingPage = ({ onBlog }) => {
             <div className="lp-footer-col">
               <h4>Company</h4>
               <a onClick={() => navigateTo('about')}>About Us</a>
-              <a onClick={onBlog}>Blog</a>
               <a onClick={() => navigateTo('contact')}>Contact</a>
               <a href={PORTAL_URL}>Customer Portal</a>
               <a onClick={goToSignup}>Get Started</a>
@@ -1178,12 +1206,6 @@ const LandingPage = ({ onBlog }) => {
           </div>
           <div className="lp-footer-bottom">
             <span>© 2026 EngageWorx. All rights reserved.</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <a href="https://www.linkedin.com/company/engwx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="LinkedIn">in</a>
-              <a href="https://x.com/EngageWorx22" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 16, fontWeight: 700, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="X / Twitter">𝕏</a>
-              <a href="https://www.instagram.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="Instagram">📷</a>
-              <a href="https://www.facebook.com/engageworx/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 18, transition: 'color 0.2s' }} onMouseEnter={e => e.target.style.color = '#00C9FF'} onMouseLeave={e => e.target.style.color = '#6B8BAE'} title="Facebook">f</a>
-            </div>
             <span>Built with 🤖 in Miami</span>
           </div>
         </footer>
