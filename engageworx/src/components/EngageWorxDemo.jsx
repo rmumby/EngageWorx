@@ -319,20 +319,18 @@ export default function EngageWorxDemo() {
     setAiResponse("");
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/demo-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: `You are a sales engineer for EngageWorx, an AI-powered omnichannel customer communications platform. You are giving a live demo to a potential customer. Answer this question concisely and persuasively in 2-3 sentences. Current demo screen: ${screen.title}. Question: ${question}` }],
+          question: question,
+          screenTitle: screen.title,
         }),
       });
       const data = await response.json();
-      const text = data.content?.find(c => c.type === "text")?.text || "Let me get back to you on that.";
-      setAiResponse(text);
+      setAiResponse(data.answer || "Let me get back to you on that.");
     } catch (err) {
-      setAiResponse("I'd be happy to cover that in more detail on a live call. Reach me at +1 (305) 810-8877.");
+      setAiResponse("Great question. I'd love to cover that in more detail on a call. Reach me at +1 (305) 810-8877.");
     }
     setAiLoading(false);
   };
