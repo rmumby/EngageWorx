@@ -309,6 +309,7 @@ export default function EngageWorxDemo() {
   const [showDeepDive, setShowDeepDive] = useState(null);
   const [aiResponse, setAiResponse] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState("");
   const [narrationDone, setNarrationDone] = useState(false);
   const screen = SCREENS[step];
 
@@ -398,6 +399,21 @@ export default function EngageWorxDemo() {
                   💬 {q}
                 </button>
               ))}
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <input
+                  type="text"
+                  value={customQuestion}
+                  onChange={(e) => setCustomQuestion(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && customQuestion.trim()) { handleDeepDive(customQuestion.trim()); setCustomQuestion(""); } }}
+                  placeholder="Ask anything..."
+                  style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#E8F4FD", fontSize: 12, fontFamily: "inherit", outline: "none" }}
+                />
+                <button
+                  onClick={() => { if (customQuestion.trim()) { handleDeepDive(customQuestion.trim()); setCustomQuestion(""); } }}
+                  disabled={!customQuestion.trim()}
+                  style={{ background: customQuestion.trim() ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 10, padding: "10px 16px", color: customQuestion.trim() ? "#000" : "rgba(255,255,255,0.3)", fontWeight: 700, fontSize: 12, cursor: customQuestion.trim() ? "pointer" : "default", fontFamily: "inherit", transition: "all 0.2s" }}
+                >Ask</button>
+              </div>
             </div>
           )}
 
@@ -414,13 +430,14 @@ export default function EngageWorxDemo() {
           {/* Navigation */}
           <div style={{ display: "flex", gap: 8, marginTop: "auto" }}>
             {step > 0 && (
-              <button onClick={() => { setStep(step - 1); setShowDeepDive(null); setAiResponse(""); setNarrationDone(false); }} style={{ flex: 1, padding: "14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#E8F4FD", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
+              <button onClick={() => { setStep(step - 1); setShowDeepDive(null); setAiResponse(""); setCustomQuestion(""); setNarrationDone(false); }} style={{ flex: 1, padding: "14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#E8F4FD", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>← Back</button>
             )}
             <button onClick={() => {
               if (step < SCREENS.length - 1) {
                 setStep(step + 1);
                 setShowDeepDive(null);
                 setAiResponse("");
+                setCustomQuestion("");
                 setNarrationDone(false);
               } else {
                 window.open("https://portal.engwx.com", "_blank");
@@ -433,7 +450,7 @@ export default function EngageWorxDemo() {
           {/* Step indicators */}
           <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
             {SCREENS.map((_, i) => (
-              <button key={i} onClick={() => { setStep(i); setShowDeepDive(null); setAiResponse(""); setNarrationDone(false); }} style={{ width: i === step ? 24 : 8, height: 8, borderRadius: 4, background: i === step ? "#00C9FF" : i < step ? "rgba(0,201,255,0.3)" : "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", transition: "all 0.3s", padding: 0 }} />
+              <button key={i} onClick={() => { setStep(i); setShowDeepDive(null); setAiResponse(""); setCustomQuestion(""); setNarrationDone(false); }} style={{ width: i === step ? 24 : 8, height: 8, borderRadius: 4, background: i === step ? "#00C9FF" : i < step ? "rgba(0,201,255,0.3)" : "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", transition: "all 0.3s", padding: 0 }} />
             ))}
           </div>
         </div>
