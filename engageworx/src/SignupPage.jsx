@@ -6,29 +6,29 @@ const PLANS = [
     id: "starter",
     name: "Starter",
     price: 99,
-    priceId: "price_1T4QhrPEs1sluBAUvF8Jt7tx",
+    priceId: "price_1T4OeIPEs1sluBAUuRIaD8Cq",
     numbers: 1,
     sms: "1,000",
-    description: "Perfect for small businesses getting started with SMS"
+    description: "1 phone number, 1,000 SMS/month, AI bot included. Overage: $0.025/SMS."
   },
   {
     id: "growth",
     name: "Growth",
     price: 249,
-    priceId: "price_1T4QqZPEs1sluBAUFNhNczt1",
+    priceId: "price_1T4OefPEs1sluBAUuZVAaBJ3",
     numbers: 3,
     sms: "5,000",
-    description: "For growing businesses with higher messaging needs",
+    description: "3 phone numbers, 5,000 SMS/month, AI bot included. Overage: $0.025/SMS.",
     popular: true
   },
   {
     id: "pro",
     name: "Pro",
     price: 499,
-    priceId: "price_1T4QqhPEs1sluBAUNd6yUGYd",
+    priceId: "price_1T4Of6PEs1sluBAURFjaViRv",
     numbers: 10,
     sms: "20,000",
-    description: "For agencies and high-volume messaging operations"
+    description: "10 phone numbers, 20,000 SMS/month, AI bot included. Overage: $0.025/SMS."
   }
 ];
 
@@ -79,7 +79,7 @@ export default function SignupPage({ onBack }) {
   // Check if returning from Stripe checkout success
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") === "success" || params.get("signup") === "success") {
+    if (params.get("signup") === "success") {
       setStep(6);
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -109,47 +109,62 @@ export default function SignupPage({ onBack }) {
     setError("");
 
     try {
-      // Go straight to Stripe — user account creation happens server-side in webhook
-      const checkoutRes = await fetch("/api/billing?action=checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: selectedPlan,
-          email: form.email,
-          tenantName: form.businessName,
-          // Pass signup data as metadata for the webhook to use
-          metadata: {
-            password: form.password,
-            businessName: form.businessName,
-            brandColor: form.brandColor,
-            logoUrl: form.logoUrl || "",
-            teamEmails: form.teamEmails || "",
-          },
-        }),
+      // Step 1: Create auth user with business info in metadata
+      // Tenant creation happens in Stripe webhook AFTER payment succeeds
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            business_name: form.businessName,
+            company_name: form.businessName,
+            brand_color: form.brandColor,
+            logo_url: form.logoUrl || null,
+            team_emails: form.teamEmails || "",
+            plan: selectedPlan,
+            twilio_option: twilioOption,
+            twilio_sid: form.twilioAccountSid || null,
+            twilio_token: form.twilioAuthToken || null,
+            twilio_number: form.twilioPhoneNumber || null,
+          }
+        }
       });
-      const checkoutData = await checkoutRes.json();
-      console.log("CHECKOUT RESPONSE:", checkoutData);
-      
-      if (checkoutData.url) {
-        // Send admin email in background
-        fetch("/api/email?action=send", {
+
+      if (authError) throw authError;
+
+      // Step 2: Send admin notification
+      try {
+        await fetch("/api/notify-admin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            to: "rob@engwx.com",
-            subject: `🎉 New Signup: ${form.businessName} (${selectedPlan})`,
-            html: `<h2>New EngageWorx Signup</h2><p><strong>Business:</strong> ${form.businessName}</p><p><strong>Email:</strong> ${form.email}</p><p><strong>Plan:</strong> ${selectedPlan}</p>`,
+            businessName: form.businessName,
+            email: form.email,
+            plan: selectedPlan,
+            twilioOption,
           }),
-        }).catch(() => {});
-
-        // Redirect to Stripe
-        window.location.href = checkoutData.url;
-      } else {
-        throw new Error(checkoutData.error || "Failed to create checkout session");
+        });
+      } catch (e) {
+        console.log("Admin notification failed:", e);
       }
 
+      // Step 3: Redirect to Stripe checkout
+      // On successful payment, Stripe webhook creates the tenant
+      const res = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId: PLANS.find(p => p.id === selectedPlan)?.priceId,
+          email: form.email,
+          plan: selectedPlan,
+          tenantName: form.businessName,
+          successUrl: window.location.origin + "?signup=success",
+        }),
+      });
+      const { url } = await res.json();
+      window.location.href = url;
+
     } catch (err) {
-      console.error("SIGNUP ERROR:", err);
       setError(err.message);
       setLoading(false);
     }
