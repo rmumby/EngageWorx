@@ -890,7 +890,7 @@ const LandingPage = () => {
               <div className="lp-hero-badge-dot" />
               Now with <strong>RCS Business Messaging</strong>
             </div>
-            <h1>Conversations that<br /><span className="lp-gradient-text">close deals.</span></h1>
+            <h1>Smarter conversations.<br /><span className="lp-gradient-text">One platform.</span></h1>
             <p className="lp-hero-sub">
               The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email.
               Automate conversations, build campaigns, and delight customers at scale.
