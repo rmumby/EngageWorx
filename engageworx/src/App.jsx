@@ -10,7 +10,6 @@ import ContactsModule from './ContactsModule';
 import LiveInbox from './LiveInbox';
 import AIChatbot from './AIChatbot';
 import FlowBuilder from './FlowBuilder';
-import Blog from './Blog';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
@@ -1078,6 +1077,8 @@ function AppInner() {
         setView("sp");
       } else if (profile.tenant_id) {
         setView("tenant_" + profile.tenant_id);
+      } else {
+        setView("no_tenant");
       }
     }
   }, [isAuthenticated, profile, view]);
@@ -1151,15 +1152,57 @@ function AppInner() {
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
 
   if (!isPortal) {
-    if (window.location.pathname === '/blog' || view === 'blog') {
-      return <Blog onBack={() => { setView('landing'); window.history.pushState({}, '', '/'); }} />;
-    }
-    return <LandingPage onBlog={() => { setView('blog'); window.history.pushState({}, '', '/blog'); }} />;
+    return <LandingPage />;
   }
 
   // Signup page should NEVER be interrupted by loading state
   if (view === "signup") {
     return <SignupPage onBack={() => setView("login")} />;
+  }
+
+  // User signed up but didn't complete payment
+  if (view === "no_tenant") {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center", maxWidth: 440, padding: "0 20px" }}>
+          <div style={{ fontSize: 56, marginBottom: 20 }}>💳</div>
+          <h1 style={{ color: "#e2e8f0", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Complete Your Subscription</h1>
+          <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
+            Your account has been created but your subscription is not yet active. Complete the checkout to activate your EngageWorx portal.
+          </p>
+          <button onClick={async () => {
+            try {
+              const meta = user?.user_metadata || {};
+              const plan = meta.plan || "starter";
+              const plans = { starter: "price_1T4OeIPEs1sluBAUuRIaD8Cq", growth: "price_1T4OefPEs1sluBAUuZVAaBJ3", pro: "price_1T4Of6PEs1sluBAURFjaViRv" };
+              const res = await fetch("/api/create-checkout-session", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  priceId: plans[plan] || plans.starter,
+                  email: user?.email,
+                  plan: plan,
+                  tenantName: meta.company_name || meta.business_name || "My Business",
+                  successUrl: window.location.origin + "?signup=success",
+                }),
+              });
+              const { url } = await res.json();
+              window.location.href = url;
+            } catch (err) {
+              alert("Error: " + err.message);
+            }
+          }} style={{ width: "100%", background: "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}>
+            Complete Checkout
+          </button>
+          <button onClick={() => signOut()} style={{ width: "100%", background: "transparent", color: "#64748b", border: "1px solid #334155", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            Sign Out
+          </button>
+          <p style={{ color: "#475569", fontSize: 12, marginTop: 24 }}>
+            Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+13058108877" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (305) 810-8877</a>
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Show loading while checking auth state
