@@ -486,7 +486,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 60px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
       <div style={{ width: 340, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
