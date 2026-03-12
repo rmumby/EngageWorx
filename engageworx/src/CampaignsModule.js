@@ -943,7 +943,46 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                     : (newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign")}
                 </button>
                 {!demoMode && complianceChecked && complianceStatus?.canLaunch === false && (
-                  <button onClick={() => { setView("list"); setCreateStep(1); }} style={{ ...btnSecondary, fontSize: 12 }}>Save as Draft</button>
+                  <button onClick={async () => {
+                    if (!demoMode && currentTenantId) {
+                      try {
+                        await supabase.from('campaigns').insert({
+                          tenant_id: currentTenantId,
+                          name: newCampaign.name || 'Untitled Draft',
+                          type: newCampaign.channel.toLowerCase(),
+                          status: 'draft',
+                          message_body: newCampaign.body,
+                          message_subject: newCampaign.subject || null,
+                          target_tags: newCampaign.tags,
+                          target_count: newCampaign.audienceSize || 0,
+                          ab_enabled: newCampaign.abTest || false,
+                          ab_variants: newCampaign.abTest ? [{ name: "A", body: newCampaign.body }, { name: "B", body: newCampaign.abVariantB }] : [],
+                        });
+                      } catch (err) {
+                        console.error('Draft save error:', err);
+                      }
+                    }
+                    // Refresh campaigns list
+                    if (!demoMode) {
+                      const { data } = await supabase.from('campaigns').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
+                      if (data) {
+                        setCampaigns(data.map(c => ({
+                          id: c.id, name: c.name || 'Untitled', channel: (c.type || 'sms').toUpperCase(),
+                          status: c.status || 'draft', audience: 'All Contacts', audienceSize: c.target_count || 0,
+                          sent: c.sent_count || 0, delivered: c.delivered_count || 0, opened: c.opened_count || 0,
+                          clicked: c.clicked_count || 0, replied: c.replied_count || 0, failed: c.failed_count || 0,
+                          optOut: c.unsubscribed_count || 0, revenue: 0,
+                          startDate: c.started_at ? new Date(c.started_at) : null,
+                          endDate: c.completed_at ? new Date(c.completed_at) : null,
+                          scheduledDate: c.scheduled_at ? new Date(c.scheduled_at) : null,
+                          abTest: c.ab_enabled || false, body: c.message_body || '', tags: c.target_tags || [],
+                          aiGenerated: false, tone: 'Professional', tenant_id: c.tenant_id,
+                        })));
+                      }
+                    }
+                    setView("list"); setCreateStep(1);
+                    setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
+                  }} style={{ ...btnSecondary, fontSize: 12 }}>Save as Draft</button>
                 )}
               </div>
             </div>
