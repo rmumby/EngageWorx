@@ -689,7 +689,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>
               <button onClick={() => setCreateStep(4)} style={btnSecondary}>← Back</button>
               <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={() => {
+                <button onClick={async () => {
                   const newC = {
                     id: "c" + Date.now(), name: newCampaign.name, channel: newCampaign.channel,
                     status: newCampaign.sendNow ? "active" : "scheduled",
@@ -701,6 +701,49 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                     abVariants: newCampaign.abTest ? [{ name: "A", subject: newCampaign.body.slice(0, 40), ctr: 0, openRate: 0 }, { name: "B", subject: newCampaign.abVariantB.slice(0, 40), ctr: 0, openRate: 0 }] : undefined,
                     body: newCampaign.body, tags: newCampaign.tags, aiGenerated: newCampaign.useAI, tone: newCampaign.tone,
                   };
+
+                  // Save to Supabase if live mode
+                  if (!demoMode && currentTenantId) {
+                    try {
+                      const { data: saved, error } = await supabase.from('campaigns').insert({
+                        tenant_id: currentTenantId,
+                        name: newCampaign.name,
+                        type: newCampaign.channel.toLowerCase(),
+                        status: newCampaign.sendNow ? 'active' : 'scheduled',
+                        message_body: newCampaign.body,
+                        message_subject: newCampaign.subject || null,
+                        target_tags: newCampaign.tags,
+                        target_count: newCampaign.audienceSize || 0,
+                        scheduled_at: !newCampaign.sendNow && newCampaign.scheduledDate ? new Date(`${newCampaign.scheduledDate}T${newCampaign.scheduledTime}`).toISOString() : null,
+                        started_at: newCampaign.sendNow ? new Date().toISOString() : null,
+                        ab_enabled: newCampaign.abTest || false,
+                        ab_variants: newCampaign.abTest ? [{ name: "A", body: newCampaign.body }, { name: "B", body: newCampaign.abVariantB }] : [],
+                      }).select().single();
+                      if (error) throw error;
+                      if (saved) newC.id = saved.id;
+
+                      // If sending now, trigger the campaign send API
+                      if (newCampaign.sendNow) {
+                        try {
+                          await fetch('/api/send-campaign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              campaignId: saved?.id || newC.id,
+                              tenantId: currentTenantId,
+                              channel: newCampaign.channel.toLowerCase(),
+                              body: newCampaign.body,
+                            }),
+                          });
+                        } catch (sendErr) {
+                          console.warn('Campaign send error:', sendErr.message);
+                        }
+                      }
+                    } catch (err) {
+                      console.error('Campaign save error:', err);
+                    }
+                  }
+
                   setCampaigns([newC, ...campaigns]);
                   setView("list"); setCreateStep(1);
                   setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
