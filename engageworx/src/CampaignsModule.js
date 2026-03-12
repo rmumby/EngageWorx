@@ -146,6 +146,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [complianceStatus, setComplianceStatus] = useState(null); // null, 'checking', { sms: {...}, rcs: {...} }
+  const [complianceChecked, setComplianceChecked] = useState(false);
 
   const TEMPLATES = [
     { id: 'promo', name: 'Promotional Offer', icon: '🏷️', channel: 'SMS', desc: 'Drive sales with a limited-time discount', body: 'Hey {first_name}! {business_name} is having a special sale - get {discount}% OFF for the next 24 hours! Shop now: {link}. Reply STOP to opt out.', tags: ['sale', 'promotional'] },
@@ -162,6 +164,95 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const brandName = currentTenantId
     ? (tenants[currentTenantId]?.brand?.name || "Your Brand")
     : "EngageWorx";
+
+  // ─── COMPLIANCE CHECK (runs when reaching review step) ──────────────────
+  useEffect(() => {
+    if (demoMode || createStep !== 5 || !currentTenantId) return;
+    const checkCompliance = async () => {
+      setComplianceStatus('checking');
+      setComplianceChecked(false);
+      const channel = newCampaign.channel?.toUpperCase() || 'SMS';
+      const result = { sms: null, rcs: null, canLaunch: false };
+
+      try {
+        // Check SMS/MMS compliance (TCR brand + campaign)
+        if (['SMS', 'MMS'].includes(channel) || newCampaign.fallbackEnabled) {
+          const { data: brands } = await supabase
+            .from('tcr_brands')
+            .select('id, dba_name, tcr_brand_id, status, trust_score')
+            .eq('tenant_id', currentTenantId)
+            .in('status', ['verified', 'pending'])
+            .limit(1);
+
+          const brand = brands?.[0] || null;
+
+          const { data: campaigns } = await supabase
+            .from('tcr_campaigns')
+            .select('id, name, tcr_campaign_id, status, use_case, throughput')
+            .eq('tenant_id', currentTenantId)
+            .in('status', ['approved', 'pending'])
+            .limit(5);
+
+          const approvedCampaign = campaigns?.find(c => c.status === 'approved');
+          const pendingCampaign = campaigns?.find(c => c.status === 'pending');
+
+          result.sms = {
+            brandRegistered: !!brand,
+            brandVerified: brand?.status === 'verified',
+            brandId: brand?.tcr_brand_id || null,
+            brandName: brand?.dba_name || null,
+            trustScore: brand?.trust_score || null,
+            campaignApproved: !!approvedCampaign,
+            campaignPending: !!pendingCampaign && !approvedCampaign,
+            campaignId: (approvedCampaign || pendingCampaign)?.tcr_campaign_id || null,
+            campaignName: (approvedCampaign || pendingCampaign)?.name || null,
+            campaignStatus: approvedCampaign ? 'approved' : pendingCampaign ? 'pending' : 'none',
+            throughput: approvedCampaign?.throughput || null,
+            cleared: brand?.status === 'verified' && !!approvedCampaign,
+          };
+        }
+
+        // Check RCS compliance
+        if (channel === 'RCS' || newCampaign.fallbackEnabled) {
+          const { data: agents } = await supabase
+            .from('rcs_agents')
+            .select('id, agent_name, agent_id, status, verification_status, carriers')
+            .eq('tenant_id', currentTenantId)
+            .limit(1);
+
+          const agent = agents?.[0] || null;
+
+          result.rcs = {
+            agentRegistered: !!agent,
+            agentLaunched: agent?.status === 'launched',
+            agentId: agent?.agent_id || null,
+            agentName: agent?.agent_name || null,
+            agentStatus: agent?.status || 'none',
+            verificationStatus: agent?.verification_status || 'not_started',
+            carriers: agent?.carriers || [],
+            cleared: agent?.status === 'launched',
+          };
+        }
+
+        // Determine overall launch clearance
+        if (['SMS', 'MMS'].includes(channel)) {
+          result.canLaunch = result.sms?.cleared || false;
+        } else if (channel === 'RCS') {
+          result.canLaunch = result.rcs?.cleared || false;
+        } else if (['Email', 'WhatsApp'].includes(channel)) {
+          result.canLaunch = true; // Email and WhatsApp don't require TCR
+        }
+
+        setComplianceStatus(result);
+        setComplianceChecked(true);
+      } catch (err) {
+        console.warn('Compliance check error:', err.message);
+        setComplianceStatus({ sms: null, rcs: null, canLaunch: false, error: err.message });
+        setComplianceChecked(true);
+      }
+    };
+    checkCompliance();
+  }, [demoMode, createStep, currentTenantId, newCampaign.channel, newCampaign.fallbackEnabled]);
 
   // ─── FILTERS ──────────────────────────────────────────────────────────────
   const filteredCampaigns = campaigns.filter(c => {
@@ -686,6 +777,104 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               </div>
             </div>
 
+            {/* Compliance Status */}
+            {!demoMode && (
+              <div style={{ marginTop: 24 }}>
+                <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Channel Compliance</label>
+                {complianceStatus === 'checking' ? (
+                  <div style={{ padding: 16, background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)", color: C.muted, fontSize: 13 }}>Checking registration status...</div>
+                ) : complianceStatus && typeof complianceStatus === 'object' ? (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {/* SMS/MMS Status */}
+                    {complianceStatus.sms && (
+                      <div style={{ padding: "14px 16px", background: complianceStatus.sms.cleared ? "rgba(0,230,118,0.06)" : "rgba(255,59,48,0.06)", borderRadius: 10, border: `1px solid ${complianceStatus.sms.cleared ? "rgba(0,230,118,0.15)" : "rgba(255,59,48,0.15)"}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>💬 SMS / MMS (A2P 10DLC)</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: complianceStatus.sms.cleared ? "rgba(0,230,118,0.15)" : complianceStatus.sms.campaignPending ? "rgba(255,214,0,0.15)" : "rgba(255,59,48,0.15)", color: complianceStatus.sms.cleared ? "#00E676" : complianceStatus.sms.campaignPending ? "#FFD600" : "#FF3B30" }}>
+                            {complianceStatus.sms.cleared ? "✓ CLEARED" : complianceStatus.sms.campaignPending ? "⏳ PENDING" : "✗ NOT APPROVED"}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gap: 6, fontSize: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                            <span>TCR Brand</span>
+                            <span style={{ color: complianceStatus.sms.brandVerified ? "#00E676" : complianceStatus.sms.brandRegistered ? "#FFD600" : "#FF3B30", fontWeight: 600 }}>
+                              {complianceStatus.sms.brandVerified ? `✓ Verified` : complianceStatus.sms.brandRegistered ? "⏳ Pending" : "✗ Not registered"}
+                              {complianceStatus.sms.brandId && <span style={{ color: C.muted, fontWeight: 400 }}> ({complianceStatus.sms.brandId})</span>}
+                            </span>
+                          </div>
+                          {complianceStatus.sms.trustScore && (
+                            <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                              <span>Trust Score</span>
+                              <span style={{ fontWeight: 600, color: complianceStatus.sms.trustScore >= 75 ? "#00E676" : complianceStatus.sms.trustScore >= 50 ? "#FFD600" : "#FF3B30" }}>{complianceStatus.sms.trustScore}/100</span>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                            <span>TCR Campaign</span>
+                            <span style={{ color: complianceStatus.sms.campaignApproved ? "#00E676" : complianceStatus.sms.campaignPending ? "#FFD600" : "#FF3B30", fontWeight: 600 }}>
+                              {complianceStatus.sms.campaignApproved ? "✓ Approved" : complianceStatus.sms.campaignPending ? "⏳ Pending review" : "✗ Not registered"}
+                              {complianceStatus.sms.campaignId && <span style={{ color: C.muted, fontWeight: 400 }}> ({complianceStatus.sms.campaignId})</span>}
+                            </span>
+                          </div>
+                          {complianceStatus.sms.throughput && (
+                            <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                              <span>Throughput</span>
+                              <span style={{ fontWeight: 600, color: "#00C9FF" }}>{complianceStatus.sms.throughput}</span>
+                            </div>
+                          )}
+                        </div>
+                        {!complianceStatus.sms.cleared && (
+                          <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(255,59,48,0.08)", borderRadius: 6, fontSize: 11, color: "#FF9800", lineHeight: 1.6 }}>
+                            {!complianceStatus.sms.brandRegistered ? "Register your brand with TCR in the Registration module before launching SMS campaigns." :
+                             !complianceStatus.sms.brandVerified ? "Your brand registration is pending TCR verification." :
+                             !complianceStatus.sms.campaignApproved && complianceStatus.sms.campaignPending ? "Your TCR campaign is pending carrier review. You'll be able to launch once approved." :
+                             "Register and get a TCR campaign approved before launching SMS campaigns."}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* RCS Status */}
+                    {complianceStatus.rcs && (
+                      <div style={{ padding: "14px 16px", background: complianceStatus.rcs.cleared ? "rgba(0,230,118,0.06)" : "rgba(255,59,48,0.06)", borderRadius: 10, border: `1px solid ${complianceStatus.rcs.cleared ? "rgba(0,230,118,0.15)" : "rgba(255,59,48,0.15)"}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>✨ RCS Business Messaging</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: complianceStatus.rcs.cleared ? "rgba(0,230,118,0.15)" : complianceStatus.rcs.agentStatus === 'review' ? "rgba(255,214,0,0.15)" : "rgba(255,59,48,0.15)", color: complianceStatus.rcs.cleared ? "#00E676" : complianceStatus.rcs.agentStatus === 'review' ? "#FFD600" : "#FF3B30" }}>
+                            {complianceStatus.rcs.cleared ? "✓ LAUNCHED" : complianceStatus.rcs.agentStatus === 'review' ? "⏳ IN REVIEW" : "✗ NOT LAUNCHED"}
+                          </span>
+                        </div>
+                        <div style={{ display: "grid", gap: 6, fontSize: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                            <span>RCS Agent</span>
+                            <span style={{ color: complianceStatus.rcs.agentLaunched ? "#00E676" : complianceStatus.rcs.agentRegistered ? "#FFD600" : "#FF3B30", fontWeight: 600 }}>
+                              {complianceStatus.rcs.agentLaunched ? "✓ Launched" : complianceStatus.rcs.agentRegistered ? `⏳ ${complianceStatus.rcs.agentStatus}` : "✗ Not created"}
+                              {complianceStatus.rcs.agentId && <span style={{ color: C.muted, fontWeight: 400 }}> ({complianceStatus.rcs.agentId})</span>}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", color: C.muted }}>
+                            <span>Verification</span>
+                            <span style={{ color: complianceStatus.rcs.verificationStatus === 'verified' ? "#00E676" : "#FFD600", fontWeight: 600 }}>{complianceStatus.rcs.verificationStatus}</span>
+                          </div>
+                        </div>
+                        {!complianceStatus.rcs.cleared && (
+                          <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(255,59,48,0.08)", borderRadius: 6, fontSize: 11, color: "#FF9800", lineHeight: 1.6 }}>
+                            {!complianceStatus.rcs.agentRegistered ? "Create an RCS agent in the Registration module before launching RCS campaigns." :
+                             "Your RCS agent is being reviewed. You'll be able to launch once it's approved by carriers."}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Email/WhatsApp - no registration needed */}
+                    {['Email', 'WhatsApp'].includes(newCampaign.channel) && !complianceStatus.sms && !complianceStatus.rcs && (
+                      <div style={{ padding: "14px 16px", background: "rgba(0,230,118,0.06)", borderRadius: 10, border: "1px solid rgba(0,230,118,0.15)" }}>
+                        <span style={{ color: "#00E676", fontWeight: 700, fontSize: 13 }}>✓ {newCampaign.channel} — No carrier registration required</span>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>
               <button onClick={() => setCreateStep(4)} style={btnSecondary}>← Back</button>
               <div style={{ display: "flex", gap: 12 }}>
@@ -748,9 +937,14 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   setView("list"); setCreateStep(1);
                   setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
                   setAiSuggestions([]);
-                }} style={btnPrimary}>
-                  {newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign"}
+                }} disabled={!demoMode && complianceChecked && complianceStatus?.canLaunch === false} style={{ ...btnPrimary, opacity: (!demoMode && complianceChecked && complianceStatus?.canLaunch === false) ? 0.4 : 1, cursor: (!demoMode && complianceChecked && complianceStatus?.canLaunch === false) ? "not-allowed" : "pointer" }}>
+                  {!demoMode && complianceChecked && complianceStatus?.canLaunch === false
+                    ? "🔒 Approval Required"
+                    : (newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign")}
                 </button>
+                {!demoMode && complianceChecked && complianceStatus?.canLaunch === false && (
+                  <button onClick={() => { setView("list"); setCreateStep(1); }} style={{ ...btnSecondary, fontSize: 12 }}>Save as Draft</button>
+                )}
               </div>
             </div>
           </div>
