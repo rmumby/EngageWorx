@@ -1043,6 +1043,7 @@ function AppInner() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
@@ -1484,74 +1485,102 @@ function AppInner() {
       {isMobile && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "transform 0.3s ease" }}>
-        <div style={{ marginBottom: 32, paddingLeft: 8 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
-          <div style={{ marginTop: 8 }}><Badge color={C.primary}>🌐 Super Admin</Badge></div>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
+          {sidebarCollapsed ? (
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.primary }}>EW</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
+              <div style={{ marginTop: 8 }}><Badge color={C.primary}>🌐 Super Admin</Badge></div>
+            </>
+          )}
         </div>
 
         <nav style={{ flex: 1 }}>
           {spNavItems.map(item => (
-            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 12,
-              padding: "11px 12px", borderRadius: 9, border: "none",
+            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} title={sidebarCollapsed ? item.label : undefined} style={{
+              width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
+              justifyContent: sidebarCollapsed ? "center" : "flex-start",
+              padding: sidebarCollapsed ? "11px 0" : "11px 12px", borderRadius: 9, border: "none",
               background: spPage === item.id ? `${C.primary}22` : "transparent",
               color: spPage === item.id ? C.primary : C.muted,
-              cursor: "pointer", fontSize: 14, fontWeight: spPage === item.id ? 700 : 400,
-              marginBottom: 4, textAlign: "left",
+              cursor: "pointer", fontSize: sidebarCollapsed ? 20 : 14, fontWeight: spPage === item.id ? 700 : 400,
+              marginBottom: 4, textAlign: sidebarCollapsed ? "center" : "left",
               borderLeft: spPage === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
+              transition: "all 0.2s",
             }}>
-              <span style={{ fontSize: 17 }}>{item.icon}</span>
-              {item.label}
+              <span style={{ fontSize: sidebarCollapsed ? 20 : 17 }}>{item.icon}</span>
+              {!sidebarCollapsed && item.label}
             </button>
           ))}
         </nav>
 
         {/* Demo Mode Toggle — superadmin only */}
-        <button onClick={() => toggleDemoMode(!demoMode)} style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 12px", borderRadius: 9, marginBottom: 8,
-          background: demoMode ? `${C.accent}22` : "rgba(255,255,255,0.03)",
-          border: `1px solid ${demoMode ? C.accent + "44" : "rgba(255,255,255,0.08)"}`,
-          color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 13,
-          fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
-        }}>
-          <span>🎮 Demo Mode</span>
-          <span style={{
-            width: 36, height: 20, borderRadius: 10, position: "relative",
-            background: demoMode ? C.accent : "rgba(255,255,255,0.15)",
-            display: "inline-block", transition: "all 0.2s",
+        {!sidebarCollapsed && (
+          <button onClick={() => toggleDemoMode(!demoMode)} style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 12px", borderRadius: 9, marginBottom: 8,
+            background: demoMode ? `${C.accent}22` : "rgba(255,255,255,0.03)",
+            border: `1px solid ${demoMode ? C.accent + "44" : "rgba(255,255,255,0.08)"}`,
+            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 13,
+            fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
           }}>
+            <span>🎮 Demo Mode</span>
             <span style={{
-              width: 16, height: 16, borderRadius: "50%", background: "#fff",
-              position: "absolute", top: 2, left: demoMode ? 18 : 2,
-              transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-            }} />
-          </span>
-        </button>
+              width: 36, height: 20, borderRadius: 10, position: "relative",
+              background: demoMode ? C.accent : "rgba(255,255,255,0.15)",
+              display: "inline-block", transition: "all 0.2s",
+            }}>
+              <span style={{
+                width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 2, left: demoMode ? 18 : 2,
+                transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              }} />
+            </span>
+          </button>
+        )}
+        {sidebarCollapsed && (
+          <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{
+            width: "100%", padding: "10px 0", borderRadius: 9, marginBottom: 8, border: "none",
+            background: demoMode ? `${C.accent}22` : "transparent",
+            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 18,
+            fontFamily: "'DM Sans', sans-serif", textAlign: "center",
+          }}>🎮</button>
+        )}
 
         {/* Demo Credentials Manager */}
-        {demoMode && (
+        {demoMode && !sidebarCollapsed && (
           <div style={{ background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: C.accent }}>
             ● Demo data active — all modules show sample data
           </div>
         )}
 
-        <button onClick={handleLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>← Sign Out</button>
+        <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
 
-        <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
-            <div>
-              <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
-              <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
+        {!sidebarCollapsed && (
+          <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
+              <div>
+                <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Collapse Toggle */}
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{
+          width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`,
+          background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.2s",
+        }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : 240, overflowY: "auto" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), overflowY: spPage === "inbox" ? "hidden" : "auto", height: spPage === "inbox" ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
