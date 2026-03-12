@@ -94,6 +94,33 @@ const LandingPage = () => {
           <button onClick={() => setLegalPage(null)} style={{background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif", marginBottom: 40, display: 'block'}}>Back to Home</button>
           <h1 style={{fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8, color: '#E8F4FD'}}>{pageData.title}</h1>
           <p style={{color: '#6B8BAE', fontSize: 14, marginBottom: 40}}>{"Last updated: " + pageData.updated}</p>
+          {legalPage === 'smsconsent' && (
+            <div style={{background: '#0d1220', border: '2px solid #1a2540', borderRadius: 16, padding: 32, marginBottom: 40}}>
+              <h2 style={{fontSize: 18, fontWeight: 800, color: '#00C9FF', marginBottom: 8}}>Example Opt-In Form</h2>
+              <p style={{color: '#6B8BAE', fontSize: 13, marginBottom: 24}}>This is an example of how businesses collect SMS consent from their customers using the EngageWorx platform. The consent checkbox is never pre-checked.</p>
+              <div style={{background: '#161B22', border: '1px solid #1a2540', borderRadius: 12, padding: 24, maxWidth: 480}}>
+                <div style={{marginBottom: 16}}>
+                  <label style={{display: 'block', color: '#9BB0C7', fontSize: 13, fontWeight: 600, marginBottom: 6}}>Your Name</label>
+                  <div style={{background: '#0d1117', border: '1px solid #2a3548', borderRadius: 8, padding: '10px 14px', color: '#6B8BAE', fontSize: 14}}>John Smith</div>
+                </div>
+                <div style={{marginBottom: 16}}>
+                  <label style={{display: 'block', color: '#9BB0C7', fontSize: 13, fontWeight: 600, marginBottom: 6}}>Phone Number</label>
+                  <div style={{background: '#0d1117', border: '1px solid #2a3548', borderRadius: 8, padding: '10px 14px', color: '#6B8BAE', fontSize: 14}}>+1 (555) 123-4567</div>
+                </div>
+                <div style={{marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10}}>
+                  <div style={{width: 20, height: 20, border: '2px solid #2a3548', borderRadius: 4, background: '#0d1117', flexShrink: 0, marginTop: 2}} />
+                  <label style={{color: '#9BB0C7', fontSize: 12, lineHeight: 1.6}}>
+                    I agree to receive SMS messages from <strong style={{color: '#E8F4FD'}}>[Business Name]</strong>. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/privacypolicy" style={{color: '#00C9FF', textDecoration: 'underline'}}>Privacy Policy</a> and <a href="/termsandconditions" style={{color: '#00C9FF', textDecoration: 'underline'}}>Terms of Service</a>.
+                  </label>
+                </div>
+                <div style={{background: '#1a2540', borderRadius: 8, padding: '12px 24px', textAlign: 'center', color: '#6B8BAE', fontSize: 14, fontWeight: 600}}>Submit</div>
+              </div>
+              <div style={{marginTop: 16, padding: '12px 16px', background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 8}}>
+                <p style={{color: '#00E676', fontSize: 12, fontWeight: 700, marginBottom: 4}}>TCR Compliance Note</p>
+                <p style={{color: '#6B8BAE', fontSize: 11, lineHeight: 1.6, margin: 0}}>The checkbox above is NOT pre-checked. Customers must actively select it before submitting. Consent is logged with timestamp and source in the EngageWorx platform. Businesses using EngageWorx must implement this opt-in form on their website before sending SMS messages.</p>
+              </div>
+            </div>
+          )}
           {pageData.sections.map(function(s, i) {
             if (s.type === "h") return <h2 key={"lh" + i} style={{fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF'}}>{s.text}</h2>;
             return <p key={"lp" + i} style={{color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16}}>{s.text}</p>;
