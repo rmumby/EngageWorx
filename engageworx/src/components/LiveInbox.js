@@ -486,7 +486,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 60px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
       <div style={{ width: 340, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
@@ -569,7 +569,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
                   {/* Avatar */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
-                    <div style={{ position: "absolute", bottom: -1, right: -1, fontSize: 12 }}>{ch.icon}</div>
+                    <div title={ch.label} style={{ position: "absolute", bottom: -1, right: -1, fontSize: 12 }}>{ch.icon}</div>
                     {conv.unread > 0 && <div style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#FF3B30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{conv.unread}</div>}
                   </div>
 
@@ -684,7 +684,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</span>
-                <span style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
+                <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>
                 {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
               </div>
