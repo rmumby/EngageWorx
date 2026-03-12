@@ -125,8 +125,8 @@ function ScreenVisual({ id }) {
           <div style={{ width: 44, height: 44, background: "linear-gradient(135deg, #00C9FF, #E040FB)", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18, color: "#000" }}>EW</div>
           <span style={{ fontSize: 24, fontWeight: 900, color: "#E8F4FD" }}>Engage<span style={{ color: "#00C9FF" }}>Worx</span></span>
         </div>
-        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.15, marginBottom: 12 }}>Conversations that<br /><span style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>close deals.</span></div>
-        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, maxWidth: 400, margin: "0 auto" }}>AI-powered SMS, Email, and Voice — one platform, one inbox, one AI brain.</div>
+        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.15, marginBottom: 12 }}>Smarter conversations.<br /><span style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>One platform.</span></div>
+        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, maxWidth: 400, margin: "0 auto" }}>RCS, SMS, WhatsApp, email and more — one platform, one inbox, one AI brain.</div>
       </div>
     );
   }
