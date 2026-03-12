@@ -1580,7 +1580,7 @@ function AppInner() {
         }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), overflowY: spPage === "inbox" ? "hidden" : "auto", height: spPage === "inbox" ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: spPage === "inbox" ? "hidden" : "auto", height: spPage === "inbox" ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
