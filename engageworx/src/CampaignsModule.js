@@ -937,12 +937,14 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   setView("list"); setCreateStep(1);
                   setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
                   setAiSuggestions([]);
-                }} disabled={!demoMode && complianceChecked && complianceStatus?.canLaunch === false} style={{ ...btnPrimary, opacity: (!demoMode && complianceChecked && complianceStatus?.canLaunch === false) ? 0.4 : 1, cursor: (!demoMode && complianceChecked && complianceStatus?.canLaunch === false) ? "not-allowed" : "pointer" }}>
-                  {!demoMode && complianceChecked && complianceStatus?.canLaunch === false
+                }} disabled={!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)} style={{ ...btnPrimary, opacity: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? 0.4 : 1, cursor: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? "not-allowed" : "pointer" }}>
+                  {!demoMode && complianceStatus === 'checking'
+                    ? "⏳ Checking compliance..."
+                    : !demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)
                     ? "🔒 Approval Required"
                     : (newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign")}
                 </button>
-                {!demoMode && complianceChecked && complianceStatus?.canLaunch === false && (
+                {!demoMode && complianceChecked && complianceStatus?.canLaunch !== true && (
                   <button onClick={async () => {
                     if (!demoMode && currentTenantId) {
                       try {
