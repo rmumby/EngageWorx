@@ -457,6 +457,7 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
     <div style={{
       height: "100vh", display: "flex", background: C.bg,
       fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: C.text, overflow: "hidden",
+      paddingLeft: viewLevel === "sp" ? 0 : 0,
     }}>
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -481,6 +482,7 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
       <div style={{
         width: 220, background: C.surface, borderRight: `1px solid ${C.border}`,
         display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden",
+        marginLeft: viewLevel === "sp" ? 20 : 0,
       }}>
         {/* Sidebar Tabs */}
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
