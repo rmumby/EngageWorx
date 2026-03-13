@@ -210,7 +210,16 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Edit contact in Supabase
   const handleEditContact = async (contact) => {
-    if (demoMode || !currentTenantId) return;
+    if (demoMode) {
+      // Update local state only
+      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
+      setEditingContact(null);
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact({ ...selectedContact, ...contact });
+      }
+      return;
+    }
+    if (!currentTenantId) return;
     try {
       const { error } = await supabase.from('contacts').update({
         first_name: contact.firstName,
@@ -221,7 +230,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         status: contact.status,
       }).eq('id', contact.id);
       if (error) throw error;
-      // Update local state
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
       setEditingContact(null);
       if (selectedContact?.id === contact.id) {
@@ -232,9 +240,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     }
   };
 
-  // Delete single contact from Supabase
+  // Delete single contact
   const handleDeleteContact = async (contactId) => {
-    if (demoMode || !currentTenantId) return;
+    if (demoMode) {
+      setContacts(prev => prev.filter(c => c.id !== contactId));
+      if (selectedContact?.id === contactId) { setSelectedContact(null); setView("list"); }
+      setSelectedContacts(prev => prev.filter(id => id !== contactId));
+      return;
+    }
+    if (!currentTenantId) return;
     setDeleting(true);
     try {
       const { error } = await supabase.from('contacts').delete().eq('id', contactId);
@@ -253,8 +267,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Bulk delete selected contacts
   const handleBulkDelete = async () => {
-    if (demoMode || !currentTenantId || selectedContacts.length === 0) return;
+    if (selectedContacts.length === 0) return;
     if (!window.confirm(`Delete ${selectedContacts.length} contact${selectedContacts.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (demoMode) {
+      setContacts(prev => prev.filter(c => !selectedContacts.includes(c.id)));
+      setSelectedContacts([]);
+      return;
+    }
+    if (!currentTenantId) return;
     setDeleting(true);
     try {
       const { error } = await supabase.from('contacts').delete().in('id', selectedContacts);
@@ -337,7 +357,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <button onClick={() => { setView("list"); setSelectedContact(null); setEditingContact(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>← Back to Contacts</button>
-          {!demoMode && (
+          {(
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ background: editingContact ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${editingContact ? C.primary : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "8px 16px", color: editingContact ? C.primary : "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
               <button onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "8px 16px", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", opacity: deleting ? 0.5 : 1 }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
@@ -650,7 +670,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Campaign</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
-              {!demoMode && <button onClick={handleBulkDelete} disabled={deleting} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#FF3B30", borderColor: "rgba(255,59,48,0.3)" }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>}
+              {<button onClick={handleBulkDelete} disabled={deleting} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#FF3B30", borderColor: "rgba(255,59,48,0.3)" }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>}
               <button onClick={() => setSelectedContacts([])} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, marginLeft: "auto" }}>Clear</button>
             </div>
           )}
