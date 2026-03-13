@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { supabase } from './supabaseClient';
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const TAGS = ["VIP", "New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
@@ -98,8 +99,9 @@ const CRM_INTEGRATIONS = [
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId }) {
-  const [contacts] = useState(() => generateContacts(60));
+export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+  const [contacts, setContacts] = useState(() => demoMode ? generateContacts(60) : []);
+  const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState("list");
   const [selectedContact, setSelectedContact] = useState(null);
   const [activeTab, setActiveTab] = useState("contacts");
@@ -112,8 +114,203 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [showImport, setShowImport] = useState(false);
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+  const [editingContact, setEditingContact] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 15;
+
+  // Fetch live contacts from Supabase
+  useEffect(() => {
+    if (demoMode) {
+      setContacts(generateContacts(60));
+      return;
+    }
+    const fetchContacts = async () => {
+      setLiveLoading(true);
+      try {
+        let query = supabase.from('contacts').select('*').order('created_at', { ascending: false });
+        if (currentTenantId && viewLevel === 'tenant') {
+          query = query.eq('tenant_id', currentTenantId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        const mapped = (data || []).map(c => ({
+          id: c.id,
+          firstName: c.first_name || '',
+          lastName: c.last_name || '',
+          email: c.email || '',
+          phone: c.phone || '',
+          company: c.company || '',
+          status: c.status || 'subscribed',
+          tags: c.tags || [],
+          channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
+          created: new Date(c.created_at),
+          lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
+          messagesSent: c.message_count || 0,
+          messagesReceived: 0,
+          openRate: 0,
+          clickRate: 0,
+          ltv: 0,
+          city: '',
+          state: '',
+          notes: '',
+          customFields: c.custom_fields || {},
+          tenant_id: c.tenant_id,
+        }));
+        setContacts(mapped);
+      } catch (err) {
+        console.warn('Contacts fetch error:', err.message);
+        setContacts([]);
+      }
+      setLiveLoading(false);
+    };
+    fetchContacts();
+  }, [demoMode, currentTenantId, viewLevel]);
+
+  // Add contact
+  const handleAddContact = async () => {
+    if (!newContact.firstName || !newContact.phone) return;
+    if (demoMode) {
+      // Add to local state in demo mode
+      const demoContact = {
+        id: "ct_" + Date.now(),
+        firstName: newContact.firstName,
+        lastName: newContact.lastName,
+        email: newContact.email,
+        phone: newContact.phone,
+        company: newContact.company,
+        status: newContact.status || "subscribed",
+        tags: [],
+        channels: [newContact.channel_preference || "SMS"],
+        created: new Date(),
+        lastActive: new Date(),
+        messagesSent: 0,
+        messagesReceived: 0,
+        openRate: 0,
+        clickRate: 0,
+        ltv: 0,
+        city: "",
+        state: "",
+        notes: "",
+        customFields: {},
+      };
+      setContacts(prev => [demoContact, ...prev]);
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+      setShowAddContact(false);
+      return;
+    }
+    try {
+      const { error } = await supabase.from('contacts').insert({
+        tenant_id: currentTenantId,
+        first_name: newContact.firstName,
+        last_name: newContact.lastName,
+        email: newContact.email,
+        phone: newContact.phone,
+        company: newContact.company,
+        status: newContact.status,
+        channel_preference: newContact.channel_preference,
+        tags: [],
+        source: 'manual',
+      });
+      if (error) throw error;
+      // Refresh contacts
+      const { data } = await supabase.from('contacts').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
+      const mapped = (data || []).map(c => ({
+        id: c.id, firstName: c.first_name || '', lastName: c.last_name || '', email: c.email || '',
+        phone: c.phone || '', company: c.company || '', status: c.status || 'subscribed',
+        tags: c.tags || [], channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
+        created: new Date(c.created_at), lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
+        messagesSent: c.message_count || 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0,
+        city: '', state: '', notes: '', customFields: c.custom_fields || {}, tenant_id: c.tenant_id,
+      }));
+      setContacts(mapped);
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+      setShowAddContact(false);
+    } catch (err) {
+      console.warn('Add contact error:', err.message);
+    }
+  };
+
+  // Edit contact in Supabase
+  const handleEditContact = async (contact) => {
+    if (demoMode) {
+      // Update local state only
+      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
+      setEditingContact(null);
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact({ ...selectedContact, ...contact });
+      }
+      return;
+    }
+    if (!currentTenantId) return;
+    try {
+      const { error } = await supabase.from('contacts').update({
+        first_name: contact.firstName,
+        last_name: contact.lastName,
+        email: contact.email,
+        phone: contact.phone,
+        company: contact.company,
+        status: contact.status,
+      }).eq('id', contact.id);
+      if (error) throw error;
+      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
+      setEditingContact(null);
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact({ ...selectedContact, ...contact });
+      }
+    } catch (err) {
+      console.warn('Edit contact error:', err.message);
+    }
+  };
+
+  // Delete single contact
+  const handleDeleteContact = async (contactId) => {
+    if (demoMode) {
+      setContacts(prev => prev.filter(c => c.id !== contactId));
+      if (selectedContact?.id === contactId) { setSelectedContact(null); setView("list"); }
+      setSelectedContacts(prev => prev.filter(id => id !== contactId));
+      return;
+    }
+    if (!currentTenantId) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+      if (error) throw error;
+      setContacts(prev => prev.filter(c => c.id !== contactId));
+      if (selectedContact?.id === contactId) {
+        setSelectedContact(null);
+        setView("list");
+      }
+      setSelectedContacts(prev => prev.filter(id => id !== contactId));
+    } catch (err) {
+      console.warn('Delete contact error:', err.message);
+    }
+    setDeleting(false);
+  };
+
+  // Bulk delete selected contacts
+  const handleBulkDelete = async () => {
+    if (selectedContacts.length === 0) return;
+    if (!window.confirm(`Delete ${selectedContacts.length} contact${selectedContacts.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    if (demoMode) {
+      setContacts(prev => prev.filter(c => !selectedContacts.includes(c.id)));
+      setSelectedContacts([]);
+      return;
+    }
+    if (!currentTenantId) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from('contacts').delete().in('id', selectedContacts);
+      if (error) throw error;
+      setContacts(prev => prev.filter(c => !selectedContacts.includes(c.id)));
+      setSelectedContacts([]);
+    } catch (err) {
+      console.warn('Bulk delete error:', err.message);
+    }
+    setDeleting(false);
+  };
 
   const segment = SEGMENTS.find(s => s.id === selectedSegment) || SEGMENTS[0];
 
@@ -183,7 +380,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
-        <button onClick={() => { setView("list"); setSelectedContact(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>← Back to Contacts</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <button onClick={() => { setView("list"); setSelectedContact(null); setEditingContact(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>← Back to Contacts</button>
+          <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ background: editingContact ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${editingContact ? C.primary : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "8px 16px", color: editingContact ? C.primary : "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
+              <button onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "8px 16px", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", opacity: deleting ? 0.5 : 1 }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
+          </div>
+        </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24 }}>
           {/* Left: Contact Card */}
@@ -200,20 +403,48 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
-              {[
-                { icon: "📧", label: "Email", value: c.email },
-                { icon: "📞", label: "Phone", value: c.phone },
-                { icon: "🏢", label: "Company", value: c.company },
-                { icon: "📍", label: "Location", value: `${c.city}, ${c.state}` },
-                { icon: "📅", label: "Created", value: c.created.toLocaleDateString() },
-                { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() },
-              ].map(item => (
-                <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
-                  <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
-                  <span style={{ color: "#fff", fontSize: 13, flex: 1, wordBreak: "break-all" }}>{item.value}</span>
+              {editingContact ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {[
+                    { key: "firstName", label: "First Name", icon: "👤" },
+                    { key: "lastName", label: "Last Name", icon: "👤" },
+                    { key: "email", label: "Email", icon: "📧" },
+                    { key: "phone", label: "Phone", icon: "📞" },
+                    { key: "company", label: "Company", icon: "🏢" },
+                  ].map(f => (
+                    <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
+                      <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
+                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 14, width: 20 }}>📋</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Status</span>
+                    <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
-              ))}
+              ) : (
+                <>
+                  {[
+                    { icon: "📧", label: "Email", value: c.email },
+                    { icon: "📞", label: "Phone", value: c.phone },
+                    { icon: "🏢", label: "Company", value: c.company },
+                    { icon: "📍", label: "Location", value: `${c.city}, ${c.state}` },
+                    { icon: "📅", label: "Created", value: c.created.toLocaleDateString() },
+                    { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() },
+                  ].map(item => (
+                    <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
+                      <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
+                      <span style={{ color: "#fff", fontSize: 13, flex: 1, wordBreak: "break-all" }}>{item.value}</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
 
             <div style={{ ...card, marginBottom: 16 }}>
@@ -306,7 +537,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
-          <button style={btnPrimary}>+ Add Contact</button>
+          <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
         </div>
       </div>
 
@@ -368,6 +599,62 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             </div>
           )}
 
+          {/* Add Contact Modal */}
+          {showAddContact && (
+            <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Add Contact</h3>
+                <button onClick={() => setShowAddContact(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label>
+                  <input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Last Name</label>
+                  <input value={newContact.lastName} onChange={e => setNewContact(p => ({ ...p, lastName: e.target.value }))} placeholder="Doe" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Phone *</label>
+                  <input value={newContact.phone} onChange={e => setNewContact(p => ({ ...p, phone: e.target.value }))} placeholder="+15551234567" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Email</label>
+                  <input value={newContact.email} onChange={e => setNewContact(p => ({ ...p, email: e.target.value }))} placeholder="john@example.com" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Company</label>
+                  <input value={newContact.company} onChange={e => setNewContact(p => ({ ...p, company: e.target.value }))} placeholder="Acme Inc" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Channel</label>
+                  <select value={newContact.channel_preference} onChange={e => setNewContact(p => ({ ...p, channel_preference: e.target.value }))} style={inputStyle}>
+                    {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button onClick={() => setShowAddContact(false)} style={btnSecondary}>Cancel</button>
+                <button onClick={handleAddContact} style={btnPrimary}>Save Contact</button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty state for live mode */}
+          {!demoMode && contacts.length === 0 && !liveLoading && (
+            <div style={{ ...card, textAlign: "center", padding: 48, marginBottom: 20 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No contacts yet</div>
+              <div style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>Add your first contact to get started.</div>
+              <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
+            </div>
+          )}
+
+          {liveLoading && (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading contacts...</div>
+          )}
+
           {/* Segment Quick Select */}
           <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
             {SEGMENTS.slice(0, 6).map(s => (
@@ -406,6 +693,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Campaign</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
+              {<button onClick={handleBulkDelete} disabled={deleting} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#FF3B30", borderColor: "rgba(255,59,48,0.3)" }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>}
               <button onClick={() => setSelectedContacts([])} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, marginLeft: "auto" }}>Clear</button>
             </div>
           )}
