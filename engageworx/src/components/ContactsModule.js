@@ -169,10 +169,35 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     fetchContacts();
   }, [demoMode, currentTenantId, viewLevel]);
 
-  // Add contact to Supabase
+  // Add contact
   const handleAddContact = async () => {
     if (!newContact.firstName || !newContact.phone) return;
     if (demoMode) {
+      // Add to local state in demo mode
+      const demoContact = {
+        id: "ct_" + Date.now(),
+        firstName: newContact.firstName,
+        lastName: newContact.lastName,
+        email: newContact.email,
+        phone: newContact.phone,
+        company: newContact.company,
+        status: newContact.status || "subscribed",
+        tags: [],
+        channels: [newContact.channel_preference || "SMS"],
+        created: new Date(),
+        lastActive: new Date(),
+        messagesSent: 0,
+        messagesReceived: 0,
+        openRate: 0,
+        clickRate: 0,
+        ltv: 0,
+        city: "",
+        state: "",
+        notes: "",
+        customFields: {},
+      };
+      setContacts(prev => [demoContact, ...prev]);
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
       return;
     }
