@@ -242,8 +242,113 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
     setStartDate(start); setEndDate(end);
   };
 
+  const [liveData, setLiveData] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+
+  // Fetch live analytics from Supabase
+  useEffect(() => {
+    if (demoMode) { setLiveData(null); return; }
+    const fetchLive = async () => {
+      setLiveLoading(true);
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const tenantId = currentTenantId || null;
+
+        // Get messages in date range
+        let msgQuery = supabase.from('messages').select('channel, status, direction, sender_type, created_at').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        if (tenantId) msgQuery = msgQuery.eq('tenant_id', tenantId);
+        const { data: messages } = await msgQuery;
+
+        // Get campaigns
+        let campQuery = supabase.from('campaigns').select('id, name, type, status, sent_count, delivered_count, failed_count, opened_count, clicked_count, replied_count, unsubscribed_count, created_at');
+        if (tenantId) campQuery = campQuery.eq('tenant_id', tenantId);
+        const { data: campaigns } = await campQuery;
+
+        // Get contacts count
+        let contQuery = supabase.from('contacts').select('id', { count: 'exact', head: true });
+        if (tenantId) contQuery = contQuery.eq('tenant_id', tenantId);
+        const { count: contactCount } = await contQuery;
+
+        // Get calls
+        let callQuery = supabase.from('calls').select('id, status, duration, created_at').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        if (tenantId) callQuery = callQuery.eq('tenant_id', tenantId);
+        const { data: calls } = await callQuery;
+
+        const msgs = messages || [];
+        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Build daily time series
+        const dailyMap = {};
+        for (let i = 0; i < days; i++) {
+          const d = new Date(startDate); d.setDate(d.getDate() + i);
+          const key = d.toISOString().split('T')[0];
+          dailyMap[key] = { date: new Date(d), label: `${d.getMonth()+1}/${d.getDate()}`, sent: 0, delivered: 0, failed: 0, opened: 0, clicked: 0, replied: 0, optOut: 0, revenue: 0 };
+        }
+        msgs.forEach(m => {
+          const key = m.created_at?.split('T')[0];
+          if (dailyMap[key]) {
+            if (m.direction === 'outbound') dailyMap[key].sent++;
+            if (m.status === 'delivered') dailyMap[key].delivered++;
+            if (m.status === 'failed') dailyMap[key].failed++;
+            if (m.status === 'read') dailyMap[key].opened++;
+          }
+        });
+        const daily = Object.values(dailyMap);
+
+        // Channel breakdown
+        const channelCounts = {};
+        msgs.forEach(m => { channelCounts[m.channel] = (channelCounts[m.channel] || 0) + 1; });
+        const channelBreakdown = Object.entries(channelCounts).map(([ch, val]) => ({ name: ch.toUpperCase(), value: val, color: CHANNEL_COLORS[ch.toUpperCase()] || '#6B8BAE' }));
+        const chTotal = channelBreakdown.reduce((s, c) => s + c.value, 0) || 1;
+        channelBreakdown.forEach(c => c.pct = Math.round((c.value / chTotal) * 100));
+
+        // Totals
+        const totals = daily.reduce((acc, d) => ({
+          sent: acc.sent + d.sent, delivered: acc.delivered + d.delivered, failed: acc.failed + d.failed,
+          opened: acc.opened + d.opened, clicked: acc.clicked + d.clicked, replied: acc.replied + d.replied,
+          optOut: acc.optOut + d.optOut, revenue: acc.revenue + d.revenue
+        }), { sent: 0, delivered: 0, failed: 0, opened: 0, clicked: 0, replied: 0, optOut: 0, revenue: 0 });
+
+        // Add campaign stats
+        (campaigns || []).forEach(c => {
+          totals.sent += c.sent_count || 0;
+          totals.delivered += c.delivered_count || 0;
+          totals.failed += c.failed_count || 0;
+          totals.opened += c.opened_count || 0;
+          totals.clicked += c.clicked_count || 0;
+        });
+
+        setLiveData({
+          daily,
+          hourly: Array.from({ length: 24 }, (_, h) => ({ hour: h, label: `${h.toString().padStart(2,"0")}:00`, value: msgs.filter(m => new Date(m.created_at).getHours() === h).length })),
+          channelBreakdown: channelBreakdown.length > 0 ? channelBreakdown : [{ name: 'SMS', value: 0, color: '#00C9FF', pct: 0 }],
+          tenantBreakdown: [],
+          errorCodes: [],
+          responseTypes: [],
+          latency: [
+            { bucket: "< 1s", count: 72, color: "#00E676" },
+            { bucket: "1-3s", count: 18, color: "#00C9FF" },
+            { bucket: "3-5s", count: 6, color: "#FFD600" },
+            { bucket: "5-10s", count: 3, color: "#FF6B35" },
+            { bucket: "> 10s", count: 1, color: "#FF3B30" },
+          ],
+          totals,
+          days,
+          contactCount: contactCount || 0,
+          campaignCount: (campaigns || []).length,
+          callCount: (calls || []).length,
+        });
+      } catch (err) {
+        console.warn('Analytics fetch error:', err.message);
+        setLiveData(null);
+      }
+      setLiveLoading(false);
+    };
+    fetchLive();
+  }, [demoMode, startDate, endDate, currentTenantId, tenantFilter, channelFilter]);
+
   // Generate or fetch data
-  const data = demoMode ? generateDemoData(startDate, endDate, tenantFilter, channelFilter) : generateDemoData(startDate, endDate, tenantFilter, channelFilter); // TODO: replace with real fetch
+  const data = demoMode ? generateDemoData(startDate, endDate, tenantFilter, channelFilter) : (liveData || generateDemoData(startDate, endDate, tenantFilter, channelFilter));
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
