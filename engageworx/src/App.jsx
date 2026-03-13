@@ -266,7 +266,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
 }
 
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
-function TenantManagement({ C }) {
+function TenantManagement({ C, demoMode = false }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
@@ -281,8 +281,17 @@ function TenantManagement({ C }) {
   const [liveTenants, setLiveTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(true);
 
-  // Fetch live tenants from Supabase
+  // Fetch live tenants from Supabase (skip in demo mode)
   useEffect(() => {
+    if (demoMode) {
+      setLiveTenants([
+        { id: 'demo_1', name: 'Acme Corp', logo: 'AC', role: 'customer', brand: { primary: '#FF6B35', secondary: '#FF8C42', name: 'Acme Corp' }, colors: { primary: '#FF6B35', accent: '#FF8C42' }, plan: 'growth', status: 'active', channels: ['sms', 'email', 'whatsapp'], stats: { messages: 48200, revenue: 4820, campaigns: 12, contacts: 2400, deliveryRate: 97.2, openRate: 52.1 }, slug: 'acme-corp', created_at: '2026-01-15' },
+        { id: 'demo_2', name: 'RetailCo', logo: 'RC', role: 'customer', brand: { primary: '#00E676', secondary: '#00BFA5', name: 'RetailCo' }, colors: { primary: '#00E676', accent: '#00BFA5' }, plan: 'pro', status: 'active', channels: ['sms', 'email', 'rcs'], stats: { messages: 124500, revenue: 12450, campaigns: 28, contacts: 8900, deliveryRate: 96.8, openRate: 48.5 }, slug: 'retailco', created_at: '2025-11-20' },
+        { id: 'demo_3', name: 'FinServ Group', logo: 'FS', role: 'customer', brand: { primary: '#7C4DFF', secondary: '#651FFF', name: 'FinServ Group' }, colors: { primary: '#7C4DFF', accent: '#651FFF' }, plan: 'starter', status: 'active', channels: ['sms', 'email'], stats: { messages: 15200, revenue: 1520, campaigns: 5, contacts: 620, deliveryRate: 98.1, openRate: 61.3 }, slug: 'finserv', created_at: '2026-02-01' },
+      ]);
+      setTenantsLoading(false);
+      return;
+    }
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
@@ -317,7 +326,7 @@ function TenantManagement({ C }) {
       } catch (err) { console.error('Tenant fetch error:', err); }
       setTenantsLoading(false);
     })();
-  }, [demoResult]); // Refetch after demo creation
+  }, [demoResult, demoMode]); // Refetch after demo creation or mode change
 
   const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const themePresets = [
@@ -1582,7 +1591,7 @@ function AppInner() {
 
       <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: spPage === "inbox" ? "hidden" : "auto", height: spPage === "inbox" ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
-        {spPage === "tenants" && <TenantManagement C={C} />}
+        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
