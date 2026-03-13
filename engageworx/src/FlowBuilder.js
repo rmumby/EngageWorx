@@ -332,9 +332,76 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
   const loadFlows = async () => {
     if (demoMode) {
       setFlows([
-        { id: 'demo_1', name: 'Welcome Sequence', status: 'active', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
-        { id: 'demo_2', name: 'Cart Abandonment', status: 'active', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
-        { id: 'demo_3', name: 'Re-engagement', status: 'draft', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
+        { id: 'demo_1', name: 'Welcome Sequence', status: 'active', flow_data: { nodes: [
+          { id: 'w1', type: 'trigger_new_contact', label: 'New Contact', x: 80, y: 40, config: {} },
+          { id: 'w2', type: 'action_sms', label: 'Send SMS', x: 80, y: 160, config: { message: 'Welcome to {business_name}! We\'re thrilled to have you. Reply HELP for info or STOP to opt out.' } },
+          { id: 'w3', type: 'logic_delay', label: 'Wait', x: 80, y: 280, config: { delay: '24', unit: 'hours' } },
+          { id: 'w4', type: 'action_sms', label: 'Send SMS', x: 80, y: 400, config: { message: 'Hi {first_name}, as a new member, enjoy 15% off your first order. Use code WELCOME15. Reply STOP to opt out.' } },
+          { id: 'w5', type: 'logic_delay', label: 'Wait', x: 80, y: 520, config: { delay: '3', unit: 'days' } },
+          { id: 'w6', type: 'logic_condition', label: 'If / Else', x: 80, y: 640, config: { condition: 'contact.replied === true' } },
+          { id: 'w7', type: 'action_tag', label: 'Add Tag', x: -80, y: 760, config: { tag: 'Engaged' } },
+          { id: 'w8', type: 'action_sms', label: 'Send SMS', x: 240, y: 760, config: { message: 'Hi {first_name}, just checking in — did you get a chance to browse our latest? Here\'s what\'s trending: {link}' } },
+        ], connections: [
+          { from: 'w1', to: 'w2' }, { from: 'w2', to: 'w3' }, { from: 'w3', to: 'w4' },
+          { from: 'w4', to: 'w5' }, { from: 'w5', to: 'w6' }, { from: 'w6', to: 'w7' }, { from: 'w6', to: 'w8' },
+        ] }, updated_at: new Date().toISOString() },
+
+        { id: 'demo_2', name: 'Appointment Reminder', status: 'active', flow_data: { nodes: [
+          { id: 'a1', type: 'trigger_schedule', label: 'Scheduled', x: 80, y: 40, config: { schedule: '24h before appointment' } },
+          { id: 'a2', type: 'action_sms', label: 'Send SMS', x: 80, y: 160, config: { message: 'Hi {first_name}, reminder: your appointment is tomorrow at {time}. Reply YES to confirm or RESCHEDULE to change. Reply STOP to opt out.' } },
+          { id: 'a3', type: 'logic_condition', label: 'If / Else', x: 80, y: 300, config: { condition: 'reply === "YES"' } },
+          { id: 'a4', type: 'action_sms', label: 'Send SMS', x: -80, y: 440, config: { message: 'Great, you\'re confirmed for {time} tomorrow. See you then!' } },
+          { id: 'a5', type: 'logic_condition', label: 'If / Else', x: 240, y: 440, config: { condition: 'reply === "RESCHEDULE"' } },
+          { id: 'a6', type: 'action_assign', label: 'Assign Agent', x: 120, y: 580, config: { team: 'scheduling' } },
+          { id: 'a7', type: 'logic_delay', label: 'Wait', x: 360, y: 440, config: { delay: '22', unit: 'hours' } },
+          { id: 'a8', type: 'action_sms', label: 'Send SMS', x: 360, y: 560, config: { message: 'Your appointment is in 2 hours! We look forward to seeing you.' } },
+        ], connections: [
+          { from: 'a1', to: 'a2' }, { from: 'a2', to: 'a3' }, { from: 'a3', to: 'a4' },
+          { from: 'a3', to: 'a5' }, { from: 'a5', to: 'a6' }, { from: 'a3', to: 'a7' }, { from: 'a7', to: 'a8' },
+        ] }, updated_at: new Date().toISOString() },
+
+        { id: 'demo_3', name: 'Cart Abandonment', status: 'active', flow_data: { nodes: [
+          { id: 'c1', type: 'trigger_keyword', label: 'Keyword Match', x: 80, y: 40, config: { keyword: 'cart_abandoned' } },
+          { id: 'c2', type: 'logic_delay', label: 'Wait', x: 80, y: 160, config: { delay: '1', unit: 'hours' } },
+          { id: 'c3', type: 'action_sms', label: 'Send SMS', x: 80, y: 280, config: { message: 'Hey {first_name}, you left items in your cart! Complete your order before they\'re gone: {link}. Reply STOP to opt out.' } },
+          { id: 'c4', type: 'logic_delay', label: 'Wait', x: 80, y: 400, config: { delay: '24', unit: 'hours' } },
+          { id: 'c5', type: 'logic_condition', label: 'If / Else', x: 80, y: 520, config: { condition: 'contact.purchased === false' } },
+          { id: 'c6', type: 'action_sms', label: 'Send SMS', x: -80, y: 660, config: { message: 'Still thinking about it, {first_name}? Here\'s 10% off to seal the deal. Use code SAVE10: {link}' } },
+          { id: 'c7', type: 'action_tag', label: 'Add Tag', x: 240, y: 660, config: { tag: 'Converted' } },
+          { id: 'c8', type: 'logic_delay', label: 'Wait', x: -80, y: 780, config: { delay: '48', unit: 'hours' } },
+          { id: 'c9', type: 'action_email', label: 'Send Email', x: -80, y: 900, config: { message: 'Final reminder: your cart is about to expire. Complete checkout now.' } },
+        ], connections: [
+          { from: 'c1', to: 'c2' }, { from: 'c2', to: 'c3' }, { from: 'c3', to: 'c4' },
+          { from: 'c4', to: 'c5' }, { from: 'c5', to: 'c6' }, { from: 'c5', to: 'c7' },
+          { from: 'c6', to: 'c8' }, { from: 'c8', to: 'c9' },
+        ] }, updated_at: new Date().toISOString() },
+
+        { id: 'demo_4', name: 'Customer Feedback', status: 'active', flow_data: { nodes: [
+          { id: 'f1', type: 'trigger_schedule', label: 'Scheduled', x: 80, y: 40, config: { schedule: '2 days after order delivered' } },
+          { id: 'f2', type: 'action_sms', label: 'Send SMS', x: 80, y: 160, config: { message: 'Hi {first_name}, how was your experience? Reply 1-5 (5 being best). Reply STOP to opt out.' } },
+          { id: 'f3', type: 'logic_condition', label: 'If / Else', x: 80, y: 300, config: { condition: 'reply >= 4' } },
+          { id: 'f4', type: 'action_sms', label: 'Send SMS', x: -80, y: 440, config: { message: 'Thank you! Would you mind leaving us a review? {review_link}' } },
+          { id: 'f5', type: 'action_tag', label: 'Add Tag', x: -80, y: 560, config: { tag: 'Promoter' } },
+          { id: 'f6', type: 'action_sms', label: 'Send SMS', x: 240, y: 440, config: { message: 'We\'re sorry to hear that. A team member will reach out to make this right.' } },
+          { id: 'f7', type: 'action_assign', label: 'Assign Agent', x: 240, y: 560, config: { team: 'support' } },
+          { id: 'f8', type: 'action_tag', label: 'Add Tag', x: 240, y: 680, config: { tag: 'Needs Follow-up' } },
+        ], connections: [
+          { from: 'f1', to: 'f2' }, { from: 'f2', to: 'f3' }, { from: 'f3', to: 'f4' },
+          { from: 'f4', to: 'f5' }, { from: 'f3', to: 'f6' }, { from: 'f6', to: 'f7' }, { from: 'f7', to: 'f8' },
+        ] }, updated_at: new Date().toISOString() },
+
+        { id: 'demo_5', name: 'After-Hours Auto-Reply', status: 'active', flow_data: { nodes: [
+          { id: 'h1', type: 'trigger_inbound', label: 'Inbound Message', x: 80, y: 40, config: {} },
+          { id: 'h2', type: 'logic_condition', label: 'If / Else', x: 80, y: 160, config: { condition: 'time.isOutsideHours(9, 17)' } },
+          { id: 'h3', type: 'action_sms', label: 'Send SMS', x: -80, y: 300, config: { message: 'Thanks for reaching out! We\'re currently closed. Our hours are Mon-Fri 9AM-5PM. We\'ll reply first thing next business day.' } },
+          { id: 'h4', type: 'action_tag', label: 'Add Tag', x: -80, y: 420, config: { tag: 'After-Hours' } },
+          { id: 'h5', type: 'logic_delay', label: 'Wait', x: -80, y: 540, config: { delay: 'next_business_day', unit: '9am' } },
+          { id: 'h6', type: 'action_assign', label: 'Assign Agent', x: -80, y: 660, config: { team: 'support' } },
+          { id: 'h7', type: 'action_assign', label: 'Assign Agent', x: 240, y: 300, config: { team: 'support' } },
+        ], connections: [
+          { from: 'h1', to: 'h2' }, { from: 'h2', to: 'h3' }, { from: 'h3', to: 'h4' },
+          { from: 'h4', to: 'h5' }, { from: 'h5', to: 'h6' }, { from: 'h2', to: 'h7' },
+        ] }, updated_at: new Date().toISOString() },
       ]);
       return;
     }
