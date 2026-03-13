@@ -1,762 +1,649 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-// ─── NODE DEFINITIONS ─────────────────────────────────────────────────────────
-const NODE_TYPES = {
-  triggers: [
-    { type: "trigger_message", label: "Message Received", icon: "📩", color: "#00C9FF", desc: "When a message arrives on any channel", category: "trigger" },
-    { type: "trigger_keyword", label: "Keyword Match", icon: "🔑", color: "#00C9FF", desc: "When message contains specific keywords", category: "trigger" },
-    { type: "trigger_event", label: "Event Trigger", icon: "⚡", color: "#00C9FF", desc: "When a custom event fires", category: "trigger" },
-    { type: "trigger_schedule", label: "Scheduled", icon: "📅", color: "#00C9FF", desc: "Run at a specific time or interval", category: "trigger" },
-    { type: "trigger_webhook", label: "Webhook", icon: "🔗", color: "#00C9FF", desc: "When an external webhook is received", category: "trigger" },
-    { type: "trigger_signup", label: "New Signup", icon: "👤", color: "#00C9FF", desc: "When a new contact is created", category: "trigger" },
-  ],
-  actions: [
-    { type: "action_sms", label: "Send SMS", icon: "💬", color: "#00E676", desc: "Send an SMS message", category: "action" },
-    { type: "action_email", label: "Send Email", icon: "📧", color: "#FF6B35", desc: "Send an email message", category: "action" },
-    { type: "action_whatsapp", label: "Send WhatsApp", icon: "📱", color: "#25D366", desc: "Send a WhatsApp message", category: "action" },
-    { type: "action_rcs", label: "Send RCS", icon: "✨", color: "#7C4DFF", desc: "Send an RCS message", category: "action" },
-    { type: "action_tag", label: "Add Tag", icon: "🏷️", color: "#FFD600", desc: "Add a tag to the contact", category: "action" },
-    { type: "action_update", label: "Update Contact", icon: "📝", color: "#E040FB", desc: "Update contact properties", category: "action" },
-    { type: "action_webhook", label: "Call Webhook", icon: "🌐", color: "#6B8BAE", desc: "Make an HTTP request", category: "action" },
-    { type: "action_assign", label: "Assign Agent", icon: "👤", color: "#FF6B35", desc: "Assign to a specific agent", category: "action" },
-    { type: "action_campaign", label: "Add to Campaign", icon: "🚀", color: "#00C9FF", desc: "Enroll in a campaign", category: "action" },
-  ],
-  conditions: [
-    { type: "condition_if", label: "If / Else", icon: "🔀", color: "#FFD600", desc: "Branch based on conditions", category: "condition" },
-    { type: "condition_ab", label: "A/B Split", icon: "⚖️", color: "#FFD600", desc: "Random percentage split", category: "condition" },
-    { type: "condition_time", label: "Time Check", icon: "🕐", color: "#FFD600", desc: "Check time of day or week", category: "condition" },
-    { type: "condition_tag", label: "Has Tag?", icon: "🏷️", color: "#FFD600", desc: "Check if contact has a tag", category: "condition" },
-    { type: "condition_channel", label: "Channel Check", icon: "📡", color: "#FFD600", desc: "Check message channel", category: "condition" },
-  ],
-  timing: [
-    { type: "delay_wait", label: "Wait", icon: "⏰", color: "#E040FB", desc: "Wait for a specified duration", category: "timing" },
-    { type: "delay_until", label: "Wait Until", icon: "📆", color: "#E040FB", desc: "Wait until a specific time", category: "timing" },
-    { type: "delay_response", label: "Wait for Reply", icon: "💬", color: "#E040FB", desc: "Pause until customer responds", category: "timing" },
-  ],
-  end: [
-    { type: "end_stop", label: "End Flow", icon: "🏁", color: "#FF3B30", desc: "Stop the automation", category: "end" },
-    { type: "end_transfer", label: "Transfer", icon: "↗️", color: "#FF3B30", desc: "Hand off to human agent", category: "end" },
-  ],
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+const C = {
+  bg: "#0A0E1A", surface: "#111827", surfaceAlt: "#1a2235",
+  border: "#1e2d45", accent: "#00C9FF", accent2: "#E040FB",
+  accent3: "#00E676", accent4: "#FF6B35", warning: "#FFD600",
+  text: "#E8F4FD", muted: "#6B8BAE", dim: "#3A5068",
 };
 
-const ALL_NODE_DEFS = Object.values(NODE_TYPES).flat();
+const NODE_TYPES = {
+  trigger: {
+    label: "Triggers", color: C.accent3,
+    items: [
+      { type: "trigger_inbound", label: "Inbound Message", icon: "📨", desc: "When a customer texts in" },
+      { type: "trigger_keyword", label: "Keyword Match", icon: "🔑", desc: "Message contains keyword" },
+      { type: "trigger_schedule", label: "Scheduled", icon: "⏰", desc: "Run at a specific time" },
+      { type: "trigger_new_contact", label: "New Contact", icon: "👤", desc: "New contact added" },
+    ],
+  },
+  action: {
+    label: "Actions", color: C.accent,
+    items: [
+      { type: "action_sms", label: "Send SMS", icon: "💬", desc: "Send a text message" },
+      { type: "action_email", label: "Send Email", icon: "📧", desc: "Send an email" },
+      { type: "action_whatsapp", label: "Send WhatsApp", icon: "📱", desc: "Send WhatsApp message" },
+      { type: "action_rcs", label: "Send RCS", icon: "✨", desc: "Send RCS message" },
+      { type: "action_tag", label: "Add Tag", icon: "🏷️", desc: "Tag the contact" },
+      { type: "action_assign", label: "Assign Agent", icon: "👤", desc: "Route to human agent" },
+      { type: "action_webhook", label: "Webhook", icon: "🌐", desc: "Call external API" },
+    ],
+  },
+  logic: {
+    label: "Logic", color: C.accent2,
+    items: [
+      { type: "logic_condition", label: "If / Else", icon: "🔀", desc: "Branch on condition" },
+      { type: "logic_delay", label: "Wait / Delay", icon: "⏳", desc: "Wait before next step" },
+      { type: "logic_ai", label: "AI Classify", icon: "🧠", desc: "AI analyzes message" },
+      { type: "logic_split", label: "A/B Split", icon: "📊", desc: "Split for testing" },
+    ],
+  },
+};
 
-// ─── DEMO FLOW ────────────────────────────────────────────────────────────────
-function generateDemoFlow() {
-  return {
-    id: "flow_001",
-    name: "Welcome Series Automation",
-    status: "active",
-    nodes: [
-      { id: "n1", type: "trigger_signup", x: 400, y: 60, config: { channel: "any" } },
-      { id: "n2", type: "action_sms", x: 400, y: 200, config: { message: "Welcome to EngageWorx! 🎉 Reply HELP for support or MENU for options." } },
-      { id: "n3", type: "delay_wait", x: 400, y: 340, config: { duration: 24, unit: "hours" } },
-      { id: "n4", type: "condition_if", x: 400, y: 480, config: { field: "replied", operator: "equals", value: "true" } },
-      { id: "n5", type: "action_email", x: 200, y: 620, config: { subject: "Getting Started Guide", template: "onboarding_guide" } },
-      { id: "n6", type: "action_tag", x: 600, y: 620, config: { tag: "Engaged" } },
-      { id: "n7", type: "delay_wait", x: 200, y: 760, config: { duration: 3, unit: "days" } },
-      { id: "n8", type: "action_campaign", x: 200, y: 900, config: { campaign: "Product Tour Series" } },
-      { id: "n9", type: "action_sms", x: 600, y: 760, config: { message: "Hey! We noticed you haven't explored our platform yet. Need any help getting started?" } },
-      { id: "n10", type: "delay_response", x: 600, y: 900, config: { timeout: 48, unit: "hours" } },
-      { id: "n11", type: "end_transfer", x: 600, y: 1040, config: { team: "Sales" } },
-    ],
-    connections: [
-      { from: "n1", to: "n2" },
-      { from: "n2", to: "n3" },
-      { from: "n3", to: "n4" },
-      { from: "n4", to: "n5", label: "Yes" },
-      { from: "n4", to: "n6", label: "No" },
-      { from: "n5", to: "n7" },
-      { from: "n7", to: "n8" },
-      { from: "n6", to: "n9" },
-      { from: "n9", to: "n10" },
-      { from: "n10", to: "n11" },
-    ],
-  };
+const ALL_ITEMS = Object.values(NODE_TYPES).flatMap(c => c.items);
+const getDef = (t) => ALL_ITEMS.find(n => n.type === t) || { label: t, icon: "❓" };
+const getColor = (t) => t.startsWith("trigger") ? C.accent3 : t.startsWith("action") ? C.accent : C.accent2;
+let _id = 1;
+const gid = () => `n_${Date.now()}_${_id++}`;
+
+// ── SVG Connection Line ──────────────────────────────
+function ConnectionLine({ from, to, nodes }) {
+  const a = nodes.find(n => n.id === from);
+  const b = nodes.find(n => n.id === to);
+  if (!a || !b) return null;
+  const x1 = a.x + 110, y1 = a.y + 80;
+  const x2 = b.x + 110, y2 = b.y;
+  const midY = (y1 + y2) / 2;
+  return (
+    <path
+      d={`M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`}
+      fill="none" stroke={C.accent + "66"} strokeWidth={2}
+      strokeDasharray="6 3"
+    />
+  );
 }
 
-const SAVED_FLOWS = [
-  { id: "flow_001", name: "Welcome Series Automation", status: "active", nodes: 11, triggers: 482, lastRun: "2 min ago" },
-  { id: "flow_002", name: "Cart Abandonment Recovery", status: "active", nodes: 8, triggers: 1247, lastRun: "5 min ago" },
-  { id: "flow_003", name: "VIP Customer Nurture", status: "active", nodes: 14, triggers: 89, lastRun: "1 hr ago" },
-  { id: "flow_004", name: "Re-engagement Campaign", status: "paused", nodes: 9, triggers: 0, lastRun: "2 days ago" },
-  { id: "flow_005", name: "Support Ticket Routing", status: "active", nodes: 12, triggers: 3420, lastRun: "Just now" },
-  { id: "flow_006", name: "Birthday Rewards", status: "draft", nodes: 6, triggers: 0, lastRun: "Never" },
-];
-
-// ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  const [view, setView] = useState("list");
-  const [flow, setFlow] = useState(null);
-  const [nodes, setNodes] = useState([]);
-  const [connections, setConnections] = useState([]);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [dragging, setDragging] = useState(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [connecting, setConnecting] = useState(null);
-  const [zoom, setZoom] = useState(0.85);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [showPalette, setShowPalette] = useState(true);
-  const [paletteSearch, setPaletteSearch] = useState("");
-  const [paletteCategory, setPaletteCategory] = useState("all");
-  const canvasRef = useRef(null);
-
-  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
-  const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "8px 16px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" };
-  const btnSec = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" };
-
-  const loadFlow = (f) => {
-    const demo = generateDemoFlow();
-    setFlow(demo);
-    setNodes(demo.nodes);
-    setConnections(demo.connections);
-    setSelectedNode(null);
-    setView("builder");
-  };
-
-  const newFlow = () => {
-    const trigger = { id: "n_new_1", type: "trigger_message", x: 400, y: 80, config: {} };
-    setFlow({ id: "flow_new", name: "Untitled Flow", status: "draft", nodes: [trigger], connections: [] });
-    setNodes([trigger]);
-    setConnections([]);
-    setSelectedNode(null);
-    setView("builder");
-  };
-
-  const getNodeDef = (type) => ALL_NODE_DEFS.find(d => d.type === type) || { label: type, icon: "❓", color: "#6B8BAE", desc: "", category: "unknown" };
-
-  const addNode = (typeDef) => {
-    const id = `n_${Date.now()}`;
-    const cx = (canvasRef.current?.clientWidth || 800) / 2 / zoom - pan.x / zoom;
-    const cy = 200 / zoom - pan.y / zoom + nodes.length * 60;
-    const newNode = { id, type: typeDef.type, x: Math.round(cx), y: Math.round(cy), config: {} };
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNode(newNode);
-  };
-
-  const deleteNode = (nodeId) => {
-    setNodes(prev => prev.filter(n => n.id !== nodeId));
-    setConnections(prev => prev.filter(c => c.from !== nodeId && c.to !== nodeId));
-    if (selectedNode?.id === nodeId) setSelectedNode(null);
-  };
-
-  // ─── MOUSE HANDLERS ────
-  const handleCanvasMouseDown = (e) => {
-    if (e.target === canvasRef.current || e.target.classList.contains("canvas-grid")) {
-      setSelectedNode(null);
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-    }
-  };
-  const handleCanvasMouseMove = useCallback((e) => {
-    if (isPanning) {
-      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
-    }
-    if (dragging) {
-      setNodes(prev => prev.map(n => n.id === dragging ? { ...n, x: (e.clientX - dragOffset.x - pan.x) / zoom, y: (e.clientY - dragOffset.y - pan.y) / zoom } : n));
-    }
-  }, [isPanning, panStart, dragging, dragOffset, pan, zoom]);
-  const handleCanvasMouseUp = () => {
-    setIsPanning(false);
-    setDragging(null);
-    setConnecting(null);
-  };
-
-  const handleNodeMouseDown = (e, node) => {
-    e.stopPropagation();
-    setSelectedNode(node);
-    setDragging(node.id);
-    const rect = e.currentTarget.getBoundingClientRect();
-    setDragOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  const handlePortClick = (nodeId, portType) => {
-    if (portType === "out") {
-      setConnecting(nodeId);
-    } else if (portType === "in" && connecting && connecting !== nodeId) {
-      const exists = connections.some(c => c.from === connecting && c.to === nodeId);
-      if (!exists) {
-        setConnections(prev => [...prev, { from: connecting, to: nodeId }]);
-      }
-      setConnecting(null);
-    }
-  };
-
-  const deleteConnection = (fromId, toId) => {
-    setConnections(prev => prev.filter(c => !(c.from === fromId && c.to === toId)));
-  };
-
-  const handleWheel = (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.05 : 0.05;
-    setZoom(prev => Math.max(0.3, Math.min(2, prev + delta)));
-  };
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.addEventListener("wheel", handleWheel, { passive: false });
-      return () => canvas.removeEventListener("wheel", handleWheel);
-    }
-  }, []);
-
-  // ─── CONNECTION LINES (SVG) ────
-  const renderConnections = () => {
-    return connections.map((conn, i) => {
-      const fromNode = nodes.find(n => n.id === conn.from);
-      const toNode = nodes.find(n => n.id === conn.to);
-      if (!fromNode || !toNode) return null;
-
-      const fromDef = getNodeDef(fromNode.type);
-      const x1 = fromNode.x + 90;
-      const y1 = fromNode.y + 56;
-      const x2 = toNode.x + 90;
-      const y2 = toNode.y;
-      const midY = (y1 + y2) / 2;
-
-      return (
-        <g key={i}>
-          <path
-            d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
-            fill="none" stroke={fromDef.color + "66"} strokeWidth={2.5}
-            strokeDasharray={conn.label ? "6 3" : "none"}
-          />
-          {/* Clickable hitbox */}
-          <path
-            d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
-            fill="none" stroke="transparent" strokeWidth={14}
-            style={{ cursor: "pointer" }}
-            onClick={() => deleteConnection(conn.from, conn.to)}
-          />
-          {/* Arrow */}
-          <polygon
-            points={`${x2 - 5},${y2 - 8} ${x2 + 5},${y2 - 8} ${x2},${y2}`}
-            fill={fromDef.color + "88"}
-          />
-          {/* Label */}
-          {conn.label && (
-            <text x={(x1 + x2) / 2} y={midY - 6} fill={fromDef.color} fontSize={10} fontWeight={700} textAnchor="middle" fontFamily="'DM Sans', sans-serif">{conn.label}</text>
-          )}
-        </g>
-      );
-    });
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FLOW LIST VIEW
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (view === "list") {
-    return (
-      <div style={{ padding: "32px 40px", maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Flow Builder</h1>
-            <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Visual automation workflows with drag-and-drop logic</p>
-          </div>
-          <button onClick={newFlow} style={btnPrimary}>+ Create Flow</button>
+// ── Flow Node ────────────────────────────────────────
+function FlowNode({ node, selected, onMouseDown, onClick, onDelete }) {
+  const def = getDef(node.type);
+  const color = getColor(node.type);
+  const isSel = selected === node.id;
+  return (
+    <div
+      onMouseDown={e => { e.stopPropagation(); onMouseDown(e, node.id); }}
+      onClick={e => { e.stopPropagation(); onClick(node.id); }}
+      style={{
+        position: "absolute", left: node.x, top: node.y, width: 200,
+        background: C.surface, border: `2px solid ${isSel ? color : C.border}`,
+        borderRadius: 12, cursor: "grab", userSelect: "none",
+        boxShadow: isSel ? `0 0 20px ${color}33` : "0 4px 12px rgba(0,0,0,0.3)",
+        transition: "box-shadow 0.2s, border-color 0.2s", zIndex: isSel ? 10 : 1,
+      }}
+    >
+      <div style={{
+        background: color + "15", borderBottom: `1px solid ${color}33`,
+        borderRadius: "10px 10px 0 0", padding: "7px 10px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 14 }}>{def.icon}</span>
+          <span style={{ color, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            {node.type.split("_")[0]}
+          </span>
         </div>
-
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-          {[
-            { label: "Total Flows", value: SAVED_FLOWS.length, color: C.primary, icon: "⚡" },
-            { label: "Active", value: SAVED_FLOWS.filter(f => f.status === "active").length, color: "#00E676", icon: "✅" },
-            { label: "Total Triggers", value: SAVED_FLOWS.reduce((s, f) => s + f.triggers, 0).toLocaleString(), color: "#FFD600", icon: "🔔" },
-            { label: "Avg Nodes/Flow", value: (SAVED_FLOWS.reduce((s, f) => s + f.nodes, 0) / SAVED_FLOWS.length).toFixed(1), color: "#E040FB", icon: "🔗" },
-          ].map((kpi, i) => (
-            <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderTop: `3px solid ${kpi.color}`, borderRadius: 12, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 0.8 }}>{kpi.label}</span>
-                <span style={{ fontSize: 14 }}>{kpi.icon}</span>
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 6 }}>{kpi.value}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Flow Cards */}
-        <div style={{ display: "grid", gap: 12 }}>
-          {SAVED_FLOWS.map(f => {
-            const statusColor = f.status === "active" ? "#00E676" : f.status === "paused" ? "#FFD600" : "#6B8BAE";
-            return (
-              <div key={f.id} onClick={() => loadFlow(f)} style={{
-                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                borderLeft: `4px solid ${statusColor}`, borderRadius: 12, padding: "20px 24px",
-                display: "grid", gridTemplateColumns: "1fr 100px 100px 120px 100px 100px",
-                alignItems: "center", gap: 16, cursor: "pointer", transition: "all 0.2s",
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
-                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
-              >
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{f.name}</div>
-                  <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Last run: {f.lastRun}</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{f.nodes}</div>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Nodes</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{f.triggers.toLocaleString()}</div>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Triggers</div>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <span style={{ background: statusColor + "18", color: statusColor, border: `1px solid ${statusColor}44`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
-                    {f.status === "active" ? "● Active" : f.status === "paused" ? "⏸ Paused" : "◯ Draft"}
-                  </span>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <button style={{ ...btnSec, padding: "6px 12px", fontSize: 11 }}>Edit</button>
-                </div>
-                <div style={{ textAlign: "center" }}>
-                  <button style={{ ...btnSec, padding: "6px 12px", fontSize: 11 }}>Clone</button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Templates */}
-        <div style={{ marginTop: 28 }}>
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, marginBottom: 14 }}>Templates</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-            {[
-              { name: "Welcome Series", icon: "👋", desc: "Onboard new contacts with a multi-step welcome sequence", nodes: 8 },
-              { name: "Cart Recovery", icon: "🛒", desc: "Win back abandoned carts with timed SMS + email follow-ups", nodes: 10 },
-              { name: "Re-engagement", icon: "🔄", desc: "Reactivate dormant contacts with progressive messaging", nodes: 7 },
-              { name: "Support Routing", icon: "🎯", desc: "Automatically route support tickets based on keywords and sentiment", nodes: 12 },
-              { name: "Birthday Rewards", icon: "🎂", desc: "Send personalized birthday offers on the right day", nodes: 5 },
-              { name: "Lead Scoring", icon: "📊", desc: "Automatically score and qualify leads based on engagement", nodes: 9 },
-            ].map(t => (
-              <div key={t.name} onClick={newFlow} style={{
-                background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 14, padding: "20px", cursor: "pointer", transition: "all 0.2s",
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary + "44"; e.currentTarget.style.background = `${C.primary}08`; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-              >
-                <div style={{ fontSize: 32, marginBottom: 10 }}>{t.icon}</div>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t.name}</div>
-                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{t.desc}</div>
-                <span style={{ color: C.muted, fontSize: 11 }}>{t.nodes} nodes</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <button onClick={e => { e.stopPropagation(); onDelete(node.id); }} style={{
+          background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 11, padding: "2px 4px",
+        }}>✕</button>
       </div>
-    );
-  }
+      <div style={{ padding: "8px 10px" }}>
+        <div style={{ color: C.text, fontSize: 12, fontWeight: 700 }}>{node.label || def.label}</div>
+        {node.config?.message && (
+          <div style={{ color: C.muted, fontSize: 10, marginTop: 3, lineHeight: 1.4, maxHeight: 32, overflow: "hidden" }}>
+            "{node.config.message.slice(0, 50)}{node.config.message.length > 50 ? "..." : ""}"
+          </div>
+        )}
+        {node.config?.keyword && (
+          <div style={{ marginTop: 3 }}>
+            <span style={{ background: color + "22", border: `1px solid ${color}33`, borderRadius: 3, padding: "1px 5px", fontSize: 9, color }}>{node.config.keyword}</span>
+          </div>
+        )}
+        {node.config?.delay && <div style={{ color: C.muted, fontSize: 10, marginTop: 3 }}>⏳ {node.config.delay}</div>}
+        {node.config?.condition && <div style={{ color: C.muted, fontSize: 10, marginTop: 3 }}>If: {node.config.condition}</div>}
+      </div>
+      {/* Bottom connector */}
+      <div style={{
+        position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
+        width: 10, height: 10, borderRadius: "50%", background: C.surface, border: `2px solid ${color}`,
+      }} />
+      {/* Top connector */}
+      {!node.type.startsWith("trigger") && (
+        <div style={{
+          position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)",
+          width: 10, height: 10, borderRadius: "50%", background: C.surface, border: `2px solid ${color}`,
+        }} />
+      )}
+    </div>
+  );
+}
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FLOW BUILDER CANVAS
-  // ═══════════════════════════════════════════════════════════════════════════
-  const nodeDef = selectedNode ? getNodeDef(selectedNode.type) : null;
+// ── Config Panel ─────────────────────────────────────
+function ConfigPanel({ node, nodes, connections, onChange, onConnect, onDisconnect, onClose }) {
+  if (!node) return null;
+  const def = getDef(node.type);
+  const color = getColor(node.type);
+  const cfg = node.config || {};
+  const set = (k, v) => onChange(node.id, { ...cfg, [k]: v });
 
-  const filteredPalette = ALL_NODE_DEFS.filter(d => {
-    if (paletteCategory !== "all" && d.category !== paletteCategory) return false;
-    if (paletteSearch) return d.label.toLowerCase().includes(paletteSearch.toLowerCase());
-    return true;
-  });
+  const inp = {
+    width: "100%", background: C.bg, border: `1px solid ${C.border}`,
+    borderRadius: 7, padding: "8px 10px", color: C.text, fontSize: 12,
+    boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif", outline: "none",
+  };
+
+  const outgoing = connections.filter(c => c.from === node.id);
+  const available = nodes.filter(n => n.id !== node.id && !outgoing.some(c => c.to === n.id));
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}
-      onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp}
-    >
-      {/* ═══════════ LEFT: Node Palette ═══════════ */}
-      {showPalette && (
-        <div style={{ width: 240, borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
-          <div style={{ padding: "14px 12px 8px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>Node Palette</span>
-              <button onClick={() => setShowPalette(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 14 }}>✕</button>
-            </div>
-            <input value={paletteSearch} onChange={e => setPaletteSearch(e.target.value)} placeholder="Search nodes..." style={{ ...inputStyle, fontSize: 12, padding: "7px 10px", marginBottom: 6 }} />
-            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-              {[
-                { id: "all", label: "All" },
-                { id: "trigger", label: "Triggers" },
-                { id: "action", label: "Actions" },
-                { id: "condition", label: "Logic" },
-                { id: "timing", label: "Timing" },
-                { id: "end", label: "End" },
-              ].map(cat => (
-                <button key={cat.id} onClick={() => setPaletteCategory(cat.id)} style={{
-                  background: paletteCategory === cat.id ? `${C.primary}22` : "transparent",
-                  border: `1px solid ${paletteCategory === cat.id ? C.primary + "44" : "rgba(255,255,255,0.06)"}`,
-                  borderRadius: 4, padding: "2px 7px", fontSize: 9, cursor: "pointer",
-                  color: paletteCategory === cat.id ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600,
-                  fontFamily: "'DM Sans', sans-serif",
-                }}>{cat.label}</button>
-              ))}
-            </div>
-          </div>
+    <div style={{
+      width: 280, background: C.surface, borderLeft: `1px solid ${C.border}`,
+      height: "100%", overflow: "auto", padding: 16, flexShrink: 0,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 20 }}>{def.icon}</span>
+          <span style={{ color: C.text, fontSize: 15, fontWeight: 800 }}>{def.label}</span>
+        </div>
+        <button onClick={onClose} style={{ background: "transparent", border: "none", color: C.dim, cursor: "pointer", fontSize: 16 }}>✕</button>
+      </div>
 
-          <div style={{ flex: 1, overflowY: "auto", padding: "4px 12px 12px" }}>
-            {Object.entries(NODE_TYPES).map(([category, typeDefs]) => {
-              const filtered = typeDefs.filter(d => {
-                if (paletteCategory !== "all" && d.category !== paletteCategory) return false;
-                if (paletteSearch) return d.label.toLowerCase().includes(paletteSearch.toLowerCase());
-                return true;
-              });
-              if (filtered.length === 0) return null;
-              return (
-                <div key={category} style={{ marginBottom: 12 }}>
-                  <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, paddingLeft: 4 }}>{category}</div>
-                  {filtered.map(d => (
-                    <button key={d.type} onClick={() => addNode(d)} style={{
-                      width: "100%", display: "flex", alignItems: "center", gap: 8,
-                      padding: "8px 10px", borderRadius: 8, border: `1px solid ${d.color}22`,
-                      background: `${d.color}08`, cursor: "pointer", marginBottom: 4,
-                      textAlign: "left", fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.background = `${d.color}18`; e.currentTarget.style.borderColor = `${d.color}44`; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = `${d.color}08`; e.currentTarget.style.borderColor = `${d.color}22`; }}
-                    >
-                      <span style={{ fontSize: 16, width: 24, textAlign: "center" }}>{d.icon}</span>
-                      <div>
-                        <div style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>{d.label}</div>
-                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, lineHeight: 1.2 }}>{d.desc}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
+      <div style={{ color: C.muted, fontSize: 11, marginBottom: 16 }}>{def.desc}</div>
+
+      {/* Label */}
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Label</label>
+        <input style={inp} value={node.label || ""} onChange={e => onChange(node.id, cfg, e.target.value)} placeholder={def.label} />
+      </div>
+
+      {/* Type-specific config */}
+      {node.type === "trigger_keyword" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Keyword</label>
+          <input style={inp} value={cfg.keyword || ""} onChange={e => set("keyword", e.target.value)} placeholder="e.g. PROMO, HELP, INFO" />
+        </div>
+      )}
+
+      {node.type === "trigger_schedule" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Schedule</label>
+          <select style={inp} value={cfg.schedule || "daily"} onChange={e => set("schedule", e.target.value)}>
+            <option value="once">One-time</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <input type="time" style={{ ...inp, marginTop: 6 }} value={cfg.time || "09:00"} onChange={e => set("time", e.target.value)} />
+        </div>
+      )}
+
+      {(node.type === "action_sms" || node.type === "action_email" || node.type === "action_whatsapp" || node.type === "action_rcs") && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Message</label>
+          <textarea style={{ ...inp, resize: "vertical", minHeight: 70 }} value={cfg.message || ""} onChange={e => set("message", e.target.value)}
+            placeholder="Hi {first_name}! Your order is ready. Reply STOP to opt out." />
+          <div style={{ color: C.dim, fontSize: 10, marginTop: 3 }}>Use {"{first_name}"}, {"{last_name}"}, {"{phone}"} for personalization</div>
+        </div>
+      )}
+
+      {node.type === "action_tag" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Tag Name</label>
+          <input style={inp} value={cfg.tag || ""} onChange={e => set("tag", e.target.value)} placeholder="e.g. VIP, responded, interested" />
+        </div>
+      )}
+
+      {node.type === "action_webhook" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Webhook URL</label>
+          <input style={inp} value={cfg.url || ""} onChange={e => set("url", e.target.value)} placeholder="https://api.example.com/hook" />
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4, marginTop: 8 }}>Method</label>
+          <select style={inp} value={cfg.method || "POST"} onChange={e => set("method", e.target.value)}>
+            <option value="POST">POST</option>
+            <option value="GET">GET</option>
+          </select>
+        </div>
+      )}
+
+      {node.type === "logic_delay" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Delay</label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input type="number" style={{ ...inp, width: 70 }} value={cfg.delayAmount || 1} onChange={e => set("delayAmount", e.target.value)} min={1} />
+            <select style={{ ...inp, flex: 1 }} value={cfg.delayUnit || "hours"} onChange={e => set("delayUnit", e.target.value)}>
+              <option value="minutes">Minutes</option>
+              <option value="hours">Hours</option>
+              <option value="days">Days</option>
+            </select>
           </div>
         </div>
       )}
 
-      {/* ═══════════ CENTER: Canvas ═══════════ */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        {/* Toolbar */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => { setView("list"); setFlow(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13 }}>← Back</button>
-            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{flow?.name || "Untitled Flow"}</span>
-            <span style={{ background: "#00E67622", color: "#00E676", border: "1px solid #00E67644", borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>● {flow?.status || "draft"}</span>
-          </div>
+      {node.type === "logic_condition" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Condition</label>
+          <select style={inp} value={cfg.conditionType || "contains"} onChange={e => set("conditionType", e.target.value)}>
+            <option value="contains">Message contains</option>
+            <option value="sentiment">Sentiment is</option>
+            <option value="tag">Contact has tag</option>
+            <option value="replied">Has replied</option>
+          </select>
+          <input style={{ ...inp, marginTop: 6 }} value={cfg.conditionValue || ""} onChange={e => set("conditionValue", e.target.value)} placeholder="Value..." />
+        </div>
+      )}
+
+      {node.type === "logic_ai" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>AI Instructions</label>
+          <textarea style={{ ...inp, resize: "vertical", minHeight: 60 }} value={cfg.aiPrompt || ""} onChange={e => set("aiPrompt", e.target.value)}
+            placeholder="Classify intent: support, sales, billing, or other" />
+        </div>
+      )}
+
+      {node.type === "logic_split" && (
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Split Ratio</label>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {!showPalette && <button onClick={() => setShowPalette(true)} style={btnSec}>+ Nodes</button>}
-            <button onClick={() => setZoom(prev => Math.min(2, prev + 0.15))} style={{ ...btnSec, padding: "6px 10px" }}>+</button>
-            <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, width: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(prev => Math.max(0.3, prev - 0.15))} style={{ ...btnSec, padding: "6px 10px" }}>−</button>
-            <button onClick={() => { setZoom(0.85); setPan({ x: 0, y: 0 }); }} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Reset</button>
-            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
-            <button style={btnSec}>▶ Test</button>
-            <button style={btnPrimary}>💾 Save</button>
+            <span style={{ color: C.accent, fontSize: 12, fontWeight: 700 }}>A: {cfg.splitA || 50}%</span>
+            <input type="range" min={10} max={90} value={cfg.splitA || 50} onChange={e => set("splitA", parseInt(e.target.value))} style={{ flex: 1, accentColor: C.accent }} />
+            <span style={{ color: C.accent2, fontSize: 12, fontWeight: 700 }}>B: {100 - (cfg.splitA || 50)}%</span>
           </div>
         </div>
+      )}
 
-        {/* Canvas */}
-        <div ref={canvasRef} onMouseDown={handleCanvasMouseDown} style={{
-          width: "100%", height: "100%", cursor: isPanning ? "grabbing" : connecting ? "crosshair" : "grab",
-          background: `radial-gradient(circle at 50% 50%, ${C.primary}05 0%, transparent 70%)`,
-          position: "relative", overflow: "hidden",
-        }}>
-          {/* Grid Pattern */}
-          <div className="canvas-grid" style={{
-            position: "absolute", inset: 0,
-            backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)`,
-            backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
-            backgroundPosition: `${pan.x}px ${pan.y}px`,
-          }} />
-
-          {/* Transform wrapper */}
-          <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "0 0", position: "absolute", top: 0, left: 0 }}>
-            {/* SVG Connections */}
-            <svg style={{ position: "absolute", top: 0, left: 0, width: 2000, height: 2000, pointerEvents: "none", overflow: "visible" }}>
-              <g style={{ pointerEvents: "auto" }}>{renderConnections()}</g>
-              {/* Active connecting line */}
-              {connecting && (
-                <line x1={nodes.find(n => n.id === connecting)?.x + 90 || 0} y1={nodes.find(n => n.id === connecting)?.y + 56 || 0}
-                  x2={nodes.find(n => n.id === connecting)?.x + 90 || 0} y2={(nodes.find(n => n.id === connecting)?.y || 0) + 100}
-                  stroke={C.primary} strokeWidth={2} strokeDasharray="6 3" opacity={0.5}
-                />
-              )}
-            </svg>
-
-            {/* Nodes */}
-            {nodes.map(node => {
-              const def = getNodeDef(node.type);
-              const isSelected = selectedNode?.id === node.id;
-              const isConnectTarget = connecting && connecting !== node.id;
-
+      {/* Connections */}
+      <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 12, paddingTop: 12 }}>
+        <label style={{ color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 8 }}>Connect to →</label>
+        {outgoing.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+            {outgoing.map(conn => {
+              const target = nodes.find(n => n.id === conn.to);
+              const tDef = target ? getDef(target.type) : { icon: "?", label: "?" };
               return (
-                <div key={node.id} onMouseDown={e => handleNodeMouseDown(e, node)}
-                  style={{
-                    position: "absolute", left: node.x, top: node.y, width: 180,
-                    background: isSelected ? `${def.color}20` : "rgba(15,15,25,0.92)",
-                    border: `2px solid ${isSelected ? def.color : isConnectTarget ? C.primary + "88" : def.color + "33"}`,
-                    borderRadius: 14, padding: 0, cursor: dragging === node.id ? "grabbing" : "grab",
-                    boxShadow: isSelected ? `0 0 20px ${def.color}33` : `0 4px 20px rgba(0,0,0,0.4)`,
-                    transition: dragging === node.id ? "none" : "box-shadow 0.2s, border-color 0.2s",
-                    userSelect: "none", zIndex: isSelected ? 100 : 1,
-                    backdropFilter: "blur(10px)",
-                  }}
-                >
-                  {/* Input port */}
-                  {def.category !== "trigger" && (
-                    <div onClick={e => { e.stopPropagation(); handlePortClick(node.id, "in"); }}
-                      style={{
-                        position: "absolute", top: -7, left: "50%", transform: "translateX(-50%)",
-                        width: 14, height: 14, borderRadius: "50%",
-                        background: isConnectTarget ? C.primary : def.color + "44",
-                        border: `2px solid ${isConnectTarget ? C.primary : def.color}`,
-                        cursor: "pointer", zIndex: 10,
-                      }}
-                    />
-                  )}
-
-                  {/* Header */}
-                  <div style={{
-                    background: `${def.color}22`, borderBottom: `1px solid ${def.color}22`,
-                    padding: "8px 12px", borderRadius: "12px 12px 0 0",
-                    display: "flex", alignItems: "center", gap: 8,
-                  }}>
-                    <span style={{ fontSize: 16 }}>{def.icon}</span>
-                    <span style={{ color: def.color, fontSize: 11, fontWeight: 700, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{def.label}</span>
-                    <span style={{ fontSize: 8, color: def.color + "66", textTransform: "uppercase", letterSpacing: 0.5 }}>{def.category}</span>
-                  </div>
-
-                  {/* Body */}
-                  <div style={{ padding: "8px 12px 10px" }}>
-                    {node.config?.message && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, lineHeight: 1.3, overflow: "hidden", maxHeight: 28 }}>{node.config.message.slice(0, 50)}...</div>
-                    )}
-                    {node.config?.duration && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>⏱ {node.config.duration} {node.config.unit}</div>
-                    )}
-                    {node.config?.field && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>If {node.config.field} {node.config.operator} {node.config.value}</div>
-                    )}
-                    {node.config?.tag && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>🏷️ {node.config.tag}</div>
-                    )}
-                    {node.config?.subject && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>📧 {node.config.subject}</div>
-                    )}
-                    {node.config?.campaign && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>🚀 {node.config.campaign}</div>
-                    )}
-                    {node.config?.team && (
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>↗️ → {node.config.team}</div>
-                    )}
-                    {!node.config?.message && !node.config?.duration && !node.config?.field && !node.config?.tag && !node.config?.subject && !node.config?.campaign && !node.config?.team && (
-                      <div style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, fontStyle: "italic" }}>Click to configure</div>
-                    )}
-                  </div>
-
-                  {/* Output port */}
-                  {def.category !== "end" && (
-                    <div onClick={e => { e.stopPropagation(); handlePortClick(node.id, "out"); }}
-                      style={{
-                        position: "absolute", bottom: -7, left: "50%", transform: "translateX(-50%)",
-                        width: 14, height: 14, borderRadius: "50%",
-                        background: connecting === node.id ? C.primary : def.color + "44",
-                        border: `2px solid ${connecting === node.id ? C.primary : def.color}`,
-                        cursor: "pointer", zIndex: 10,
-                      }}
-                    />
-                  )}
-
-                  {/* Branch ports for conditions */}
-                  {def.category === "condition" && (
-                    <>
-                      <div style={{ position: "absolute", bottom: -7, left: "25%", transform: "translateX(-50%)", width: 10, height: 10, borderRadius: "50%", background: "#00E676", border: "2px solid #00E676", cursor: "pointer" }} title="Yes" />
-                      <div style={{ position: "absolute", bottom: -7, left: "75%", transform: "translateX(-50%)", width: 10, height: 10, borderRadius: "50%", background: "#FF3B30", border: "2px solid #FF3B30", cursor: "pointer" }} title="No" />
-                    </>
-                  )}
+                <div key={conn.to} style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  background: C.bg, borderRadius: 6, padding: "5px 8px",
+                }}>
+                  <span style={{ color: C.text, fontSize: 11 }}>{tDef.icon} {target?.label || tDef.label}</span>
+                  <button onClick={() => onDisconnect(node.id, conn.to)} style={{
+                    background: "transparent", border: "none", color: "#FF6B6B", cursor: "pointer", fontSize: 10,
+                  }}>Remove</button>
                 </div>
               );
             })}
           </div>
+        )}
+        {available.length > 0 && (
+          <select
+            onChange={e => { if (e.target.value) { onConnect(node.id, e.target.value); e.target.value = ""; } }}
+            style={inp}
+            defaultValue=""
+          >
+            <option value="">+ Add connection...</option>
+            {available.map(n => (
+              <option key={n.id} value={n.id}>{getDef(n.type).icon} {n.label || getDef(n.type).label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+    </div>
+  );
+}
 
-          {/* Connecting indicator */}
-          {connecting && (
-            <div style={{ position: "absolute", bottom: 60, left: "50%", transform: "translateX(-50%)", background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "8px 18px", color: C.primary, fontSize: 12, fontWeight: 600, backdropFilter: "blur(8px)", zIndex: 20 }}>
-              Click a node's input port to connect · Press Esc to cancel
+// ── MAIN FLOW BUILDER ────────────────────────────────
+export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, tenantId }) {
+  const tid = currentTenantId || tenantId || null;
+  const [nodes, setNodes] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [dragging, setDragging] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [flowName, setFlowName] = useState("My Flow");
+  const [flows, setFlows] = useState([]);
+  const [currentFlowId, setCurrentFlowId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [sidebarTab, setSidebarTab] = useState("nodes"); // "nodes" or "flows"
+  const canvasRef = useRef(null);
+
+  useEffect(() => { loadFlows(); }, [demoMode, tid]);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const loadFlows = async () => {
+    if (demoMode) {
+      setFlows([
+        { id: 'demo_1', name: 'Welcome Sequence', status: 'active', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
+        { id: 'demo_2', name: 'Cart Abandonment', status: 'active', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
+        { id: 'demo_3', name: 'Re-engagement', status: 'draft', flow_data: { nodes: [], connections: [] }, updated_at: new Date().toISOString() },
+      ]);
+      return;
+    }
+    try {
+      let query = supabase.from("flows").select("*").order("updated_at", { ascending: false }).limit(20);
+      if (tid) query = query.eq("tenant_id", tid);
+      const { data } = await query;
+      if (data) setFlows(data);
+    } catch (err) { console.log("No flows table:", err); }
+  };
+
+  const saveFlow = async () => {
+    if (demoMode) {
+      showToast("Flow saved! (demo mode)");
+      return;
+    }
+    try {
+      const flowData = { nodes, connections, name: flowName };
+      if (currentFlowId) {
+        await supabase.from("flows").update({ flow_data: flowData, name: flowName, updated_at: new Date().toISOString() }).eq("id", currentFlowId);
+      } else {
+        const { data } = await supabase.from("flows").insert({ tenant_id: tid, name: flowName, flow_data: flowData, status: "draft" }).select().single();
+        if (data) setCurrentFlowId(data.id);
+      }
+      loadFlows();
+      showToast("Flow saved!");
+    } catch (err) {
+      showToast("Save error: " + err.message, "error");
+    }
+  };
+
+  const loadFlow = (flow) => {
+    if (flow.flow_data) {
+      setNodes(flow.flow_data.nodes || []);
+      setConnections(flow.flow_data.connections || []);
+      setFlowName(flow.flow_data.name || flow.name || "My Flow");
+      setCurrentFlowId(flow.id);
+      setSelected(null);
+      setSidebarTab("nodes");
+    }
+  };
+
+  const newFlow = () => {
+    setNodes([]);
+    setConnections([]);
+    setFlowName("New Flow");
+    setCurrentFlowId(null);
+    setSelected(null);
+  };
+
+  const addNode = (type) => {
+    const def = getDef(type);
+    const x = 300 + Math.random() * 200 - pan.x;
+    const y = 100 + nodes.length * 120 - pan.y;
+    setNodes(prev => [...prev, { id: gid(), type, x, y, label: def.label, config: {} }]);
+  };
+
+  const deleteNode = (id) => {
+    setNodes(prev => prev.filter(n => n.id !== id));
+    setConnections(prev => prev.filter(c => c.from !== id && c.to !== id));
+    if (selected === id) setSelected(null);
+  };
+
+  const updateNodeConfig = (id, config, label) => {
+    setNodes(prev => prev.map(n => n.id === id ? { ...n, config, ...(label !== undefined ? { label } : {}) } : n));
+  };
+
+  const connect = (from, to) => {
+    if (!connections.some(c => c.from === from && c.to === to)) {
+      setConnections(prev => [...prev, { from, to }]);
+    }
+  };
+
+  const disconnect = (from, to) => {
+    setConnections(prev => prev.filter(c => !(c.from === from && c.to === to)));
+  };
+
+  // Drag handlers
+  const handleNodeDragStart = (e, id) => {
+    const node = nodes.find(n => n.id === id);
+    if (!node) return;
+    setDragging(id);
+    setDragOffset({ x: e.clientX - node.x - pan.x, y: e.clientY - node.y - pan.y });
+  };
+
+  const handleCanvasMouseDown = (e) => {
+    if (e.target === canvasRef.current || e.target.tagName === "svg") {
+      setSelected(null);
+      setPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = useCallback((e) => {
+    if (dragging) {
+      setNodes(prev => prev.map(n => n.id === dragging ? { ...n, x: e.clientX - dragOffset.x - pan.x, y: e.clientY - dragOffset.y - pan.y } : n));
+    }
+    if (panning) {
+      setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    }
+  }, [dragging, dragOffset, pan, panning, panStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(null);
+    setPanning(false);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleMouseMove, handleMouseUp]);
+
+  const selectedNode = nodes.find(n => n.id === selected);
+
+  return (
+    <div style={{
+      height: "100vh", display: "flex", background: C.bg,
+      fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: C.text, overflow: "hidden",
+    }}>
+      <style>{`
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 2000,
+          background: toast.type === "error" ? "#FF000022" : C.accent3 + "22",
+          border: `1px solid ${toast.type === "error" ? "#FF000044" : C.accent3 + "44"}`,
+          borderRadius: 10, padding: "12px 20px",
+          color: toast.type === "error" ? "#FF6B6B" : C.accent3,
+          fontSize: 14, fontWeight: 600, animation: "toastIn 0.3s ease",
+        }}>
+          {toast.type === "error" ? "❌ " : "✅ "}{toast.msg}
+        </div>
+      )}
+
+      {/* Left Sidebar - Node Palette */}
+      <div style={{
+        width: 220, background: C.surface, borderRight: `1px solid ${C.border}`,
+        display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden",
+      }}>
+        {/* Sidebar Tabs */}
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.border}` }}>
+          {["nodes", "flows"].map(tab => (
+            <button key={tab} onClick={() => setSidebarTab(tab)} style={{
+              flex: 1, padding: "10px 8px", background: sidebarTab === tab ? C.accent + "15" : "transparent",
+              border: "none", borderBottom: sidebarTab === tab ? `2px solid ${C.accent}` : "2px solid transparent",
+              color: sidebarTab === tab ? C.accent : C.muted, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", textTransform: "capitalize",
+            }}>{tab === "nodes" ? "🧩 Nodes" : "📂 Flows"}</button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1, overflow: "auto", padding: 10 }}>
+          {sidebarTab === "nodes" ? (
+            Object.entries(NODE_TYPES).map(([key, cat]) => (
+              <div key={key} style={{ marginBottom: 14 }}>
+                <div style={{ color: cat.color, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, padding: "0 4px" }}>
+                  {cat.label}
+                </div>
+                {cat.items.map(item => (
+                  <div key={item.type} onClick={() => addNode(item.type)} style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "7px 8px", borderRadius: 7, cursor: "pointer",
+                    border: `1px solid transparent`,
+                    transition: "all 0.15s",
+                    marginBottom: 2,
+                  }}
+                    onMouseOver={e => { e.currentTarget.style.background = cat.color + "11"; e.currentTarget.style.borderColor = cat.color + "33"; }}
+                    onMouseOut={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+                  >
+                    <span style={{ fontSize: 15 }}>{item.icon}</span>
+                    <div>
+                      <div style={{ color: C.text, fontSize: 11, fontWeight: 600 }}>{item.label}</div>
+                      <div style={{ color: C.dim, fontSize: 9 }}>{item.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div>
+              <button onClick={newFlow} style={{
+                width: "100%", background: C.accent + "15", border: `1px solid ${C.accent}33`,
+                borderRadius: 7, padding: "8px 10px", color: C.accent, fontSize: 12,
+                fontWeight: 700, cursor: "pointer", marginBottom: 10,
+              }}>+ New Flow</button>
+              {flows.map(f => (
+                <div key={f.id} onClick={() => loadFlow(f)} style={{
+                  padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+                  background: currentFlowId === f.id ? C.accent + "11" : "transparent",
+                  border: `1px solid ${currentFlowId === f.id ? C.accent + "33" : "transparent"}`,
+                  marginBottom: 4, transition: "all 0.15s",
+                }}
+                  onMouseOver={e => { if (currentFlowId !== f.id) e.currentTarget.style.background = C.surfaceAlt; }}
+                  onMouseOut={e => { if (currentFlowId !== f.id) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{f.name}</div>
+                  <div style={{ color: C.dim, fontSize: 10, marginTop: 2 }}>
+                    {f.flow_data?.nodes?.length || 0} nodes · {new Date(f.updated_at || f.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              ))}
+              {flows.length === 0 && (
+                <div style={{ color: C.dim, fontSize: 11, textAlign: "center", padding: 16 }}>No saved flows yet</div>
+              )}
             </div>
           )}
-
-          {/* Canvas stats */}
-          <div style={{ position: "absolute", bottom: 12, left: 16, display: "flex", gap: 12, zIndex: 10 }}>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>{nodes.length} nodes</span>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>{connections.length} connections</span>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Zoom: {Math.round(zoom * 100)}%</span>
-          </div>
         </div>
       </div>
 
-      {/* ═══════════ RIGHT: Properties Panel ═══════════ */}
-      {selectedNode && (
-        <div style={{ width: 300, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
-          <div style={{ padding: "16px" }}>
-            {/* Node Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 22 }}>{nodeDef?.icon}</span>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{nodeDef?.label}</div>
-                  <div style={{ color: nodeDef?.color, fontSize: 10, textTransform: "uppercase" }}>{nodeDef?.category}</div>
-                </div>
-              </div>
-              <button onClick={() => deleteNode(selectedNode.id)} style={{ background: "#FF3B3022", border: "1px solid #FF3B3044", borderRadius: 6, padding: "4px 10px", color: "#FF3B30", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Delete</button>
-            </div>
-
-            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginBottom: 16, lineHeight: 1.4 }}>{nodeDef?.desc}</div>
-
-            {/* Node Properties */}
-            <div style={{ display: "grid", gap: 14 }}>
-              <div>
-                <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Node ID</label>
-                <div style={{ ...inputStyle, background: "rgba(0,0,0,0.2)", color: "rgba(255,255,255,0.3)", fontFamily: "monospace", fontSize: 11 }}>{selectedNode.id}</div>
-              </div>
-
-              {/* Dynamic fields based on type */}
-              {(nodeDef?.category === "action" && selectedNode.type.includes("sms")) && (
-                <>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Message</label>
-                    <textarea value={selectedNode.config?.message || ""} onChange={e => {
-                      const updated = { ...selectedNode, config: { ...selectedNode.config, message: e.target.value } };
-                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                      setSelectedNode(updated);
-                    }} rows={4} style={{ ...inputStyle, resize: "vertical" }} placeholder="Enter SMS message..." />
-                  </div>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Sender ID</label>
-                    <select style={inputStyle}><option>Default</option><option>+1 (555) 000-1234</option><option>ENGWX</option></select>
-                  </div>
-                </>
-              )}
-
-              {(nodeDef?.category === "action" && selectedNode.type.includes("email")) && (
-                <>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Subject Line</label>
-                    <input value={selectedNode.config?.subject || ""} onChange={e => {
-                      const updated = { ...selectedNode, config: { ...selectedNode.config, subject: e.target.value } };
-                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                      setSelectedNode(updated);
-                    }} style={inputStyle} placeholder="Email subject..." />
-                  </div>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Template</label>
-                    <select style={inputStyle}><option>Select template...</option><option>Welcome Email</option><option>Onboarding Guide</option><option>Promotional</option></select>
-                  </div>
-                </>
-              )}
-
-              {nodeDef?.category === "timing" && (
-                <>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Duration</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input type="number" value={selectedNode.config?.duration || ""} onChange={e => {
-                        const updated = { ...selectedNode, config: { ...selectedNode.config, duration: parseInt(e.target.value) } };
-                        setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                        setSelectedNode(updated);
-                      }} style={{ ...inputStyle, width: "50%" }} placeholder="0" />
-                      <select value={selectedNode.config?.unit || "hours"} onChange={e => {
-                        const updated = { ...selectedNode, config: { ...selectedNode.config, unit: e.target.value } };
-                        setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                        setSelectedNode(updated);
-                      }} style={{ ...inputStyle, width: "50%" }}>
-                        <option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days">Days</option>
-                      </select>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {nodeDef?.category === "condition" && (
-                <>
-                  <div>
-                    <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Condition Field</label>
-                    <select style={inputStyle} value={selectedNode.config?.field || ""} onChange={e => {
-                      const updated = { ...selectedNode, config: { ...selectedNode.config, field: e.target.value } };
-                      setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                      setSelectedNode(updated);
-                    }}>
-                      <option value="">Select field...</option>
-                      <option value="replied">Has Replied</option>
-                      <option value="tag">Has Tag</option>
-                      <option value="channel">Channel</option>
-                      <option value="open_rate">Open Rate</option>
-                      <option value="sentiment">Sentiment Score</option>
-                    </select>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Operator</label>
-                      <select style={inputStyle}><option>equals</option><option>not equals</option><option>contains</option><option>greater than</option><option>less than</option></select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Value</label>
-                      <input value={selectedNode.config?.value || ""} onChange={e => {
-                        const updated = { ...selectedNode, config: { ...selectedNode.config, value: e.target.value } };
-                        setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                        setSelectedNode(updated);
-                      }} style={inputStyle} placeholder="Value" />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {selectedNode.type.includes("tag") && (
-                <div>
-                  <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Tag Name</label>
-                  <select style={inputStyle} value={selectedNode.config?.tag || ""} onChange={e => {
-                    const updated = { ...selectedNode, config: { ...selectedNode.config, tag: e.target.value } };
-                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? updated : n));
-                    setSelectedNode(updated);
-                  }}>
-                    <option value="">Select tag...</option>
-                    {["VIP", "Engaged", "New", "Churned", "Lead", "Prospect", "Active", "Inactive"].map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {selectedNode.type.includes("campaign") && (
-                <div>
-                  <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Campaign</label>
-                  <select style={inputStyle}><option>Select campaign...</option><option>Product Tour Series</option><option>Spring Flash Sale</option><option>Re-engagement</option></select>
-                </div>
-              )}
-
-              {selectedNode.type.includes("transfer") && (
-                <div>
-                  <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Transfer To</label>
-                  <select style={inputStyle}><option>Select team...</option><option>Sales</option><option>Support</option><option>Billing</option><option>Technical</option></select>
-                </div>
-              )}
-
-              {/* Position */}
-              <div>
-                <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Position</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ ...inputStyle, background: "rgba(0,0,0,0.2)", color: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "monospace" }}>X: {Math.round(selectedNode.x)}</div>
-                  <div style={{ ...inputStyle, background: "rgba(0,0,0,0.2)", color: "rgba(255,255,255,0.3)", fontSize: 11, fontFamily: "monospace" }}>Y: {Math.round(selectedNode.y)}</div>
-                </div>
-              </div>
-
-              {/* Connections */}
-              <div>
-                <label style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Connections</label>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                  <div>In: {connections.filter(c => c.to === selectedNode.id).length}</div>
-                  <div>Out: {connections.filter(c => c.from === selectedNode.id).length}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Connect button */}
-            <button onClick={() => setConnecting(selectedNode.id)} style={{ ...btnSec, width: "100%", marginTop: 16 }}>🔗 Connect to another node</button>
+      {/* Canvas */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Toolbar */}
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "8px 16px", borderBottom: `1px solid ${C.border}`, background: C.surface,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 18 }}>⚡</span>
+            <input
+              value={flowName}
+              onChange={e => setFlowName(e.target.value)}
+              style={{
+                background: "transparent", border: "none", color: C.text,
+                fontSize: 16, fontWeight: 800, outline: "none", width: 200,
+              }}
+            />
+            <span style={{
+              background: C.accent3 + "22", border: `1px solid ${C.accent3}44`,
+              borderRadius: 4, padding: "2px 8px", fontSize: 10, color: C.accent3, fontWeight: 700,
+            }}>{nodes.length} nodes</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={saveFlow} style={{
+              background: `linear-gradient(135deg, ${C.accent}, ${C.accent2})`,
+              border: "none", borderRadius: 7, padding: "7px 18px",
+              color: "#000", fontWeight: 800, cursor: "pointer", fontSize: 12,
+            }}>💾 Save</button>
           </div>
         </div>
+
+        {/* Canvas Area */}
+        <div
+          ref={canvasRef}
+          onMouseDown={handleCanvasMouseDown}
+          style={{
+            flex: 1, position: "relative", overflow: "hidden", cursor: panning ? "grabbing" : "default",
+            backgroundImage: `radial-gradient(${C.border}55 1px, transparent 1px)`,
+            backgroundSize: "24px 24px",
+            backgroundPosition: `${pan.x}px ${pan.y}px`,
+          }}
+        >
+          {/* SVG Connections */}
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+            <g transform={`translate(${pan.x},${pan.y})`}>
+              {connections.map((conn, i) => (
+                <ConnectionLine key={i} from={conn.from} to={conn.to} nodes={nodes} />
+              ))}
+            </g>
+          </svg>
+
+          {/* Nodes */}
+          <div style={{ position: "absolute", left: pan.x, top: pan.y }}>
+            {nodes.map(node => (
+              <FlowNode
+                key={node.id}
+                node={node}
+                selected={selected}
+                onMouseDown={handleNodeDragStart}
+                onClick={setSelected}
+                onDelete={deleteNode}
+              />
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {nodes.length === 0 && (
+            <div style={{
+              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+              textAlign: "center", pointerEvents: "none",
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>⚡</div>
+              <div style={{ color: C.text, fontSize: 20, fontWeight: 800 }}>Build Your Flow</div>
+              <div style={{ color: C.muted, fontSize: 14, marginTop: 6, maxWidth: 300 }}>
+                Click nodes from the left panel to add them, then connect them to create automation workflows
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right Panel - Config */}
+      {selectedNode && (
+        <ConfigPanel
+          node={selectedNode}
+          nodes={nodes}
+          connections={connections}
+          onChange={updateNodeConfig}
+          onConnect={connect}
+          onDisconnect={disconnect}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
