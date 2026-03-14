@@ -190,7 +190,7 @@ const LandingPage = () => {
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
             <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-              <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
+              <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
               <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
               <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
               <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
@@ -901,7 +901,7 @@ const LandingPage = () => {
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
             <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-              <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
+              <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
               <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
               <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
               <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
@@ -1228,7 +1228,7 @@ const LandingPage = () => {
               <p>AI-powered customer engagement across every channel. Built for teams that move fast.</p>
               <p style={{fontSize: 13, color: '#6B8BAE', marginTop: 8}}><a href="tel:+13058108877" style={{color: '#00C9FF', textDecoration: 'none'}}>+1 (305) 810-8877</a></p>
               <div style={{display: 'flex', gap: 12, marginTop: 10}}>
-                <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="LinkedIn">in</a>
+                <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="LinkedIn">in</a>
                 <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="X">𝕏</a>
                 <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="Instagram">📷</a>
                 <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="Facebook">f</a>
