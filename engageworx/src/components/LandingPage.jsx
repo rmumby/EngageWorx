@@ -370,10 +370,10 @@ const LandingPage = () => {
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
             {[
-              { num: '1M+', label: 'Monthly capacity' },
+              { num: '🤖', label: 'AI integrated' },
               { num: '6', label: 'Channels supported' },
               { num: '99.9%', label: 'Uptime SLA' },
-              { num: '6', label: 'Channels supported' },
+              { num: '∞', label: 'Multi-tenant ready' },
             ].map((s, i) => (
               <div key={i} style={{ background: '#0d1220', padding: '32px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{s.num}</div>
@@ -948,8 +948,8 @@ const LandingPage = () => {
         {/* STATS BAR */}
         <div className="lp-stats-bar lp-fade-up">
           <div className="lp-stat-item"><div className="lp-stat-number">99.9%</div><div className="lp-stat-label">Uptime SLA</div></div>
-          <div className="lp-stat-item"><div className="lp-stat-number">1M+</div><div className="lp-stat-label">Messages / Month Capacity</div></div>
-          <div className="lp-stat-item"><div className="lp-stat-number">2.1s</div><div className="lp-stat-label">Avg Delivery Speed</div></div>
+          <div className="lp-stat-item"><div className="lp-stat-number">🤖</div><div className="lp-stat-label">AI Integrated & Ready</div></div>
+          <div className="lp-stat-item"><div className="lp-stat-number">6</div><div className="lp-stat-label">Channels Supported</div></div>
           <div className="lp-stat-item"><div className="lp-stat-number">∞</div><div className="lp-stat-label">Multi-Tenant Ready</div></div>
         </div>
 
@@ -994,19 +994,22 @@ const LandingPage = () => {
         <section className="lp-section" id="lp-features">
           <div style={{ textAlign: 'center' }} className="lp-fade-up">
             <div className="lp-section-label">⚡ Features</div>
-            <h2 className="lp-section-title">Built for teams<br />that move fast.</h2>
+            <h2 className="lp-section-title">Everything included.<br />Nothing to build.</h2>
             <p className="lp-section-sub" style={{ margin: '0 auto' }}>
-              Everything you need to engage customers, automate workflows, and scale conversations — without the enterprise complexity.
+              Self-service from day one. Sign up, configure, and go live — no sales call, no developer, no waiting.
             </p>
           </div>
           <div className="lp-features-grid">
             {[
-              { icon: '🤖', title: 'AI Chatbot', desc: 'Configure personality, tone, and escalation rules. Your AI agent handles 90%+ of conversations automatically.' },
-              { icon: '📊', title: 'Real-Time Analytics', desc: 'Message volume, sentiment analysis, conversion tracking, and agent performance — all in one dashboard.' },
-              { icon: '⚡', title: 'Visual Flow Builder', desc: 'Drag-and-drop automation workflows. Triggers, conditions, delays, and AI classification — no code required.' },
-              { icon: '🎯', title: 'Smart Campaigns', desc: 'AI generates your copy, picks the best send time, and A/B tests variants. Just describe what you want.' },
-              { icon: '💬', title: 'Unified Inbox', desc: 'Every conversation across every channel in one live inbox. Assign agents, track sentiment, resolve fast.' },
-              { icon: '📋', title: 'Compliance Built-In', desc: 'TCR/10DLC registration, opt-in/opt-out management, TCPA compliance, and consent tracking — all handled.' },
+              { icon: '🤖', title: 'AI Chatbot Studio', desc: 'Pre-built and ready to deploy. Configure personality, tone, and escalation rules. Handles 90%+ of conversations automatically with intent classification and sentiment analysis.' },
+              { icon: '🎯', title: 'Campaign Templates', desc: '8 ready-to-use templates — promotional, welcome series, appointment reminders, surveys, cart recovery, and more. Or let AI write your copy in seconds.' },
+              { icon: '📊', title: 'Global Analytics Dashboard', desc: 'Real-time insights across every channel. Message volume, delivery rates, AI resolution stats, campaign ROI, and revenue per customer — all in one view.' },
+              { icon: '⚡', title: 'Visual Flow Builder', desc: '5 pre-built automation flows included. Drag-and-drop triggers, conditions, delays, and AI steps. No code required.' },
+              { icon: '💬', title: 'Unified Inbox', desc: 'Every conversation — SMS, email, voice, WhatsApp — in one live inbox with real-time updates. Assign agents, track sentiment, resolve fast.' },
+              { icon: '🔒', title: 'Compliance Built-In', desc: 'TCR/10DLC registration, RCS agent verification, opt-in/opt-out management, and consent tracking. Campaign launch blocked until carrier approval.' },
+              { icon: '🎨', title: 'White-Label Ready', desc: 'Your brand, your colors, your domain. Your customers never see EngageWorx. Full multi-tenant architecture with complete data isolation.' },
+              { icon: '🚀', title: 'Self-Service Platform', desc: 'Go live in under 5 minutes. No sales call needed, no developer required. Sign up, pick a plan, configure your channels, and start engaging customers.' },
+              { icon: '📞', title: 'Voice & IVR', desc: 'Inbound call handling with IVR routing, business hours logic, after-hours voicemail, automatic transcription, and email notifications. Replace your answering service.' },
             ].map((f, i) => (
               <div className="lp-feature-card lp-fade-up" key={i}>
                 <div className="lp-feature-icon">{f.icon}</div>
@@ -1021,16 +1024,16 @@ const LandingPage = () => {
         <section className="lp-section" id="lp-how" style={{ background: 'linear-gradient(180deg, #050810, #131b2e, #050810)' }}>
           <div style={{ textAlign: 'center' }} className="lp-fade-up">
             <div className="lp-section-label">🚀 How It Works</div>
-            <h2 className="lp-section-title">Live in minutes,<br />not months.</h2>
+            <h2 className="lp-section-title">Self-service.<br />Live in minutes.</h2>
             <p className="lp-section-sub" style={{ margin: '0 auto' }}>
-              From sign-up to sending your first campaign in under 10 minutes. No engineering team required.
+              No sales call. No developer. Sign up, configure, and send your first campaign in under 5 minutes.
             </p>
           </div>
           <div className="lp-steps">
             {[
-              { num: '1', title: 'Sign Up & Connect', desc: 'Create your account, verify your business, and connect your phone number in minutes.' },
-              { num: '2', title: 'Import & Configure', desc: 'Upload contacts via CSV, configure your AI chatbot, and set up automation flows.' },
-              { num: '3', title: 'Engage & Scale', desc: 'Launch campaigns, monitor analytics, and let AI handle conversations while you grow.' },
+              { num: '1', title: 'Sign Up & Pay', desc: 'Create your account, pick a plan, and complete checkout. Your portal is ready instantly.' },
+              { num: '2', title: 'Configure & Import', desc: 'Set up your AI chatbot, import contacts, choose from 8 campaign templates, and configure your channels.' },
+              { num: '3', title: 'Engage & Scale', desc: 'Launch campaigns, let AI handle conversations, and monitor real-time analytics as your business grows.' },
             ].map((s, i) => (
               <div className="lp-step lp-fade-up" key={i}>
                 <div className="lp-step-num">{s.num}</div>
