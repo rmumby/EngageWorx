@@ -161,7 +161,7 @@ const LandingPage = () => {
         .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
         .lp-logo-text span { color: #00C9FF; }
         @media (max-width: 768px) {
-          .lp-sub-nav { padding: 12px 20px; }
+          .lp-sub-nav { padding: 12px 20px; position: sticky; top: 0; z-index: 50; background: #050810; }
           .lp-sub-nav-links { display: none !important; }
           .lp-sub-hamburger { display: block !important; }
         }
@@ -172,6 +172,7 @@ const LandingPage = () => {
           <div className="lp-logo-text">Engage<span>Worx</span></div>
         </div>
         <ul className="lp-sub-nav-links">
+          <li><span onClick={() => navigateTo('home')}>Home</span></li>
           <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
           <li><span onClick={() => navigateTo('about')}>About</span></li>
           <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
@@ -182,11 +183,18 @@ const LandingPage = () => {
         {mobileMenuOpen && (
           <div style={{ position: 'fixed', inset: 0, background: '#080d1aee', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
             <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
+            <span onClick={() => { navigateTo('home'); setMobileMenuOpen(false); }} style={{ color: '#00C9FF', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Home</span>
             <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
             <span onClick={() => { navigateTo('contact'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Contact</span>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
+            <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
+              <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
+              <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
+              <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
+              <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
+            </div>
           </div>
         )}
       </nav>
@@ -362,8 +370,8 @@ const LandingPage = () => {
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
             {[
-              { num: '50M+', label: 'Messages delivered' },
-              { num: '500+', label: 'Businesses trust us' },
+              { num: '1M+', label: 'Monthly capacity' },
+              { num: '6', label: 'Channels supported' },
               { num: '99.9%', label: 'Uptime SLA' },
               { num: '6', label: 'Channels supported' },
             ].map((s, i) => (
@@ -850,6 +858,8 @@ const LandingPage = () => {
           .lp-hero h1 { letter-spacing: -1.5px; }
           .lp-hero-actions { flex-direction: column; align-items: center; }
           .lp-hero-floating { display: none; }
+          body, html { overflow-x: hidden; }
+          section, .lp-section { overflow-x: hidden; padding-left: 16px !important; padding-right: 16px !important; }
           .lp-stats-bar { grid-template-columns: repeat(2, 1fr); margin: -20px 20px 0; }
           .lp-section { padding: 80px 20px; }
           .lp-channels-grid, .lp-features-grid, .lp-pricing-grid, .lp-testimonial-grid, .lp-steps { grid-template-columns: 1fr; }
@@ -890,6 +900,12 @@ const LandingPage = () => {
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
+            <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
+              <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
+              <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
+              <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
+              <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
+            </div>
           </div>
         )}
         </nav>
@@ -900,7 +916,7 @@ const LandingPage = () => {
           <div className="lp-hero-orb lp-hero-orb-2" />
 
           <div className="lp-hero-floating lp-fb-1">
-            <div className="lp-float-badge"><span className="lp-emoji">💬</span> <strong>2.4M</strong>&nbsp;messages sent today</div>
+            
           </div>
           <div className="lp-hero-floating lp-fb-2">
             <div className="lp-float-badge"><span className="lp-emoji">🤖</span> <strong>94%</strong>&nbsp;AI resolution rate</div>
@@ -932,9 +948,9 @@ const LandingPage = () => {
         {/* STATS BAR */}
         <div className="lp-stats-bar lp-fade-up">
           <div className="lp-stat-item"><div className="lp-stat-number">99.9%</div><div className="lp-stat-label">Uptime SLA</div></div>
-          <div className="lp-stat-item"><div className="lp-stat-number">50M+</div><div className="lp-stat-label">Messages Delivered</div></div>
+          <div className="lp-stat-item"><div className="lp-stat-number">1M+</div><div className="lp-stat-label">Messages / Month Capacity</div></div>
           <div className="lp-stat-item"><div className="lp-stat-number">2.1s</div><div className="lp-stat-label">Avg Delivery Speed</div></div>
-          <div className="lp-stat-item"><div className="lp-stat-number">500+</div><div className="lp-stat-label">Businesses Trust Us</div></div>
+          <div className="lp-stat-item"><div className="lp-stat-number">∞</div><div className="lp-stat-label">Multi-Tenant Ready</div></div>
         </div>
 
         {/* CHANNELS */}
@@ -1208,6 +1224,12 @@ const LandingPage = () => {
               </div>
               <p>AI-powered customer engagement across every channel. Built for teams that move fast.</p>
               <p style={{fontSize: 13, color: '#6B8BAE', marginTop: 8}}><a href="tel:+13058108877" style={{color: '#00C9FF', textDecoration: 'none'}}>+1 (305) 810-8877</a></p>
+              <div style={{display: 'flex', gap: 12, marginTop: 10}}>
+                <a href="https://www.linkedin.com/company/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="LinkedIn">in</a>
+                <a href="https://x.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="X">𝕏</a>
+                <a href="https://www.instagram.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="Instagram">📷</a>
+                <a href="https://www.facebook.com/engageworkx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="Facebook">f</a>
+              </div>
             </div>
             <div className="lp-footer-col">
               <h4>Product</h4>
