@@ -200,7 +200,13 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+  // Safe color defaults to prevent blank screen if C is missing properties
+  const C = {
+    primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
+    border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
+    ...(rawC || {}),
+  };
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
@@ -519,6 +525,19 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   // ═══════════════════════════════════════════════════════════════════════════
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
+  if (!demoMode && liveError && conversations.length === 0) {
+    return (
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", background: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+          <h2 style={{ color: "#fff", margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
+          <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>No conversations yet. Send an email to hello@engwx.com to see it here.</p>
+          {liveError && <p style={{ color: "#FF6B35", fontSize: 12 }}>Debug: {liveError}</p>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
