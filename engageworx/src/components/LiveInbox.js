@@ -366,8 +366,10 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
 
   // ── Real-time subscription for new messages ──
   useEffect(() => {
-    if (demoMode) return;
-    const channel = supabase
+    if (demoMode || !supabase) return;
+    let channel, callChannel;
+    try {
+    channel = supabase
       .channel('live-inbox-messages')
       .on('postgres_changes', {
         event: 'INSERT',
@@ -395,7 +397,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       .subscribe();
 
     // Also subscribe to calls for real-time voicemail notifications
-    const callChannel = supabase
+    callChannel = supabase
       .channel('live-inbox-calls')
       .on('postgres_changes', {
         event: 'INSERT',
@@ -407,10 +409,15 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
         }
       })
       .subscribe();
+    } catch (subErr) {
+      console.warn('Realtime subscription error:', subErr?.message);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(callChannel);
+      try {
+        if (channel) supabase.removeChannel(channel);
+        if (callChannel) supabase.removeChannel(callChannel);
+      } catch (e) {}
     };
   }, [demoMode, selectedConv?.id, inboxTab]);
 
