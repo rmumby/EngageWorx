@@ -1,0 +1,271 @@
+// /api/inbound-email.js — Vercel Serverless Function
+// Receives inbound emails via SendGrid Inbound Parse
+// Runs through Claude AI for intelligent auto-response
+// Sends reply via Resend from hello@engwx.com
+//
+// Flow: Email to hello@engwx.com → SendGrid Inbound Parse → This endpoint → Claude AI → Resend reply
+
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
+);
+
+module.exports = async function handler(req, res) {
+  // SendGrid sends POST with multipart form data
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'POST only' });
+  }
+
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+  if (!ANTHROPIC_API_KEY || !RESEND_API_KEY) {
+    console.error('Missing ANTHROPIC_API_KEY or RESEND_API_KEY');
+    return res.status(500).json({ error: 'Service not configured' });
+  }
+
+  try {
+    // SendGrid Inbound Parse sends form-encoded data
+    const {
+      from: senderRaw,
+      to,
+      subject,
+      text,
+      html,
+      sender_ip,
+      envelope: envelopeRaw,
+    } = req.body;
+
+    // Parse sender email from "Name <email@example.com>" format
+    const senderMatch = (senderRaw || '').match(/<([^>]+)>/) || [null, senderRaw];
+    const senderEmail = (senderMatch[1] || senderRaw || '').trim().toLowerCase();
+    const senderName = (senderRaw || '').replace(/<[^>]+>/, '').trim() || senderEmail;
+
+    // Skip auto-replies, bounces, and noreply addresses
+    const skipPatterns = ['noreply', 'no-reply', 'mailer-daemon', 'postmaster', 'bounce', 'auto-reply', 'autoreply'];
+    if (skipPatterns.some(p => senderEmail.includes(p))) {
+      console.log(`Skipping auto-reply from ${senderEmail}`);
+      return res.status(200).json({ skipped: true, reason: 'auto-reply' });
+    }
+
+    // Skip emails from ourselves
+    if (senderEmail.includes('engwx.com')) {
+      console.log(`Skipping internal email from ${senderEmail}`);
+      return res.status(200).json({ skipped: true, reason: 'internal' });
+    }
+
+    const emailBody = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+    const emailSubject = subject || '(no subject)';
+
+    console.log(`📧 Inbound email from ${senderEmail}: ${emailSubject}`);
+
+    // ── Log to Supabase ──
+    let emailLogId = null;
+    try {
+      const { data: logEntry } = await supabase.from('inbound_emails').insert({
+        sender_email: senderEmail,
+        sender_name: senderName,
+        subject: emailSubject,
+        body: emailBody.substring(0, 10000), // Limit stored body
+        received_at: new Date().toISOString(),
+        status: 'processing',
+      }).select().single();
+      emailLogId = logEntry?.id;
+    } catch (logErr) {
+      // Table might not exist yet — continue without logging
+      console.log('Email log skipped (table may not exist):', logErr.message);
+    }
+
+    // ── Classify intent and generate response with Claude ──
+    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        system: `You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle incoming emails to hello@engwx.com.
+
+Key facts about EngageWorx:
+- AI-powered CPaaS platform: SMS, RCS, WhatsApp, Email, Voice
+- White-label multi-tenant architecture for service providers and direct businesses
+- Built-in AI chatbot with 90%+ resolution rate (powered by Claude)
+- Visual flow builder, campaign management, real-time analytics
+- Voice IVR system with voicemail and transcription
+- Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
+- Self-service: go live in under 5 minutes
+- No platform fee — transparent pricing
+- Contact: +1 (305) 810-8877, rob@engwx.com, www.engwx.com
+- Founded by Rob Mumby
+
+Your job:
+1. Classify the intent (sales_inquiry, partnership, support, demo_request, pricing, spam, other)
+2. Write a warm, professional, concise reply (3-5 sentences max)
+3. For sales/demo/partnership inquiries: express interest, highlight relevant features, offer to schedule a call
+4. For support: acknowledge and offer help
+5. For spam or irrelevant: do not reply (set intent to "spam")
+6. Always sign off as "The EngageWorx Team" with contact info
+7. Never make up features that don't exist
+8. Do not use markdown formatting in the email body
+
+Respond ONLY with valid JSON (no markdown backticks):
+{
+  "intent": "sales_inquiry|partnership|support|demo_request|pricing|spam|other",
+  "sentiment": "positive|neutral|negative",
+  "should_reply": true|false,
+  "reply_subject": "Re: <original subject>",
+  "reply_body": "Your reply text here",
+  "notify_rob": true|false,
+  "summary": "One-line summary for internal tracking"
+}`,
+        messages: [{
+          role: 'user',
+          content: `New email received:
+From: ${senderName} <${senderEmail}>
+Subject: ${emailSubject}
+Body: ${emailBody.substring(0, 3000)}`
+        }],
+      }),
+    });
+
+    const aiData = await aiResponse.json();
+    const aiText = aiData.content?.find(c => c.type === 'text')?.text || '{}';
+    
+    // Parse AI response (strip any backticks just in case)
+    let parsed;
+    try {
+      const cleaned = aiText.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      console.error('AI response parse error:', parseErr.message, aiText);
+      parsed = {
+        intent: 'other',
+        sentiment: 'neutral',
+        should_reply: true,
+        reply_subject: `Re: ${emailSubject}`,
+        reply_body: `Thank you for reaching out to EngageWorx. We've received your message and our team will get back to you shortly.\n\nIn the meantime, feel free to call us at +1 (305) 810-8877 or visit www.engwx.com.\n\nBest regards,\nThe EngageWorx Team`,
+        notify_rob: true,
+        summary: 'Failed to parse AI response — sent generic reply',
+      };
+    }
+
+    // ── Send auto-reply via Resend (if should_reply) ──
+    let replyResult = null;
+    if (parsed.should_reply) {
+      const emailHtml = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="padding: 24px;">
+            ${parsed.reply_body.split('\n').map(line => `<p style="color: #1a1a2e; font-size: 15px; line-height: 1.7; margin: 0 0 12px;">${line}</p>`).join('')}
+          </div>
+          <div style="border-top: 1px solid #e5e7eb; padding: 16px 24px; margin-top: 8px;">
+            <p style="margin: 0; font-size: 13px; color: #6b7280;">
+              <strong style="color: #1a1a2e;">EngageWorx</strong> — AI-Powered Customer Communications<br/>
+              <a href="https://www.engwx.com" style="color: #00C9FF; text-decoration: none;">www.engwx.com</a> · 
+              <a href="tel:+13058108877" style="color: #00C9FF; text-decoration: none;">+1 (305) 810-8877</a>
+            </p>
+          </div>
+        </div>
+      `;
+
+      try {
+        const sendResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'EngageWorx <hello@engwx.com>',
+            to: [senderEmail],
+            subject: parsed.reply_subject || `Re: ${emailSubject}`,
+            html: emailHtml,
+            reply_to: 'rob@engwx.com',
+          }),
+        });
+        replyResult = await sendResponse.json();
+        console.log(`✉️ Auto-reply sent to ${senderEmail}: ${parsed.reply_subject}`);
+      } catch (sendErr) {
+        console.error('Resend error:', sendErr);
+      }
+    }
+
+    // ── Notify Rob for important inquiries ──
+    if (parsed.notify_rob) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'EngageWorx AI <notifications@engwx.com>',
+            to: ['rob@engwx.com'],
+            subject: `📧 [${parsed.intent}] ${emailSubject} — from ${senderName}`,
+            html: `
+              <div style="font-family: -apple-system, sans-serif; max-width: 600px;">
+                <div style="background: #0d1117; color: #e8f4fd; border-radius: 12px; padding: 24px; margin-bottom: 16px;">
+                  <h2 style="margin: 0 0 12px; font-size: 18px; color: #00C9FF;">New Inquiry — ${parsed.intent.replace('_', ' ').toUpperCase()}</h2>
+                  <table style="width: 100%; font-size: 14px;">
+                    <tr><td style="color: #6b8bae; padding: 4px 0;">From</td><td style="color: #e8f4fd;">${senderName} &lt;${senderEmail}&gt;</td></tr>
+                    <tr><td style="color: #6b8bae; padding: 4px 0;">Subject</td><td style="color: #e8f4fd;">${emailSubject}</td></tr>
+                    <tr><td style="color: #6b8bae; padding: 4px 0;">Intent</td><td style="color: #00C9FF; font-weight: 700;">${parsed.intent}</td></tr>
+                    <tr><td style="color: #6b8bae; padding: 4px 0;">Sentiment</td><td style="color: #e8f4fd;">${parsed.sentiment}</td></tr>
+                    <tr><td style="color: #6b8bae; padding: 4px 0;">AI Summary</td><td style="color: #e8f4fd;">${parsed.summary}</td></tr>
+                  </table>
+                </div>
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                  <h3 style="margin: 0 0 8px; font-size: 14px; color: #374151;">Original Message</h3>
+                  <p style="color: #4b5563; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${emailBody.substring(0, 2000)}</p>
+                </div>
+                ${parsed.should_reply ? `
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px;">
+                  <h3 style="margin: 0 0 8px; font-size: 14px; color: #166534;">AI Auto-Reply Sent</h3>
+                  <p style="color: #4b5563; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${parsed.reply_body}</p>
+                </div>` : '<p style="color: #dc2626; font-size: 13px;">No auto-reply sent (classified as spam or not applicable).</p>'}
+                <p style="color: #9ca3af; font-size: 12px; margin-top: 16px;">Reply directly to ${senderEmail} to continue the conversation.</p>
+              </div>
+            `,
+            reply_to: senderEmail,
+          }),
+        });
+        console.log(`🔔 Rob notified about ${parsed.intent} from ${senderEmail}`);
+      } catch (notifyErr) {
+        console.error('Rob notification error:', notifyErr);
+      }
+    }
+
+    // ── Update Supabase log ──
+    if (emailLogId) {
+      try {
+        await supabase.from('inbound_emails').update({
+          intent: parsed.intent,
+          sentiment: parsed.sentiment,
+          ai_summary: parsed.summary,
+          reply_sent: parsed.should_reply,
+          reply_body: parsed.reply_body || null,
+          status: 'processed',
+        }).eq('id', emailLogId);
+      } catch (logErr) {
+        console.log('Log update skipped:', logErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      intent: parsed.intent,
+      sentiment: parsed.sentiment,
+      replied: parsed.should_reply,
+      notified_rob: parsed.notify_rob,
+    });
+
+  } catch (err) {
+    console.error('Inbound email error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
