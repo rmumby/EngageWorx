@@ -4,6 +4,9 @@
 // Sends reply via Resend from hello@engwx.com
 //
 // Flow: Email to hello@engwx.com → SendGrid Inbound Parse → This endpoint → Claude AI → Resend reply
+//
+// IMPORTANT: SendGrid sends multipart/form-data, so we need to parse it manually.
+// Vercel's default body parser doesn't handle multipart.
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -11,6 +14,66 @@ const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
 );
+
+// Disable Vercel's default body parser — we need raw body for multipart parsing
+module.exports.config = { api: { bodyParser: false } };
+
+// Simple multipart form-data parser
+function parseMultipart(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks).toString();
+      const contentType = req.headers['content-type'] || '';
+      
+      // If it's URL-encoded (SendGrid sometimes sends this way)
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        const params = new URLSearchParams(body);
+        const result = {};
+        for (const [key, value] of params) { result[key] = value; }
+        return resolve(result);
+      }
+      
+      // If it's multipart/form-data
+      if (contentType.includes('multipart/form-data')) {
+        const boundary = contentType.split('boundary=')[1];
+        if (!boundary) return resolve({ _raw: body });
+        const parts = body.split('--' + boundary).filter(p => p.trim() && p.trim() !== '--');
+        const result = {};
+        parts.forEach(part => {
+          const nameMatch = part.match(/name="([^"]+)"/);
+          if (nameMatch) {
+            const name = nameMatch[1];
+            const valueStart = part.indexOf('\r\n\r\n');
+            if (valueStart > -1) {
+              let value = part.substring(valueStart + 4).trim();
+              // Remove trailing boundary marker
+              if (value.endsWith('--')) value = value.slice(0, -2).trim();
+              if (value.endsWith('\r\n')) value = value.slice(0, -2);
+              result[name] = value;
+            }
+          }
+        });
+        return resolve(result);
+      }
+
+      // Try JSON
+      try { return resolve(JSON.parse(body)); } catch (e) {}
+      
+      // Fallback: try URL-encoded
+      try {
+        const params = new URLSearchParams(body);
+        const result = {};
+        for (const [key, value] of params) { result[key] = value; }
+        if (Object.keys(result).length > 0) return resolve(result);
+      } catch (e) {}
+
+      resolve({ _raw: body });
+    });
+    req.on('error', reject);
+  });
+}
 
 module.exports = async function handler(req, res) {
   // SendGrid sends POST with multipart form data
@@ -27,7 +90,11 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // SendGrid Inbound Parse sends form-encoded data
+    // Parse SendGrid's multipart/form-data POST
+    const fields = await parseMultipart(req);
+    
+    console.log('📧 Inbound Parse received. Fields:', Object.keys(fields).join(', '));
+
     const {
       from: senderRaw,
       to,
@@ -36,7 +103,7 @@ module.exports = async function handler(req, res) {
       html,
       sender_ip,
       envelope: envelopeRaw,
-    } = req.body;
+    } = fields;
 
     // Parse sender email from "Name <email@example.com>" format
     const senderMatch = (senderRaw || '').match(/<([^>]+)>/) || [null, senderRaw];
