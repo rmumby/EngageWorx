@@ -313,6 +313,11 @@ function TenantManagement({ C, demoMode = false }) {
             colors: {
               primary: t.brand_primary || '#00C9FF',
               accent: t.brand_secondary || '#E040FB',
+              bg: '#080d1a',
+              surface: '#0d1425',
+              border: '#182440',
+              text: '#E8F4FD',
+              muted: '#6B8BAE',
             },
             plan: t.plan || 'starter',
             status: t.status || 'active',
