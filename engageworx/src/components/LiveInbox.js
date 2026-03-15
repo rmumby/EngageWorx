@@ -201,13 +201,14 @@ function timeAgo(date) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  // Safe color defaults to prevent blank screen if C is missing properties
+  // Safe color defaults
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
     border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
     ...(rawC || {}),
   };
 
+  // ALL state hooks — must be before any early return
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
@@ -220,7 +221,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const [showCanned, setShowCanned] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(true);
   const [sortBy, setSortBy] = useState("recent");
-  const [inboxTab, setInboxTab] = useState("messages"); // "messages" | "calls"
+  const [inboxTab, setInboxTab] = useState("messages");
   const [liveMessages, setLiveMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -230,15 +231,19 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
-  // Fetch live conversations from Supabase
+  // ALL useEffect hooks — must run every render (React rules)
   useEffect(() => {
-    if (demoMode || !supabase) {
+    if (demoMode) {
       setConversations(generateConversations());
+      setLiveReady(true);
       return;
     }
+    // Live mode: fetch conversations
     const fetchConversations = async () => {
       try {
-        let query = supabase.from('conversations').select('*');
+        const { supabase: sb } = await import('./supabaseClient');
+        if (!sb) { setLiveReady(true); return; }
+        let query = sb.from('conversations').select('*');
         if (currentTenantId && viewLevel === 'tenant') {
           query = query.eq('tenant_id', currentTenantId);
         }
@@ -247,15 +252,15 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           console.warn('Conversations query error:', error.message);
           setLiveError(error.message);
           setConversations([]);
+          setLiveReady(true);
           return;
         }
-        // Sort client-side to avoid column-not-found errors
         const sorted = (data || []).sort((a, b) => {
           const dateA = a.last_message_at || a.updated_at || a.created_at || '';
           const dateB = b.last_message_at || b.updated_at || b.created_at || '';
           return dateB.localeCompare(dateA);
         });
-        const mapped = (sorted || []).map(conv => ({
+        const mapped = sorted.map(conv => ({
           id: conv.id,
           channel: (conv.channel || 'sms').toLowerCase(),
           status: conv.status || 'active',
@@ -263,34 +268,25 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           unread: conv.unread_count || 0,
           lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
           subject: conv.subject || '',
-          contact: {
-            name: conv.contact_name || 'Unknown',
-            email: conv.contact_email || '',
-            phone: conv.contact_phone || '',
-            company: '',
-            tags: [],
-            avatar: null,
-          },
-          messages: [],
+          contact: { name: 'Unknown', email: '', phone: '', company: '', tags: [], avatar: null },
+          messages: [{ id: 'placeholder', from: 'system', text: conv.subject || 'New conversation', time: new Date(), agent: null, read: true, delivered: true }],
           aiSummary: conv.ai_summary || '',
           sentiment: conv.sentiment_score || 0,
           tenant_id: conv.tenant_id,
           contact_id: conv.contact_id,
         }));
         setConversations(mapped);
-        setLiveReady(true);
+        // Fetch contact details
         const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
         if (contactIds.length > 0) {
           try {
-            const { data: contactData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
+            const { data: contactData } = await sb.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
             if (contactData) {
               const contactMap = {};
               contactData.forEach(c => { contactMap[c.id] = c; });
               setConversations(prev => prev.map(conv => {
                 const c = contactMap[conv.contact_id];
-                if (c) {
-                  return { ...conv, contact: { name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown', email: c.email || '', phone: c.phone || '', company: c.company || '', tags: c.tags || [], avatar: null } };
-                }
+                if (c) return { ...conv, contact: { name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown', email: c.email || '', phone: c.phone || '', company: c.company || '', tags: c.tags || [], avatar: null } };
                 return conv;
               }));
             }
@@ -298,6 +294,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
             console.warn('Contact lookup error:', contactErr.message);
           }
         }
+        setLiveReady(true);
       } catch (err) {
         console.warn('Conversations fetch error:', err.message);
         setConversations([]);
@@ -306,33 +303,29 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       }
     };
     fetchConversations();
-  }, [demoMode, supabase, currentTenantId, viewLevel]);
+  }, [demoMode, currentTenantId, viewLevel]);
 
-  // ── Load messages when a conversation is selected (live mode) ──
+  // Load messages for selected conversation (live mode)
   useEffect(() => {
-    if (demoMode || !supabase || !selectedConv?.id) return;
+    if (demoMode || !selectedConv?.id) return;
     const loadMessages = async () => {
       setLoadingMessages(true);
       try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', selectedConv.id)
-          .order('created_at', { ascending: true });
+        const { supabase: sb } = await import('./supabaseClient');
+        if (!sb) return;
+        const { data, error } = await sb.from('messages').select('*').eq('conversation_id', selectedConv.id).order('created_at', { ascending: true }).limit(100);
         if (error) throw error;
         const mapped = (data || []).map(m => ({
           id: m.id,
-          from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'bot' ? 'bot' : 'agent',
+          from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'bot' || m.sender_type === 'ai' ? 'bot' : 'agent',
           text: m.body || m.subject || '',
-          time: m.created_at ? Math.floor((Date.now() - new Date(m.created_at).getTime()) / 60000) : 0,
+          time: 0,
           agent: m.sender_id || null,
           status: m.status,
           channel: m.channel,
           sentAt: m.created_at,
         }));
-        // Merge live messages into selected conversation
-        setSelectedConv(prev => prev ? { ...prev, messages: mapped } : prev);
-        setLiveMessages(mapped);
+        setSelectedConv(prev => prev ? { ...prev, messages: mapped.length > 0 ? mapped : prev.messages } : prev);
       } catch (err) {
         console.warn('Messages fetch error:', err.message);
       }
@@ -341,17 +334,15 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     loadMessages();
   }, [demoMode, selectedConv?.id]);
 
-  // ── Load calls/voicemails (live mode) ──
+  // Load calls
   useEffect(() => {
-    if (demoMode || !supabase || inboxTab !== 'calls') return;
+    if (demoMode || inboxTab !== 'calls') return;
     const loadCalls = async () => {
       setLoadingCalls(true);
       try {
-        let query = supabase
-          .from('calls')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50);
+        const { supabase: sb } = await import('./supabaseClient');
+        if (!sb) return;
+        let query = sb.from('calls').select('*').order('created_at', { ascending: false }).limit(50);
         if (currentTenantId && viewLevel === 'tenant') {
           query = query.eq('tenant_id', currentTenantId);
         }
@@ -367,73 +358,30 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     loadCalls();
   }, [demoMode, inboxTab, currentTenantId, viewLevel]);
 
-  // ── Real-time subscription for new messages ──
+  // Real-time subscriptions (skip in live mode for now to prevent crashes)
   useEffect(() => {
-    if (demoMode || !supabase) return;
-    let channel, callChannel;
-    try {
-    channel = supabase
-      .channel('live-inbox-messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-      }, (payload) => {
-        const m = payload.new;
-        // If this message belongs to the selected conversation, add it
-        if (selectedConv && m.conversation_id === selectedConv.id) {
-          const newMsg = {
-            id: m.id,
-            from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'bot' ? 'bot' : 'agent',
-            text: m.body || m.subject || '',
-            time: 0,
-            agent: m.sender_id || null,
-            status: m.status,
-            channel: m.channel,
-            sentAt: m.created_at,
-          };
-          setSelectedConv(prev => prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev);
-        }
-        // Refresh conversation list to update previews
-        // (handled by re-fetching on next render)
-      })
-      .subscribe();
-
-    // Also subscribe to calls for real-time voicemail notifications
-    callChannel = supabase
-      .channel('live-inbox-calls')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'calls',
-      }, (payload) => {
-        if (inboxTab === 'calls') {
-          setCalls(prev => [payload.new, ...prev]);
-        }
-      })
-      .subscribe();
-    } catch (subErr) {
-      console.warn('Realtime subscription error:', subErr?.message);
-    }
-
-    return () => {
-      try {
-        if (channel) supabase.removeChannel(channel);
-        if (callChannel) supabase.removeChannel(callChannel);
-      } catch (e) {}
-    };
+    if (demoMode) return;
+    // Real-time subscriptions disabled temporarily to prevent crash
+    return () => {};
   }, [demoMode, selectedConv?.id, inboxTab]);
 
-  // ── Send message (live mode) ──
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [selectedConv, selectedConv?.messages?.length]);
+
   const handleSendLive = async () => {
-    if (!supabase || !composeText.trim() || !selectedConv) return;
+    if (!composeText.trim() || !selectedConv) return;
     setSendingMessage(true);
     try {
       const messageBody = composeText.trim();
       setComposeText("");
 
       // Insert message into Supabase
-      const { error: msgError } = await supabase.from('messages').insert({
+      const { supabase: sb } = await import('./supabaseClient');
+      if (!sb) return;
+      const { error: msgError } = await sb.from('messages').insert({
         tenant_id: selectedConv.tenant_id || currentTenantId,
         conversation_id: selectedConv.id,
         contact_id: selectedConv.contact_id || null,
@@ -447,7 +395,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       if (msgError) throw msgError;
 
       // Update conversation last_message
-      await supabase.from('conversations').update({
+      await sb.from('conversations').update({
         last_message_at: new Date().toISOString(),
         last_message_preview: messageBody.substring(0, 100),
         updated_at: new Date().toISOString(),
