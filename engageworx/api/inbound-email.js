@@ -145,6 +145,78 @@ module.exports = async function handler(req, res) {
       console.log('Email log skipped (table may not exist):', logErr.message);
     }
 
+    // ── Wire into Live Inbox: Create contact, conversation, and messages ──
+    // Find the My Business tenant (EngageWorx's own tenant)
+    let tenantId = null;
+    let contactId = null;
+    let conversationId = null;
+    try {
+      // Get My Business tenant
+      const { data: tenants } = await supabase.from('tenants').select('id').eq('name', 'My Business').limit(1);
+      tenantId = tenants?.[0]?.id || null;
+
+      if (tenantId) {
+        // Find or create contact
+        const { data: existingContact } = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
+        if (existingContact?.length > 0) {
+          contactId = existingContact[0].id;
+        } else {
+          const nameParts = senderName.split(' ');
+          const { data: newContact } = await supabase.from('contacts').insert({
+            tenant_id: tenantId,
+            first_name: nameParts[0] || senderName,
+            last_name: nameParts.slice(1).join(' ') || '',
+            email: senderEmail,
+            status: 'subscribed',
+          }).select().single();
+          contactId = newContact?.id;
+        }
+
+        // Find existing conversation or create new one
+        const { data: existingConv } = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
+        if (existingConv?.length > 0) {
+          conversationId = existingConv[0].id;
+          await supabase.from('conversations').update({
+            last_message_at: new Date().toISOString(),
+            last_message: emailBody.substring(0, 200),
+            subject: emailSubject,
+            status: 'active',
+            unread_count: 1,
+          }).eq('id', conversationId);
+        } else {
+          const { data: newConv } = await supabase.from('conversations').insert({
+            tenant_id: tenantId,
+            contact_id: contactId,
+            channel: 'email',
+            subject: emailSubject,
+            status: 'active',
+            last_message: emailBody.substring(0, 200),
+            last_message_at: new Date().toISOString(),
+            unread_count: 1,
+          }).select().single();
+          conversationId = newConv?.id;
+        }
+
+        // Insert inbound message
+        if (conversationId) {
+          await supabase.from('messages').insert({
+            tenant_id: tenantId,
+            conversation_id: conversationId,
+            contact_id: contactId,
+            channel: 'email',
+            direction: 'inbound',
+            sender_type: 'contact',
+            body: emailBody.substring(0, 5000),
+            status: 'received',
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+      console.log(`📋 Live Inbox wired: tenant=${tenantId}, contact=${contactId}, conversation=${conversationId}`);
+    } catch (inboxErr) {
+      console.log('Live Inbox wiring skipped:', inboxErr.message);
+    }
+
     // ── Classify intent and generate response with Claude ──
     const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -256,6 +328,31 @@ Body: ${emailBody.substring(0, 3000)}`
         });
         replyResult = await sendResponse.json();
         console.log(`✉️ Auto-reply sent to ${senderEmail}: ${parsed.reply_subject}`);
+
+        // Log AI reply as outbound message in Live Inbox
+        if (conversationId && tenantId) {
+          try {
+            await supabase.from('messages').insert({
+              tenant_id: tenantId,
+              conversation_id: conversationId,
+              contact_id: contactId,
+              channel: 'email',
+              direction: 'outbound',
+              sender_type: 'ai',
+              body: parsed.reply_body,
+              status: 'delivered',
+              created_at: new Date().toISOString(),
+            });
+            await supabase.from('conversations').update({
+              last_message: parsed.reply_body.substring(0, 200),
+              last_message_at: new Date().toISOString(),
+              status: 'waiting',
+              unread_count: 0,
+            }).eq('id', conversationId);
+          } catch (replyLogErr) {
+            console.log('Reply log skipped:', replyLogErr.message);
+          }
+        }
       } catch (sendErr) {
         console.error('Resend error:', sendErr);
       }
