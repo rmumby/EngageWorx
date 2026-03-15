@@ -152,39 +152,54 @@ module.exports = async function handler(req, res) {
     let conversationId = null;
     try {
       // Get My Business tenant
-      const { data: tenants } = await supabase.from('tenants').select('id').eq('name', 'My Business').limit(1);
-      tenantId = tenants?.[0]?.id || null;
+      const { data: tenants, error: tenantErr } = await supabase.from('tenants').select('id, name').limit(10);
+      console.log('📋 Tenants found:', JSON.stringify(tenants?.map(t => ({ id: t.id, name: t.name }))));
+      if (tenantErr) console.log('📋 Tenant error:', tenantErr.message);
+      
+      // Find tenant named "My Business" or use first available tenant
+      const myBiz = tenants?.find(t => t.name === 'My Business');
+      tenantId = myBiz?.id || tenants?.[0]?.id || null;
+      console.log('📋 Using tenant:', tenantId);
 
       if (tenantId) {
         // Find or create contact
-        const { data: existingContact } = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
+        const { data: existingContact, error: contactErr } = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
+        if (contactErr) console.log('📋 Contact lookup error:', contactErr.message);
+        
         if (existingContact?.length > 0) {
           contactId = existingContact[0].id;
+          console.log('📋 Existing contact found:', contactId);
         } else {
           const nameParts = senderName.split(' ');
-          const { data: newContact } = await supabase.from('contacts').insert({
+          const { data: newContact, error: newContactErr } = await supabase.from('contacts').insert({
             tenant_id: tenantId,
             first_name: nameParts[0] || senderName,
             last_name: nameParts.slice(1).join(' ') || '',
             email: senderEmail,
             status: 'subscribed',
           }).select().single();
+          if (newContactErr) console.log('📋 Contact create error:', newContactErr.message);
           contactId = newContact?.id;
+          console.log('📋 New contact created:', contactId);
         }
 
         // Find existing conversation or create new one
-        const { data: existingConv } = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
+        const { data: existingConv, error: convErr } = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
+        if (convErr) console.log('📋 Conversation lookup error:', convErr.message);
+        
         if (existingConv?.length > 0) {
           conversationId = existingConv[0].id;
-          await supabase.from('conversations').update({
+          const { error: updateErr } = await supabase.from('conversations').update({
             last_message_at: new Date().toISOString(),
             last_message: emailBody.substring(0, 200),
             subject: emailSubject,
             status: 'active',
             unread_count: 1,
           }).eq('id', conversationId);
+          if (updateErr) console.log('📋 Conversation update error:', updateErr.message);
+          console.log('📋 Existing conversation updated:', conversationId);
         } else {
-          const { data: newConv } = await supabase.from('conversations').insert({
+          const { data: newConv, error: newConvErr } = await supabase.from('conversations').insert({
             tenant_id: tenantId,
             contact_id: contactId,
             channel: 'email',
@@ -194,12 +209,14 @@ module.exports = async function handler(req, res) {
             last_message_at: new Date().toISOString(),
             unread_count: 1,
           }).select().single();
+          if (newConvErr) console.log('📋 Conversation create error:', newConvErr.message);
           conversationId = newConv?.id;
+          console.log('📋 New conversation created:', conversationId);
         }
 
         // Insert inbound message
         if (conversationId) {
-          await supabase.from('messages').insert({
+          const { error: msgErr } = await supabase.from('messages').insert({
             tenant_id: tenantId,
             conversation_id: conversationId,
             contact_id: contactId,
@@ -210,6 +227,8 @@ module.exports = async function handler(req, res) {
             status: 'received',
             created_at: new Date().toISOString(),
           });
+          if (msgErr) console.log('📋 Message insert error:', msgErr.message);
+          else console.log('📋 Inbound message saved');
         }
       }
       console.log(`📋 Live Inbox wired: tenant=${tenantId}, contact=${contactId}, conversation=${conversationId}`);
