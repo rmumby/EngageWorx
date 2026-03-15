@@ -963,7 +963,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto" }}>
         {page === "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
