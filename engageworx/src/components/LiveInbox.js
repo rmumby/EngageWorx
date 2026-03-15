@@ -1,3 +1,4 @@
+// LiveInbox v3 — fixed lastMsg undefined crash
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 
