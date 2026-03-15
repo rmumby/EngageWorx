@@ -207,19 +207,8 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     ...(rawC || {}),
   };
 
-  // In live mode, show a simple static screen (no Supabase, no hooks that could crash)
-  if (!demoMode) {
-    return (
-      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-          <h2 style={{ color: C.text || '#fff', margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          <p style={{ color: C.muted || '#6B8BAE', fontSize: 14 }}>Send an email to hello@engwx.com to see conversations here.</p>
-          <p style={{ color: C.muted || '#6B8BAE', fontSize: 12, marginTop: 8 }}>AI auto-response is active. Conversations will appear once Supabase integration is verified.</p>
-        </div>
-      </div>
-    );
-  }
+  // ALL hooks must be declared before any conditional return (React rules)
+  const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
   const [liveReady, setLiveReady] = useState(demoMode);
@@ -241,145 +230,29 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
-  // ALL useEffect hooks — must run every render (React rules)
+  // Empty useEffects for live mode (must run every render to maintain hook count)
+  useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
+  useEffect(() => {}, [demoMode, selectedConv?.id]);
+  useEffect(() => {}, [demoMode, inboxTab, currentTenantId, viewLevel]);
+  useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
   useEffect(() => {
-    if (demoMode) {
-      setConversations(generateConversations());
-      setLiveReady(true);
-      return;
-    }
-    // Live mode: fetch conversations
-    const fetchConversations = async () => {
-      try {
-        const { supabase: sb } = await import('./supabaseClient');
-        if (!sb) { setLiveReady(true); return; }
-        let query = sb.from('conversations').select('*');
-        if (currentTenantId && viewLevel === 'tenant') {
-          query = query.eq('tenant_id', currentTenantId);
-        }
-        const { data, error } = await query;
-        if (error) {
-          console.warn('Conversations query error:', error.message);
-          setLiveError(error.message);
-          setConversations([]);
-          setLiveReady(true);
-          return;
-        }
-        const sorted = (data || []).sort((a, b) => {
-          const dateA = a.last_message_at || a.updated_at || a.created_at || '';
-          const dateB = b.last_message_at || b.updated_at || b.created_at || '';
-          return dateB.localeCompare(dateA);
-        });
-        const mapped = sorted.map(conv => ({
-          id: conv.id,
-          channel: (conv.channel || 'sms').toLowerCase(),
-          status: conv.status || 'active',
-          priority: conv.priority || 'normal',
-          unread: conv.unread_count || 0,
-          lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
-          subject: conv.subject || '',
-          contact: { name: 'Unknown', email: '', phone: '', company: '', tags: [], avatar: null },
-          messages: [{ id: 'placeholder', from: 'system', text: conv.subject || 'New conversation', time: new Date(), agent: null, read: true, delivered: true }],
-          aiSummary: conv.ai_summary || '',
-          sentiment: conv.sentiment_score || 0,
-          tenant_id: conv.tenant_id,
-          contact_id: conv.contact_id,
-        }));
-        setConversations(mapped);
-        // Fetch contact details
-        const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
-        if (contactIds.length > 0) {
-          try {
-            const { data: contactData } = await sb.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
-            if (contactData) {
-              const contactMap = {};
-              contactData.forEach(c => { contactMap[c.id] = c; });
-              setConversations(prev => prev.map(conv => {
-                const c = contactMap[conv.contact_id];
-                if (c) return { ...conv, contact: { name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown', email: c.email || '', phone: c.phone || '', company: c.company || '', tags: c.tags || [], avatar: null } };
-                return conv;
-              }));
-            }
-          } catch (contactErr) {
-            console.warn('Contact lookup error:', contactErr.message);
-          }
-        }
-        setLiveReady(true);
-      } catch (err) {
-        console.warn('Conversations fetch error:', err.message);
-        setConversations([]);
-        setLiveError(err.message);
-        setLiveReady(true);
-      }
-    };
-    fetchConversations();
-  }, [demoMode, currentTenantId, viewLevel]);
-
-  // Load messages for selected conversation (live mode)
-  useEffect(() => {
-    if (demoMode || !selectedConv?.id) return;
-    const loadMessages = async () => {
-      setLoadingMessages(true);
-      try {
-        const { supabase: sb } = await import('./supabaseClient');
-        if (!sb) return;
-        const { data, error } = await sb.from('messages').select('*').eq('conversation_id', selectedConv.id).order('created_at', { ascending: true }).limit(100);
-        if (error) throw error;
-        const mapped = (data || []).map(m => ({
-          id: m.id,
-          from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'bot' || m.sender_type === 'ai' ? 'bot' : 'agent',
-          text: m.body || m.subject || '',
-          time: 0,
-          agent: m.sender_id || null,
-          status: m.status,
-          channel: m.channel,
-          sentAt: m.created_at,
-        }));
-        setSelectedConv(prev => prev ? { ...prev, messages: mapped.length > 0 ? mapped : prev.messages } : prev);
-      } catch (err) {
-        console.warn('Messages fetch error:', err.message);
-      }
-      setLoadingMessages(false);
-    };
-    loadMessages();
-  }, [demoMode, selectedConv?.id]);
-
-  // Load calls
-  useEffect(() => {
-    if (demoMode || inboxTab !== 'calls') return;
-    const loadCalls = async () => {
-      setLoadingCalls(true);
-      try {
-        const { supabase: sb } = await import('./supabaseClient');
-        if (!sb) return;
-        let query = sb.from('calls').select('*').order('created_at', { ascending: false }).limit(50);
-        if (currentTenantId && viewLevel === 'tenant') {
-          query = query.eq('tenant_id', currentTenantId);
-        }
-        const { data, error } = await query;
-        if (error) throw error;
-        setCalls(data || []);
-      } catch (err) {
-        console.warn('Calls fetch error:', err.message);
-        setCalls([]);
-      }
-      setLoadingCalls(false);
-    };
-    loadCalls();
-  }, [demoMode, inboxTab, currentTenantId, viewLevel]);
-
-  // Real-time subscriptions (skip in live mode for now to prevent crashes)
-  useEffect(() => {
-    if (demoMode) return;
-    // Real-time subscriptions disabled temporarily to prevent crash
-    return () => {};
-  }, [demoMode, selectedConv?.id, inboxTab]);
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [selectedConv, selectedConv?.messages?.length]);
+
+  // In live mode, show a simple static screen
+  if (!demoMode) {
+    return (
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+          <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
+          <p style={{ color: C.muted, fontSize: 14 }}>Send an email to hello@engwx.com to see conversations here.</p>
+          <p style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>AI auto-response is active. Live Inbox integration coming soon.</p>
+        </div>
+      </div>
+    );
+  }
+
 
   const handleSendLive = async () => {
     if (!composeText.trim() || !selectedConv) return;
