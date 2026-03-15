@@ -176,7 +176,7 @@ module.exports = async function handler(req, res) {
             first_name: nameParts[0] || senderName,
             last_name: nameParts.slice(1).join(' ') || '',
             email: senderEmail,
-            status: 'subscribed',
+            status: 'active',
           }).select().single();
           if (newContactErr) console.log('📋 Contact create error:', newContactErr.message);
           contactId = newContact?.id;
@@ -191,7 +191,6 @@ module.exports = async function handler(req, res) {
           conversationId = existingConv[0].id;
           const { error: updateErr } = await supabase.from('conversations').update({
             last_message_at: new Date().toISOString(),
-            last_message: emailBody.substring(0, 200),
             subject: emailSubject,
             status: 'active',
             unread_count: 1,
@@ -205,7 +204,6 @@ module.exports = async function handler(req, res) {
             channel: 'email',
             subject: emailSubject,
             status: 'active',
-            last_message: emailBody.substring(0, 200),
             last_message_at: new Date().toISOString(),
             unread_count: 1,
           }).select().single();
@@ -363,7 +361,6 @@ Body: ${emailBody.substring(0, 3000)}`
               created_at: new Date().toISOString(),
             });
             await supabase.from('conversations').update({
-              last_message: parsed.reply_body.substring(0, 200),
               last_message_at: new Date().toISOString(),
               status: 'waiting',
               unread_count: 0,
