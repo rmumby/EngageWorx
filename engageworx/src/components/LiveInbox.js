@@ -203,6 +203,7 @@ function timeAgo(date) {
 export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
+  const [liveError, setLiveError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -229,7 +230,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
     }
     const fetchConversations = async () => {
       try {
-        let query = supabase.from('conversations').select('*, contacts(first_name, last_name, email, phone, company, tags)').order('last_message_at', { ascending: false });
+        let query = supabase.from('conversations').select('*').order('last_message_at', { ascending: false });
         if (currentTenantId && viewLevel === 'tenant') {
           query = query.eq('tenant_id', currentTenantId);
         }
@@ -244,22 +245,44 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
           lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
           subject: conv.subject || '',
           contact: {
-            name: conv.contacts ? `${conv.contacts.first_name || ''} ${conv.contacts.last_name || ''}`.trim() : 'Unknown',
-            email: conv.contacts?.email || '',
-            phone: conv.contacts?.phone || '',
-            company: conv.contacts?.company || '',
-            tags: conv.contacts?.tags || [],
+            name: conv.contact_name || 'Unknown',
+            email: conv.contact_email || '',
+            phone: conv.contact_phone || '',
+            company: '',
+            tags: [],
             avatar: null,
           },
           messages: [],
           aiSummary: conv.ai_summary || '',
           sentiment: conv.sentiment_score || 0,
           tenant_id: conv.tenant_id,
+          contact_id: conv.contact_id,
         }));
         setConversations(mapped);
+        // Fetch contact details for each conversation
+        const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
+        if (contactIds.length > 0) {
+          try {
+            const { data: contactData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
+            if (contactData) {
+              const contactMap = {};
+              contactData.forEach(c => { contactMap[c.id] = c; });
+              setConversations(prev => prev.map(conv => {
+                const c = contactMap[conv.contact_id];
+                if (c) {
+                  return { ...conv, contact: { name: `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown', email: c.email || '', phone: c.phone || '', company: c.company || '', tags: c.tags || [], avatar: null } };
+                }
+                return conv;
+              }));
+            }
+          } catch (contactErr) {
+            console.warn('Contact lookup error:', contactErr.message);
+          }
+        }
       } catch (err) {
         console.warn('Conversations fetch error:', err.message);
         setConversations([]);
+        setLiveError(err.message);
       }
     };
     fetchConversations();
@@ -598,9 +621,9 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
 
           {filtered.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>No conversations found</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Try adjusting your filters</div>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
+              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || "Try adjusting your filters or send an email to hello@engwx.com"}</div>
             </div>
           )}
         </div>)}
