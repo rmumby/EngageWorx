@@ -1,4 +1,3 @@
-// LiveInbox v3 — fixed lastMsg undefined crash
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 
@@ -212,6 +211,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
+  const [liveReady, setLiveReady] = useState(demoMode);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -278,7 +278,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           contact_id: conv.contact_id,
         }));
         setConversations(mapped);
-        // Fetch contact details for each conversation
+        setLiveReady(true);
         const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
         if (contactIds.length > 0) {
           try {
@@ -302,6 +302,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
         console.warn('Conversations fetch error:', err.message);
         setConversations([]);
         setLiveError(err.message);
+        setLiveReady(true);
       }
     };
     fetchConversations();
@@ -534,6 +535,20 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   // ═══════════════════════════════════════════════════════════════════════════
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
+  // Show loading screen until data is ready (prevents render crashes)
+  if (!liveReady) {
+    return (
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", background: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+          <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
+          <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error fallback
   if (!demoMode && liveError && conversations.length === 0) {
     return (
       <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", background: C.bg, alignItems: "center", justifyContent: "center" }}>
