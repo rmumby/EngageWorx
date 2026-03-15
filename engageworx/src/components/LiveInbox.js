@@ -230,13 +230,24 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
     }
     const fetchConversations = async () => {
       try {
-        let query = supabase.from('conversations').select('*').order('last_message_at', { ascending: false });
+        let query = supabase.from('conversations').select('*');
         if (currentTenantId && viewLevel === 'tenant') {
           query = query.eq('tenant_id', currentTenantId);
         }
         const { data, error } = await query;
-        if (error) throw error;
-        const mapped = (data || []).map(conv => ({
+        if (error) {
+          console.warn('Conversations query error:', error.message);
+          setLiveError(error.message);
+          setConversations([]);
+          return;
+        }
+        // Sort client-side to avoid column-not-found errors
+        const sorted = (data || []).sort((a, b) => {
+          const dateA = a.last_message_at || a.updated_at || a.created_at || '';
+          const dateB = b.last_message_at || b.updated_at || b.created_at || '';
+          return dateB.localeCompare(dateA);
+        });
+        const mapped = (sorted || []).map(conv => ({
           id: conv.id,
           channel: (conv.channel || 'sms').toLowerCase(),
           status: conv.status || 'active',
