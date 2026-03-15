@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from './supabaseClient';
+
+// Lazy supabase loader — avoids crash when import fails in drill-down context
+let _sb = null;
+const getSb = async () => {
+  if (_sb) return _sb;
+  try {
+    const mod = await import('./supabaseClient');
+    _sb = mod.supabase || mod.default;
+    return _sb;
+  } catch (e) {
+    console.warn('supabaseClient import failed:', e?.message);
+    return null;
+  }
+};
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const CHANNELS = {
@@ -208,15 +221,11 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     ...(rawC || {}),
   };
 
-  // Check if supabase is available — use dynamic import if static import failed
-  const [sb, setSb] = useState(supabase || null);
+  // Lazy-load supabase to prevent crashes in drill-down context
+  const [sb, setSb] = useState(null);
   useEffect(() => {
-    if (!sb) {
-      import('./supabaseClient').then(mod => {
-        setSb(mod.supabase || mod.default?.supabase || null);
-      }).catch(() => {});
-    }
-  }, [sb]);
+    getSb().then(client => { if (client) setSb(client); });
+  }, []);
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
