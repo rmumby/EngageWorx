@@ -201,15 +201,25 @@ function timeAgo(date) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  // Safe color defaults
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
     border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
     ...(rawC || {}),
   };
 
-  // ALL state hooks — must be before any early return
-  const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
+  // In live mode, show a simple static screen (no Supabase, no hooks that could crash)
+  if (!demoMode) {
+    return (
+      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+          <h2 style={{ color: C.text || '#fff', margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
+          <p style={{ color: C.muted || '#6B8BAE', fontSize: 14 }}>Send an email to hello@engwx.com to see conversations here.</p>
+          <p style={{ color: C.muted || '#6B8BAE', fontSize: 12, marginTop: 8 }}>AI auto-response is active. Conversations will appear once Supabase integration is verified.</p>
+        </div>
+      </div>
+    );
+  }
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
   const [liveReady, setLiveReady] = useState(demoMode);
