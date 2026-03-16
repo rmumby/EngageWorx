@@ -68,7 +68,7 @@ const SCREENS = [
     id: "pricing",
     title: "Simple Pricing",
     subtitle: "Start at $99/month",
-    narration: "Plans start at $99 per month for Starter — everything you need to begin. Growth at $249 adds more capacity and advanced analytics. Pro at $499 includes white-label branding, API access, and custom integrations. For enterprise, service providers, or high-volume deployments — let's talk. We build custom plans that fit. My number is +1 305 810 8877.",
+    narration: "Plans start at $99 per month for Starter — everything you need to begin. Growth at $249 adds more capacity and advanced analytics. Pro at $499 includes white-label branding, API access, and custom integrations. For enterprise, service providers, or high-volume deployments — let's talk. We build custom plans that fit. My number is +1 786 982 7800.",
     visual: "pricing",
     cta: "Start Your Free Trial →",
     deepDives: ["What's included in each plan?", "How does enterprise pricing work?", "Is there a free trial?"],
@@ -330,7 +330,7 @@ export default function EngageWorxDemo() {
       const data = await response.json();
       setAiResponse(data.answer || "Let me get back to you on that.");
     } catch (err) {
-      setAiResponse("Great question. I'd love to cover that in more detail on a call. Reach me at +1 (305) 810-8877.");
+      setAiResponse("Great question. I'd love to cover that in more detail on a call. Reach me at +1 (786) 982-7800.");
     }
     setAiLoading(false);
   };
@@ -457,7 +457,7 @@ export default function EngageWorxDemo() {
       {/* Footer */}
       <div style={{ padding: "12px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>EngageWorx Interactive Demo • www.engwx.com</span>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>+1 (305) 810-8877 • hello@engwx.com</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>+1 (786) 982-7800 • hello@engwx.com</span>
       </div>
     </div>
   );
