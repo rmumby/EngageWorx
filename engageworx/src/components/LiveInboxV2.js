@@ -341,18 +341,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     fetchAll();
   }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
 
-  // Loading screen for live mode
-  if (!demoMode && liveLoading) {
-    return (
-      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-          <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
-        </div>
-      </div>
-    );
-  }
+  // Live mode renders the full inbox immediately - conversations populate async
 
 
   const handleSendLive = async () => {
@@ -476,18 +465,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   }
 
   // Error fallback
-  if (!demoMode && liveError && conversations.length === 0) {
-    return (
-      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-          <h2 style={{ color: "#fff", margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>No conversations yet. Send an email to hello@engwx.com to see it here.</p>
-          {liveError && <p style={{ color: "#FF6B35", fontSize: 12 }}>Debug: {liveError}</p>}
-        </div>
-      </div>
-    );
-  }
+  // Errors shown inline in the conversation list
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
