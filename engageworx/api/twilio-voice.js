@@ -17,7 +17,7 @@ const supabase = createClient(
 
 // ─── TwiML helpers ───────────────────────────────────────────────────
 function twiml(body) {
-  return `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
+  return '<?xml version="1.0" encoding="UTF-8"?><Response>' + body + '</Response>';
 }
 
 function say(text, voice = 'Polly.Amy') {
@@ -27,7 +27,7 @@ function say(text, voice = 'Polly.Amy') {
     var match = voice.match(/Polly\.\w+/);
     if (match) cleanVoice = match[0];
   }
-  return `<Say voice="${cleanVoice}">${escapeXml(text)}</Say>`;
+  return '<Say voice="' + cleanVoice + '">' + escapeXml(text) + '</Say>';
 }
 
 function escapeXml(str) {
@@ -230,7 +230,7 @@ module.exports = async function handler(req, res) {
             ? 'This call may be recorded for quality purposes. '
             : '';
 
-          return res.send(twiml(
+          return res.status(200).end(twiml(
             say(`${recordingNotice}${afterHoursGreeting}`, voice) +
             `<Record maxLength="120" playBeep="true" ` +
             `action="/api/twilio-voice?action=voicemail-complete&tenant=${tenantId}" ` +
@@ -259,7 +259,7 @@ module.exports = async function handler(req, res) {
 
         const ivrPrompt = `${recordingNotice}${greeting}${menuOptions}. Or stay on the line to leave a message.`;
 
-        return res.send(twiml(
+        return res.status(200).end(twiml(
           `<Gather numDigits="1" timeout="8" ` +
           `action="/api/twilio-voice?action=route&tenant=${tenantId}" method="POST">` +
           say(ivrPrompt, voice) +
@@ -325,7 +325,7 @@ module.exports = async function handler(req, res) {
             intent: `route:${dept.name}`,
           });
 
-          return res.send(twiml(
+          return res.status(200).end(twiml(
             say(`Connecting you to ${dept.name} now. Please hold.`, voice) +
             `<Dial callerId="${body.To}" timeout="30" ` +
             `action="/api/twilio-voice?action=dial-complete&tenant=${tId}&dept=${encodeURIComponent(dept.name)}">` +
@@ -335,7 +335,7 @@ module.exports = async function handler(req, res) {
         }
 
         // Invalid digit
-        return res.send(twiml(
+        return res.status(200).end(twiml(
           say('Sorry, that is not a valid option. Please try again.', voice) +
           `<Redirect method="POST">/api/twilio-voice?action=inbound</Redirect>`
         ));
@@ -363,7 +363,7 @@ module.exports = async function handler(req, res) {
 
         if (DialCallStatus === 'completed' || DialCallStatus === 'answered') {
           // Call was answered — just end cleanly
-          return res.send(twiml('<Hangup/>'));
+          return res.status(200).end(twiml('<Hangup/>'));
         }
 
         // Nobody answered → offer voicemail
@@ -371,7 +371,7 @@ module.exports = async function handler(req, res) {
           disposition: 'voicemail',
         }).eq('call_sid', CallSid);
 
-        return res.send(twiml(
+        return res.status(200).end(twiml(
           say(`Sorry, ${deptName} is unavailable right now. Please leave a message after the tone and someone will call you back.`, voice) +
           `<Record maxLength="120" playBeep="true" ` +
           `action="/api/twilio-voice?action=voicemail-complete&tenant=${tenantId}" ` +
@@ -429,7 +429,7 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        return res.send(twiml(
+        return res.status(200).end(twiml(
           say('Thank you for your message. Someone will get back to you shortly. Goodbye.', 'Polly.Amy') +
           '<Hangup/>'
         ));
@@ -491,7 +491,7 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        return res.status(200).send('OK');
+        return res.status(200).end('OK');
       }
 
       // ═══════════════════════════════════════════════════════════════
@@ -510,15 +510,15 @@ module.exports = async function handler(req, res) {
 
         await supabase.from('calls').update(updates).eq('call_sid', CallSid);
 
-        return res.status(200).send('OK');
+        return res.status(200).end('OK');
       }
 
       default:
-        return res.send(twiml(say('An error occurred. Goodbye.')));
+        return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">An error occurred. Goodbye.</Say><Hangup/></Response>');
     }
 
   } catch (err) {
     console.error('Voice webhook error:', err);
-    return res.send(twiml(say('We are experiencing technical difficulties. Please try again later. Goodbye.')));
+    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">We are experiencing technical difficulties. Please try again later. Goodbye.</Say><Hangup/></Response>');
   }
 };
