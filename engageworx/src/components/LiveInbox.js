@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase } from './supabaseClient';
+// supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const CHANNELS = {
@@ -200,7 +200,8 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+  console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
     border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
@@ -239,15 +240,54 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [selectedConv, selectedConv?.messages?.length]);
 
-  // In live mode, show a simple static screen
+  // In live mode, fetch conversations using supabase prop
+  const [liveConvos, setLiveConvos] = useState([]);
+  const [liveLoading, setLiveLoading] = useState(!demoMode);
+  useEffect(() => {
+    if (demoMode || !supabase) return;
+    (async () => {
+      try {
+        let query = supabase.from('conversations').select('*');
+        if (currentTenantId && viewLevel === 'tenant') {
+          query = query.eq('tenant_id', currentTenantId);
+        }
+        const { data, error } = await query;
+        if (error) console.warn('Live fetch error:', error.message);
+        setLiveConvos(data || []);
+      } catch (e) {
+        console.warn('Live fetch crash:', e.message);
+      }
+      setLiveLoading(false);
+    })();
+  }, [demoMode, supabase, currentTenantId, viewLevel]);
+
   if (!demoMode) {
     return (
       <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40 }}>
+        <div style={{ textAlign: "center", padding: 40, maxWidth: 500 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
           <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          <p style={{ color: C.muted, fontSize: 14 }}>Send an email to hello@engwx.com to see conversations here.</p>
-          <p style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>AI auto-response is active. Live Inbox integration coming soon.</p>
+          {liveLoading ? (
+            <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
+          ) : liveConvos.length > 0 ? (
+            <div style={{ textAlign: "left" }}>
+              <p style={{ color: C.primary, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{liveConvos.length} conversation{liveConvos.length !== 1 ? 's' : ''} found</p>
+              {liveConvos.slice(0, 10).map(conv => (
+                <div key={conv.id} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{conv.subject || conv.channel || 'Conversation'}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}>{conv.channel || 'email'}</span>
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{conv.status || 'active'} · {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString() : 'New'}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <p style={{ color: C.muted, fontSize: 14 }}>No conversations yet. Send an email to hello@engwx.com to see AI-powered conversations here.</p>
+              <p style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>AI auto-response is active on all channels.</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -262,9 +302,8 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       setComposeText("");
 
       // Insert message into Supabase
-      const { supabase: sb } = await import('./supabaseClient');
-      if (!sb) return;
-      const { error: msgError } = await sb.from('messages').insert({
+      if (!supabase) return;
+      const { error: msgError } = await supabase.from('messages').insert({
         tenant_id: selectedConv.tenant_id || currentTenantId,
         conversation_id: selectedConv.id,
         contact_id: selectedConv.contact_id || null,
@@ -278,7 +317,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       if (msgError) throw msgError;
 
       // Update conversation last_message
-      await sb.from('conversations').update({
+      await supabase.from('conversations').update({
         last_message_at: new Date().toISOString(),
         last_message_preview: messageBody.substring(0, 100),
         updated_at: new Date().toISOString(),
