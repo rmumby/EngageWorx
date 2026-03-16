@@ -255,7 +255,7 @@ Key facts about EngageWorx:
 - Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
 - Self-service: go live in under 5 minutes
 - No platform fee — transparent pricing
-- Contact: +1 (305) 810-8877, hello@engwx.com, www.engwx.com
+- Contact: +1 (786) 982-7800, hello@engwx.com, www.engwx.com
 - Founded by Rob Mumby
 
 Your job:
@@ -303,7 +303,7 @@ Body: ${emailBody.substring(0, 3000)}`
         sentiment: 'neutral',
         should_reply: true,
         reply_subject: `Re: ${emailSubject}`,
-        reply_body: `Thank you for reaching out to EngageWorx. We've received your message and our team will get back to you shortly.\n\nIn the meantime, feel free to call us at +1 (305) 810-8877 or visit www.engwx.com.\n\nBest regards,\nThe EngageWorx Team`,
+        reply_body: `Thank you for reaching out to EngageWorx. We've received your message and our team will get back to you shortly.\n\nIn the meantime, feel free to call us at +1 (786) 982-7800 or visit www.engwx.com.\n\nBest regards,\nThe EngageWorx Team`,
         notify_rob: true,
         summary: 'Failed to parse AI response — sent generic reply',
       };
@@ -321,7 +321,7 @@ Body: ${emailBody.substring(0, 3000)}`
             <p style="margin: 0; font-size: 13px; color: #6b7280;">
               <strong style="color: #1a1a2e;">EngageWorx</strong> — AI-Powered Customer Communications<br/>
               <a href="https://www.engwx.com" style="color: #00C9FF; text-decoration: none;">www.engwx.com</a> · 
-              <a href="tel:+13058108877" style="color: #00C9FF; text-decoration: none;">+1 (305) 810-8877</a>
+              <a href="tel:+17869827800" style="color: #00C9FF; text-decoration: none;">+1 (786) 982-7800</a>
             </p>
           </div>
         </div>
