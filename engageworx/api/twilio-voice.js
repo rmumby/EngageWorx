@@ -31,7 +31,7 @@ function say(text, voice = 'Polly.Amy') {
 }
 
 function escapeXml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
 // ─── Business hours check (with date overrides for events/weddings) ───
@@ -173,7 +173,7 @@ module.exports = async function handler(req, res) {
         ];
 
         const menuOptions = departments
-          .filter(d => d.number) // Only show departments with numbers configured
+          // Show all departments
           .map(d => `Press ${d.digit} ${d.description || ('for ' + d.name)}`)
           .join('. ');
 
@@ -189,7 +189,7 @@ module.exports = async function handler(req, res) {
           say(ivrPrompt, voice) +
           `</Gather>` +
           // No input → offer voicemail
-          say('We didn\'t receive your selection. Please leave a message after the tone.', voice) +
+          say('We did not receive your selection. Please leave a message after the tone.', voice) +
           `<Record maxLength="120" playBeep="true" ` +
           `action="/api/twilio-voice?action=voicemail-complete&tenant=${tenantId}" ` +
           `transcribe="true" ` +
