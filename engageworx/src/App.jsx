@@ -13,7 +13,8 @@ import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
-import Blog from './Blog';
+import { lazy, Suspense } from 'react';
+const Blog = lazy(() => import('./Blog'));
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
 function useLiveData(demoMode) {
@@ -1180,7 +1181,7 @@ function AppInner() {
 
   if (!isPortal) {
     if (window.location.pathname === '/blog' || window.location.pathname.startsWith('/blog/')) {
-      return <Blog />;
+      return <Suspense fallback={<div style={{background:'#050810',color:'#E8F4FD',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"}}>Loading...</div>}><Blog /></Suspense>;
     }
     return <LandingPage />;
   }
