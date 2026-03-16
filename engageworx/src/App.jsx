@@ -7,7 +7,7 @@ import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import ContactsModule from './ContactsModule';
-import LiveInbox from './LiveInboxV2';
+import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
