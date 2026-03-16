@@ -175,6 +175,7 @@ const LandingPage = () => {
           <li><span onClick={() => navigateTo('home')}>Home</span></li>
           <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
           <li><span onClick={() => navigateTo('about')}>About</span></li>
+          <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
           <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
           <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
           <li><button className="lp-sub-cta" onClick={goToSignup}>Get Started Free</button></li>
@@ -186,6 +187,7 @@ const LandingPage = () => {
             <span onClick={() => { navigateTo('home'); setMobileMenuOpen(false); }} style={{ color: '#00C9FF', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Home</span>
             <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
+            <a href="/blog" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>Blog</a>
             <span onClick={() => { navigateTo('contact'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Contact</span>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
