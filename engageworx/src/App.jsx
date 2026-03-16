@@ -13,6 +13,7 @@ import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
+import Blog from './Blog';
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
 function useLiveData(demoMode) {
@@ -1178,6 +1179,9 @@ function AppInner() {
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
 
   if (!isPortal) {
+    if (window.location.pathname === '/blog' || window.location.pathname.startsWith('/blog/')) {
+      return <Blog />;
+    }
     return <LandingPage />;
   }
 
@@ -1224,7 +1228,7 @@ function AppInner() {
             Sign Out
           </button>
           <p style={{ color: "#475569", fontSize: 12, marginTop: 24 }}>
-            Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+13058108877" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (305) 810-8877</a>
+            Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+17869827800" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (786) 982-7800</a>
           </p>
         </div>
       </div>
