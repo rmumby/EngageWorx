@@ -101,13 +101,21 @@ async function getVoiceConfig(toNumber) {
 
 // ─── Main handler ────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
-  res.setHeader('Content-Type', 'text/xml');
+  res.setHeader('Content-Type', 'text/xml; charset=utf-8');
 
   if (req.method !== 'POST') {
-    return res.status(405).send(twiml(say('Method not allowed.')));
+    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say>Method not allowed.</Say></Response>');
   }
 
   const action = req.query.action || 'inbound';
+  
+  // Quick test: return simple TwiML to verify Twilio can reach and parse
+  if (action === 'inbound') {
+    const testBody = req.body || {};
+    console.log('📞 Voice webhook:', action, 'To:', testBody.To, 'From:', testBody.From);
+    
+    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Thank you for calling EngageWorx. Please leave a message after the tone.</Say><Record maxLength="120" playBeep="true" /><Say voice="Polly.Joanna">Goodbye.</Say><Hangup/></Response>');
+  }
   const body = req.body || {};
   console.log('📞 Voice webhook:', action, 'To:', body.To, 'From:', body.From);
 
