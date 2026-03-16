@@ -426,7 +426,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
         channel: selectedConv.channel,
         sentAt: new Date().toISOString(),
       };
-      setSelectedConv(prev => prev ? { ...prev, messages: [...prev.messages, optimisticMsg] } : prev);
+      setSelectedConv(prev => prev ? { ...prev, messages: [...(prev.messages || []), optimisticMsg] } : prev);
     } catch (err) {
       console.error('Send error:', err);
       setComposeText(composeText); // Restore on error
@@ -447,7 +447,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return conv.contact.name.toLowerCase().includes(q) || conv.contact.email.toLowerCase().includes(q) || conv.contact.company.toLowerCase().includes(q) || conv.messages.some(m => m.text.toLowerCase().includes(q));
+      return conv.contact.name.toLowerCase().includes(q) || conv.contact.email.toLowerCase().includes(q) || conv.contact.company.toLowerCase().includes(q) || (conv.messages || []).some(m => m.text.toLowerCase().includes(q));
     }
     return true;
   }).sort((a, b) => {
@@ -574,7 +574,8 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
         {/* Conversation List (Messages tab) */}
         {inboxTab === "messages" && (<div style={{ flex: 1, overflowY: "auto" }}>
           {filtered.map(conv => {
-            const lastMsg = conv.messages[conv.messages.length - 1] || { from: 'system', text: conv.subject || 'New conversation', agent: null };
+            const msgs = conv.messages || [];
+            const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : { from: 'system', text: conv.subject || 'New conversation', agent: null };
             const ch = CHANNELS[conv.channel];
             const isSelected = selectedConv?.id === conv.id;
 
@@ -735,10 +736,10 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
               <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Today</span>
             </div>
 
-            {selectedConv.messages.map((msg, i) => {
+            {(selectedConv.messages || []).map((msg, i) => {
               const isContact = msg.from === "contact";
               const isBot = msg.from === "bot";
-              const showAvatar = i === 0 || selectedConv.messages[i - 1].from !== msg.from;
+              const showAvatar = i === 0 || (selectedConv.messages || [])[i - 1]?.from !== msg.from;
 
               return (
                 <div key={msg.id} style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", marginBottom: showAvatar ? 12 : 4, gap: 8, alignItems: "flex-end" }}>
@@ -905,8 +906,8 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
                 { label: "Status", value: selectedConv.status.charAt(0).toUpperCase() + selectedConv.status.slice(1), color: selectedConv.status === "urgent" ? "#FF3B30" : selectedConv.status === "active" ? "#00E676" : selectedConv.status === "waiting" ? "#FFD600" : "#6B8BAE" },
                 { label: "Priority", value: selectedConv.priority.charAt(0).toUpperCase() + selectedConv.priority.slice(1), color: selectedConv.priority === "high" ? "#FF3B30" : selectedConv.priority === "medium" ? "#FFD600" : "#00E676" },
                 { label: "Agent", value: selectedConv.assignedTo?.name || "Unassigned", color: "rgba(255,255,255,0.5)" },
-                { label: "Messages", value: selectedConv.messages.length, color: "rgba(255,255,255,0.5)" },
-                { label: "Started", value: selectedConv.messages[0].time.toLocaleDateString(), color: "rgba(255,255,255,0.5)" },
+                { label: "Messages", value: (selectedConv.messages || []).length, color: "rgba(255,255,255,0.5)" },
+                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "rgba(255,255,255,0.5)" },
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
                   <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{item.label}</span>
