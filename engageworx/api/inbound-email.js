@@ -255,7 +255,7 @@ Key facts about EngageWorx:
 - Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
 - Self-service: go live in under 5 minutes
 - No platform fee — transparent pricing
-- Contact: +1 (305) 810-8877, rob@engwx.com, www.engwx.com
+- Contact: +1 (305) 810-8877, hello@engwx.com, www.engwx.com
 - Founded by Rob Mumby
 
 Your job:
