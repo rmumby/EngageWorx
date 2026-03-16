@@ -1006,14 +1006,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
 
           {page === "inbox" && (
-            <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg || '#080d1a', alignItems: "center", justifyContent: "center" }}>
-              <div style={{ textAlign: "center", padding: 40 }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-                <h2 style={{ color: C.text || '#fff', margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-                <p style={{ color: C.muted || '#6B8BAE', fontSize: 14, maxWidth: 400 }}>Send an email to hello@engwx.com to see AI-powered conversations here.</p>
-                <p style={{ color: C.muted || '#6B8BAE', fontSize: 12, marginTop: 8 }}>AI auto-response is active on all channels.</p>
-              </div>
-            </div>
+            <LiveInbox C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />
           )}
 
         {page === "chatbot" && (
@@ -1606,7 +1599,7 @@ function AppInner() {
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
