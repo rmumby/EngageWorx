@@ -268,6 +268,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
     let cancelled = false;
+    console.log('🟡 Starting conversation fetch...');
     (async () => {
       try {
         // 1. Fetch conversations
@@ -314,8 +315,9 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           } catch (e) { console.warn('Messages fetch error:', e.message); }
         }
 
-        if (cancelled) return;
+        if (cancelled) { console.log('🟠 Fetch cancelled, skipping state update'); return; }
 
+        console.log('🟢 Assembled', assembled.length, 'conversations');
         // 4. Assemble everything in ONE setConversations call
         const assembled = convos.map(conv => {
           const c = contactMap[conv.contact_id];
@@ -341,12 +343,14 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
         });
 
         setConversations(assembled);
+        console.log('🟢 Conversations set, calling setLiveLoading(false)');
       } catch (e) {
         console.warn('Live inbox error:', e.message);
       }
-      setLiveLoading(false);
+      if (!cancelled) setLiveLoading(false);
+      console.log('🟢 liveLoading set to false');
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; console.log('🔴 Cleanup: cancelled=true'); };
   }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
 
   // Loading screen for live mode
