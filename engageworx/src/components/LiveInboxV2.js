@@ -476,6 +476,8 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
+    // Hide archived from all views except when Archived tab is selected
+    if (filterStatus !== "archived" && conv.status === "archived") return false;
     if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
@@ -552,6 +554,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               { id: "waiting", label: "Waiting", count: waitingCount },
               { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
               { id: "resolved", label: "Resolved", count: conversations.filter(c => c.status === "resolved").length },
+              { id: "archived", label: "Archived", count: conversations.filter(c => c.status === "archived").length },
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
@@ -930,22 +933,33 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Actions</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {[
-                  { label: "Close", icon: "✅" },
-                  { label: "Snooze", icon: "⏰" },
-                  { label: "Tag", icon: "🏷️" },
-                  { label: "Transfer", icon: "↗️" },
-                  { label: "Block", icon: "🚫" },
-                  { label: "Add Note", icon: "📝" },
-                ].map(action => (
-                  <button key={action.label} style={{
+                  { label: selectedConv.status === 'resolved' ? "Reopen" : "Resolve", icon: selectedConv.status === 'resolved' ? "🔄" : "✅", action: function() {
+                    var newStatus = selectedConv.status === 'resolved' ? 'active' : 'resolved';
+                    if (supabase) supabase.from('conversations').update({ status: newStatus }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
+                    });
+                  }},
+                  { label: "Archive", icon: "📦", action: function() {
+                    if (supabase) supabase.from('conversations').update({ status: 'archived' }).eq('id', selectedConv.id).then(function() {
+                      setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                      setSelectedConv(null);
+                    });
+                  }},
+                  { label: "Tag", icon: "🏷️", action: null },
+                  { label: "Transfer", icon: "↗️", action: null },
+                  { label: "Block", icon: "🚫", action: null },
+                  { label: "Add Note", icon: "📝", action: null },
+                ].map(function(action) { return (
+                  <button key={action.label} onClick={action.action || undefined} style={{
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 6, padding: "8px", cursor: "pointer", color: "rgba(255,255,255,0.4)",
+                    borderRadius: 6, padding: "8px", cursor: action.action ? "pointer" : "default", color: action.action ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)",
                     fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.15s",
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.color = C.primary; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+                    onMouseEnter={function(e) { if (action.action) { e.currentTarget.style.background = C.primary + '15'; e.currentTarget.style.color = C.primary; } }}
+                    onMouseLeave={function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = action.action ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)"; }}
                   >{action.icon} {action.label}</button>
-                ))}
+                ); })}
               </div>
             </div>
 
