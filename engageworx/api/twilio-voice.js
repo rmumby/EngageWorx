@@ -107,17 +107,85 @@ module.exports = async function handler(req, res) {
     return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say>Method not allowed.</Say></Response>');
   }
 
-  const action = req.query.action || 'inbound';
-  
-  // Quick test: return simple TwiML to verify Twilio can reach and parse
-  if (action === 'inbound') {
-    const testBody = req.body || {};
-    console.log('📞 Voice webhook:', action, 'To:', testBody.To, 'From:', testBody.From);
-    
-    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Thank you for calling EngageWorx. Please leave a message after the tone.</Say><Record maxLength="120" playBeep="true" /><Say voice="Polly.Joanna">Goodbye.</Say><Hangup/></Response>');
-  }
-  const body = req.body || {};
+  var action = req.query.action || 'inbound';
+  var body = req.body || {};
   console.log('📞 Voice webhook:', action, 'To:', body.To, 'From:', body.From);
+
+  // Helper to build safe XML strings
+  function xml(text) {
+    return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+  }
+
+  if (action === 'inbound') {
+    // Look up voice config for this number
+    var voiceConfig = null;
+    var config = {};
+    var tenantId = null;
+    try {
+      voiceConfig = await getVoiceConfig(body.To || '');
+      config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
+      tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
+    } catch (e) {
+      console.warn('Voice config lookup error:', e.message);
+    }
+
+    // Extract voice setting - sanitize to just Polly.Name
+    var voice = 'Polly.Joanna';
+    if (config.tts_voice) {
+      var voiceMatch = String(config.tts_voice).match(/Polly\.\w+/);
+      if (voiceMatch) voice = voiceMatch[0];
+    }
+
+    var greeting = xml(config.greeting || 'Thank you for calling. ');
+    var departments = config.departments || [];
+    
+    // Build IVR menu text
+    var menuParts = [];
+    for (var i = 0; i < departments.length; i++) {
+      var dept = departments[i];
+      if (dept.description) {
+        menuParts.push('Press ' + dept.digit + ' ' + xml(dept.description));
+      } else if (dept.name) {
+        menuParts.push('Press ' + dept.digit + ' for ' + xml(dept.name));
+      }
+    }
+    var menuText = menuParts.join('. ');
+    if (menuText) menuText = menuText + '. ';
+
+    // Log the call
+    if (tenantId) {
+      try {
+        await supabase.from('calls').insert({
+          tenant_id: tenantId,
+          call_sid: body.CallSid,
+          from_number: body.From,
+          to_number: body.To,
+          direction: 'inbound',
+          status: 'ringing',
+          started_at: new Date().toISOString(),
+        });
+      } catch (e) { console.warn('Call log error:', e.message); }
+    }
+
+    // Build TwiML
+    var twimlStr = '<?xml version="1.0" encoding="UTF-8"?><Response>';
+    
+    if (menuText) {
+      // IVR menu
+      twimlStr += '<Gather numDigits="1" timeout="8" action="/api/twilio-voice?action=route&amp;tenant=' + (tenantId || '') + '" method="POST">';
+      twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + menuText + 'Or stay on the line to leave a message.</Say>';
+      twimlStr += '</Gather>';
+    } else {
+      twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + '</Say>';
+    }
+    
+    // Fallback to voicemail
+    twimlStr += '<Say voice="' + voice + '">Please leave a message after the tone.</Say>';
+    twimlStr += '<Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + (tenantId || '') + '" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + (tenantId || '') + '" />';
+    twimlStr += '<Say voice="' + voice + '">Goodbye.</Say><Hangup/></Response>';
+
+    return res.status(200).end(twimlStr);
+  }
 
   try {
     switch (action) {
