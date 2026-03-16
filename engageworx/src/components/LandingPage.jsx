@@ -301,7 +301,7 @@ const LandingPage = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
               <button onClick={() => navigateTo('contact')} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Contact Sales</button>
-              <a href="tel:+13058108877" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (305) 810-8877</a>
+              <a href="tel:+17869827800" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (786) 982-7800</a>
             </div>
           </div>
 
@@ -498,9 +498,9 @@ const LandingPage = () => {
                 <div style={{ fontSize: 28, marginBottom: 12 }}>📞</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Call Us</h3>
                 <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
-                  Speak directly with our team. Available weekdays 9 AM – 6 PM PT.
+                  Speak directly with our team anytime.
                 </p>
-                <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>+1 (305) 810-8877</a>
+                <a href="tel:+17869827800" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>+1 (786) 982-7800</a>
               </div>
 
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20, opacity: 0.7 }}>
@@ -1131,7 +1131,7 @@ const LandingPage = () => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-end' }}>
               <button onClick={() => navigateTo('contact')} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", whiteSpace: 'nowrap' }}>Contact Sales</button>
-              <a href="tel:+13058108877" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (305) 810-8877</a>
+              <a href="tel:+17869827800" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (786) 982-7800</a>
             </div>
           </div>
         </section>
@@ -1253,7 +1253,7 @@ const LandingPage = () => {
                 <div className="lp-logo-text">Engage<span>Worx</span></div>
               </div>
               <p>AI-powered customer engagement across every channel. Built for teams that move fast.</p>
-              <p style={{fontSize: 13, color: '#6B8BAE', marginTop: 8}}><a href="tel:+13058108877" style={{color: '#00C9FF', textDecoration: 'none'}}>+1 (305) 810-8877</a></p>
+              <p style={{fontSize: 13, color: '#6B8BAE', marginTop: 8}}><a href="tel:+17869827800" style={{color: '#00C9FF', textDecoration: 'none'}}>+1 (786) 982-7800</a></p>
               <div style={{display: 'flex', gap: 12, marginTop: 10}}>
                 <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="LinkedIn">in</a>
                 <a href="https://x.com/worxengage57849" target="_blank" rel="noopener noreferrer" style={{color: '#6B8BAE', textDecoration: 'none', fontSize: 18}} title="X">𝕏</a>
