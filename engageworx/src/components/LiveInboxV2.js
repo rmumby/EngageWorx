@@ -392,11 +392,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       }
 
       // Optimistically add message to UI
-      const optimisticMsg = {
+      var optimisticMsg = {
         id: 'temp_' + Date.now(),
         from: 'agent',
         text: messageBody,
-        time: 0,
+        time: new Date(),
         status: 'sent',
         channel: selectedConv.channel,
         sentAt: new Date().toISOString(),
@@ -714,7 +714,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
                       {msg.text}
                     </div>
                     <div style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", gap: 6, marginTop: 2, alignItems: "center" }}>
-                      <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time instanceof Date ? msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ''}</span>
                       {!isContact && msg.delivered && <span style={{ color: msg.read ? C.primary : "rgba(255,255,255,0.2)", fontSize: 10 }}>{msg.read ? "✓✓" : "✓"}</span>}
                     </div>
                   </div>
