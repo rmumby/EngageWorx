@@ -457,7 +457,7 @@ export default function EngageWorxDemo() {
       {/* Footer */}
       <div style={{ padding: "12px 24px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>EngageWorx Interactive Demo • www.engwx.com</span>
-        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>+1 (305) 810-8877 • rob@engwx.com</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>+1 (305) 810-8877 • hello@engwx.com</span>
       </div>
     </div>
   );
