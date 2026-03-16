@@ -476,12 +476,13 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
-    // Hide archived from all views except when Archived tab is selected
-    if (filterStatus !== "archived" && conv.status === "archived") return false;
+    // "All" hides resolved conversations; "Resolved" shows only resolved
+    if (filterStatus === "all" && conv.status === "resolved") return false;
     if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
+      // Search across ALL conversations including resolved
       return conv.contact.name.toLowerCase().includes(q) || conv.contact.email.toLowerCase().includes(q) || conv.contact.company.toLowerCase().includes(q) || (conv.messages || []).some(m => m.text.toLowerCase().includes(q));
     }
     return true;
@@ -549,12 +550,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
-              { id: "all", label: "All", count: conversations.length },
+              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved").length },
               { id: "active", label: "Active", count: activeCount },
               { id: "waiting", label: "Waiting", count: waitingCount },
               { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
               { id: "resolved", label: "Resolved", count: conversations.filter(c => c.status === "resolved").length },
-              { id: "archived", label: "Archived", count: conversations.filter(c => c.status === "archived").length },
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
@@ -940,45 +940,78 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
                       setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
                     });
                   }},
-                  { label: "Archive", icon: "📦", action: function() {
-                    if (supabase) supabase.from('conversations').update({ status: 'archived' }).eq('id', selectedConv.id).then(function() {
-                      setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
-                      setSelectedConv(null);
+                  { label: selectedConv.priority === 'high' ? "Un-Urgent" : "Mark Urgent", icon: selectedConv.priority === 'high' ? "⬇️" : "🔴", action: function() {
+                    var newPriority = selectedConv.priority === 'high' ? 'normal' : 'high';
+                    var newStatus = newPriority === 'high' ? 'urgent' : 'active';
+                    if (supabase) supabase.from('conversations').update({ priority: newPriority, status: newStatus }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { priority: newPriority, status: newStatus }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
                     });
                   }},
-                  { label: "Tag", icon: "🏷️", action: null },
-                  { label: "Transfer", icon: "↗️", action: null },
-                  { label: "Block", icon: "🚫", action: null },
-                  { label: "Add Note", icon: "📝", action: null },
+                  { label: "Assign to AI", icon: "🤖", action: function() {
+                    if (supabase) supabase.from('conversations').update({ assigned_to: 'ai' }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
+                    });
+                  }},
+                  { label: "Assign to Me", icon: "👤", action: function() {
+                    if (supabase) supabase.from('conversations').update({ assigned_to: 'rob' }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'rob', name: 'Rob Mumby', avatar: 'RM', status: 'online' } }) : prev; });
+                    });
+                  }},
+                  { label: "Block", icon: "🚫", action: function() {
+                    if (window.confirm('Block this contact? They will no longer be able to message you.')) {
+                      if (supabase) supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
+                        setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                        setSelectedConv(null);
+                      });
+                    }
+                  }},
+                  { label: "Add Note", icon: "📝", action: function() {
+                    var note = window.prompt('Add a note to this conversation:');
+                    if (note && supabase) {
+                      supabase.from('messages').insert({
+                        tenant_id: selectedConv.tenant_id || currentTenantId,
+                        conversation_id: selectedConv.id,
+                        contact_id: selectedConv.contact_id || null,
+                        direction: 'outbound',
+                        channel: selectedConv.channel || 'email',
+                        body: '📝 Note: ' + note,
+                        status: 'delivered',
+                        sender_type: 'agent',
+                        created_at: new Date().toISOString(),
+                      }).then(function() {
+                        var noteMsg = { id: 'note_' + Date.now(), from: 'agent', text: '📝 Note: ' + note, time: new Date(), agent: null, read: true, delivered: true };
+                        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { messages: (prev.messages || []).concat([noteMsg]) }) : prev; });
+                      });
+                    }
+                  }},
                 ].map(function(action) { return (
                   <button key={action.label} onClick={action.action || undefined} style={{
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
-                    borderRadius: 6, padding: "8px", cursor: action.action ? "pointer" : "default", color: action.action ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)",
+                    borderRadius: 6, padding: "8px", cursor: "pointer", color: "rgba(255,255,255,0.4)",
                     fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.15s",
                   }}
-                    onMouseEnter={function(e) { if (action.action) { e.currentTarget.style.background = C.primary + '15'; e.currentTarget.style.color = C.primary; } }}
-                    onMouseLeave={function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = action.action ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.15)"; }}
+                    onMouseEnter={function(e) { e.currentTarget.style.background = C.primary + '15'; e.currentTarget.style.color = C.primary; }}
+                    onMouseLeave={function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
                   >{action.icon} {action.label}</button>
                 ); })}
               </div>
             </div>
 
-            {/* Previous Conversations */}
+            {/* Conversation Timeline — real data from messages */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 12 }}>
-              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>History</div>
-              {[
-                { date: "Feb 14", channel: "SMS", summary: "Order inquiry — resolved" },
-                { date: "Jan 28", channel: "Email", summary: "Account setup — resolved" },
-                { date: "Jan 15", channel: "WhatsApp", summary: "Product question — resolved" },
-              ].map((h, i) => (
-                <div key={i} style={{ padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{h.channel}</span>
-                    <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{h.date}</span>
+              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Timeline</div>
+              {(selectedConv.messages || []).slice(-5).reverse().map(function(m, i) {
+                return (
+                  <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.from === 'bot' ? '🤖 AI Reply' : '👤 Agent'}</span>
+                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>
-                  <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2 }}>{h.summary}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
