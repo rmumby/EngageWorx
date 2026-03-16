@@ -191,7 +191,6 @@ module.exports = async function handler(req, res) {
           conversationId = existingConv[0].id;
           const { error: updateErr } = await supabase.from('conversations').update({
             last_message_at: new Date().toISOString(),
-            subject: emailSubject,
             status: 'active',
             unread_count: 1,
           }).eq('id', conversationId);
