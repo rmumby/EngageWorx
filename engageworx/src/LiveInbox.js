@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { supabase } from './supabaseClient';
+import { useState, useEffect, useRef, memo } from "react";
+// supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
 const CHANNELS = {
@@ -200,9 +200,19 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+  console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
+  const C = {
+    primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
+    border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
+    ...(rawC || {}),
+  };
+
+  // ALL hooks must be declared before any conditional return (React rules)
   const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
   const [selectedConv, setSelectedConv] = useState(null);
+  const [liveError, setLiveError] = useState(null);
+  const [liveReady, setLiveReady] = useState(demoMode);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -211,66 +221,338 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   const [showCanned, setShowCanned] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(true);
   const [sortBy, setSortBy] = useState("recent");
+  const [inboxTab, setInboxTab] = useState("messages");
+  const [liveMessages, setLiveMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [calls, setCalls] = useState([]);
+  const [loadingCalls, setLoadingCalls] = useState(false);
+  const [selectedCall, setSelectedCall] = useState(null);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
-  // Fetch live conversations from Supabase
+  // Empty useEffects for live mode (must run every render to maintain hook count)
+  useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
   useEffect(() => {
-    if (demoMode) {
-      setConversations(generateConversations());
-      return;
-    }
-    const fetchConversations = async () => {
+    // Load messages when conversation selected in live mode
+    var convId = selectedConv ? selectedConv.id : null;
+    if (demoMode || !supabase || !convId) return;
+    (async function loadMsgs() {
       try {
-        let query = supabase.from('conversations').select('*, contacts(first_name, last_name, email, phone, company, tags)').order('last_message_at', { ascending: false });
-        if (currentTenantId && viewLevel === 'tenant') {
-          query = query.eq('tenant_id', currentTenantId);
+        var result = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
+        var data = result.data;
+        console.log('📩 Loaded', (data || []).length, 'messages for conversation', convId);
+        if (data && data.length > 0) {
+          var mapped = data.map(function(m) {
+            return {
+              id: m.id,
+              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              text: m.body || '',
+              time: m.created_at ? new Date(m.created_at) : new Date(),
+              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+              read: true,
+              delivered: true,
+            };
+          });
+          setSelectedConv(function(prev) { return prev && prev.id === convId ? Object.assign({}, prev, { messages: mapped }) : prev; });
         }
-        const { data, error } = await query;
-        if (error) throw error;
-        const mapped = (data || []).map(conv => ({
-          id: conv.id,
-          channel: (conv.channel || 'sms').toLowerCase(),
-          status: conv.status || 'active',
-          priority: conv.priority || 'normal',
-          unread: conv.unread_count || 0,
-          lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
-          subject: conv.subject || '',
-          contact: {
-            name: conv.contacts ? `${conv.contacts.first_name || ''} ${conv.contacts.last_name || ''}`.trim() : 'Unknown',
-            email: conv.contacts?.email || '',
-            phone: conv.contacts?.phone || '',
-            company: conv.contacts?.company || '',
-            tags: conv.contacts?.tags || [],
-            avatar: null,
-          },
-          messages: [],
-          aiSummary: conv.ai_summary || '',
-          sentiment: conv.sentiment_score || 0,
-          tenant_id: conv.tenant_id,
-        }));
-        setConversations(mapped);
-      } catch (err) {
-        console.warn('Conversations fetch error:', err.message);
-        setConversations([]);
-      }
-    };
-    fetchConversations();
-  }, [demoMode, currentTenantId, viewLevel]);
-
+      } catch (e) { console.warn('Message load error:', e.message); }
+    })();
+  }, [demoMode, selectedConv?.id]);
+  // Poll for new conversations every 15 seconds in live mode
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (demoMode || !supabase) return;
+    var pollInterval = setInterval(function() {
+      (async function pollFetch() {
+        try {
+          var convQuery = currentTenantId && viewLevel === 'tenant'
+            ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
+            : supabase.from('conversations').select('*');
+          var convResult = await convQuery;
+          var convos = (convResult.data || []).sort(function(a, b) { return (b.last_message_at || b.created_at || '').localeCompare(a.last_message_at || a.created_at || ''); });
+          
+          var cIds = convos.map(function(c) { return c.contact_id; }).filter(Boolean);
+          var uniqueCIds = [...new Set(cIds)];
+          var cMap = {};
+          if (uniqueCIds.length > 0) {
+            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
+            if (cResult.data) cResult.data.forEach(function(c) { cMap[c.id] = c; });
+          }
+          
+          var mMap = {};
+          if (convos.length > 0) {
+            var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+            if (mResult.data) mResult.data.forEach(function(m) {
+              if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
+              mMap[m.conversation_id].push({
+                id: m.id,
+                from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+                text: m.body || '',
+                time: m.created_at ? new Date(m.created_at) : new Date(),
+                agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+                read: true, delivered: true,
+              });
+            });
+          }
+          
+          var assembled = convos.map(function(conv) {
+            var c = cMap[conv.contact_id];
+            var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown' : 'Unknown';
+            var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+            var msgs = mMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+            return {
+              id: conv.id, contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
+              channel: (conv.channel || 'email').toLowerCase(), messages: msgs, status: conv.status || 'active', assignedTo: null,
+              unread: conv.unread_count || 0, lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+              isTyping: false, priority: conv.priority || 'normal', subject: conv.subject || '', tenant_id: conv.tenant_id, contact_id: conv.contact_id,
+            };
+          });
+          
+          // Also fetch calls for polling
+          try {
+            var pollCallQuery = currentTenantId && viewLevel === 'tenant'
+              ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+              : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
+            var pollCallResult = await pollCallQuery;
+            var pollCalls = (pollCallResult.data || []).map(function(call) {
+              var cMsgs = [];
+              if (call.transcript) cMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              if (call.recording_url) cMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+              if (cMsgs.length === 0) cMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ')', time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              return {
+                id: 'call_' + call.id, contact: { name: call.from_number || 'Unknown', phone: call.from_number || '', email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
+                channel: 'voice', messages: cMsgs, status: call.status === 'completed' ? 'resolved' : 'active',
+                assignedTo: null, unread: 0, lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+                isTyping: false, priority: 'normal', subject: 'Voice call from ' + (call.from_number || 'Unknown'),
+                tenant_id: call.tenant_id, contact_id: null,
+              };
+            });
+            assembled = assembled.concat(pollCalls);
+            assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
+          } catch (e) { /* silent */ }
+          
+          setConversations(assembled);
+          
+          // Also refresh selected conversation messages
+          if (selectedConv) {
+            var selMsgs = mMap[selectedConv.id];
+            if (selMsgs && selMsgs.length > (selectedConv.messages || []).length) {
+              setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { messages: selMsgs }) : prev; });
+            }
+          }
+        } catch (e) { /* silent poll error */ }
+      })();
+    }, 15000);
+    return function() { clearInterval(pollInterval); };
+  }, [demoMode, supabase, currentTenantId, viewLevel]);
+  useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
+  useEffect(() => {
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [selectedConv?.id, (selectedConv?.messages || []).length]);
+
+  // In live mode, fetch conversations using supabase prop
+  const [liveLoading, setLiveLoading] = useState(!demoMode);
+  useEffect(() => {
+    if (demoMode || !supabase) { setLiveLoading(false); return; }
+    
+    async function fetchAll() {
+      try {
+        console.log('🟡 Starting fetch...');
+        // 1. Conversations
+        const convQuery = currentTenantId && viewLevel === 'tenant'
+          ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
+          : supabase.from('conversations').select('*');
+        const { data: convData, error: convError } = await convQuery;
+        if (convError) { console.warn('Conv error:', convError.message); setLiveLoading(false); return; }
+        const convos = (convData || []).sort((a, b) => (b.last_message_at || b.created_at || '').localeCompare(a.last_message_at || a.created_at || ''));
+        console.log('🟡 Found', convos.length, 'conversations');
+
+        // 2. Contacts
+        const cIds = convos.map(c => c.contact_id).filter(Boolean);
+        const uniqueCIds = [...new Set(cIds)];
+        var contactMap = {};
+        if (uniqueCIds.length > 0) {
+          const { data: cData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
+          if (cData) cData.forEach(function(c) { contactMap[c.id] = c; });
+        }
+
+        // 3. Messages
+        var msgMap = {};
+        if (convos.length > 0) {
+          const { data: mData } = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+          if (mData) mData.forEach(function(m) {
+            if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
+            msgMap[m.conversation_id].push({
+              id: m.id,
+              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              text: m.body || '',
+              time: m.created_at ? new Date(m.created_at) : new Date(),
+              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+              read: true,
+              delivered: true,
+            });
+          });
+        }
+
+        // 4. Assemble
+        var result = convos.map(function(conv) {
+          var c = contactMap[conv.contact_id];
+          var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown' : 'Unknown';
+          var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+          var convMsgs = msgMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+          return {
+            id: conv.id,
+            contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
+            channel: (conv.channel || 'email').toLowerCase(),
+            messages: convMsgs,
+            status: conv.status || 'active',
+            assignedTo: null,
+            unread: conv.unread_count || 0,
+            lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+            isTyping: false,
+            priority: conv.priority || 'normal',
+            subject: conv.subject || '',
+            tenant_id: conv.tenant_id,
+            contact_id: conv.contact_id,
+          };
+        });
+
+        console.log('🟢 Assembled', result.length, 'conversations');
+        
+        // 5. Fetch calls and add as voice conversations
+        try {
+          var callQuery = currentTenantId && viewLevel === 'tenant'
+            ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+            : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
+          var callResult = await callQuery;
+          var callData = callResult.data || [];
+          console.log('📞 Found', callData.length, 'calls');
+          
+          var callConvos = callData.map(function(call) {
+            var callMsgs = [];
+            if (call.transcript) {
+              callMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+            }
+            if (call.recording_url) {
+              callMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+            }
+            if (callMsgs.length === 0) {
+              callMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+            }
+            var callerNum = call.from_number || 'Unknown';
+            return {
+              id: 'call_' + call.id,
+              contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
+              channel: 'voice',
+              messages: callMsgs,
+              status: call.status === 'completed' ? 'resolved' : 'active',
+              assignedTo: null,
+              unread: call.status === 'completed' ? 0 : 1,
+              lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+              isTyping: false,
+              priority: 'normal',
+              subject: 'Voice call from ' + callerNum,
+              tenant_id: call.tenant_id,
+              contact_id: null,
+            };
+          });
+          
+          result = result.concat(callConvos);
+          result.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
+        } catch (callErr) {
+          console.warn('Calls fetch error:', callErr.message);
+        }
+        
+        console.log('🟢 Total items (conversations + calls):', result.length);
+        setConversations(result);
+      } catch (err) {
+        console.warn('Live inbox error:', err.message);
+      }
+      setLiveLoading(false);
     }
-  }, [selectedConv]);
+    
+    fetchAll();
+  }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
+
+  // Live mode renders the full inbox immediately - conversations populate async
+
+
+  const handleSendLive = async () => {
+    if (!composeText.trim() || !selectedConv) return;
+    setSendingMessage(true);
+    try {
+      const messageBody = composeText.trim();
+      setComposeText("");
+
+      // Insert message into Supabase
+      if (!supabase) return;
+      var insertResult = await supabase.from('messages').insert({
+        tenant_id: selectedConv.tenant_id || currentTenantId,
+        conversation_id: selectedConv.id,
+        contact_id: selectedConv.contact_id || null,
+        direction: 'outbound',
+        channel: selectedConv.channel || 'email',
+        body: messageBody,
+        status: 'delivered',
+        sender_type: 'agent',
+        created_at: new Date().toISOString(),
+      });
+      if (insertResult.error) { console.error('Message insert error:', insertResult.error.message); throw insertResult.error; }
+
+      // Update conversation
+      await supabase.from('conversations').update({
+        last_message_at: new Date().toISOString(),
+        status: 'active',
+      }).eq('id', selectedConv.id);
+
+      // Send via API if SMS
+      if (selectedConv.channel === 'sms' && selectedConv.contact?.phone) {
+        try {
+          await fetch('/api/sms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: selectedConv.contact.phone,
+              body: messageBody,
+              tenantId: selectedConv.tenant_id || currentTenantId,
+            }),
+          });
+        } catch (smsErr) {
+          console.warn('SMS send error:', smsErr.message);
+        }
+      }
+
+      // Optimistically add message to UI
+      var optimisticMsg = {
+        id: 'temp_' + Date.now(),
+        from: 'agent',
+        text: messageBody,
+        time: new Date(),
+        status: 'sent',
+        channel: selectedConv.channel,
+        sentAt: new Date().toISOString(),
+      };
+      setSelectedConv(prev => prev ? { ...prev, messages: [...(prev.messages || []), optimisticMsg] } : prev);
+    } catch (err) {
+      console.error('Send error:', err);
+      setComposeText(composeText); // Restore on error
+    }
+    setSendingMessage(false);
+    if (composeRef.current) composeRef.current.focus();
+  };
+
+  // Scroll effect removed - using the one at line 262
 
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
+    // "All" hides resolved conversations; "Resolved" shows only resolved
+    if (filterStatus === "all" && conv.status === "resolved") return false;
     if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return conv.contact.name.toLowerCase().includes(q) || conv.contact.email.toLowerCase().includes(q) || conv.contact.company.toLowerCase().includes(q) || conv.messages.some(m => m.text.toLowerCase().includes(q));
+      // Search across ALL conversations including resolved
+      return conv.contact.name.toLowerCase().includes(q) || conv.contact.email.toLowerCase().includes(q) || conv.contact.company.toLowerCase().includes(q) || (conv.messages || []).some(m => m.text.toLowerCase().includes(q));
     }
     return true;
   }).sort((a, b) => {
@@ -287,6 +569,10 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
 
   const handleSend = () => {
     if (!composeText.trim()) return;
+    if (!demoMode) {
+      handleSendLive();
+      return;
+    }
     setComposeText("");
     if (composeRef.current) composeRef.current.focus();
   };
@@ -300,6 +586,9 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
   // ═══════════════════════════════════════════════════════════════════════════
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
+  // Show loading screen until data is ready (prevents render crashes)
+  // Errors shown inline in the conversation list
+
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
@@ -314,13 +603,23 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
             </div>
           </div>
 
+          {/* Tab Switcher: Messages | Calls */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+            {[
+              { id: "messages", label: "💬 Messages" },
+              { id: "calls", label: `📞 Calls${!demoMode && calls.length > 0 ? ` (${calls.length})` : ""}` },
+            ].map(t => (
+              <button key={t.id} onClick={() => setInboxTab(t.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === t.id ? `${C.primary}22` : "transparent", color: inboxTab === t.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{t.label}</button>
+            ))}
+          </div>
+
           {/* Search */}
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search conversations..." style={{ ...inputStyle, width: "100%", marginBottom: 8 }} />
 
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
-              { id: "all", label: "All", count: conversations.length },
+              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved").length },
               { id: "active", label: "Active", count: activeCount },
               { id: "waiting", label: "Waiting", count: waitingCount },
               { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
@@ -353,10 +652,11 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
           </div>
         </div>
 
-        {/* Conversation List */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
+        {/* Conversation List (Messages tab) */}
+        {inboxTab === "messages" && (<div style={{ flex: 1, overflowY: "auto" }}>
           {filtered.map(conv => {
-            const lastMsg = conv.messages[conv.messages.length - 1];
+            const msgs = conv.messages || [];
+            const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : { from: 'system', text: conv.subject || 'New conversation', agent: null };
             const ch = CHANNELS[conv.channel];
             const isSelected = selectedConv?.id === conv.id;
 
@@ -374,7 +674,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
                   {/* Avatar */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
-                    <div style={{ position: "absolute", bottom: -1, right: -1, fontSize: 12 }}>{ch.icon}</div>
+                    <div title={ch.label} style={{ position: "absolute", bottom: -1, right: -1, fontSize: 12 }}>{ch.icon}</div>
                     {conv.unread > 0 && <div style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#FF3B30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{conv.unread}</div>}
                   </div>
 
@@ -403,16 +703,74 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
 
           {filtered.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>No conversations found</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Try adjusting your filters</div>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
+              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || "Try adjusting your filters or send an email to hello@engwx.com"}</div>
             </div>
           )}
-        </div>
+        </div>)}
+
+        {/* Calls/Voicemail Tab */}
+        {inboxTab === "calls" && (
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {loadingCalls ? (
+              <div style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Loading calls...</div>
+            ) : calls.length === 0 ? (
+              <div style={{ padding: "40px 20px", textAlign: "center" }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>No calls yet</div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Calls and voicemails will appear here</div>
+              </div>
+            ) : calls.map(call => {
+              const isVoicemail = call.status === 'voicemail' || call.recording_url;
+              const time = call.created_at ? new Date(call.created_at) : new Date();
+              const dur = call.duration ? `${Math.floor(call.duration / 60)}:${String(call.duration % 60).padStart(2, '0')}` : '';
+              return (
+                <div key={call.id} onClick={() => setSelectedCall(selectedCall?.id === call.id ? null : call)} style={{ padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer", background: selectedCall?.id === call.id ? "rgba(0,201,255,0.06)" : "transparent", transition: "background 0.15s" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: isVoicemail ? "rgba(255,214,0,0.15)" : "rgba(0,201,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                      {isVoicemail ? "📩" : call.direction === 'inbound' ? "📲" : "📱"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
+                        <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
+                        <span style={{ color: isVoicemail ? "#FFD600" : "#00C9FF", fontSize: 10, fontWeight: 700 }}>{isVoicemail ? "VOICEMAIL" : call.direction?.toUpperCase() || "INBOUND"}</span>
+                        {dur && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{dur}</span>}
+                        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Expanded call details */}
+                  {selectedCall?.id === call.id && (
+                    <div style={{ marginTop: 10, padding: 12, background: "rgba(0,0,0,0.2)", borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
+                      {call.transcript && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 10, textTransform: "uppercase", marginBottom: 4 }}>Transcript</div>
+                          <div style={{ color: "rgba(255,255,255,0.6)" }}>{call.transcript}</div>
+                        </div>
+                      )}
+                      {call.recording_url && (
+                        <a href={call.recording_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: C.primary, textDecoration: "none", fontSize: 11, fontWeight: 600, background: `${C.primary}15`, padding: "6px 12px", borderRadius: 6 }}>
+                          🔊 Play Recording
+                        </a>
+                      )}
+                      {!call.transcript && !call.recording_url && (
+                        <div style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No recording or transcript available</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Bottom Stats */}
         <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
+          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{inboxTab === "messages" ? `${filtered.length} conversations` : `${calls.length} calls`}</span>
           <div style={{ display: "flex", gap: 6 }}>
             {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
               <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
@@ -431,7 +789,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</span>
-                <span style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
+                <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>
                 {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
               </div>
@@ -459,10 +817,10 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
               <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Today</span>
             </div>
 
-            {selectedConv.messages.map((msg, i) => {
+            {(selectedConv.messages || []).map((msg, i) => {
               const isContact = msg.from === "contact";
               const isBot = msg.from === "bot";
-              const showAvatar = i === 0 || selectedConv.messages[i - 1].from !== msg.from;
+              const showAvatar = i === 0 || (selectedConv.messages || [])[i - 1]?.from !== msg.from;
 
               return (
                 <div key={msg.id} style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", marginBottom: showAvatar ? 12 : 4, gap: 8, alignItems: "flex-end" }}>
@@ -490,7 +848,7 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
                       {msg.text}
                     </div>
                     <div style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", gap: 6, marginTop: 2, alignItems: "center" }}>
-                      <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time instanceof Date ? msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ''}</span>
                       {!isContact && msg.delivered && <span style={{ color: msg.read ? C.primary : "rgba(255,255,255,0.2)", fontSize: 10 }}>{msg.read ? "✓✓" : "✓"}</span>}
                     </div>
                   </div>
@@ -558,12 +916,12 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
             {/* Input */}
             <div style={{ display: "flex", gap: 8 }}>
               <textarea ref={composeRef} value={composeText} onChange={e => setComposeText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }} placeholder={`Reply via ${CHANNELS[selectedConv.channel].label}...`} rows={2} style={{ ...inputStyle, flex: 1, borderRadius: 12, resize: "none", lineHeight: 1.4, padding: "10px 14px" }} />
-              <button onClick={handleSend} disabled={!composeText.trim()} style={{
-                background: composeText.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)",
-                border: "none", borderRadius: 12, padding: "0 20px", color: composeText.trim() ? "#000" : "rgba(255,255,255,0.2)",
-                fontWeight: 700, cursor: composeText.trim() ? "pointer" : "not-allowed", fontSize: 14,
+              <button onClick={handleSend} disabled={!composeText.trim() || sendingMessage} style={{
+                background: composeText.trim() && !sendingMessage ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)",
+                border: "none", borderRadius: 12, padding: "0 20px", color: composeText.trim() && !sendingMessage ? "#000" : "rgba(255,255,255,0.2)",
+                fontWeight: 700, cursor: composeText.trim() && !sendingMessage ? "pointer" : "not-allowed", fontSize: 14,
                 fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", alignSelf: "stretch",
-              }}>Send</button>
+              }}>{sendingMessage ? "..." : "Send"}</button>
             </div>
           </div>
         </div>
@@ -629,8 +987,8 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
                 { label: "Status", value: selectedConv.status.charAt(0).toUpperCase() + selectedConv.status.slice(1), color: selectedConv.status === "urgent" ? "#FF3B30" : selectedConv.status === "active" ? "#00E676" : selectedConv.status === "waiting" ? "#FFD600" : "#6B8BAE" },
                 { label: "Priority", value: selectedConv.priority.charAt(0).toUpperCase() + selectedConv.priority.slice(1), color: selectedConv.priority === "high" ? "#FF3B30" : selectedConv.priority === "medium" ? "#FFD600" : "#00E676" },
                 { label: "Agent", value: selectedConv.assignedTo?.name || "Unassigned", color: "rgba(255,255,255,0.5)" },
-                { label: "Messages", value: selectedConv.messages.length, color: "rgba(255,255,255,0.5)" },
-                { label: "Started", value: selectedConv.messages[0].time.toLocaleDateString(), color: "rgba(255,255,255,0.5)" },
+                { label: "Messages", value: (selectedConv.messages || []).length, color: "rgba(255,255,255,0.5)" },
+                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "rgba(255,255,255,0.5)" },
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
                   <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{item.label}</span>
@@ -644,41 +1002,85 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
               <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Actions</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                 {[
-                  { label: "Close", icon: "✅" },
-                  { label: "Snooze", icon: "⏰" },
-                  { label: "Tag", icon: "🏷️" },
-                  { label: "Transfer", icon: "↗️" },
-                  { label: "Block", icon: "🚫" },
-                  { label: "Add Note", icon: "📝" },
-                ].map(action => (
-                  <button key={action.label} style={{
+                  { label: selectedConv.status === 'resolved' ? "Reopen" : "Resolve", icon: selectedConv.status === 'resolved' ? "🔄" : "✅", action: function() {
+                    var newStatus = selectedConv.status === 'resolved' ? 'active' : 'resolved';
+                    if (supabase) supabase.from('conversations').update({ status: newStatus }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
+                    });
+                  }},
+                  { label: selectedConv.priority === 'high' ? "Un-Urgent" : "Mark Urgent", icon: selectedConv.priority === 'high' ? "⬇️" : "🔴", action: function() {
+                    var newPriority = selectedConv.priority === 'high' ? 'normal' : 'high';
+                    var newStatus = newPriority === 'high' ? 'urgent' : 'active';
+                    if (supabase) supabase.from('conversations').update({ priority: newPriority, status: newStatus }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { priority: newPriority, status: newStatus }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
+                    });
+                  }},
+                  { label: "Assign to AI", icon: "🤖", action: function() {
+                    if (supabase) supabase.from('conversations').update({ assigned_to: 'ai' }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
+                    });
+                  }},
+                  { label: "Assign to Me", icon: "👤", action: function() {
+                    if (supabase) supabase.from('conversations').update({ assigned_to: 'rob' }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'rob', name: 'Rob Mumby', avatar: 'RM', status: 'online' } }) : prev; });
+                    });
+                  }},
+                  { label: "Block", icon: "🚫", action: function() {
+                    if (window.confirm('Block this contact? They will no longer be able to message you.')) {
+                      if (supabase) supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
+                        setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                        setSelectedConv(null);
+                      });
+                    }
+                  }},
+                  { label: "Add Note", icon: "📝", action: function() {
+                    var note = window.prompt('Add a note to this conversation:');
+                    if (note && supabase) {
+                      supabase.from('messages').insert({
+                        tenant_id: selectedConv.tenant_id || currentTenantId,
+                        conversation_id: selectedConv.id,
+                        contact_id: selectedConv.contact_id || null,
+                        direction: 'outbound',
+                        channel: selectedConv.channel || 'email',
+                        body: '📝 Note: ' + note,
+                        status: 'delivered',
+                        sender_type: 'agent',
+                        created_at: new Date().toISOString(),
+                      }).then(function() {
+                        var noteMsg = { id: 'note_' + Date.now(), from: 'agent', text: '📝 Note: ' + note, time: new Date(), agent: null, read: true, delivered: true };
+                        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { messages: (prev.messages || []).concat([noteMsg]) }) : prev; });
+                      });
+                    }
+                  }},
+                ].map(function(action) { return (
+                  <button key={action.label} onClick={action.action || undefined} style={{
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)",
                     borderRadius: 6, padding: "8px", cursor: "pointer", color: "rgba(255,255,255,0.4)",
                     fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.15s",
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.color = C.primary; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+                    onMouseEnter={function(e) { e.currentTarget.style.background = C.primary + '15'; e.currentTarget.style.color = C.primary; }}
+                    onMouseLeave={function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
                   >{action.icon} {action.label}</button>
-                ))}
+                ); })}
               </div>
             </div>
 
-            {/* Previous Conversations */}
+            {/* Conversation Timeline — real data from messages */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 12 }}>
-              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>History</div>
-              {[
-                { date: "Feb 14", channel: "SMS", summary: "Order inquiry — resolved" },
-                { date: "Jan 28", channel: "Email", summary: "Account setup — resolved" },
-                { date: "Jan 15", channel: "WhatsApp", summary: "Product question — resolved" },
-              ].map((h, i) => (
-                <div key={i} style={{ padding: "6px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{h.channel}</span>
-                    <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{h.date}</span>
+              <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Timeline</div>
+              {(selectedConv.messages || []).slice(-5).reverse().map(function(m, i) {
+                return (
+                  <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.from === 'bot' ? '🤖 AI Reply' : '👤 Agent'}</span>
+                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>
-                  <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2 }}>{h.summary}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -694,3 +1096,8 @@ export default function LiveInbox({ C, tenants, viewLevel = "tenant", currentTen
     </div>
   );
 }
+
+const LiveInbox = memo(LiveInboxInner, (prev, next) => {
+  return prev.demoMode === next.demoMode && prev.currentTenantId === next.currentTenantId && prev.viewLevel === next.viewLevel;
+});
+export default LiveInbox;
