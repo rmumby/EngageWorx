@@ -21,8 +21,13 @@ function twiml(body) {
 }
 
 function say(text, voice = 'Polly.Amy') {
-  // Polly.Amy = British English female — good default for UK business
-  return `<Say voice="${voice}">${escapeXml(text)}</Say>`;
+  // Sanitize voice name - extract just "Polly.Name" from any format
+  var cleanVoice = 'Polly.Amy';
+  if (voice && typeof voice === 'string') {
+    var match = voice.match(/Polly\.\w+/);
+    if (match) cleanVoice = match[0];
+  }
+  return `<Say voice="${cleanVoice}">${escapeXml(text)}</Say>`;
 }
 
 function escapeXml(str) {
