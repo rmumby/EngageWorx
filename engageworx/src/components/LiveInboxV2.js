@@ -259,7 +259,69 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       } catch (e) { console.warn('Message load error:', e.message); }
     })();
   }, [demoMode, selectedConv?.id]);
-  useEffect(() => {}, [demoMode, inboxTab, currentTenantId, viewLevel]);
+  // Poll for new conversations every 15 seconds in live mode
+  useEffect(() => {
+    if (demoMode || !supabase) return;
+    var pollInterval = setInterval(function() {
+      (async function pollFetch() {
+        try {
+          var convQuery = currentTenantId && viewLevel === 'tenant'
+            ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
+            : supabase.from('conversations').select('*');
+          var convResult = await convQuery;
+          var convos = (convResult.data || []).sort(function(a, b) { return (b.last_message_at || b.created_at || '').localeCompare(a.last_message_at || a.created_at || ''); });
+          
+          var cIds = convos.map(function(c) { return c.contact_id; }).filter(Boolean);
+          var uniqueCIds = [...new Set(cIds)];
+          var cMap = {};
+          if (uniqueCIds.length > 0) {
+            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
+            if (cResult.data) cResult.data.forEach(function(c) { cMap[c.id] = c; });
+          }
+          
+          var mMap = {};
+          if (convos.length > 0) {
+            var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+            if (mResult.data) mResult.data.forEach(function(m) {
+              if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
+              mMap[m.conversation_id].push({
+                id: m.id,
+                from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+                text: m.body || '',
+                time: m.created_at ? new Date(m.created_at) : new Date(),
+                agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+                read: true, delivered: true,
+              });
+            });
+          }
+          
+          var assembled = convos.map(function(conv) {
+            var c = cMap[conv.contact_id];
+            var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown' : 'Unknown';
+            var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+            var msgs = mMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+            return {
+              id: conv.id, contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
+              channel: (conv.channel || 'email').toLowerCase(), messages: msgs, status: conv.status || 'active', assignedTo: null,
+              unread: conv.unread_count || 0, lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+              isTyping: false, priority: conv.priority || 'normal', subject: conv.subject || '', tenant_id: conv.tenant_id, contact_id: conv.contact_id,
+            };
+          });
+          
+          setConversations(assembled);
+          
+          // Also refresh selected conversation messages
+          if (selectedConv) {
+            var selMsgs = mMap[selectedConv.id];
+            if (selMsgs && selMsgs.length > (selectedConv.messages || []).length) {
+              setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { messages: selMsgs }) : prev; });
+            }
+          }
+        } catch (e) { /* silent poll error */ }
+      })();
+    }, 15000);
+    return function() { clearInterval(pollInterval); };
+  }, [demoMode, supabase, currentTenantId, viewLevel]);
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
