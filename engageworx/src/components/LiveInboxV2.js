@@ -428,11 +428,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     if (composeRef.current) composeRef.current.focus();
   };
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [selectedConv, selectedConv?.messages?.length]);
+  // Scroll effect removed - using the one at line 262
 
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
