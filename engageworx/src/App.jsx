@@ -1006,7 +1006,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
 
           {page === "inbox" && (
-            <LiveInbox C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />
+            <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />
           )}
 
         {page === "chatbot" && (
