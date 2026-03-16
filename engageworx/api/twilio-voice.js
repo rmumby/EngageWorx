@@ -104,6 +104,7 @@ module.exports = async function handler(req, res) {
 
   const action = req.query.action || 'inbound';
   const body = req.body || {};
+  console.log('📞 Voice webhook:', action, 'To:', body.To, 'From:', body.From);
 
   try {
     switch (action) {
@@ -122,15 +123,19 @@ module.exports = async function handler(req, res) {
 
         // Log the call
         if (tenantId) {
-          await supabase.from('calls').insert({
-            tenant_id: tenantId,
-            call_sid: CallSid,
-            from_number: From,
-            to_number: To,
-            direction: 'inbound',
-            status: 'ringing',
-            started_at: new Date().toISOString(),
-          }).select().single();
+          try {
+            await supabase.from('calls').insert({
+              tenant_id: tenantId,
+              call_sid: CallSid,
+              from_number: From,
+              to_number: To,
+              direction: 'inbound',
+              status: 'ringing',
+              started_at: new Date().toISOString(),
+            });
+          } catch (callLogErr) {
+            console.warn('Call log error (non-fatal):', callLogErr.message);
+          }
         }
 
         // Business hours check
