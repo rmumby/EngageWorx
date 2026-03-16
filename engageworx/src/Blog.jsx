@@ -6,8 +6,13 @@ import { useState } from 'react';
 // Do NOT use backticks or dollar-brace inside content — they break the template literal.
 const POSTS = [
 {  
-  "title": "The White-Label Messaging Opportunity: How Service Providers Can Own the Channel",  
-  "content": `  
+  slug: "white-label-messaging-opportunity",
+  title: "The White-Label Messaging Opportunity: How Service Providers Can Own the Channel",
+  date: "March 16, 2026",
+  readTime: "10 min read",
+  category: "Service Providers",
+  excerpt: "Stop sending your clients to third-party messaging platforms. Learn how white-labeling the channel can generate 50-75% margins and make your business stickier.",
+  content: `
 ## The White-Label Messaging Opportunity: How Service Providers Can Own the Channel
 
 For over a decade, managed service providers (MSPs), marketing agencies, and telecom resellers have followed a predictable, yet flawed, script. When a client needs SMS, WhatsApp, or RCS capabilities, the provider points them toward a third-party platform. They might get a small referral fee or a tiny percentage of the monthly spend, but they ultimately hand over the most valuable asset they own: the customer relationship.
@@ -89,10 +94,9 @@ If you are ready to stop being a referral partner and start being a platform own
 **Ready to see the platform in action?**  
 [Book a demo today](https://www.engwx.com) and let’s walk through your specific ROI potential.  
 `  
-}  
- 
- {  
-slug: "engageworx-vs-gohighlevel-which-platform-is-right-for-your-agency",  
+},
+{  
+  slug: "engageworx-vs-gohighlevel-which-platform-is-right-for-your-agency",  
 title: "EngageWorx vs. GoHighLevel: Which Platform Is Right for Your Agency?",  
 date: "March 9, 2026",  
 readTime: "7 min read",  
