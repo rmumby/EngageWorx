@@ -221,7 +221,7 @@ module.exports = async function handler(req, res) {
             direction: 'inbound',
             sender_type: 'contact',
             body: emailBody.substring(0, 5000),
-            status: 'received',
+            status: 'delivered',
             created_at: new Date().toISOString(),
           });
           if (msgErr) console.log('📋 Message insert error:', msgErr.message);
