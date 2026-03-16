@@ -385,109 +385,147 @@ module.exports = async function handler(req, res) {
       // VOICEMAIL-COMPLETE — Recording finished
       // ═══════════════════════════════════════════════════════════════
       case 'voicemail-complete': {
-        const { CallSid, RecordingUrl, RecordingDuration, RecordingSid } = body;
-        const tenantId = req.query.tenant;
+        var vmCallSid = body.CallSid;
+        var vmRecordingUrl = body.RecordingUrl;
+        var vmRecordingDuration = body.RecordingDuration;
+        var vmTenantId = req.query.tenant;
+        console.log('📞 Voicemail complete:', vmCallSid, 'duration:', vmRecordingDuration);
 
-        // Update call record with recording
-        await supabase.from('calls').update({
-          recording_url: RecordingUrl ? `${RecordingUrl}.mp3` : null,
-          disposition: 'voicemail',
-          status: 'completed',
-        }).eq('call_sid', CallSid);
+        // Update call record
+        try {
+          await supabase.from('calls').update({
+            recording_url: vmRecordingUrl ? (vmRecordingUrl + '.mp3') : null,
+            disposition: 'voicemail',
+            status: 'completed',
+          }).eq('call_sid', vmCallSid);
+        } catch (e) { console.warn('Call update error:', e.message); }
 
-        // Log the voicemail
-        const { data: callData } = await supabase
-          .from('calls')
-          .select('id, from_number, to_number, tenant_id')
-          .eq('call_sid', CallSid)
-          .single();
+        // Send voicemail email directly via Resend
+        try {
+          var vmEmail = 'rob@engwx.com';
+          // Look up voicemail email from config
+          if (vmTenantId) {
+            var vcResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmTenantId).eq('channel', 'voice').single();
+            if (vcResult.data && vcResult.data.config_encrypted && vcResult.data.config_encrypted.voicemail_email) {
+              vmEmail = vcResult.data.config_encrypted.voicemail_email;
+            }
+          }
 
-        if (callData) {
-          await supabase.from('call_messages').insert({
-            call_id: callData.id,
-            role: 'caller',
-            content: `[Voicemail — ${RecordingDuration || 0}s] ${RecordingUrl || ''}`,
-            intent: 'voicemail',
-          });
+          var RESEND_KEY = process.env.RESEND_API_KEY;
+          if (RESEND_KEY) {
+            var callerNum = body.From || 'Unknown';
+            var vmDate = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
+            var vmDur = vmRecordingDuration ? (Math.floor(vmRecordingDuration / 60) + 'm ' + (vmRecordingDuration % 60) + 's') : 'Unknown';
+            var vmHtml = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">'
+              + '<div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">'
+              + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">New Voicemail</h1>'
+              + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice</p>'
+              + '<div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">'
+              + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Caller:</strong> ' + callerNum + '</p>'
+              + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Date:</strong> ' + vmDate + '</p>'
+              + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Duration:</strong> ' + vmDur + '</p>'
+              + '</div>';
+            if (vmRecordingUrl) {
+              vmHtml += '<div style="margin-bottom:24px"><a href="' + vmRecordingUrl + '.mp3" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Listen to Recording</a></div>';
+            }
+            vmHtml += '<div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:8px"><p style="color:#9ca3af;font-size:12px;margin:0">EngageWorx Voice | <a href="https://portal.engwx.com" style="color:#2563eb;text-decoration:none">Log in to portal</a></p></div></div></div>';
 
-          // ── Send voicemail notification email ──
-          try {
-            const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://portal.engwx.com';
-            await fetch(`${baseUrl}/api/send-voicemail-email`, {
+            var vmEmailRes = await fetch('https://api.resend.com/emails', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                tenant_id: callData.tenant_id || tenantId,
-                caller_number: callData.from_number,
-                recording_url: RecordingUrl ? `${RecordingUrl}.mp3` : null,
-                duration_seconds: parseInt(RecordingDuration) || 0,
-                call_sid: CallSid,
+                from: 'EngageWorx Voicemail <voicemail@engwx.com>',
+                to: [vmEmail],
+                subject: 'New voicemail from ' + callerNum,
+                html: vmHtml,
               }),
             });
-          } catch (emailErr) {
-            console.error('Voicemail email error:', emailErr);
+            var vmEmailResult = await vmEmailRes.json();
+            console.log('📧 Voicemail email sent to ' + vmEmail + ':', JSON.stringify(vmEmailResult));
+          } else {
+            console.warn('RESEND_API_KEY not configured');
           }
+        } catch (emailErr) {
+          console.error('Voicemail email error:', emailErr.message);
         }
 
-        return res.status(200).end(twiml(
-          say('Thank you for your message. Someone will get back to you shortly. Goodbye.', 'Polly.Amy') +
-          '<Hangup/>'
-        ));
+        return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Thank you for your message. Someone will get back to you shortly. Goodbye.</Say><Hangup/></Response>');
       }
 
       // ═══════════════════════════════════════════════════════════════
       // TRANSCRIPTION — Twilio sends transcript asynchronously
       // ═══════════════════════════════════════════════════════════════
       case 'transcription': {
-        const { CallSid, TranscriptionText, RecordingSid } = body;
-        const tenantId = req.query.tenant;
+        var txCallSid = body.CallSid;
+        var txText = body.TranscriptionText;
+        var txTenantId = req.query.tenant;
+        console.log('📞 Transcription received for', txCallSid, ':', (txText || '').substring(0, 50));
 
-        if (TranscriptionText) {
-          // Update the call with transcript
-          await supabase.from('calls').update({
-            transcript: TranscriptionText,
-          }).eq('call_sid', CallSid);
+        if (txText) {
+          // Update call with transcript
+          try {
+            await supabase.from('calls').update({ transcript: txText }).eq('call_sid', txCallSid);
+          } catch (e) { console.warn('Transcript update error:', e.message); }
 
-          // Also update the voicemail message
-          const { data: callData } = await supabase
-            .from('calls')
-            .select('id')
-            .eq('call_sid', CallSid)
-            .single();
-
-          if (callData) {
-            await supabase.from('call_messages').insert({
-              call_id: callData.id,
-              role: 'system',
-              content: `[Transcript] ${TranscriptionText}`,
-              intent: 'transcription',
-            });
-
-            // Send follow-up email with transcript
-            try {
-              const { data: callRecord } = await supabase
-                .from('calls')
-                .select('tenant_id, from_number, recording_url')
-                .eq('call_sid', CallSid)
-                .single();
-
-              if (callRecord) {
-                const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://portal.engwx.com';
-                await fetch(`${baseUrl}/api/send-voicemail-email`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    tenant_id: callRecord.tenant_id || tenantId,
-                    caller_number: callRecord.from_number,
-                    recording_url: callRecord.recording_url,
-                    transcript: TranscriptionText,
-                    call_sid: CallSid,
-                  }),
-                });
-              }
-            } catch (emailErr) {
-              console.error('Transcript email error:', emailErr);
+          // Send transcript email via Resend
+          try {
+            var txEmail = 'rob@engwx.com';
+            var txCallerNum = body.From || 'Unknown';
+            
+            // Look up voicemail email and caller number from config/calls
+            if (txTenantId) {
+              try {
+                var txVcResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', txTenantId).eq('channel', 'voice').single();
+                if (txVcResult.data && txVcResult.data.config_encrypted && txVcResult.data.config_encrypted.voicemail_email) {
+                  txEmail = txVcResult.data.config_encrypted.voicemail_email;
+                }
+              } catch (e) { /* use default */ }
             }
+            
+            // Get caller number from calls table
+            try {
+              var txCallResult = await supabase.from('calls').select('from_number, recording_url').eq('call_sid', txCallSid).single();
+              if (txCallResult.data) {
+                txCallerNum = txCallResult.data.from_number || txCallerNum;
+              }
+            } catch (e) { /* use body.From */ }
+
+            var TX_RESEND_KEY = process.env.RESEND_API_KEY;
+            if (TX_RESEND_KEY) {
+              var txDate = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
+              var txHtml = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">'
+                + '<div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">'
+                + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">Voicemail Transcript</h1>'
+                + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice</p>'
+                + '<div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">'
+                + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Caller:</strong> ' + txCallerNum + '</p>'
+                + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Date:</strong> ' + txDate + '</p>'
+                + '</div>'
+                + '<div style="margin-bottom:24px">'
+                + '<h2 style="font-size:14px;font-weight:700;color:#111827;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.5px">Transcript</h2>'
+                + '<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px">'
+                + '<p style="color:#92400e;font-size:14px;line-height:1.6;margin:0">' + txText + '</p>'
+                + '</div></div>';
+              if (txCallResult && txCallResult.data && txCallResult.data.recording_url) {
+                txHtml += '<div style="margin-bottom:24px"><a href="' + txCallResult.data.recording_url + '" style="display:inline-block;background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Listen to Recording</a></div>';
+              }
+              txHtml += '<div style="border-top:1px solid #e5e7eb;padding-top:16px;margin-top:8px"><p style="color:#9ca3af;font-size:12px;margin:0">EngageWorx Voice | <a href="https://portal.engwx.com" style="color:#2563eb;text-decoration:none">Log in to portal</a></p></div></div></div>';
+
+              var txEmailRes = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + TX_RESEND_KEY, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  from: 'EngageWorx Voicemail <voicemail@engwx.com>',
+                  to: [txEmail],
+                  subject: 'Voicemail transcript from ' + txCallerNum,
+                  html: txHtml,
+                }),
+              });
+              var txEmailResult = await txEmailRes.json();
+              console.log('📧 Transcript email sent to ' + txEmail + ':', JSON.stringify(txEmailResult));
+            }
+          } catch (emailErr) {
+            console.error('Transcript email error:', emailErr.message);
           }
         }
 
