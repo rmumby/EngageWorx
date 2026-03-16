@@ -79,10 +79,10 @@ async function getVoiceConfig(toNumber) {
   // Match by phone number in config (handles country_code + phone_number or full number)
   const match = data.find(c => {
     const cfg = c.config_encrypted || {};
-    // Build full number from parts if available
     const countryCode = cfg.phone_country?.match(/\+\d+/)?.[0] || '+44';
     const localNum = (cfg.phone_number || '').replace(/[\s\-\(\)]/g, '').replace(/^0+/, '');
-    const fullConfigNumber = localNum ? `${countryCode}${localNum}` : '';
+    if (!localNum) return false; // Skip configs with no phone number
+    const fullConfigNumber = `${countryCode}${localNum}`;
     
     const normalizedTo = toNumber.replace(/[\s\-\(\)]/g, '');
     return fullConfigNumber === normalizedTo || 
