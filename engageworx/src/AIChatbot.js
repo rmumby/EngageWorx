@@ -557,10 +557,9 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                     <div>
                       <label style={label}>AI Model</label>
                       <select style={inputStyle}>
-                        <option>Claude 3.5 Sonnet (Recommended)</option>
-                        <option>Claude 3.5 Haiku (Fast)</option>
-                        <option>Claude 3 Opus (Most Capable)</option>
-                        <option>GPT-4o</option>
+                        <option>Claude Sonnet 4 (Recommended)</option>
+                        <option>Claude Haiku 4.5 (Fast)</option>
+                        <option>Claude Opus 4.6 (Most Capable)</option>
                         <option>Custom Fine-tuned Model</option>
                       </select>
                     </div>
@@ -741,7 +740,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
             }}>Send</button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude 3.5 Sonnet</span>
+            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude Sonnet 4 </span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
             <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Temp: {temperature}</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
