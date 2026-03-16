@@ -267,14 +267,16 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const [liveLoading, setLiveLoading] = useState(!demoMode);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
+    let cancelled = false;
     (async () => {
       try {
+        // 1. Fetch conversations
         let query = supabase.from('conversations').select('*');
         if (currentTenantId && viewLevel === 'tenant') {
           query = query.eq('tenant_id', currentTenantId);
         }
         const { data, error } = await query;
-        if (error) { console.warn('Live fetch error:', error.message); setLiveLoading(false); return; }
+        if (error || cancelled) { console.warn('Live fetch error:', error?.message); setLiveLoading(false); return; }
 
         const convos = (data || []).sort((a, b) => {
           const da = a.last_message_at || a.created_at || '';
@@ -282,81 +284,69 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           return db.localeCompare(da);
         });
 
-        // Build conversation objects in the same format as demo mode
-        const mapped = convos.map(conv => ({
-          id: conv.id,
-          contact: { name: 'Loading...', phone: '', email: '', company: '', avatar: '?', channel: conv.channel || 'email', tags: [] },
-          channel: (conv.channel || 'email').toLowerCase(),
-          messages: [{ id: 'placeholder_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }],
-          status: conv.status || 'active',
-          assignedTo: null,
-          unread: conv.unread_count || 0,
-          lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
-          isTyping: false,
-          priority: conv.priority || 'normal',
-          subject: conv.subject || '',
-          tenant_id: conv.tenant_id,
-          contact_id: conv.contact_id,
-        }));
-
-        setConversations(mapped);
-
-        // Fetch contact details
-        const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
+        // 2. Fetch contacts in one go
+        const contactIds = [...new Set(convos.filter(c => c.contact_id).map(c => c.contact_id))];
+        let contactMap = {};
         if (contactIds.length > 0) {
           try {
             const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
-            if (contacts) {
-              const cMap = {};
-              contacts.forEach(c => { cMap[c.id] = c; });
-              setConversations(prev => prev.map(conv => {
-                const c = cMap[conv.contact_id];
-                if (c) {
-                  const name = `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email || 'Unknown';
-                  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-                  return { ...conv, contact: { ...conv.contact, name, email: c.email || '', phone: c.phone || '', company: c.company || '', avatar: initials, tags: c.tags || [] } };
-                }
-                return conv;
-              }));
-            }
+            if (contacts) contacts.forEach(c => { contactMap[c.id] = c; });
           } catch (e) { console.warn('Contact fetch error:', e.message); }
         }
 
-        // Fetch messages for each conversation
+        // 3. Fetch all messages in one go
+        let msgsByConv = {};
         if (convos.length > 0) {
           try {
-            const convIds = convos.map(c => c.id);
-            const { data: msgs } = await supabase.from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: true });
-            if (msgs && msgs.length > 0) {
-              const msgsByConv = {};
-              msgs.forEach(m => {
-                if (!msgsByConv[m.conversation_id]) msgsByConv[m.conversation_id] = [];
-                msgsByConv[m.conversation_id].push({
-                  id: m.id,
-                  from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'ai' ? 'bot' : m.sender_type === 'bot' ? 'bot' : 'agent',
-                  text: m.body || '',
-                  time: m.created_at ? new Date(m.created_at) : new Date(),
-                  agent: m.sender_type === 'ai' || m.sender_type === 'bot' ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
-                  read: true,
-                  delivered: m.status === 'delivered' || m.status === 'received',
-                  channel: m.channel,
-                  sentAt: m.created_at,
-                });
+            const { data: msgs } = await supabase.from('messages').select('*').in('conversation_id', convos.map(c => c.id)).order('created_at', { ascending: true });
+            if (msgs) msgs.forEach(m => {
+              if (!msgsByConv[m.conversation_id]) msgsByConv[m.conversation_id] = [];
+              msgsByConv[m.conversation_id].push({
+                id: m.id,
+                from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+                text: m.body || '',
+                time: m.created_at ? new Date(m.created_at) : new Date(),
+                agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+                read: true,
+                delivered: m.status === 'delivered' || m.status === 'received',
               });
-              setConversations(prev => prev.map(conv => {
-                if (msgsByConv[conv.id]) {
-                  return { ...conv, messages: msgsByConv[conv.id] };
-                }
-                return conv;
-              }));
-            }
+            });
           } catch (e) { console.warn('Messages fetch error:', e.message); }
         }
+
+        if (cancelled) return;
+
+        // 4. Assemble everything in ONE setConversations call
+        const assembled = convos.map(conv => {
+          const c = contactMap[conv.contact_id];
+          const name = c ? `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email || 'Unknown' : 'Unknown';
+          const initials = name.split(' ').map(w => (w || '')[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+          const convMessages = msgsByConv[conv.id] || [{ id: 'placeholder_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+
+          return {
+            id: conv.id,
+            contact: { name, phone: c?.phone || '', email: c?.email || '', company: c?.company || '', avatar: initials, channel: conv.channel || 'email', tags: c?.tags || [] },
+            channel: (conv.channel || 'email').toLowerCase(),
+            messages: convMessages,
+            status: conv.status || 'active',
+            assignedTo: null,
+            unread: conv.unread_count || 0,
+            lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+            isTyping: false,
+            priority: conv.priority || 'normal',
+            subject: conv.subject || '',
+            tenant_id: conv.tenant_id,
+            contact_id: conv.contact_id,
+          };
+        });
+
+        setConversations(assembled);
       } catch (e) {
         console.warn('Live inbox error:', e.message);
       }
       setLiveLoading(false);
     })();
+    return () => { cancelled = true; };
   }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
 
   // Loading screen for live mode
