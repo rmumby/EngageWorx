@@ -425,9 +425,9 @@ const LandingPage = () => {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 40px 0' }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>✉️ Contact</div>
-            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Let's talk.</h1>
-            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Have a question, want a demo, or ready to get started? We'd love to hear from you.</p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>🤖 AI-Powered Support</div>
+            <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Reach us any way you want.</h1>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Email, call, or text — our AI responds in under 30 seconds. We run our own business on EngageWorx.</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 48, alignItems: 'start' }}>
@@ -478,25 +478,53 @@ const LandingPage = () => {
               )}
             </div>
 
-            {/* Contact Info Sidebar */}
+            {/* Multi-Channel Contact Options */}
             <div>
-              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
-                <div style={{ fontSize: 24, marginBottom: 12 }}>📧</div>
+              <div style={{ background: 'linear-gradient(135deg, #0d1220, #131b2e)', border: '1px solid #00C9FF33', borderRadius: 16, padding: '28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 8, right: 12, background: '#00E67622', border: '1px solid #00E67644', borderRadius: 100, padding: '2px 10px', fontSize: 10, fontWeight: 700, color: '#00E676' }}>AI-POWERED</div>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>📧</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Email Us</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
-                  General: <a href="mailto:hello@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>hello@engwx.com</a><br />
-                  Sales: <a href="mailto:sales@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>sales@engwx.com</a><br />
-                  Support: <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a><br />
-                  Phone: <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none' }}>+1 (305) 810-8877</a>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 12 }}>
+                  Get an AI-powered response in under 30 seconds. Our AI reads your message, understands your needs, and replies instantly.
                 </p>
+                <a href="mailto:hello@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>hello@engwx.com</a>
+                <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 10 }}>
+                  <div style={{ color: '#00C9FF', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRY IT NOW</div>
+                  <div style={{ color: '#6B8BAE', fontSize: 12 }}>Send an email and watch the AI respond. Every conversation is tracked in our own EngageWorx Live Inbox.</div>
+                </div>
               </div>
 
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
-                <div style={{ fontSize: 24, marginBottom: 12 }}>⏰</div>
-                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Response Time</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
-                  We respond to all inquiries within one business day. Enterprise and demo requests are prioritized.
+                <div style={{ fontSize: 28, marginBottom: 12 }}>📞</div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Call Us</h3>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
+                  Speak directly with our team. Available weekdays 9 AM – 6 PM PT.
                 </p>
+                <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>+1 (305) 810-8877</a>
+              </div>
+
+              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20, opacity: 0.7 }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: -8, right: -8, background: '#FFD60022', border: '1px solid #FFD60044', borderRadius: 100, padding: '2px 10px', fontSize: 10, fontWeight: 700, color: '#FFD600' }}>COMING SOON</div>
+                  <div style={{ fontSize: 28, marginBottom: 12 }}>💬</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Text Us (SMS)</h3>
+                  <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
+                    AI-powered SMS conversations. Text our number and get instant, intelligent responses.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>⏱️</div>
+                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{'< 30 seconds'}</div>
+                  <div style={{ color: '#6B8BAE', fontSize: 11, marginTop: 2 }}>AI response time</div>
+                </div>
+                <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>🤖</div>
+                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>Always On</div>
+                  <div style={{ color: '#6B8BAE', fontSize: 11, marginTop: 2 }}>24/7 AI assistance</div>
+                </div>
               </div>
 
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
@@ -504,16 +532,15 @@ const LandingPage = () => {
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Location</h3>
                 <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
                   Miami, Florida, USA<br />
-                  <a href="tel:+13058108877" style={{ color: '#00C9FF', textDecoration: 'none' }}>+1 (305) 810-8877</a><br />
                   Serving customers in the US, UK & EU
                 </p>
               </div>
 
-              <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px' }}>
+              <div style={{ background: 'linear-gradient(135deg, #131b2e, #0d1220)', border: '1px solid #E040FB33', borderRadius: 16, padding: '28px' }}>
                 <div style={{ fontSize: 24, marginBottom: 12 }}>🚀</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Ready to start?</h3>
                 <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
-                  Skip the form and jump straight in. 14-day free trial, no credit card required.
+                  Skip the form. Self-service signup — go live in under 5 minutes.
                 </p>
                 <button onClick={goToSignup} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '12px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
               </div>
