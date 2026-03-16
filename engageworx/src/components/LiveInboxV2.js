@@ -233,18 +233,37 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
-  useEffect(() => {}, [demoMode, selectedConv?.id]);
+  useEffect(() => {
+    // Load messages when conversation selected in live mode
+    if (demoMode || !supabase || !selectedConv?.id) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('messages').select('*').eq('conversation_id', selectedConv.id).order('created_at', { ascending: true });
+        if (data && data.length > 0) {
+          const mapped = data.map(m => ({
+            id: m.id,
+            from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'ai' ? 'bot' : m.sender_type === 'bot' ? 'bot' : 'agent',
+            text: m.body || '',
+            time: m.created_at ? new Date(m.created_at) : new Date(),
+            agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+            read: true,
+            delivered: m.status === 'delivered' || m.status === 'received',
+          }));
+          setSelectedConv(prev => prev ? { ...prev, messages: mapped } : prev);
+        }
+      } catch (e) { console.warn('Message load error:', e.message); }
+    })();
+  }, [demoMode, selectedConv?.id]);
   useEffect(() => {}, [demoMode, inboxTab, currentTenantId, viewLevel]);
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [selectedConv, selectedConv?.messages?.length]);
 
-  // In live mode, fetch conversations using supabase prop
-  const [liveConvos, setLiveConvos] = useState([]);
+  // In live mode, fetch conversations using supabase prop and feed into main conversations state
   const [liveLoading, setLiveLoading] = useState(!demoMode);
   useEffect(() => {
-    if (demoMode || !supabase) return;
+    if (demoMode || !supabase) { setLiveLoading(false); return; }
     (async () => {
       try {
         let query = supabase.from('conversations').select('*');
@@ -252,42 +271,99 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
           query = query.eq('tenant_id', currentTenantId);
         }
         const { data, error } = await query;
-        if (error) console.warn('Live fetch error:', error.message);
-        setLiveConvos(data || []);
+        if (error) { console.warn('Live fetch error:', error.message); setLiveLoading(false); return; }
+
+        const convos = (data || []).sort((a, b) => {
+          const da = a.last_message_at || a.created_at || '';
+          const db = b.last_message_at || b.created_at || '';
+          return db.localeCompare(da);
+        });
+
+        // Build conversation objects in the same format as demo mode
+        const mapped = convos.map(conv => ({
+          id: conv.id,
+          contact: { name: 'Loading...', phone: '', email: '', company: '', avatar: '?', channel: conv.channel || 'email', tags: [] },
+          channel: (conv.channel || 'email').toLowerCase(),
+          messages: [{ id: 'placeholder_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }],
+          status: conv.status || 'active',
+          assignedTo: null,
+          unread: conv.unread_count || 0,
+          lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+          isTyping: false,
+          priority: conv.priority || 'normal',
+          subject: conv.subject || '',
+          tenant_id: conv.tenant_id,
+          contact_id: conv.contact_id,
+        }));
+
+        setConversations(mapped);
+
+        // Fetch contact details
+        const contactIds = [...new Set(mapped.filter(c => c.contact_id).map(c => c.contact_id))];
+        if (contactIds.length > 0) {
+          try {
+            const { data: contacts } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', contactIds);
+            if (contacts) {
+              const cMap = {};
+              contacts.forEach(c => { cMap[c.id] = c; });
+              setConversations(prev => prev.map(conv => {
+                const c = cMap[conv.contact_id];
+                if (c) {
+                  const name = `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email || 'Unknown';
+                  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+                  return { ...conv, contact: { ...conv.contact, name, email: c.email || '', phone: c.phone || '', company: c.company || '', avatar: initials, tags: c.tags || [] } };
+                }
+                return conv;
+              }));
+            }
+          } catch (e) { console.warn('Contact fetch error:', e.message); }
+        }
+
+        // Fetch messages for each conversation
+        if (convos.length > 0) {
+          try {
+            const convIds = convos.map(c => c.id);
+            const { data: msgs } = await supabase.from('messages').select('*').in('conversation_id', convIds).order('created_at', { ascending: true });
+            if (msgs && msgs.length > 0) {
+              const msgsByConv = {};
+              msgs.forEach(m => {
+                if (!msgsByConv[m.conversation_id]) msgsByConv[m.conversation_id] = [];
+                msgsByConv[m.conversation_id].push({
+                  id: m.id,
+                  from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'ai' ? 'bot' : m.sender_type === 'bot' ? 'bot' : 'agent',
+                  text: m.body || '',
+                  time: m.created_at ? new Date(m.created_at) : new Date(),
+                  agent: m.sender_type === 'ai' || m.sender_type === 'bot' ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+                  read: true,
+                  delivered: m.status === 'delivered' || m.status === 'received',
+                  channel: m.channel,
+                  sentAt: m.created_at,
+                });
+              });
+              setConversations(prev => prev.map(conv => {
+                if (msgsByConv[conv.id]) {
+                  return { ...conv, messages: msgsByConv[conv.id] };
+                }
+                return conv;
+              }));
+            }
+          } catch (e) { console.warn('Messages fetch error:', e.message); }
+        }
       } catch (e) {
-        console.warn('Live fetch crash:', e.message);
+        console.warn('Live inbox error:', e.message);
       }
       setLiveLoading(false);
     })();
   }, [demoMode, supabase, currentTenantId, viewLevel]);
 
-  if (!demoMode) {
+  // Loading screen for live mode
+  if (!demoMode && liveLoading) {
     return (
       <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40, maxWidth: 500 }}>
+        <div style={{ textAlign: "center", padding: 40 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
           <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          {liveLoading ? (
-            <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
-          ) : liveConvos.length > 0 ? (
-            <div style={{ textAlign: "left" }}>
-              <p style={{ color: C.primary, fontSize: 14, fontWeight: 700, marginBottom: 12 }}>{liveConvos.length} conversation{liveConvos.length !== 1 ? 's' : ''} found</p>
-              {liveConvos.slice(0, 10).map(conv => (
-                <div key={conv.id} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{conv.subject || conv.channel || 'Conversation'}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>{conv.channel || 'email'}</span>
-                  </div>
-                  <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{conv.status || 'active'} · {conv.last_message_at ? new Date(conv.last_message_at).toLocaleString() : 'New'}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div>
-              <p style={{ color: C.muted, fontSize: 14 }}>No conversations yet. Send an email to hello@engwx.com to see AI-powered conversations here.</p>
-              <p style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>AI auto-response is active on all channels.</p>
-            </div>
-          )}
+          <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
         </div>
       </div>
     );
