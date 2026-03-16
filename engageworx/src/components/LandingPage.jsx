@@ -915,6 +915,7 @@ const LandingPage = () => {
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
             <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
             <li><span onClick={() => navigateTo('about')}>About</span></li>
+            <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
             <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
@@ -927,6 +928,7 @@ const LandingPage = () => {
             <span onClick={() => scrollTo('lp-features')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Features</span>
             <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
             <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
+            <a href="/blog" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>Blog</a>
             <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
             <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
             <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
