@@ -129,28 +129,11 @@ module.exports = async function handler(req, res) {
       console.warn('Voice config lookup error:', e.message);
     }
 
-    // Extract voice setting - sanitize to just Polly.Name
     var voice = 'Polly.Joanna';
     if (config.tts_voice) {
       var voiceMatch = String(config.tts_voice).match(/Polly\.\w+/);
       if (voiceMatch) voice = voiceMatch[0];
     }
-
-    var greeting = xml(config.greeting || 'Thank you for calling. ');
-    var departments = config.departments || [];
-    
-    // Build IVR menu text
-    var menuParts = [];
-    for (var i = 0; i < departments.length; i++) {
-      var dept = departments[i];
-      if (dept.description) {
-        menuParts.push('Press ' + dept.digit + ' ' + xml(dept.description));
-      } else if (dept.name) {
-        menuParts.push('Press ' + dept.digit + ' for ' + xml(dept.name));
-      }
-    }
-    var menuText = menuParts.join('. ');
-    if (menuText) menuText = menuText + '. ';
 
     // Log the call
     if (tenantId) {
@@ -167,24 +150,141 @@ module.exports = async function handler(req, res) {
       } catch (e) { console.warn('Call log error:', e.message); }
     }
 
-    // Build TwiML
+    // AI Voice Agent greeting — then listen for speech
+    var greeting = xml(config.ai_greeting || 'Thank you for calling EngageWorx, the AI-powered customer communications platform. My name is Eva. How can I help you today?');
     var twimlStr = '<?xml version="1.0" encoding="UTF-8"?><Response>';
-    
-    if (menuText) {
-      // IVR menu
-      twimlStr += '<Gather numDigits="1" timeout="8" action="/api/twilio-voice?action=route&amp;tenant=' + (tenantId || '') + '" method="POST">';
-      twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + menuText + 'Or stay on the line to leave a message.</Say>';
-      twimlStr += '</Gather>';
-    } else {
-      twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + '</Say>';
-    }
-    
-    // Fallback to voicemail
-    twimlStr += '<Say voice="' + voice + '">Please leave a message after the tone.</Say>';
+    twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + '</Say>';
+    twimlStr += '<Gather input="speech" speechTimeout="auto" timeout="10" action="/api/twilio-voice?action=ai-respond&amp;tenant=' + (tenantId || '') + '&amp;turn=1" method="POST">';
+    twimlStr += '<Say voice="' + voice + '"></Say>';
+    twimlStr += '</Gather>';
+    // No speech detected — offer voicemail
+    twimlStr += '<Say voice="' + voice + '">I did not catch that. If you would like to leave a message, please do so after the tone. Otherwise, you can hang up anytime.</Say>';
     twimlStr += '<Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + (tenantId || '') + '" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + (tenantId || '') + '" />';
     twimlStr += '<Say voice="' + voice + '">Goodbye.</Say><Hangup/></Response>';
 
     return res.status(200).end(twimlStr);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // AI VOICE AGENT — Process speech and respond with Claude
+  // ═══════════════════════════════════════════════════════════════
+  if (action === 'ai-respond') {
+    var aiTenantId = req.query.tenant || null;
+    var turn = parseInt(req.query.turn) || 1;
+    var speechResult = body.SpeechResult || '';
+    var confidence = body.Confidence || '0';
+    var callerFrom = body.From || 'Unknown';
+    
+    console.log('🤖 AI Voice turn ' + turn + ':', speechResult, '(confidence: ' + confidence + ')');
+
+    // Look up voice config for voice setting
+    var aiVoice = 'Polly.Joanna';
+    try {
+      var aiVoiceConfig = await getVoiceConfig(body.To || '');
+      var aiConfig = aiVoiceConfig ? (aiVoiceConfig.config_encrypted || {}) : {};
+      if (aiConfig.tts_voice) {
+        var aiVm = String(aiConfig.tts_voice).match(/Polly\.\w+/);
+        if (aiVm) aiVoice = aiVm[0];
+      }
+    } catch (e) {}
+
+    // Build conversation history from query params
+    var historyParam = req.query.history || '';
+    var history = historyParam ? historyParam.split('|||').map(function(h) {
+      var parts = h.split(':::');
+      return { role: parts[0], text: parts[1] || '' };
+    }) : [];
+    history.push({ role: 'user', text: speechResult });
+
+    // Call Claude API for response
+    var aiResponse = 'I apologize, I am having trouble processing your request. Would you like to leave a message instead?';
+    try {
+      var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+      if (!ANTHROPIC_KEY) throw new Error('No API key');
+
+      var claudeMessages = history.map(function(h) {
+        return { role: h.role === 'user' ? 'user' : 'assistant', content: h.text };
+      });
+
+      var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 300,
+          system: 'You are Eva, a friendly and professional AI receptionist for EngageWorx, an AI-powered omnichannel customer communications platform. You are speaking on the phone — keep responses SHORT (2-3 sentences max), conversational, and natural. Do not use bullet points, markdown, or any formatting. Speak naturally as you would on the phone.\n\nKey information:\n- EngageWorx is a CPaaS platform supporting SMS, MMS, WhatsApp, Email, Voice, and RCS\n- Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom\n- Features: AI chatbot, visual flow builder, campaign management, unified inbox, white-label multi-tenant architecture\n- No platform fee (unlike competitors like GoHighLevel)\n- Self-service signup at engwx.com — go live in under 5 minutes\n- Email hello@engwx.com for instant AI-powered response\n- Founded by Rob Mumby\n- Based in Miami, Florida, serving US, UK and EU\n\nIf the caller wants to:\n- Schedule a demo: suggest emailing hello@engwx.com or visiting engwx.com\n- Talk to a human: let them know Rob will call back, ask for their name and number\n- Ask about pricing: share the plan details briefly\n- Leave a message: offer to take their message\n- End the call: say goodbye warmly\n\nIf you have taken a message or the caller wants to end the conversation, end your response with [END_CALL] on a new line. Do NOT include [END_CALL] unless the conversation is truly ending.\n\nAlways be warm, concise, and helpful. Never say you are an AI unless directly asked.',
+          messages: claudeMessages,
+        }),
+      });
+
+      if (claudeRes.ok) {
+        var claudeData = await claudeRes.json();
+        if (claudeData.content && claudeData.content[0] && claudeData.content[0].text) {
+          aiResponse = claudeData.content[0].text;
+        }
+      } else {
+        console.error('Claude API error:', claudeRes.status);
+      }
+    } catch (aiErr) {
+      console.error('AI response error:', aiErr.message);
+    }
+
+    // Check if AI wants to end the call
+    var endCall = aiResponse.indexOf('[END_CALL]') !== -1;
+    aiResponse = aiResponse.replace('[END_CALL]', '').trim();
+    
+    // Add AI response to history
+    history.push({ role: 'assistant', text: aiResponse });
+    
+    // Build compact history string for next turn (keep last 6 exchanges max)
+    var recentHistory = history.slice(-12);
+    var historyStr = recentHistory.map(function(h) {
+      return h.role + ':::' + (h.text || '').substring(0, 200).replace(/\|\|\|/g, ' ').replace(/:::/g, ' ');
+    }).join('|||');
+
+    // Log conversation
+    console.log('🤖 AI Voice response (turn ' + turn + '):', aiResponse.substring(0, 100));
+
+    // Build TwiML response
+    var aiTwiml = '<?xml version="1.0" encoding="UTF-8"?><Response>';
+    
+    if (endCall) {
+      // End the call after the response
+      aiTwiml += '<Say voice="' + aiVoice + '">' + xml(aiResponse) + '</Say>';
+      aiTwiml += '<Hangup/></Response>';
+    } else if (turn >= 10) {
+      // Max turns reached — offer voicemail
+      aiTwiml += '<Say voice="' + aiVoice + '">' + xml(aiResponse) + ' I have been enjoying our conversation, but let me make sure a human follows up with you. Please leave a message after the tone with your name and number.</Say>';
+      aiTwiml += '<Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + (aiTenantId || '') + '" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + (aiTenantId || '') + '" />';
+      aiTwiml += '<Hangup/></Response>';
+    } else {
+      // Continue conversation — say response then listen again
+      var nextTurn = turn + 1;
+      var encodedHistory = encodeURIComponent(historyStr);
+      // Ensure URL doesn't exceed reasonable length
+      if (encodedHistory.length > 1500) {
+        // Trim history if too long
+        recentHistory = history.slice(-6);
+        historyStr = recentHistory.map(function(h) {
+          return h.role + ':::' + (h.text || '').substring(0, 100).replace(/\|\|\|/g, ' ').replace(/:::/g, ' ');
+        }).join('|||');
+        encodedHistory = encodeURIComponent(historyStr);
+      }
+      
+      aiTwiml += '<Gather input="speech" speechTimeout="auto" timeout="10" action="/api/twilio-voice?action=ai-respond&amp;tenant=' + (aiTenantId || '') + '&amp;turn=' + nextTurn + '&amp;history=' + encodedHistory + '" method="POST">';
+      aiTwiml += '<Say voice="' + aiVoice + '">' + xml(aiResponse) + '</Say>';
+      aiTwiml += '</Gather>';
+      // No speech — offer voicemail
+      aiTwiml += '<Say voice="' + aiVoice + '">Are you still there? If you would like to leave a message, please do so after the tone.</Say>';
+      aiTwiml += '<Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + (aiTenantId || '') + '" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + (aiTenantId || '') + '" />';
+      aiTwiml += '<Hangup/></Response>';
+    }
+
+    return res.status(200).end(aiTwiml);
   }
 
   try {
