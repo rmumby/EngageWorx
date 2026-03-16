@@ -308,6 +308,29 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             };
           });
           
+          // Also fetch calls for polling
+          try {
+            var pollCallQuery = currentTenantId && viewLevel === 'tenant'
+              ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+              : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
+            var pollCallResult = await pollCallQuery;
+            var pollCalls = (pollCallResult.data || []).map(function(call) {
+              var cMsgs = [];
+              if (call.transcript) cMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              if (call.recording_url) cMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+              if (cMsgs.length === 0) cMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ')', time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              return {
+                id: 'call_' + call.id, contact: { name: call.from_number || 'Unknown', phone: call.from_number || '', email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
+                channel: 'voice', messages: cMsgs, status: 'active',
+                assignedTo: null, unread: 0, lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+                isTyping: false, priority: 'normal', subject: 'Voice call from ' + (call.from_number || 'Unknown'),
+                tenant_id: call.tenant_id, contact_id: null,
+              };
+            });
+            assembled = assembled.concat(pollCalls);
+            assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
+          } catch (e) { /* silent */ }
+          
           setConversations(assembled);
           
           // Also refresh selected conversation messages
@@ -395,6 +418,52 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         });
 
         console.log('🟢 Assembled', result.length, 'conversations');
+        
+        // 5. Fetch calls and add as voice conversations
+        try {
+          var callQuery = currentTenantId && viewLevel === 'tenant'
+            ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+            : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
+          var callResult = await callQuery;
+          var callData = callResult.data || [];
+          console.log('📞 Found', callData.length, 'calls');
+          
+          var callConvos = callData.map(function(call) {
+            var callMsgs = [];
+            if (call.transcript) {
+              callMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+            }
+            if (call.recording_url) {
+              callMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+            }
+            if (callMsgs.length === 0) {
+              callMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+            }
+            var callerNum = call.from_number || 'Unknown';
+            return {
+              id: 'call_' + call.id,
+              contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
+              channel: 'voice',
+              messages: callMsgs,
+              status: 'active',
+              assignedTo: null,
+              unread: call.status === 'completed' ? 0 : 1,
+              lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+              isTyping: false,
+              priority: 'normal',
+              subject: 'Voice call from ' + callerNum,
+              tenant_id: call.tenant_id,
+              contact_id: null,
+            };
+          });
+          
+          result = result.concat(callConvos);
+          result.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
+        } catch (callErr) {
+          console.warn('Calls fetch error:', callErr.message);
+        }
+        
+        console.log('🟢 Total items (conversations + calls):', result.length);
         setConversations(result);
       } catch (err) {
         console.warn('Live inbox error:', err.message);
