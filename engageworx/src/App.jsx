@@ -1044,6 +1044,17 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
   const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isAuthenticated, passwordRecovery } = useAuth();
+  
+  // Default to production mode (demo off) on first load
+  const [demoInitialized, setDemoInitialized] = useState(false);
+  useEffect(() => {
+    if (!demoInitialized && isSuperAdmin && demoMode) {
+      toggleDemoMode(false);
+      setDemoInitialized(true);
+    } else {
+      setDemoInitialized(true);
+    }
+  }, [isSuperAdmin, demoMode, demoInitialized]);
   const [view, setView] = useState("login");
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
