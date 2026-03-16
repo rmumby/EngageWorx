@@ -355,24 +355,23 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
       // Insert message into Supabase
       if (!supabase) return;
-      const { error: msgError } = await supabase.from('messages').insert({
+      var insertResult = await supabase.from('messages').insert({
         tenant_id: selectedConv.tenant_id || currentTenantId,
         conversation_id: selectedConv.id,
         contact_id: selectedConv.contact_id || null,
         direction: 'outbound',
-        channel: selectedConv.channel || 'sms',
+        channel: selectedConv.channel || 'email',
         body: messageBody,
-        status: 'queued',
+        status: 'delivered',
         sender_type: 'agent',
-        sent_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       });
-      if (msgError) throw msgError;
+      if (insertResult.error) { console.error('Message insert error:', insertResult.error.message); throw insertResult.error; }
 
-      // Update conversation last_message
+      // Update conversation
       await supabase.from('conversations').update({
         last_message_at: new Date().toISOString(),
-        last_message_preview: messageBody.substring(0, 100),
-        updated_at: new Date().toISOString(),
+        status: 'active',
       }).eq('id', selectedConv.id);
 
       // Send via API if SMS
