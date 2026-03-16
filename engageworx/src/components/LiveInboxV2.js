@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
@@ -230,29 +230,31 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const [selectedCall, setSelectedCall] = useState(null);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
-  const selectedConvIdRef = useRef(null);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
   useEffect(() => {
     // Load messages when conversation selected in live mode
-    const convId = selectedConv?.id;
-    if (demoMode || !supabase || !convId || convId === selectedConvIdRef.current) return;
-    selectedConvIdRef.current = convId;
-    (async () => {
+    var convId = selectedConv ? selectedConv.id : null;
+    if (demoMode || !supabase || !convId) return;
+    (async function loadMsgs() {
       try {
-        const { data } = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
+        var result = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
+        var data = result.data;
+        console.log('📩 Loaded', (data || []).length, 'messages for conversation', convId);
         if (data && data.length > 0) {
-          const mapped = data.map(m => ({
-            id: m.id,
-            from: m.sender_type === 'contact' ? 'contact' : m.sender_type === 'ai' ? 'bot' : m.sender_type === 'bot' ? 'bot' : 'agent',
-            text: m.body || '',
-            time: m.created_at ? new Date(m.created_at) : new Date(),
-            agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
-            read: true,
-            delivered: m.status === 'delivered' || m.status === 'received',
-          }));
-          setSelectedConv(prev => prev && prev.id === convId ? { ...prev, messages: mapped } : prev);
+          var mapped = data.map(function(m) {
+            return {
+              id: m.id,
+              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              text: m.body || '',
+              time: m.created_at ? new Date(m.created_at) : new Date(),
+              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+              read: true,
+              delivered: true,
+            };
+          });
+          setSelectedConv(function(prev) { return prev && prev.id === convId ? Object.assign({}, prev, { messages: mapped }) : prev; });
         }
       } catch (e) { console.warn('Message load error:', e.message); }
     })();
@@ -917,3 +919,8 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
     </div>
   );
 }
+
+const LiveInbox = memo(LiveInboxInner, (prev, next) => {
+  return prev.demoMode === next.demoMode && prev.currentTenantId === next.currentTenantId && prev.viewLevel === next.viewLevel;
+});
+export default LiveInbox;
