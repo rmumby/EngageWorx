@@ -230,15 +230,18 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   const [selectedCall, setSelectedCall] = useState(null);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
+  const selectedConvIdRef = useRef(null);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
   useEffect(() => {
     // Load messages when conversation selected in live mode
-    if (demoMode || !supabase || !selectedConv?.id) return;
+    const convId = selectedConv?.id;
+    if (demoMode || !supabase || !convId || convId === selectedConvIdRef.current) return;
+    selectedConvIdRef.current = convId;
     (async () => {
       try {
-        const { data } = await supabase.from('messages').select('*').eq('conversation_id', selectedConv.id).order('created_at', { ascending: true });
+        const { data } = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
         if (data && data.length > 0) {
           const mapped = data.map(m => ({
             id: m.id,
@@ -249,7 +252,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
             read: true,
             delivered: m.status === 'delivered' || m.status === 'received',
           }));
-          setSelectedConv(prev => prev ? { ...prev, messages: mapped } : prev);
+          setSelectedConv(prev => prev && prev.id === convId ? { ...prev, messages: mapped } : prev);
         }
       } catch (e) { console.warn('Message load error:', e.message); }
     })();
@@ -258,7 +261,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv, selectedConv?.messages?.length]);
+  }, [selectedConv?.id, (selectedConv?.messages || []).length]);
 
   // In live mode, fetch conversations using supabase prop and feed into main conversations state
   const [liveLoading, setLiveLoading] = useState(!demoMode);
@@ -354,7 +357,7 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
       }
       setLiveLoading(false);
     })();
-  }, [demoMode, supabase, currentTenantId, viewLevel]);
+  }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
 
   // Loading screen for live mode
   if (!demoMode && liveLoading) {
