@@ -452,19 +452,6 @@ export default function LiveInbox({ C: rawC, tenants, viewLevel = "tenant", curr
   // MAIN LAYOUT: 3-column (list | chat | contact info)
   // ═══════════════════════════════════════════════════════════════════════════
   // Show loading screen until data is ready (prevents render crashes)
-  if (!liveReady) {
-    return (
-      <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", background: C.bg, alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-          <h2 style={{ color: C.text, margin: "0 0 8px", fontSize: 20 }}>Live Inbox</h2>
-          <p style={{ color: C.muted, fontSize: 14 }}>Loading conversations...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error fallback
   // Errors shown inline in the conversation list
 
   return (
