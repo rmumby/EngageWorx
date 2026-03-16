@@ -595,6 +595,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                       { ch: "SMS", icon: "💬", color: "#00C9FF", active: true },
                       { ch: "WhatsApp", icon: "📱", color: "#25D366", active: true },
                       { ch: "Email", icon: "📧", color: "#FF6B35", active: true },
+                      { ch: "Voice", icon: "📞", color: "#FFD600", active: true },
                       { ch: "RCS", icon: "✨", color: "#7C4DFF", active: false },
                       { ch: "MMS", icon: "📷", color: "#E040FB", active: false },
                       { ch: "Web Widget", icon: "🌐", color: "#00E676", active: true },
