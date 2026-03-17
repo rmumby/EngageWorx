@@ -287,10 +287,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
       { key: "service_account", label: "Service Account Email" },
     ]},
-    { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+    { { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+      { key: "ai_agent_name", label: "AI Agent Name", placeholder: "Eva" },
       { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
       { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
-      { key: "ai_agent_name", label: "AI Agent Name", placeholder: "Eva" },
       { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna (US Female)", "Polly.Joanna-Neural (US Female Natural)", "Polly.Salli (US Female)", "Polly.Amy (UK Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Emma (UK Female)", "Polly.Matthew (US Male)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Joey (US Male)", "Polly.Brian (UK Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
       { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
