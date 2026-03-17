@@ -161,6 +161,13 @@ module.exports = async function handler(req, res) {
       tenantId = myBiz?.id || tenants?.[0]?.id || null;
       console.log('📋 Using tenant:', tenantId);
 
+      // Load email channel config for AI customization
+      var emailChannelConfig = {};
+      try {
+        var ecResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').single();
+        if (ecResult.data && ecResult.data.config_encrypted) emailChannelConfig = ecResult.data.config_encrypted;
+      } catch (e) { /* use defaults */ }
+
       if (tenantId) {
         // Find or create contact
         const { data: existingContact, error: contactErr } = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
@@ -244,9 +251,9 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 800,
-        system: `You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle incoming emails to hello@engwx.com.
+        system: `You are the AI email assistant. You handle incoming emails professionally and helpfully.
 
-Key facts about EngageWorx:
+` + (emailChannelConfig.ai_business_info ? ('Business information:\n' + emailChannelConfig.ai_business_info) : `Key facts about EngageWorx:
 - AI-powered CPaaS platform: SMS, RCS, WhatsApp, Email, Voice
 - White-label multi-tenant architecture for service providers and direct businesses
 - Built-in AI chatbot with 90%+ resolution rate (powered by Claude)
@@ -255,8 +262,7 @@ Key facts about EngageWorx:
 - Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
 - Self-service: go live in under 5 minutes
 - No platform fee — transparent pricing
-- Contact: +1 (786) 982-7800, hello@engwx.com, www.engwx.com
-- Founded by Rob Mumby
+- Contact: +1 (786) 982-7800, hello@engwx.com, www.engwx.com`) + `
 
 Your job:
 1. Classify the intent (sales_inquiry, partnership, support, demo_request, pricing, spam, other)
