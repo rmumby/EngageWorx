@@ -151,7 +151,8 @@ module.exports = async function handler(req, res) {
     }
 
     // AI Voice Agent greeting — then listen for speech
-    var greeting = xml(config.ai_greeting || 'Thank you for calling EngageWorx, the AI-powered customer communications platform. My name is Eva. How can I help you today?');
+    var agentName = config.ai_agent_name || 'Eva';
+    var greeting = xml(config.ai_greeting || 'Thank you for calling EngageWorx, the AI-powered customer communications platform. My name is ' + agentName + '. How can I help you today?');
     var twimlStr = '<?xml version="1.0" encoding="UTF-8"?><Response>';
     twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + '</Say>';
     twimlStr += '<Gather input="speech" speechTimeout="auto" timeout="10" action="/api/twilio-voice?action=ai-respond&amp;tenant=' + (tenantId || '') + '&amp;turn=1" method="POST">';
@@ -177,8 +178,9 @@ module.exports = async function handler(req, res) {
     
     console.log('🤖 AI Voice turn ' + turn + ':', speechResult, '(confidence: ' + confidence + ')');
 
-    // Look up voice config for voice setting
+    // Look up voice config for voice setting and agent name
     var aiVoice = 'Polly.Joanna';
+    var agentName = 'Eva';
     try {
       var aiVoiceConfig = await getVoiceConfig(body.To || '');
       var aiConfig = aiVoiceConfig ? (aiVoiceConfig.config_encrypted || {}) : {};
@@ -186,6 +188,7 @@ module.exports = async function handler(req, res) {
         var aiVm = String(aiConfig.tts_voice).match(/Polly\.\w+/);
         if (aiVm) aiVoice = aiVm[0];
       }
+      if (aiConfig.ai_agent_name) agentName = aiConfig.ai_agent_name;
     } catch (e) {}
 
     // Build conversation history from query params
@@ -216,7 +219,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 300,
-          system: 'You are Eva, a friendly and professional AI receptionist for EngageWorx, an AI-powered omnichannel customer communications platform. You are speaking on the phone — keep responses SHORT (2-3 sentences max), conversational, and natural. Do not use bullet points, markdown, or any formatting. Speak naturally as you would on the phone.\n\nKey information:\n- EngageWorx is a CPaaS platform supporting SMS, MMS, WhatsApp, Email, Voice, and RCS\n- Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom\n- Features: AI chatbot, visual flow builder, campaign management, unified inbox, white-label multi-tenant architecture\n- No platform fee (unlike competitors like GoHighLevel)\n- Self-service signup at engwx.com — go live in under 5 minutes\n- Email hello@engwx.com for instant AI-powered response\n- Founded by Rob Mumby\n- Based in Miami, Florida, serving US, UK and EU\n\nIf the caller wants to:\n- Schedule a demo: suggest emailing hello@engwx.com or visiting engwx.com\n- Talk to a human: let them know Rob will call back, ask for their name and number\n- Ask about pricing: share the plan details briefly\n- Leave a message: offer to take their message\n- End the call: say goodbye warmly\n\nIf you have taken a message or the caller wants to end the conversation, end your response with [END_CALL] on a new line. Do NOT include [END_CALL] unless the conversation is truly ending.\n\nAlways be warm, concise, and helpful. Never say you are an AI unless directly asked.',
+          system: 'You are ' + agentName + ', a friendly and professional AI receptionist for EngageWorx, an AI-powered omnichannel customer communications platform. You are speaking on the phone — keep responses SHORT (2-3 sentences max), conversational, and natural. Do not use bullet points, markdown, or any formatting. Speak naturally as you would on the phone.\n\nKey information:\n- EngageWorx is a CPaaS platform supporting SMS, MMS, WhatsApp, Email, Voice, and RCS\n- Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom\n- Features: AI chatbot, visual flow builder, campaign management, unified inbox, white-label multi-tenant architecture\n- No platform fee (unlike competitors like GoHighLevel)\n- Self-service signup at engwx.com — go live in under 5 minutes\n- Email hello@engwx.com for instant AI-powered response\n- Founded by Rob Mumby\n- Based in Miami, Florida, serving US, UK and EU\n\nIf the caller wants to:\n- Schedule a demo: suggest emailing hello@engwx.com or visiting engwx.com\n- Talk to a human: let them know Rob will call back, ask for their name and number\n- Ask about pricing: share the plan details briefly\n- Leave a message: offer to take their message\n- End the call: say goodbye warmly\n\nIf you have taken a message or the caller wants to end the conversation, end your response with [END_CALL] on a new line. Do NOT include [END_CALL] unless the conversation is truly ending.\n\nAlways be warm, concise, and helpful. Never say you are an AI unless directly asked.',
           messages: claudeMessages,
         }),
       });
