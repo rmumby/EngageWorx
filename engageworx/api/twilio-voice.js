@@ -518,8 +518,8 @@ module.exports = async function handler(req, res) {
             var vmDur = vmRecordingDuration ? (Math.floor(vmRecordingDuration / 60) + 'm ' + (vmRecordingDuration % 60) + 's') : 'Unknown';
             var vmHtml = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">'
               + '<div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">'
-              + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">New Voicemail</h1>'
-              + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice</p>'
+              + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">New Voice Message</h1>'
+              + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice System</p>'
               + '<div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">'
               + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Caller:</strong> ' + callerNum + '</p>'
               + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Date:</strong> ' + vmDate + '</p>'
@@ -534,9 +534,9 @@ module.exports = async function handler(req, res) {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                from: 'EngageWorx Voicemail <voicemail@engwx.com>',
+                from: 'EngageWorx <hello@engwx.com>',
                 to: [vmEmail],
-                subject: 'New voicemail from ' + callerNum,
+                subject: 'New voice message from ' + callerNum,
                 html: vmHtml,
               }),
             });
@@ -595,8 +595,8 @@ module.exports = async function handler(req, res) {
               var txDate = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
               var txHtml = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">'
                 + '<div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb">'
-                + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">Voicemail Transcript</h1>'
-                + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice</p>'
+                + '<h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">Voice Call Transcript</h1>'
+                + '<p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice System</p>'
                 + '<div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px">'
                 + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Caller:</strong> ' + txCallerNum + '</p>'
                 + '<p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Date:</strong> ' + txDate + '</p>'
@@ -615,9 +615,9 @@ module.exports = async function handler(req, res) {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + TX_RESEND_KEY, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  from: 'EngageWorx Voicemail <voicemail@engwx.com>',
+                  from: 'EngageWorx <hello@engwx.com>',
                   to: [txEmail],
-                  subject: 'Voicemail transcript from ' + txCallerNum,
+                  subject: 'Voice call transcript from ' + txCallerNum,
                   html: txHtml,
                 }),
               });
