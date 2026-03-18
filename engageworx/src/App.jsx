@@ -1171,6 +1171,7 @@ function AppInner() {
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+    { id: "blog", label: "Blog Manager", icon: "📝" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
