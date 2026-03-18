@@ -354,15 +354,117 @@ module.exports = async function handler(req, res) {
 
     try {
       switch (event.type) {
-        case 'checkout.session.completed': {
-          const session = event.data.object;
-          console.log(`[Stripe] Checkout completed: ${session.customer_email}, sub: ${session.subscription}`);
+        // In billing.js, find and replace the entire 'checkout.session.completed' case block.
+// Find: case 'checkout.session.completed': { ... break; }
+// Replace with the code below:
 
-          const { createClient } = require('@supabase/supabase-js');
-          const supabase = createClient(
+        case 'checkout.session.completed': {
+          var session = event.data.object;
+          console.log('[Stripe] Checkout completed:', JSON.stringify({ email: session.customer_email, customer: session.customer, subscription: session.subscription }));
+
+          var { createClient } = require('@supabase/supabase-js');
+          var supabase = createClient(
             process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
           );
+
+          // Get customer email - session.customer_email may be null
+          var email = session.customer_email;
+          if (!email && session.customer) {
+            try {
+              var custResult = await stripeRequest('/customers/' + session.customer, 'GET');
+              if (custResult.ok) email = custResult.data.email;
+              console.log('[Stripe] Fetched customer email:', email);
+            } catch (e) { console.error('[Stripe] Customer fetch error:', e.message); }
+          }
+
+          if (!email) {
+            console.error('[Stripe] No email found for session:', session.id);
+            break;
+          }
+
+          var metadata = session.metadata || {};
+
+          // Fetch subscription metadata
+          var subMetadata = {};
+          if (session.subscription) {
+            try {
+              var subResult = await stripeRequest('/subscriptions/' + session.subscription, 'GET');
+              if (subResult.ok) subMetadata = subResult.data.metadata || {};
+              console.log('[Stripe] Sub metadata:', JSON.stringify(subMetadata));
+            } catch (e) {}
+          }
+
+          var plan = subMetadata.plan || metadata.plan || 'starter';
+          var tenantName = subMetadata.tenant_name || metadata.tenant_name || 'My Business';
+
+          // Find auth user
+          var userId = null;
+          var userMeta = {};
+          try {
+            var authResult = await supabase.auth.admin.listUsers();
+            var authUsers = authResult.data;
+            var authUser = (authUsers && authUsers.users) ? authUsers.users.find(function(u) { return u.email === email; }) : null;
+            userId = authUser ? authUser.id : null;
+            userMeta = authUser ? (authUser.user_metadata || {}) : {};
+            console.log('[Stripe] Auth user:', userId ? userId : 'NOT FOUND', 'for', email);
+          } catch (e) { console.error('[Stripe] Auth lookup error:', e.message); }
+
+          // Check if tenant already exists via tenant_members
+          var existingTenantId = null;
+          if (userId) {
+            try {
+              var memberResult = await supabase.from('tenant_members').select('tenant_id').eq('user_id', userId).limit(1).single();
+              if (memberResult.data) existingTenantId = memberResult.data.tenant_id;
+            } catch (e) {}
+          }
+
+          if (existingTenantId) {
+            console.log('[Stripe] Existing tenant:', existingTenantId, '- updating');
+            await supabase.from('tenants').update({ status: 'active', plan: plan, updated_at: new Date().toISOString() }).eq('id', existingTenantId);
+          } else {
+            // Create new tenant
+            var name = userMeta.company_name || tenantName || 'My Business';
+            var slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+            console.log('[Stripe] Creating tenant:', name, 'plan:', plan, 'email:', email);
+
+            var tenantResult = await supabase.from('tenants').insert({ name: name, slug: slug, plan: plan, status: 'active' }).select().single();
+
+            if (tenantResult.error) {
+              console.error('[Stripe] Tenant error:', tenantResult.error.message);
+              break;
+            }
+
+            var tenant = tenantResult.data;
+            console.log('[Stripe] Tenant created:', tenant.id);
+
+            // Link user to tenant
+            if (userId) {
+              try {
+                await supabase.from('tenant_members').insert({ tenant_id: tenant.id, user_id: userId, role: 'admin', status: 'active' });
+                console.log('[Stripe] User linked to tenant');
+              } catch (e) { console.error('[Stripe] Member error:', e.message); }
+            }
+
+            // Notify Rob
+            try {
+              var RESEND_KEY = process.env.RESEND_API_KEY;
+              if (RESEND_KEY) {
+                await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    from: 'EngageWorx <hello@engwx.com>',
+                    to: ['rob@engwx.com'],
+                    subject: 'New tenant auto-provisioned: ' + name,
+                    html: '<h2>New Signup</h2><p><b>Company:</b> ' + name + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p><p><b>Tenant ID:</b> ' + tenant.id + '</p><p>Customer can now log in at portal.engwx.com</p>',
+                  }),
+                });
+              }
+            } catch (e) {}
+          }
+          break;
+        }
 
           const email = session.customer_email;
           const metadata = session.metadata || {};
