@@ -107,10 +107,9 @@ Stop settling for 2006-era margins. Give your clients the engagement rates they 
 **Ready to see how a 6-channel platform looks under your own brand?**
 
 [Explore the EngageWorx platform today](https://www.engwx.com) and take your service offering into the next decade.  
-`  
-}  
-  
-  {
+`
+},
+{
   slug: "white-label-messaging-opportunity",
   title: "The White-Label Messaging Opportunity: How Service Providers Can Own the Channel",
   date: "March 16, 2026",
