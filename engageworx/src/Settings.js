@@ -277,6 +277,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "from_email", label: "From Email", placeholder: "noreply@yourdomain.com" },
       { key: "from_name", label: "From Name", placeholder: "Your Brand" },
       { key: "domain", label: "Domain", placeholder: "mail.yourdomain.com" },
+      { key: "ai_business_info", label: "AI Email Response Info (what the AI knows about your business)", type: "textarea", placeholder: "Company name, services, pricing, hours, contact info, FAQ answers..." },
     ]},
     { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
       { key: "business_account_id", label: "Business Account ID" },
@@ -287,11 +288,12 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
       { key: "service_account", label: "Service Account Email" },
     ]},
-    { { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+        { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
       { key: "ai_agent_name", label: "AI Agent Name", placeholder: "Eva" },
       { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
       { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
       { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna (US Female)", "Polly.Joanna-Neural (US Female Natural)", "Polly.Salli (US Female)", "Polly.Amy (UK Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Emma (UK Female)", "Polly.Matthew (US Male)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Joey (US Male)", "Polly.Brian (UK Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
+      { key: "ai_business_info", label: "AI Business Info (what the AI knows about your business)", type: "textarea", placeholder: "Company name, services, pricing, hours, contact info..." },
       { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
       { key: "timezone", label: "Timezone", type: "select", options: ["Europe/London", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"] },
@@ -762,6 +764,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                                 <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
                                   {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>
+                              ) : f.type === "textarea" ? (
+                                <textarea
+                                  value={configData[f.key] || ""}
+                                  onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
+                                  placeholder={f.placeholder || ""}
+                                  rows={4}
+                                  style={{ ...inputStyle, resize: "vertical", minHeight: 80 }}
+                                />
                               ) : (
                                 <input
                                   type={f.type || "text"}
@@ -955,15 +965,15 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       {/* ═══════════ BILLING TAB ═══════════ */}
       {activeTab === "billing" && (
         <div>
-         <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
+          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
 
           {/* Trial Banner */}
           {(planStatus === "Trial" || stripeStatus === "trialing" || !stripePlan) && (
-            <div style={{ background: "linear-gradient(135deg, rgba(0,201,255,0.08), rgba(224,64,251,0.08))", border: "1px solid rgba(0,201,255,0.25)", borderRadius: 14, padding: "24px 28px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ background: "linear-gradient(135deg, rgba(0,201,255,0.08), rgba(224,64,251,0.08))", border: "1px solid rgba(0,201,255,0.25)", borderRadius: 14, padding: "24px 28px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
               <div>
-                <div style={{ color: "#00C9FF", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>🎉 Welcome to Your Trial</div>
+                <div style={{ color: "#00C9FF", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>Welcome to Your Trial</div>
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>You have full access to all {currentPlanInfo.name} plan features. No credit card required during your trial.</div>
-                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 6 }}>When you're ready, activate your subscription to continue using EngageWorx.</div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 6 }}>When you are ready, activate your subscription to continue using EngageWorx.</div>
               </div>
               <button onClick={() => setShowUpgradeModal(true)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Activate Subscription</button>
             </div>
