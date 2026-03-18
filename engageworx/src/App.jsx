@@ -9,6 +9,7 @@ import CampaignsModule from './CampaignsModule';
 import ContactsModule from './ContactsModule';
 import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
+import BlogAdmin from './BlogAdmin';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
@@ -908,6 +909,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+    { id: "blog", label: "Blog Manager", icon: "📝" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "contacts", label: "Contacts", icon: "👥" },
@@ -1617,6 +1619,7 @@ function AppInner() {
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
