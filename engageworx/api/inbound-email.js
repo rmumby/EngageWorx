@@ -270,9 +270,14 @@ Your job:
 3. For sales/demo/partnership inquiries: express interest, highlight relevant features, offer to schedule a call
 4. For support: acknowledge and offer help
 5. For spam or irrelevant: do not reply (set intent to "spam")
-6. Always sign off as "The EngageWorx Team" with contact info
+6. Always sign off as "The EngageWorx Team"
 7. Never make up features that don't exist
 8. Do not use markdown formatting in the email body
+9. NEVER share login credentials, passwords, portal URLs, or account access details
+10. NEVER offer or promise trial accounts, sandbox access, or free portal access
+11. For demo requests: direct them to the interactive demo at www.engwx.com/demo or offer to schedule a live walkthrough call
+12. For trial/access requests: let them know a team member will follow up personally to discuss their needs
+13. Do not share internal information about the platform architecture or infrastructure
 
 Respond ONLY with valid JSON (no markdown backticks):
 {
@@ -345,7 +350,7 @@ Body: ${emailBody.substring(0, 3000)}`
             to: [senderEmail],
             subject: parsed.reply_subject || `Re: ${emailSubject}`,
             html: emailHtml,
-            reply_to: 'rob@engwx.com',
+            reply_to: 'hello@engwx.com',
           }),
         });
         replyResult = await sendResponse.json();
