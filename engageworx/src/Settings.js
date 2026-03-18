@@ -293,17 +293,19 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const CHANNEL_DEFS = [
     { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-      { key: "account_sid", label: "Account SID", type: "password" },
-      { key: "auth_token", label: "Auth Token", type: "password" },
-      { key: "phone_number", label: "Phone Number", placeholder: "+1 (xxx) xxx-xxxx" },
-      { key: "messaging_service_sid", label: "Messaging Service SID", type: "text" },
+      { key: "phone_number", label: "Phone Number", placeholder: "+1 (786) 982-7800" },
+      { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
+      { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You have opted in to receive SMS from [Business]. Reply STOP to unsubscribe." },
+      { key: "account_sid", label: "Twilio Account SID (SP only)", type: "password", spOnly: true },
+      { key: "auth_token", label: "Twilio Auth Token (SP only)", type: "password", spOnly: true },
+      { key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
     ]},
     { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
-      { key: "api_key", label: "API Key", type: "password" },
-      { key: "from_email", label: "From Email", placeholder: "noreply@yourdomain.com" },
-      { key: "from_name", label: "From Name", placeholder: "Your Brand" },
-      { key: "domain", label: "Domain", placeholder: "mail.yourdomain.com" },
+      { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
+      { key: "from_name", label: "From Name", placeholder: "Your Business Name" },
       { key: "ai_business_info", label: "AI Email Response Info (what the AI knows about your business)", type: "textarea", placeholder: "Company name, services, pricing, hours, contact info, FAQ answers..." },
+      { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
+      { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
     ]},
     { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
       { key: "business_account_id", label: "Business Account ID" },
@@ -783,7 +785,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                     {isEnabled && (
                       <>
                         <div style={{ display: "grid", gridTemplateColumns: ch.fields.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 14 }}>
-                          {ch.fields.map(f => (
+                          {ch.fields.filter(function(f) { return !f.spOnly || viewLevel === "sp"; }).map(f => (
                             <div key={f.key}>
                               <label style={label}>{f.label}</label>
                               {f.type === "select" ? (
