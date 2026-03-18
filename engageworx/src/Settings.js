@@ -955,7 +955,19 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       {/* ═══════════ BILLING TAB ═══════════ */}
       {activeTab === "billing" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
+         <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
+
+          {/* Trial Banner */}
+          {(planStatus === "Trial" || stripeStatus === "trialing" || !stripePlan) && (
+            <div style={{ background: "linear-gradient(135deg, rgba(0,201,255,0.08), rgba(224,64,251,0.08))", border: "1px solid rgba(0,201,255,0.25)", borderRadius: 14, padding: "24px 28px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ color: "#00C9FF", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>🎉 Welcome to Your Trial</div>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>You have full access to all {currentPlanInfo.name} plan features. No credit card required during your trial.</div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 6 }}>When you're ready, activate your subscription to continue using EngageWorx.</div>
+              </div>
+              <button onClick={() => setShowUpgradeModal(true)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Activate Subscription</button>
+            </div>
+          )}
 
           {/* Current Plan */}
           <div style={{ ...card, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
