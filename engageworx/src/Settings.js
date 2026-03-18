@@ -29,6 +29,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [userEmail, setUserEmail] = useState("");
   const [stripePlan, setStripePlan] = useState(null);
   const [stripeStatus, setStripeStatus] = useState(null);
+  const [usageData, setUsageData] = useState(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -45,6 +46,31 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       }
     });
   }, []);
+
+  // Load billing usage data
+  useEffect(() => {
+    if (activeTab !== "billing") return;
+    (async () => {
+      try {
+        var results = await Promise.all([
+          supabase.from("messages").select("id", { count: "exact", head: true }),
+          supabase.from("contacts").select("id", { count: "exact", head: true }),
+          supabase.from("campaigns").select("id", { count: "exact", head: true }),
+          supabase.from("tenant_members").select("id", { count: "exact", head: true }),
+          supabase.from("api_keys").select("id", { count: "exact", head: true }).eq("status", "active"),
+        ]);
+        setUsageData({
+          messages: results[0].count || 0,
+          contacts: results[1].count || 0,
+          campaigns: results[2].count || 0,
+          members: results[3].count || 0,
+          apiKeys: results[4].count || 0,
+        });
+      } catch (err) {
+        setUsageData({ messages: 0, contacts: 0, campaigns: 0, members: 0, apiKeys: 0 });
+      }
+    })();
+  }, [activeTab]);
 
   const SMS_TOPUPS = [
     { id: "topup_500", name: "500 SMS", credits: 500, price: "$15.00", priceId: "price_1T4OfbPEs1sluBAUCYOGvoDQ", perSms: "$0.03" },
@@ -999,35 +1025,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
           {/* Usage — live from Supabase */}
           {(() => {
-            const [usageData, setUsageData] = React.useState(null);
-            React.useEffect(() => {
-              (async () => {
-                try {
-                  const [msgs, contacts, campaigns, members, apiKeys] = await Promise.all([
-                    supabase.from("messages").select("id", { count: "exact", head: true }),
-                    supabase.from("contacts").select("id", { count: "exact", head: true }),
-                    supabase.from("campaigns").select("id", { count: "exact", head: true }),
-                    supabase.from("tenant_members").select("id", { count: "exact", head: true }),
-                    supabase.from("api_keys").select("id", { count: "exact", head: true }).eq("status", "active"),
-                  ]);
-                  setUsageData({
-                    messages: msgs.count || 0,
-                    contacts: contacts.count || 0,
-                    campaigns: campaigns.count || 0,
-                    members: members.count || 0,
-                    apiKeys: apiKeys.count || 0,
-                  });
-                } catch (err) {
-                  setUsageData({ messages: 0, contacts: 0, campaigns: 0, members: 0, apiKeys: 0 });
-                }
-              })();
-            }, []);
-
-            const planLimits = stripePlan?.includes("Pro") ? { messages: 500000, contacts: 500000, campaigns: 200, users: 50 }
-              : stripePlan?.includes("Growth") ? { messages: 250000, contacts: 100000, campaigns: 50, users: 10 }
+            var planLimits = (stripePlan && stripePlan.includes("Pro")) ? { messages: 500000, contacts: 500000, campaigns: 200, users: 50 }
+              : (stripePlan && stripePlan.includes("Growth")) ? { messages: 250000, contacts: 100000, campaigns: 50, users: 10 }
               : { messages: 50000, contacts: 10000, campaigns: 10, users: 3 };
 
-            const items = usageData ? [
+            var items = usageData ? [
               { label: "Messages", used: usageData.messages, limit: planLimits.messages, color: C.primary },
               { label: "Contacts", used: usageData.contacts, limit: planLimits.contacts, color: "#00E676" },
               { label: "Campaigns", used: usageData.campaigns, limit: planLimits.campaigns, color: "#FFD600" },
@@ -1041,8 +1043,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   <div style={{ color: C.muted, fontSize: 13 }}>Loading usage data...</div>
                 ) : (
                   <div style={{ display: "grid", gap: 14 }}>
-                    {items.map((u, i) => {
-                      const pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 0;
+                    {items.map(function(u, i) {
+                      var pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 0;
                       return (
                         <div key={i}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -1050,7 +1052,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                             <span style={{ color: pct > 80 ? "#FF6B35" : "#fff", fontSize: 13, fontWeight: 600 }}>{u.used.toLocaleString()} / {u.limit.toLocaleString()} <span style={{ color: u.color, fontSize: 11 }}>({pct}%)</span></span>
                           </div>
                           <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
-                            <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: pct > 90 ? "#FF3B30" : pct > 80 ? "#FF6B35" : u.color, borderRadius: 3, transition: "width 0.3s" }} />
+                            <div style={{ height: "100%", width: Math.min(pct, 100) + "%", background: pct > 90 ? "#FF3B30" : pct > 80 ? "#FF6B35" : u.color, borderRadius: 3, transition: "width 0.3s" }} />
                           </div>
                         </div>
                       );
