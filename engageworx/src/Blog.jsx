@@ -8,7 +8,7 @@ const POSTS = [
 {  
 slug: "6-channels-every-service-provider-should-offer",  
 title: "6 Channels Every Service Provider Should Offer (And Why Most Only Offer 2)",  
-date: "March 16, 2026",  
+date: "March 18, 2026",  
 readTime: "12 min read",  
 category: "Omnichannel Messaging",  
 excerpt: "Most service providers are stuck in 2006, offering only SMS and email. Discover why an omnichannel approach with 6 key channels is essential for retention and revenue in 2026.",  
