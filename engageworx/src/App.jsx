@@ -10,6 +10,7 @@ import ContactsModule from './ContactsModule';
 import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
 import BlogAdmin from './BlogAdmin';
+import CreateSandbox from './CreateSandbox';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
@@ -362,6 +363,7 @@ function TenantManagement({ C, demoMode = false }) {
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage white-label customers, branding & access</p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
+          <CreateSandbox C={C} onCreated={function() { window.location.reload(); }} />
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
           </button>
