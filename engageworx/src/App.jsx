@@ -16,6 +16,7 @@ import Registration from './Registration';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
+const ApiDocs = lazy(() => import('./ApiDocs'));
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
 function useLiveData(demoMode) {
@@ -1185,6 +1186,9 @@ function AppInner() {
   if (!isPortal) {
     if (window.location.pathname === '/blog' || window.location.pathname.startsWith('/blog/')) {
       return <Suspense fallback={<div style={{background:'#050810',color:'#E8F4FD',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"}}>Loading...</div>}><Blog onBack={function() { window.location.href = '/'; }} /></Suspense>;
+    }
+    if (window.location.pathname === '/api-docs') {
+      return <Suspense fallback={<div style={{background:'#0a0d14',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading...</div>}><ApiDocs onBack={function() { window.location.href = '/'; }} /></Suspense>;
     }
     return <LandingPage />;
   }
