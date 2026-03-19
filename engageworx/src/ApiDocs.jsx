@@ -360,23 +360,27 @@ export default function ApiDocs(props) {
 
         {/* Rate Limits */}
         <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 16 }}>Rate Limits</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 16 }}>Rate Limits & Plans</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
             {[
-              { plan: 'Starter', rate: '100 req/min', messages: '1,000/mo', price: '$99/mo' },
-              { plan: 'Growth', rate: '500 req/min', messages: '5,000/mo', price: '$249/mo' },
-              { plan: 'Pro', rate: '2,000 req/min', messages: '20,000/mo', price: '$499/mo' },
+              { plan: 'Starter', rate: '100 req/min', messages: '1,000 SMS/mo', desc: 'For small businesses getting started' },
+              { plan: 'Growth', rate: '500 req/min', messages: '5,000 SMS/mo', desc: 'For growing teams and campaigns' },
+              { plan: 'Pro', rate: '2,000 req/min', messages: '20,000 SMS/mo', desc: 'For high-volume operations' },
+              { plan: 'Enterprise & CSP', rate: 'Custom', messages: 'Custom volume', desc: 'White-label, custom routing, dedicated support' },
             ].map(function(tier) {
               return (
-                <div key={tier.plan} style={{ background: COLORS.surface, border: '1px solid ' + COLORS.border, borderRadius: 10, padding: 20 }}>
-                  <div style={{ color: COLORS.primary, fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{tier.plan}</div>
+                <div key={tier.plan} style={{ background: COLORS.surface, border: '1px solid ' + (tier.plan === 'Enterprise & CSP' ? COLORS.primary + '44' : COLORS.border), borderRadius: 10, padding: 20 }}>
+                  <div style={{ color: COLORS.primary, fontWeight: 800, fontSize: 15, marginBottom: 8 }}>{tier.plan}</div>
                   <div style={{ color: COLORS.text, fontSize: 13, marginBottom: 4 }}>{tier.rate}</div>
-                  <div style={{ color: COLORS.muted, fontSize: 12 }}>{tier.messages} included</div>
-                  <div style={{ color: COLORS.muted, fontSize: 12 }}>Overage: $0.025/SMS</div>
-                  <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 18, marginTop: 12 }}>{tier.price}</div>
+                  <div style={{ color: COLORS.muted, fontSize: 12, marginBottom: 8 }}>{tier.messages}</div>
+                  <div style={{ color: COLORS.muted, fontSize: 11, lineHeight: 1.4 }}>{tier.desc}</div>
                 </div>
               );
             })}
+          </div>
+          <div style={{ marginTop: 16, padding: 16, background: 'rgba(0,201,255,0.05)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8 }}>
+            <div style={{ color: COLORS.primary, fontSize: 13, fontWeight: 600 }}>Service Providers & Enterprise</div>
+            <div style={{ color: COLORS.muted, fontSize: 13, marginTop: 4 }}>CSPs and large enterprises receive customized rate limits, volume pricing, and white-label access. Contact us at <a href="mailto:hello@engwx.com" style={{ color: COLORS.primary, textDecoration: 'none' }}>hello@engwx.com</a> or call <a href="tel:+17869827800" style={{ color: COLORS.primary, textDecoration: 'none' }}>+1 (786) 982-7800</a> to discuss partner pricing.</div>
           </div>
         </div>
 
