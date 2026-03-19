@@ -366,7 +366,7 @@ export default function ApiDocs(props) {
               { plan: 'Starter', rate: '100 req/min', messages: '1,000 SMS/mo', desc: 'For small businesses getting started' },
               { plan: 'Growth', rate: '500 req/min', messages: '5,000 SMS/mo', desc: 'For growing teams and campaigns' },
               { plan: 'Pro', rate: '2,000 req/min', messages: '20,000 SMS/mo', desc: 'For high-volume operations' },
-              { plan: 'Enterprise & CSP', rate: 'Custom', messages: 'Custom volume', desc: 'White-label, custom routing, dedicated support' },
+              { plan: 'Enterprise & CSP', rate: 'Custom', messages: 'Custom volume', desc: 'Custom rate limits, white-label & multi-tenant' },
             ].map(function(tier) {
               return (
                 <div key={tier.plan} style={{ background: COLORS.surface, border: '1px solid ' + (tier.plan === 'Enterprise & CSP' ? COLORS.primary + '44' : COLORS.border), borderRadius: 10, padding: 20 }}>
