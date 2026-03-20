@@ -41,6 +41,15 @@ export function AuthProvider({ children }) {
             var profileData = data || { id: userId };
             profileData.tenant_id = memberData.tenant_id;
             profileData.role = memberData.role || 'user';
+            // Check if tenant is a CSP
+            try {
+              const { data: tenantData } = await supabase
+                .from('tenants')
+                .select('tenant_type')
+                .eq('id', memberData.tenant_id)
+                .maybeSingle();
+              if (tenantData) profileData.tenant_type = tenantData.tenant_type;
+            } catch (ttErr) {}
             setProfile(profileData);
             return profileData;
           }
@@ -54,6 +63,17 @@ export function AuthProvider({ children }) {
         console.warn('Profile fetch error:', error ? error.message : 'no tenant_id');
         setProfile({ id: userId, role: 'user' });
         return null;
+      }
+      // Enrich profile with tenant_type (CSP detection)
+      if (data && data.tenant_id && !data.tenant_type) {
+        try {
+          const { data: tenantData } = await supabase
+            .from('tenants')
+            .select('tenant_type')
+            .eq('id', data.tenant_id)
+            .maybeSingle();
+          if (tenantData) data.tenant_type = tenantData.tenant_type;
+        } catch (ttErr) {}
       }
       setProfile(data);
       return data;
@@ -180,13 +200,15 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user && !!session;
   const isSuperAdmin = profile?.role === 'superadmin';
+  const isCSP = profile?.tenant_type === 'csp';
+  const cspTenantId = isCSP ? profile?.tenant_id : null;
 
   return (
     <AuthContext.Provider value={{
       user, session, profile, loading,
       demoMode, toggleDemoMode,
       signIn, signUp, signOut, resetPassword, updatePassword,
-      authError, isAuthenticated, isSuperAdmin, passwordRecovery,
+      authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId, passwordRecovery,
     }}>
       {children}
     </AuthContext.Provider>
