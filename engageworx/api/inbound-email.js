@@ -322,7 +322,34 @@ Body: ${emailBody.substring(0, 3000)}`
 
     // ── Send auto-reply via Resend (if should_reply) ──
     let replyResult = null;
-    if (parsed.should_reply) {
+
+    // ── Usage check before AI email reply ──
+    var emailAllowed = true;
+    try {
+      // Look up tenant by the To address or default to My Business
+      var { data: ewTenant } = await supabase
+        .from('tenants')
+        .select('id')
+        .eq('slug', 'my-business')
+        .single();
+      var emailTenantId = ewTenant ? ewTenant.id : null;
+
+      if (emailTenantId) {
+        var emailUsageResult = await supabase.rpc('increment_usage', {
+          p_tenant_id: emailTenantId,
+          p_channel: 'email',
+          p_count: 1,
+        });
+        if (emailUsageResult.data && !emailUsageResult.data.allowed) {
+          emailAllowed = false;
+          console.log('[Usage] Email reply blocked - tenant at limit');
+        }
+      }
+    } catch (ue) {
+      console.log('[Usage] Email check failed, allowing reply (fail-open)');
+    }
+
+    if (parsed.should_reply && emailAllowed) {
       const emailHtml = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="padding: 24px;">
@@ -339,6 +366,41 @@ Body: ${emailBody.substring(0, 3000)}`
       `;
 
       try {
+        // Usage check before sending AI email reply
+        var emailAllowed = true;
+        if (tenantId) {
+          try {
+            var usageResult = await supabase.rpc('increment_usage', {
+              p_tenant_id: tenantId,
+              p_channel: 'email',
+              p_count: 1,
+            });
+            if (usageResult.data && !usageResult.data.allowed) {
+              emailAllowed = false;
+              console.log('[Usage] AI email reply blocked — tenant at limit:', tenantId);
+            }
+          } catch (ue) {
+            // Fail open
+            console.error('[Usage] Email check failed, allowing:', ue.message);
+          }
+        }
+
+        if (!emailAllowed) {
+          console.log('📧 Email reply blocked by usage limit. Message saved to inbox for manual follow-up.');
+          // Still forward to Rob so it doesn't get lost
+          await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'EngageWorx <hello@engwx.com>',
+              to: ['rob@engwx.com'],
+              subject: '[USAGE LIMIT] Re: ' + emailSubject,
+              html: '<p><strong>AI auto-reply blocked — usage limit reached.</strong></p><p>From: ' + senderEmail + '</p><p>Subject: ' + emailSubject + '</p><p>Please reply manually.</p>',
+            }),
+          });
+          return res.status(200).json({ received: true, reply_sent: false, reason: 'usage_limit' });
+        }
+
         const sendResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
