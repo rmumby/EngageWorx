@@ -303,7 +303,7 @@ function TenantManagement({ C, demoMode = false }) {
         const { supabase } = await import('./supabaseClient');
         const { data, error } = await supabase
           .from('tenants')
-          .select('id, name, slug, plan, status, brand_primary, brand_secondary, brand_name, channels_enabled, created_at')
+          .select('id, name, slug, plan, status, brand_primary, brand_secondary, brand_name, channels_enabled, created_at, tenant_type, parent_tenant_id')
           .order('created_at', { ascending: false });
         if (!error && data) {
           const mapped = data.map(t => ({
@@ -331,6 +331,8 @@ function TenantManagement({ C, demoMode = false }) {
             stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
             slug: t.slug,
             created_at: t.created_at,
+            tenant_type: t.tenant_type || 'business',
+            parent_tenant_id: t.parent_tenant_id,
           }));
           setLiveTenants(mapped);
         }
@@ -550,7 +552,11 @@ function TenantManagement({ C, demoMode = false }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000" }}>{c.logo}</div>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700 }}>{c.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ color: "#fff", fontWeight: 700 }}>{c.name}</span>
+                      {c.tenant_type === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
+                      {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ sub-tenant</span>}
+                    </div>
                     <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
                   </div>
                 </div>
