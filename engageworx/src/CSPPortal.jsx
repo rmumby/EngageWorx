@@ -6,7 +6,7 @@ var C = {
   accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE',
 };
 
-export default function CSPPortal({ cspTenantId, onLogout, profile }) {
+export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var pageState = useState('dashboard');
   var page = pageState[0];
   var setPage = pageState[1];
@@ -151,6 +151,13 @@ export default function CSPPortal({ cspTenantId, onLogout, profile }) {
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
       {/* Sidebar */}
       <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 100, transition: 'all 0.25s ease', overflow: 'hidden' }}>
+        {/* Back to SP (when drilled down from Super Admin) */}
+        {onBack && (
+          <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
+            <span>←</span>
+            {!sidebarCollapsed && <span>Back to Platform</span>}
+          </div>
+        )}
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
@@ -198,8 +205,9 @@ export default function CSPPortal({ cspTenantId, onLogout, profile }) {
 
       {/* Main Content */}
       <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
-        {/* Top bar with sign out */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        {/* Top bar with navigation */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
+          {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
           <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
         </div>
 
