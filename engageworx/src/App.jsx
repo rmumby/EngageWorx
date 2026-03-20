@@ -912,7 +912,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "blog", label: "Blog Manager", icon: "📝" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "contacts", label: "Contacts", icon: "👥" },
@@ -1167,20 +1166,22 @@ function AppInner() {
 
   const C = TENANTS.serviceProvider.colors;
 
-  const spNavItems = [
+  var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "blog", label: "Blog Manager", icon: "📝" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
+  var spNavItems = isSuperAdmin
+    ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6))
+    : spNavBase;
 
   const hostname = window.location.hostname;
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
