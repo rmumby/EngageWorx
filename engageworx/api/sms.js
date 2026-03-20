@@ -88,12 +88,35 @@ module.exports = async function handler(req, res) {
 
   // ─── SEND ─────────────────────────────────────────────────────────
   if (action === 'send') {
-    const { to, body, from } = req.body;
+    const { to, body, from, tenant_id } = req.body;
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     if (!accountSid || !authToken) return res.status(500).json({ error: 'Twilio credentials not configured' });
+
+    // ── Usage check before sending ──
+    if (tenant_id) {
+      try {
+        var supabaseUsage = getSupabase();
+        var usageResult = await supabaseUsage.rpc('increment_usage', {
+          p_tenant_id: tenant_id,
+          p_channel: 'sms',
+          p_count: 1,
+        });
+        if (usageResult.data && !usageResult.data.allowed) {
+          return res.status(429).json({
+            error: 'Message limit reached. Purchase a top-up or upgrade your plan.',
+            usage: usageResult.data.usage,
+            limit: usageResult.data.limit,
+            remaining: 0,
+            status: 'blocked',
+          });
+        }
+      } catch (usageErr) {
+        console.log('[Usage] Check failed, allowing message (fail-open):', usageErr.message);
+      }
+    }
 
     try {
       const result = await sendSMS(to, body, from);
@@ -195,6 +218,30 @@ module.exports = async function handler(req, res) {
             .select('tenant_id, config')
             .eq('phone_number', To)
             .single();
+
+          // ── Usage check before AI auto-reply ──
+          var aiAllowed = true;
+          if (channelConfig && channelConfig.tenant_id) {
+            try {
+              var usageCheck = await supabase.rpc('increment_usage', {
+                p_tenant_id: channelConfig.tenant_id,
+                p_channel: 'sms',
+                p_count: 1,
+              });
+              if (usageCheck.data && !usageCheck.data.allowed) {
+                aiAllowed = false;
+                console.log('[Usage] AI reply blocked - tenant', channelConfig.tenant_id, 'at limit');
+              }
+            } catch (ue) {
+              console.log('[Usage] Check failed, allowing AI reply (fail-open)');
+            }
+          }
+
+          if (!aiAllowed) {
+            // Over limit — skip AI reply, let it go to Live Inbox
+            res.setHeader('Content-Type', 'text/xml');
+            return res.status(200).send('<Response></Response>');
+          }
 
           let tenantConfig = {};
           if (channelConfig?.tenant_id) {
