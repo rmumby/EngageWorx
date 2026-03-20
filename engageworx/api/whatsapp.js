@@ -106,7 +106,7 @@ module.exports = async function handler(req, res) {
           var supabase = getSupabase();
           var cleanTo = to.replace('whatsapp:', '').replace(/[^\d+]/g, '');
 
-          var contactResult = await supabase.from('contacts').select('id').eq('phone', cleanTo).eq('tenant_id', tenantId).single();
+          var contactResult = await supabase.from('contacts').select('id').eq('phone', cleanTo).eq('tenant_id', tenantId).maybeSingle();
           var contactId = contactResult.data ? contactResult.data.id : null;
 
           if (!contactId) {
@@ -115,7 +115,7 @@ module.exports = async function handler(req, res) {
           }
 
           if (contactId) {
-            var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').single();
+            var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
             var conversationId = convResult.data ? convResult.data.id : null;
 
             if (!conversationId) {
@@ -227,18 +227,18 @@ module.exports = async function handler(req, res) {
 
         // Find tenant by phone number
         var tenantId = null;
-        var phoneResult = await supabase.from('phone_numbers').select('tenant_id').eq('number', cleanTo).single();
+        var phoneResult = await supabase.from('phone_numbers').select('tenant_id').eq('number', cleanTo).maybeSingle();
         if (phoneResult.data) tenantId = phoneResult.data.tenant_id;
 
         // Fallback: check channel_configs
         if (!tenantId) {
-          var configResult = await supabase.from('channel_configs').select('tenant_id').eq('channel', 'whatsapp').limit(1).single();
+          var configResult = await supabase.from('channel_configs').select('tenant_id').eq('channel', 'whatsapp').limit(1).maybeSingle();
           if (configResult.data) tenantId = configResult.data.tenant_id;
         }
 
         if (tenantId) {
           // Find or create contact
-          var contactResult = await supabase.from('contacts').select('id, first_name').eq('phone', cleanFrom).eq('tenant_id', tenantId).single();
+          var contactResult = await supabase.from('contacts').select('id, first_name').eq('phone', cleanFrom).eq('tenant_id', tenantId).maybeSingle();
           var contactId = contactResult.data ? contactResult.data.id : null;
 
           if (!contactId) {
@@ -249,7 +249,7 @@ module.exports = async function handler(req, res) {
           // Find or create conversation
           var conversationId = null;
           if (contactId) {
-            var cv = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').single();
+            var cv = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
             if (cv.data) {
               conversationId = cv.data.id;
               await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'active' }).eq('id', conversationId);
@@ -267,8 +267,8 @@ module.exports = async function handler(req, res) {
           // AI auto-reply (within 24hr customer service window — FREE from Meta)
           var aiConfig = null;
           try {
-            var cfgResult = await supabase.from('channel_configs').select('config').eq('tenant_id', tenantId).eq('channel', 'whatsapp').single();
-            if (cfgResult.data) aiConfig = cfgResult.data.config;
+            var cfgResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
+            if (cfgResult.data) aiConfig = cfgResult.data.config_encrypted;
           } catch (ce) {}
 
           if (aiConfig && aiConfig.ai_enabled !== false) {
