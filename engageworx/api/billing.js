@@ -360,6 +360,65 @@ module.exports = async function handler(req, res) {
 
         case 'checkout.session.completed': {
           var session = event.data.object;
+          // ═══════════════════════════════════════════════════════════════
+// ADD THIS to billing.js inside the checkout.session.completed handler
+// AFTER the line: var session = event.data.object;
+// BEFORE the existing tenant creation logic
+// ═══════════════════════════════════════════════════════════════
+
+          // Check if this is a top-up payment (not a subscription)
+          if (session.metadata && session.metadata.type === 'topup') {
+            console.log('[Stripe] Top-up payment completed:', JSON.stringify(session.metadata));
+            try {
+              var topupTenantId = session.metadata.tenant_id;
+              var topupMessages = parseInt(session.metadata.messages) || 0;
+              var topupAmount = (session.amount_total || 0) / 100;
+
+              if (topupTenantId && topupMessages > 0) {
+                var { createClient } = require('@supabase/supabase-js');
+                var topupSupabase = createClient(
+                  process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+                  process.env.SUPABASE_SERVICE_ROLE_KEY
+                );
+
+                await topupSupabase.from('usage_topups').insert({
+                  tenant_id: topupTenantId,
+                  messages_purchased: topupMessages,
+                  messages_remaining: topupMessages,
+                  amount_paid: topupAmount,
+                  stripe_payment_id: session.payment_intent || session.id,
+                  status: 'active',
+                });
+
+                console.log('[Stripe] Top-up credited:', topupMessages, 'messages for tenant', topupTenantId);
+
+                // Notify Rob
+                var RESEND_KEY = process.env.RESEND_API_KEY;
+                if (RESEND_KEY) {
+                  var tenantInfo = await topupSupabase.from('tenants').select('name').eq('id', topupTenantId).single();
+                  var tName = tenantInfo.data ? tenantInfo.data.name : topupTenantId;
+                  await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      from: 'EngageWorx <hello@engwx.com>',
+                      to: ['rob@engwx.com'],
+                      subject: 'Top-up purchased: ' + tName + ' (' + topupMessages.toLocaleString() + ' messages)',
+                      html: '<h2>Message Top-Up Purchased</h2><p><b>Tenant:</b> ' + tName + '</p><p><b>Messages:</b> ' + topupMessages.toLocaleString() + '</p><p><b>Amount:</b> $' + topupAmount.toFixed(2) + '</p>',
+                    }),
+                  });
+                }
+              }
+            } catch (topupErr) {
+              console.error('[Stripe] Top-up credit error:', topupErr.message);
+            }
+            break; // Don't continue to tenant creation logic
+          }
+
+// ═══════════════════════════════════════════════════════════════
+// The rest of the existing checkout.session.completed code
+// (tenant creation) continues below...
+// ═══════════════════════════════════════════════════════════════
           console.log('[Stripe] Checkout completed:', JSON.stringify({ email: session.customer_email, customer: session.customer, subscription: session.subscription }));
 
           var { createClient } = require('@supabase/supabase-js');
