@@ -1049,7 +1049,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isAuthenticated, passwordRecovery } = useAuth();
+  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
   
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
@@ -1107,6 +1107,8 @@ function AppInner() {
     if (isAuthenticated && profile && view === "login") {
       if (profile.role === "superadmin") {
         setView("sp");
+      } else if (isCSP && profile.tenant_id) {
+        setView("csp_" + profile.tenant_id);
       } else if (profile.tenant_id) {
         setView("tenant_" + profile.tenant_id);
       } else {
