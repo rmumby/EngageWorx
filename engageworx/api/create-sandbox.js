@@ -100,6 +100,20 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Member link failed: ' + memberResult.error.message });
     }
 
+    // Step 4b: Create user profile (required for auth flow)
+    try {
+      await supabase.from('user_profiles').upsert({
+        id: userId,
+        email: email,
+        tenant_id: tenant.id,
+        role: 'admin',
+        company_name: companyName,
+        full_name: fullName,
+      });
+    } catch (profileErr) {
+      console.error('[Sandbox] Profile create error:', profileErr.message);
+    }
+
     // Step 5: Send notification to Rob
     try {
       var RESEND_KEY = process.env.RESEND_API_KEY;
