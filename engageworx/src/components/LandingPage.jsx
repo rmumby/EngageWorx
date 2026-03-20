@@ -91,7 +91,7 @@ const LandingPage = () => {
     return (
       <div style={{fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: '60px 24px'}}>
         <div style={{maxWidth: 760, margin: '0 auto'}}>
-          <button onClick={() => setLegalPage(null)} style={{background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif", marginBottom: 40, display: 'block'}}>Back to Home</button>
+          <button onClick={() => { setLegalPage(null); window.history.pushState(null, '', '/'); }} style={{background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: "'Outfit', sans-serif", marginBottom: 40, display: 'block'}}>Back to Home</button>
           <h1 style={{fontSize: 36, fontWeight: 900, letterSpacing: -1, marginBottom: 8, color: '#E8F4FD'}}>{pageData.title}</h1>
           <p style={{color: '#6B8BAE', fontSize: 14, marginBottom: 40}}>{"Last updated: " + pageData.updated}</p>
           {legalPage === 'smsconsent' && (
@@ -222,8 +222,8 @@ const LandingPage = () => {
           <span onClick={() => navigateTo('pricing')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Pricing</span>
           <span onClick={() => navigateTo('about')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>About</span>
           <span onClick={() => navigateTo('contact')} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Contact</span>
-          <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Privacy</span>
-          <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
+          <span onClick={() => { setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Privacy</span>
+          <span onClick={() => { setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }} style={{ color: '#6B8BAE', fontSize: 13, cursor: 'pointer' }}>Terms</span>
         </div>
         <span style={{ color: '#3A5068', fontSize: 13 }}>© 2026 EngageWorx. All rights reserved.</span>
       </div>
@@ -1241,7 +1241,7 @@ const LandingPage = () => {
               </div>
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6B8BAE', lineHeight: 1.7 }}>
                 For questions about SMS messaging, contact us at <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>. 
-                View our <span onClick={() => { setLegalPage('privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details on data handling and compliance.
+                View our <span onClick={() => { setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details on data handling and compliance.
                 EngageWorx complies with TCPA, CTIA guidelines, and 10DLC/A2P messaging standards.
               </div>
             </div>
@@ -1293,10 +1293,10 @@ const LandingPage = () => {
             </div>
             <div className="lp-footer-col">
               <h4>Legal</h4>
-              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
-              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('terms'); window.scrollTo(0,0); }}>Terms of Service</a>
-              <a onClick={() => { const el = document.getElementById('lp-sms-consent'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}>SMS Consent</a>
-              <a href="#" onClick={(e) => { e.preventDefault(); setLegalPage('accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
+              <a href="/privacy" onClick={(e) => { e.preventDefault(); setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
+              <a href="/terms" onClick={(e) => { e.preventDefault(); setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }}>Terms of Service</a>
+              <a href="/smsconsent" onClick={(e) => { e.preventDefault(); setLegalPage('smsconsent'); window.history.pushState(null, '', '/smsconsent'); window.scrollTo(0,0); }}>SMS Consent</a>
+              <a href="/accessibility" onClick={(e) => { e.preventDefault(); setLegalPage('accessibility'); window.history.pushState(null, '', '/accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
           <div className="lp-footer-bottom">
