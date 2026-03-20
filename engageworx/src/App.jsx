@@ -12,6 +12,8 @@ import AIChatbot from './AIChatbot';
 import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
+import AgentPortal from './AgentPortal';
+import AgentPortal from './AgentPortal';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
@@ -557,6 +559,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ color: "#fff", fontWeight: 700 }}>{c.name}</span>
                       {c.tenant_type === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
+                      {c.tenant_type === "agent" && <span style={{ background: "#FF6B3522", color: "#FF6B35", border: "1px solid #FF6B3544", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>AGENT</span>}
                       {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ sub-tenant</span>}
                     </div>
                     <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
@@ -570,7 +573,10 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                   <div style={{ color: "#fff", fontSize: 13 }}>{c.stats.contacts.toLocaleString()} contacts</div>
                   <div style={{ color: C.muted, fontSize: 11 }}>{c.stats.campaigns} campaigns</div>
                 </div>
-                <div><Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge></div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
+                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
                   <button onClick={() => setConfiguringTenant(isConfiguring ? null : c.id)} style={{ background: isConfiguring ? C.primary : `${c.brand.primary}22`, border: `1px solid ${isConfiguring ? C.primary : c.brand.primary + "55"}`, borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
@@ -588,7 +594,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                 {/* Inline Configure Panel */}
                 {isConfiguring && (
                   <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.primary}33`, borderRadius: "0 0 12px 12px", borderTop: "none", padding: "20px 24px", marginTop: -1 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Tenant Name</div>
                         <input defaultValue={c.name} style={inputStyleTM} />
@@ -600,6 +606,21 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
                         <select defaultValue="growth" style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="enterprise">Enterprise (Custom)</option></select>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
+                        <select defaultValue={c.tenant_type || "business"} onChange={async function(e) {
+                          var newType = e.target.value;
+                          try {
+                            var { supabase: sb } = await import('./supabaseClient');
+                            await sb.from('tenants').update({ tenant_type: newType }).eq('id', c.id);
+                            c.tenant_type = newType;
+                          } catch (err) { console.error('Type update error:', err); }
+                        }} style={inputStyleTM}>
+                          <option value="business">Business</option>
+                          <option value="csp">CSP Partner</option>
+                          <option value="agent">Agent Partner</option>
+                        </select>
                       </div>
                     </div>
                     <div style={{ marginBottom: 16 }}>
@@ -901,6 +922,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
 function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [cpSidebarOpen, setCpSidebarOpen] = useState(false);
   const [cpIsMobile, setCpIsMobile] = useState(window.innerWidth < 768);
+  const [cpSidebarCollapsed, setCpSidebarCollapsed] = useState(false);
   useEffect(() => { const h = () => setCpIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const demoTenant = TENANTS[tenantId];
   const liveTenant = liveTenants?.find(t => t.id === tenantId);
@@ -939,17 +961,31 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       {cpIsMobile && cpSidebarOpen && (
         <div onClick={() => setCpSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "transform 0.3s ease" }}>
-        <div style={{ marginBottom: 28, paddingLeft: 8 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
+      <div style={{ width: cpSidebarCollapsed ? 64 : 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: cpSidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+        {/* Back button (when drilled down from SP) */}
+        {onBack && (
+          <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + "10", border: "1px solid " + C.primary + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
+            <span>←</span>
+            {!cpSidebarCollapsed && <span>Back to Platform</span>}
+          </div>
+        )}
+        <div style={{ marginBottom: 28, paddingLeft: cpSidebarCollapsed ? 0 : 8, textAlign: cpSidebarCollapsed ? "center" : "left" }}>
+          {cpSidebarCollapsed ? (
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{(tenant.brand.name || "").substring(0, 2)}</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
+            </>
+          )}
         </div>
 
         <nav style={{ flex: 1 }}>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setPage(item.id); if(cpIsMobile) setCpSidebarOpen(false); }} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 10,
-              padding: "10px 12px", borderRadius: 8, border: "none",
+            <button key={item.id} onClick={() => { setPage(item.id); if(cpIsMobile) setCpSidebarOpen(false); }} title={cpSidebarCollapsed ? item.label : undefined} style={{
+              width: "100%", display: "flex", alignItems: "center", gap: cpSidebarCollapsed ? 0 : 10,
+              justifyContent: cpSidebarCollapsed ? "center" : "flex-start",
+              padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none",
               background: page === item.id ? `${C.primary}22` : "transparent",
               color: page === item.id ? C.primary : C.muted,
               cursor: "pointer", fontSize: 13, fontWeight: page === item.id ? 700 : 400,
@@ -957,10 +993,22 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
               borderLeft: page === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
             }}>
               <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {item.label}
+              {!cpSidebarCollapsed && item.label}
             </button>
           ))}
         </nav>
+
+        {/* Collapse + Logout */}
+        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+          <button onClick={() => setCpSidebarCollapsed(!cpSidebarCollapsed)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+            <span>{cpSidebarCollapsed ? "»" : "«"}</span>
+            {!cpSidebarCollapsed && <span>Collapse</span>}
+          </button>
+          {onLogout && <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "rgba(255,82,82,0.06)", color: "#FF5252", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+            <span>⏻</span>
+            {!cpSidebarCollapsed && <span>Sign Out</span>}
+          </button>}
+        </div>
 
         {onBack && (
           <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
@@ -1119,6 +1167,8 @@ function AppInner() {
         setView("sp");
       } else if (isCSP && profile.tenant_id) {
         setView("csp_" + profile.tenant_id);
+      } else if (profile.tenant_type === "agent" && profile.tenant_id) {
+        setView("agent_" + profile.tenant_id);
       } else if (profile.tenant_id) {
         setView("tenant_" + profile.tenant_id);
       } else {
@@ -1271,10 +1321,13 @@ function AppInner() {
   }
 
   if (drillDownTenant) {
-    // Check if this tenant is a CSP — show CSP Portal instead of CustomerPortal
+    // Check tenant type — show appropriate portal
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
     if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
-      return <CSPPortal cspTenantId={drillDownTenant} onLogout={function() { setDrillDownTenant(null); }} profile={profile} />;
+      return <CSPPortal cspTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
+    }
+    if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
+      return <AgentPortal agentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
     }
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
@@ -1545,6 +1598,12 @@ function AppInner() {
   if (view.startsWith("csp_")) {
     const cspTenantId = view.replace("csp_", "");
     return <CSPPortal cspTenantId={cspTenantId} onLogout={handleLogout} profile={profile} />;
+  }
+
+  // Agent Portal — referral partner view
+  if (view.startsWith("agent_")) {
+    const agentTenantId = view.replace("agent_", "");
+    return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} />;
   }
 
   // Service Provider portal
