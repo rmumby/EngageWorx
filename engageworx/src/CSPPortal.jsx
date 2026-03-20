@@ -182,7 +182,14 @@ export default function CSPPortal({ cspTenantId, onLogout, profile }) {
             <span>{sidebarCollapsed ? '»' : '«'}</span>
             {!sidebarCollapsed && <span>Collapse</span>}
           </div>
-          <div onClick={function() { if (onLogout) onLogout(); else window.location.href = '/'; }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}>
+          <div onClick={function() {
+            supabase.auth.signOut().then(function() {
+              if (onLogout) onLogout();
+              window.location.href = '/';
+            }).catch(function() {
+              window.location.href = '/';
+            });
+          }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}>
             <span>⏻</span>
             {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
           </div>
@@ -191,6 +198,10 @@ export default function CSPPortal({ cspTenantId, onLogout, profile }) {
 
       {/* Main Content */}
       <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
+        {/* Top bar with sign out */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
+        </div>
 
         {/* ═══ DASHBOARD ═══ */}
         {page === 'dashboard' && (
