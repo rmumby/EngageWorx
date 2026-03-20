@@ -11,6 +11,7 @@ import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
 import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
+import CSPPortal from './CSPPortal';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
@@ -1524,6 +1525,12 @@ function AppInner() {
   if (view.startsWith("tenant_")) {
     const tenantId = view.replace("tenant_", "");
     return <CustomerPortal tenantId={tenantId} onLogout={handleLogout} liveTenants={liveTenants} />;
+  }
+
+  // CSP Portal — filtered view for Channel Service Providers
+  if (view.startsWith("csp_")) {
+    const cspTenantId = view.replace("csp_", "");
+    return <CSPPortal cspTenantId={cspTenantId} onLogout={handleLogout} profile={profile} />;
   }
 
   // Service Provider portal
