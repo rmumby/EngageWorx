@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
-  const [demoMode, setDemoMode] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   const toggleDemoMode = useCallback((val) => {
     setDemoMode(typeof val === 'boolean' ? val : !demoMode);
