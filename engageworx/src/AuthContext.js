@@ -28,8 +28,30 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.warn('Profile fetch error:', error.message);
+      if (error || !data || !data.tenant_id) {
+        // Fallback: check tenant_members if user_profiles has no tenant_id
+        try {
+          const { data: memberData } = await supabase
+            .from('tenant_members')
+            .select('tenant_id, role')
+            .eq('user_id', userId)
+            .limit(1)
+            .single();
+          if (memberData && memberData.tenant_id) {
+            var profileData = data || { id: userId };
+            profileData.tenant_id = memberData.tenant_id;
+            profileData.role = memberData.role || 'user';
+            setProfile(profileData);
+            return profileData;
+          }
+        } catch (mbErr) {
+          console.warn('Member fallback error:', mbErr.message);
+        }
+        if (data) {
+          setProfile(data);
+          return data;
+        }
+        console.warn('Profile fetch error:', error ? error.message : 'no tenant_id');
         setProfile({ id: userId, role: 'user' });
         return null;
       }
