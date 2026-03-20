@@ -60,6 +60,8 @@ function useLiveData(demoMode) {
         plan: t.plan,
         status: t.status,
         slug: t.slug,
+        tenant_type: t.tenant_type || 'business',
+        parent_tenant_id: t.parent_tenant_id,
       }));
 
       setLiveTenants(formatted);
