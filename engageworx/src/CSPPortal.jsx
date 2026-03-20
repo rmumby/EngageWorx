@@ -182,9 +182,9 @@ export default function CSPPortal({ cspTenantId, onLogout, profile }) {
             <span>{sidebarCollapsed ? '»' : '«'}</span>
             {!sidebarCollapsed && <span>Collapse</span>}
           </div>
-          <div onClick={onLogout} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+          <div onClick={function() { if (onLogout) onLogout(); else window.location.href = '/'; }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}>
             <span>⏻</span>
-            {!sidebarCollapsed && <span>Sign Out</span>}
+            {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
           </div>
         </div>
       </div>
