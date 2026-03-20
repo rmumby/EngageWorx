@@ -272,7 +272,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
 }
 
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
-function TenantManagement({ C, demoMode = false }) {
+function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
@@ -570,6 +570,7 @@ function TenantManagement({ C, demoMode = false }) {
                 </div>
                 <div><Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge></div>
                 <div style={{ display: "flex", gap: 8 }}>
+                  {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
                   <button onClick={() => setConfiguringTenant(isConfiguring ? null : c.id)} style={{ background: isConfiguring ? C.primary : `${c.brand.primary}22`, border: `1px solid ${isConfiguring ? C.primary : c.brand.primary + "55"}`, borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
                   {confirmSuspend === c.id ? (
                     <div style={{ display: "flex", gap: 4 }}>
@@ -1268,6 +1269,11 @@ function AppInner() {
   }
 
   if (drillDownTenant) {
+    // Check if this tenant is a CSP — show CSP Portal instead of CustomerPortal
+    var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
+    if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
+      return <CSPPortal cspTenantId={drillDownTenant} onLogout={function() { setDrillDownTenant(null); }} profile={profile} />;
+    }
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
 
@@ -1647,7 +1653,7 @@ function AppInner() {
 
       <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows") ? "hidden" : "auto", height: (spPage === "inbox" || spPage === "flows") ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
-        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} />}
+        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
