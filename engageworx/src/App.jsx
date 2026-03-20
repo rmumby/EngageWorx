@@ -13,7 +13,6 @@ import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import AgentPortal from './AgentPortal';
-import AgentPortal from './AgentPortal';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
