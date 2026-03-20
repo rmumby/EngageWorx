@@ -96,8 +96,8 @@ const LandingPage = () => {
           <p style={{color: '#6B8BAE', fontSize: 14, marginBottom: 40}}>{"Last updated: " + pageData.updated}</p>
           {legalPage === 'smsconsent' && (
             <div style={{background: '#0d1220', border: '2px solid #1a2540', borderRadius: 16, padding: 32, marginBottom: 40}}>
-              <h2 style={{fontSize: 18, fontWeight: 800, color: '#00C9FF', marginBottom: 8}}>Example Opt-In Form</h2>
-              <p style={{color: '#6B8BAE', fontSize: 13, marginBottom: 24}}>This is an example of how businesses collect SMS consent from their customers using the EngageWorx platform. The consent checkbox is never pre-checked.</p>
+              <h2 style={{fontSize: 18, fontWeight: 800, color: '#00C9FF', marginBottom: 8}}>SMS Opt-In Form</h2>
+              <p style={{color: '#6B8BAE', fontSize: 13, marginBottom: 24}}>Businesses using EngageWorx collect SMS consent from their customers using the form below. The consent checkbox is never pre-checked. Customers must actively select it before submitting.</p>
               <div style={{background: '#161B22', border: '1px solid #1a2540', borderRadius: 12, padding: 24, maxWidth: 480}}>
                 <div style={{marginBottom: 16}}>
                   <label style={{display: 'block', color: '#9BB0C7', fontSize: 13, fontWeight: 600, marginBottom: 6}}>Your Name</label>
@@ -110,14 +110,22 @@ const LandingPage = () => {
                 <div style={{marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10}}>
                   <div style={{width: 20, height: 20, border: '2px solid #2a3548', borderRadius: 4, background: '#0d1117', flexShrink: 0, marginTop: 2}} />
                   <label style={{color: '#9BB0C7', fontSize: 12, lineHeight: 1.6}}>
-                    I agree to receive SMS messages from <strong style={{color: '#E8F4FD'}}>[Business Name]</strong>. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/privacypolicy" style={{color: '#00C9FF', textDecoration: 'underline'}}>Privacy Policy</a> and <a href="/termsandconditions" style={{color: '#00C9FF', textDecoration: 'underline'}}>Terms of Service</a>.
+                    I agree to receive SMS messages from <strong style={{color: '#E8F4FD'}}>EngageWorx</strong>. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/privacypolicy" style={{color: '#00C9FF', textDecoration: 'underline'}}>Privacy Policy</a> and <a href="/termsandconditions" style={{color: '#00C9FF', textDecoration: 'underline'}}>Terms of Service</a>.
                   </label>
                 </div>
                 <div style={{background: '#1a2540', borderRadius: 8, padding: '12px 24px', textAlign: 'center', color: '#6B8BAE', fontSize: 14, fontWeight: 600}}>Submit</div>
               </div>
-              <div style={{marginTop: 16, padding: '12px 16px', background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 8}}>
-                <p style={{color: '#00E676', fontSize: 12, fontWeight: 700, marginBottom: 4}}>TCR Compliance Note</p>
-                <p style={{color: '#6B8BAE', fontSize: 11, lineHeight: 1.6, margin: 0}}>The checkbox above is NOT pre-checked. Customers must actively select it before submitting. Consent is logged with timestamp and source in the EngageWorx platform. Businesses using EngageWorx must implement this opt-in form on their website before sending SMS messages.</p>
+              <div style={{marginTop: 20, padding: '12px 16px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8}}>
+                <p style={{color: '#00C9FF', fontSize: 12, fontWeight: 700, marginBottom: 4}}>Confirmation SMS Sent After Opt-In</p>
+                <p style={{color: '#E8F4FD', fontSize: 13, lineHeight: 1.6, margin: 0, fontStyle: 'italic'}}>"You are now subscribed to EngageWorx SMS alerts. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe."</p>
+              </div>
+              <div style={{marginTop: 12, padding: '12px 16px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8}}>
+                <p style={{color: '#00C9FF', fontSize: 12, fontWeight: 700, marginBottom: 4}}>SMS Keyword Opt-In</p>
+                <p style={{color: '#9BB0C7', fontSize: 12, lineHeight: 1.6, margin: 0}}>Users can also opt in by texting the keyword <strong style={{color: '#E8F4FD'}}>START</strong> to the business phone number. They will receive the same confirmation message above.</p>
+              </div>
+              <div style={{marginTop: 12, padding: '12px 16px', background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 8}}>
+                <p style={{color: '#00E676', fontSize: 12, fontWeight: 700, marginBottom: 4}}>TCR Compliance Notes</p>
+                <p style={{color: '#6B8BAE', fontSize: 11, lineHeight: 1.8, margin: 0}}>&#8226; The checkbox above is NOT pre-checked. Customers must actively select it before submitting.<br/>&#8226; Consent is logged with timestamp and source in the EngageWorx platform.<br/>&#8226; Users can opt out at any time by replying STOP.<br/>&#8226; Businesses using EngageWorx must implement this opt-in form on their website before sending SMS messages.<br/>&#8226; Message frequency varies based on business communication needs.<br/>&#8226; Standard message and data rates may apply depending on the user&#39;s mobile carrier.</p>
               </div>
             </div>
           )}
