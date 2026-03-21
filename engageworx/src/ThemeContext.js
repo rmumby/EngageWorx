@@ -114,8 +114,8 @@ export function ThemeToggle({ style }) {
   var ctx = useTheme();
   return (
     <div onClick={ctx.toggleTheme} style={Object.assign({ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 10px', borderRadius: 8, fontSize: 12, color: ctx.isDark ? '#6B8BAE' : '#718096', background: ctx.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: '1px solid ' + (ctx.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)'), transition: 'all 0.2s' }, style || {})}>
-      <span>{ctx.isDark ? '☀️' : '🌙'}</span>
-      <span style={{ fontWeight: 500 }}>{ctx.isDark ? 'Light' : 'Dark'}</span>
+      <span>{ctx.isDark ? '🌙' : '☀️'}</span>
+      <span style={{ fontWeight: 500 }}>{ctx.isDark ? 'Dark' : 'Light'}</span>
     </div>
   );
 }
