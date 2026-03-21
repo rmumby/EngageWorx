@@ -86,86 +86,134 @@ export function ThemeProvider({ children }) {
   var isDark = mode === 'dark';
 
   // Global CSS overrides for light mode — forces readable text on white backgrounds
-  // This overrides hardcoded dark-mode inline styles throughout the app
   var lightModeCSS = !isDark ? (
     <style dangerouslySetInnerHTML={{ __html: `
-      /* Light mode global overrides */
-      [style*="color: #fff"], [style*="color: rgb(255, 255, 255)"],
-      [style*="color:#fff"] { color: #111827 !important; }
-      [style*="color: #E8F4FD"], [style*="color: rgb(232, 244, 253)"],
-      [style*="color:#E8F4FD"] { color: #111827 !important; }
-      [style*="color: #e2e8f0"], [style*="color:#e2e8f0"] { color: #111827 !important; }
-      [style*="color: #FFF0E8"] { color: #111827 !important; }
-      [style*="color: #E8FFF2"] { color: #111827 !important; }
-      [style*="color: #EDE8FF"] { color: #111827 !important; }
+      /* ═══ LIGHT MODE — BLANKET OVERRIDES ═══ */
 
-      /* Muted text */
-      [style*="color: #6B8BAE"], [style*="color:#6B8BAE"],
-      [style*="color: rgb(107, 139, 174)"] { color: #4B5563 !important; }
-      [style*="color: #8B6B55"] { color: #4B5563 !important; }
-      [style*="color: #4B8B65"] { color: #4B5563 !important; }
-      [style*="color: #6B5B8B"] { color: #4B5563 !important; }
+      /* Force all text to be dark unless it's a primary/accent/status color */
+      body, body * {
+        --lm-text: #111827;
+        --lm-muted: #4B5563;
+        --lm-label: #6B7280;
+        --lm-bg: #F0F2F5;
+        --lm-surface: #FFFFFF;
+        --lm-border: #D1D9E6;
+      }
 
-      /* Semi-transparent white text used for labels */
-      [style*="color: rgba(255, 255, 255, 0.4)"],
-      [style*="color: rgba(255,255,255,0.4)"] { color: #6B7280 !important; }
-      [style*="color: rgba(255, 255, 255, 0.5)"],
-      [style*="color: rgba(255,255,255,0.5)"] { color: #6B7280 !important; }
-      [style*="color: rgba(255, 255, 255, 0.6)"],
-      [style*="color: rgba(255,255,255,0.6)"] { color: #4B5563 !important; }
-      [style*="color: rgba(255, 255, 255, 0.7)"],
-      [style*="color: rgba(255,255,255,0.7)"] { color: #374151 !important; }
-      [style*="color: rgba(255, 255, 255, 0.8)"],
-      [style*="color: rgba(255,255,255,0.8)"] { color: #1F2937 !important; }
+      /* All divs and spans with white/light text → dark */
+      div[style*="color: #fff"], div[style*="color:#fff"],
+      div[style*="color: rgb(255, 255, 255)"],
+      span[style*="color: #fff"], span[style*="color:#fff"],
+      span[style*="color: rgb(255, 255, 255)"],
+      p[style*="color: #fff"], p[style*="color:#fff"],
+      p[style*="color: rgb(255, 255, 255)"],
+      h1[style*="color: #fff"], h2[style*="color: #fff"], h3[style*="color: #fff"],
+      h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
+      button[style*="color: #fff"], button[style*="color:#fff"],
+      label[style*="color: #fff"], label[style*="color:#fff"]
+      { color: #111827 !important; }
 
-      /* Background overrides for dark panels */
+      /* Portal text colors → dark */
+      div[style*="color: #E8F4FD"], span[style*="color: #E8F4FD"],
+      div[style*="color:#E8F4FD"], span[style*="color:#E8F4FD"],
+      div[style*="color: #e2e8f0"], span[style*="color: #e2e8f0"],
+      div[style*="color: #FFF0E8"], div[style*="color: #E8FFF2"], div[style*="color: #EDE8FF"],
+      h1[style*="color: #E8F4FD"], h2[style*="color: #E8F4FD"], h3[style*="color: #E8F4FD"],
+      p[style*="color: #E8F4FD"]
+      { color: #111827 !important; }
+
+      /* Muted text → readable gray */
+      div[style*="color: #6B8BAE"], span[style*="color: #6B8BAE"],
+      div[style*="color:#6B8BAE"], span[style*="color:#6B8BAE"],
+      p[style*="color: #6B8BAE"], button[style*="color: #6B8BAE"],
+      div[style*="color: #8B6B55"], div[style*="color: #4B8B65"], div[style*="color: #6B5B8B"]
+      { color: #4B5563 !important; }
+
+      /* Semi-transparent white text (labels, subtitles) */
+      [style*="rgba(255, 255, 255, 0.4)"], [style*="rgba(255,255,255,0.4)"]
+      { color: #6B7280 !important; }
+      [style*="rgba(255, 255, 255, 0.5)"], [style*="rgba(255,255,255,0.5)"]
+      { color: #6B7280 !important; }
+      [style*="rgba(255, 255, 255, 0.6)"], [style*="rgba(255,255,255,0.6)"]
+      { color: #4B5563 !important; }
+      [style*="rgba(255, 255, 255, 0.7)"], [style*="rgba(255,255,255,0.7)"]
+      { color: #374151 !important; }
+      [style*="rgba(255, 255, 255, 0.8)"], [style*="rgba(255,255,255,0.8)"]
+      { color: #1F2937 !important; }
+      [style*="rgba(255, 255, 255, 0.9)"], [style*="rgba(255,255,255,0.9)"]
+      { color: #111827 !important; }
+
+      /* ═══ BACKGROUNDS ═══ */
+      /* Main dark backgrounds → light */
       [style*="background: #080d1a"], [style*="background:#080d1a"],
-      [style*="background: rgb(8, 13, 26)"] { background: #F0F2F5 !important; }
+      [style*="background: rgb(8, 13, 26)"],
+      [style*="background: #050810"], [style*="background:#050810"],
+      [style*="background: #0c0a10"], [style*="background: #080d10"],
+      [style*="background: #0a0810"]
+      { background: #F0F2F5 !important; }
+
+      /* Surface/panel backgrounds → white */
       [style*="background: #0d1425"], [style*="background:#0d1425"],
-      [style*="background: rgb(13, 20, 37)"] { background: #FFFFFF !important; }
-      [style*="background: #0a0d14"], [style*="background:#0a0d14"] { background: #E5E7EB !important; }
-      [style*="background: #050810"], [style*="background:#050810"] { background: #F0F2F5 !important; }
-      [style*="background: #0d1220"], [style*="background:#0d1220"] { background: #FFFFFF !important; }
-      [style*="background: #0c0a10"] { background: #F0F2F5 !important; }
-      [style*="background: #141018"] { background: #FFFFFF !important; }
-      [style*="background: #080d10"] { background: #F0F2F5 !important; }
-      [style*="background: #0d1518"] { background: #FFFFFF !important; }
-      [style*="background: #0a0810"] { background: #F0F2F5 !important; }
-      [style*="background: #110e1c"] { background: #FFFFFF !important; }
+      [style*="background: rgb(13, 20, 37)"],
+      [style*="background: #0d1220"], [style*="background:#0d1220"],
+      [style*="background: #141018"], [style*="background: #0d1518"],
+      [style*="background: #110e1c"]
+      { background: #FFFFFF !important; }
 
-      /* Semi-transparent dark backgrounds used for cards */
-      [style*="background: rgba(255, 255, 255, 0.03)"],
-      [style*="background: rgba(255,255,255,0.03)"] { background: #FFFFFF !important; border-color: #D1D9E6 !important; }
-      [style*="background: rgba(255, 255, 255, 0.02)"],
-      [style*="background: rgba(255,255,255,0.02)"] { background: #F9FAFB !important; }
-      [style*="background: rgba(255, 255, 255, 0.04)"],
-      [style*="background: rgba(255,255,255,0.04)"] { background: #F3F4F6 !important; }
-      [style*="background: rgba(255, 255, 255, 0.05)"],
-      [style*="background: rgba(255,255,255,0.05)"] { background: #F3F4F6 !important; }
-      [style*="background: rgba(255, 255, 255, 0.06)"],
-      [style*="background: rgba(255,255,255,0.06)"] { background: #E5E7EB !important; }
+      /* Semi-transparent white/dark backgrounds (cards, panels) */
+      [style*="background: rgba(255, 255, 255, 0.02)"], [style*="background: rgba(255,255,255,0.02)"]
+      { background: #F9FAFB !important; }
+      [style*="background: rgba(255, 255, 255, 0.03)"], [style*="background: rgba(255,255,255,0.03)"]
+      { background: #FFFFFF !important; box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important; }
+      [style*="background: rgba(255, 255, 255, 0.04)"], [style*="background: rgba(255,255,255,0.04)"]
+      { background: #F3F4F6 !important; }
+      [style*="background: rgba(255, 255, 255, 0.05)"], [style*="background: rgba(255,255,255,0.05)"]
+      { background: #F3F4F6 !important; }
+      [style*="background: rgba(255, 255, 255, 0.06)"], [style*="background: rgba(255,255,255,0.06)"]
+      { background: #E5E7EB !important; }
 
-      /* Border overrides */
-      [style*="border-color: #182440"], [style*="border: 1px solid #182440"],
-      [style*="border-color: rgba(255, 255, 255, 0.07)"],
-      [style*="border-color: rgba(255,255,255,0.07)"] { border-color: #D1D9E6 !important; }
-      [style*="border: 1px solid rgba(255, 255, 255, 0.08)"],
-      [style*="border: 1px solid rgba(255,255,255,0.08)"] { border-color: #D1D9E6 !important; }
-      [style*="border: 1px solid rgba(255, 255, 255, 0.06)"],
-      [style*="border: 1px solid rgba(255,255,255,0.06)"] { border-color: #D1D9E6 !important; }
-      [style*="border: 1px solid rgba(255, 255, 255, 0.1)"],
-      [style*="border: 1px solid rgba(255,255,255,0.1)"] { border-color: #D1D9E6 !important; }
-      [style*="border: 1px solid rgba(255, 255, 255, 0.12)"],
-      [style*="border: 1px solid rgba(255,255,255,0.12)"] { border-color: #D1D9E6 !important; }
+      /* Dark input backgrounds */
+      [style*="background: rgba(0, 0, 0, 0.3)"], [style*="background: rgba(0,0,0,0.3)"]
+      { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #111827 !important; }
+      [style*="background: rgba(0, 0, 0, 0.2)"], [style*="background: rgba(0,0,0,0.2)"]
+      { background: #F9FAFB !important; color: #111827 !important; }
+      [style*="background: rgba(0, 0, 0, 0.4)"], [style*="background: rgba(0,0,0,0.4)"]
+      { background: #FFFFFF !important; color: #111827 !important; }
 
-      /* Input backgrounds */
-      [style*="background: rgba(0, 0, 0, 0.3)"],
-      [style*="background: rgba(0,0,0,0.3)"] { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #111827 !important; }
-      [style*="background: rgba(0, 0, 0, 0.2)"],
-      [style*="background: rgba(0,0,0,0.2)"] { background: #F9FAFB !important; color: #111827 !important; }
+      /* ═══ BORDERS ═══ */
+      [style*="border: 1px solid #182440"], [style*="border-color: #182440"],
+      [style*="border: 1px solid #1a2540"], [style*="border-color: #1a2540"]
+      { border-color: #D1D9E6 !important; }
 
-      /* Select and input text */
-      select, input, textarea { color: #111827 !important; }
+      [style*="border: 1px solid rgba(255, 255, 255"], [style*="border: 1px solid rgba(255,255,255"]
+      { border-color: #D1D9E6 !important; }
+
+      [style*="border-right: 1px solid"], [style*="border-bottom: 1px solid"]
+      { border-color: #D1D9E6 !important; }
+
+      /* ═══ FORM ELEMENTS ═══ */
+      select, input, textarea {
+        color: #111827 !important;
+        background: #FFFFFF !important;
+        border-color: #9CA3AF !important;
+      }
+
+      /* ═══ TABLE OVERRIDES ═══ */
+      table { border-color: #D1D9E6 !important; }
+      th, td { border-color: #D1D9E6 !important; }
+      th[style*="background: #0A0D14"], th[style*="background:#0A0D14"],
+      th[style*="background: #0a0d14"], td[style*="background: #0a0d14"],
+      tr[style*="background: #0A0D14"], tr[style*="background: #0a0d14"]
+      { background: #E5E7EB !important; }
+
+      /* ═══ SCROLLBAR ═══ */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #F0F2F5; }
+      ::-webkit-scrollbar-thumb { background: #9CA3AF; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
+
+      /* ═══ PLACEHOLDER TEXT ═══ */
+      ::placeholder { color: #9CA3AF !important; opacity: 1 !important; }
     ` }} />
   ) : null;
 
