@@ -198,6 +198,30 @@ export function ThemeProvider({ children }) {
         border-color: #9CA3AF !important;
       }
 
+      /* ═══ GLOBAL CATCH-ALL — override ALL white/light text on the page ═══ */
+      div, span, p, h1, h2, h3, h4, h5, h6, label, a, li, td, th, button, pre, code {
+        /* Only override if the computed color is very light (white-ish) */
+      }
+
+      /* Force all divs/spans with white-ish text to dark */
+      div[style*="color: #fff"], div[style*="color:#fff"],
+      div[style*="color: white"], div[style*="color:white"],
+      span[style*="color: #fff"], span[style*="color:#fff"],
+      span[style*="color: white"], span[style*="color:white"],
+      p[style*="color: #fff"], p[style*="color:#fff"],
+      h1[style*="color: #fff"], h2[style*="color: #fff"], h3[style*="color: #fff"],
+      h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
+      button[style*="color: #fff"], button[style*="color:#fff"],
+      label[style*="color: #fff"], label[style*="color:#fff"]
+      { color: #111827 !important; }
+
+      /* Force readable text everywhere via broad selectors */
+      [style*="color: rgb(255, 255, 255)"] { color: #111827 !important; }
+      [style*="color: rgb(232, 244, 253)"] { color: #111827 !important; }
+      [style*="color: rgb(226, 232, 240)"] { color: #111827 !important; }
+      [style*="color: rgb(107, 139, 174)"] { color: #4B5563 !important; }
+      [style*="color: rgb(107, 91, 139)"] { color: #4B5563 !important; }
+
       /* ═══ TABLE OVERRIDES ═══ */
       table { border-color: #D1D9E6 !important; }
       th, td { border-color: #D1D9E6 !important; }
@@ -216,6 +240,37 @@ export function ThemeProvider({ children }) {
       ::placeholder { color: #9CA3AF !important; opacity: 1 !important; }
     ` }} />
   ) : null;
+
+  // JS-based light mode override — catches React compiled inline styles
+  useEffect(function() {
+    if (isDark) return;
+    function fixColors() {
+      var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
+      for (var i = 0; i < allElements.length; i++) {
+        var el = allElements[i];
+        var cs = window.getComputedStyle(el);
+        var c = cs.color;
+        var bg = cs.backgroundColor;
+        // White/near-white text → dark
+        if (c === 'rgb(255, 255, 255)' || c === 'rgb(232, 244, 253)' || c === 'rgb(226, 232, 240)' || c === 'rgb(255, 240, 232)' || c === 'rgb(232, 255, 242)' || c === 'rgb(237, 232, 255)') el.style.setProperty('color', '#111827', 'important');
+        // Muted text
+        if (c === 'rgb(107, 139, 174)' || c === 'rgb(139, 107, 85)' || c === 'rgb(75, 139, 101)' || c === 'rgb(107, 91, 139)') el.style.setProperty('color', '#4B5563', 'important');
+        // Semi-transparent white
+        if (c && c.startsWith('rgba(255, 255, 255,')) { var a = parseFloat(c.split(',')[3]); if (a < 0.5) el.style.setProperty('color', '#6B7280', 'important'); else el.style.setProperty('color', '#111827', 'important'); }
+        // Dark bgs
+        if (bg === 'rgb(8, 13, 26)' || bg === 'rgb(5, 8, 16)' || bg === 'rgb(10, 13, 20)' || bg === 'rgb(12, 10, 16)' || bg === 'rgb(8, 13, 16)' || bg === 'rgb(10, 8, 16)') el.style.setProperty('background-color', '#F0F2F5', 'important');
+        if (bg === 'rgb(13, 20, 37)' || bg === 'rgb(13, 18, 32)' || bg === 'rgb(20, 16, 24)' || bg === 'rgb(13, 21, 24)' || bg === 'rgb(17, 14, 28)') el.style.setProperty('background-color', '#FFFFFF', 'important');
+        if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) el.style.setProperty('background-color', '#FFFFFF', 'important'); }
+        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 > 0.15) el.style.setProperty('background-color', '#FFFFFF', 'important'); }
+      }
+    }
+    var t1 = setTimeout(fixColors, 100);
+    var t2 = setTimeout(fixColors, 500);
+    var t3 = setTimeout(fixColors, 1500);
+    var observer = new MutationObserver(function() { setTimeout(fixColors, 50); });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return function() { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); observer.disconnect(); };
+  }, [isDark, mode]);
 
   return (
     <ThemeContext.Provider value={{ theme: theme, isDark: isDark, mode: mode, preference: preference, toggleTheme: toggleTheme, setThemeMode: setThemeMode }}>
