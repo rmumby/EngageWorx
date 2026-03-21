@@ -86,7 +86,8 @@ export function ThemeProvider({ children }) {
   var isDark = mode === 'dark';
 
   // Global CSS overrides for light mode — forces readable text on white backgrounds
-  var lightModeCSS = !isDark ? (
+  var isPortalHost = (typeof window !== 'undefined') && (window.location.hostname.startsWith('portal.') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  var lightModeCSS = (!isDark && isPortalHost) ? (
     <style dangerouslySetInnerHTML={{ __html: `
       /* ═══ LIGHT MODE — BLANKET OVERRIDES ═══ */
 
@@ -242,8 +243,12 @@ export function ThemeProvider({ children }) {
   ) : null;
 
   // JS-based light mode override — catches React compiled inline styles
+  // ONLY runs on portal (not marketing site engwx.com)
   useEffect(function() {
     if (isDark) return;
+    var hostname = window.location.hostname;
+    var isPortal = hostname.startsWith('portal.') || hostname === 'localhost' || hostname === '127.0.0.1';
+    if (!isPortal) return; // Don't override landing page colors
     function fixColors() {
       var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
       for (var i = 0; i < allElements.length; i++) {
