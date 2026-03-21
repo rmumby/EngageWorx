@@ -4,7 +4,7 @@ import { useTheme, ThemeToggle } from './ThemeContext';
 
 function getAgentColors(themeObj) {
   if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
-  return { bg: '#F5F7FA', surface: '#FFFFFF', border: '#E2E8F0', primary: '#CC8800', accent: '#E05500', text: '#1A202C', muted: '#718096' };
+  return { bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6', primary: '#B8860B', accent: '#CC5500', text: '#111827', muted: '#4B5563' };
 }
 
 export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }) {
