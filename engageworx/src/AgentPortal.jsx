@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useTheme, ThemeToggle } from './ThemeContext';
 
-var C = { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
+function getAgentColors(themeObj) {
+  if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
+  return { bg: '#F5F7FA', surface: '#FFFFFF', border: '#E2E8F0', primary: '#CC8800', accent: '#E05500', text: '#1A202C', muted: '#718096' };
+}
 
 export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }) {
+  var themeCtx = useTheme();
+  var C = getAgentColors(themeCtx.theme);
   var [page, setPage] = useState('dashboard');
   var [agentInfo, setAgentInfo] = useState(null);
   var [referrals, setReferrals] = useState([]);
@@ -53,6 +59,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
           {navItems.map(function(item) { var active = page === item.id; return <div key={item.id} onClick={function() { setPage(item.id); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? C.primary + '15' : 'transparent', color: active ? C.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span style={{ fontSize: 18 }}>{item.icon}</span>{!sidebarCollapsed && <span>{item.label}</span>}</div>; })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!sidebarCollapsed && <ThemeToggle />}
           <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span>{sidebarCollapsed ? '»' : '«'}</span>{!sidebarCollapsed && <span>Collapse</span>}</div>
           <div onClick={doLogout} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}><span>⏻</span>{!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}</div>
         </div>
