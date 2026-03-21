@@ -11,12 +11,12 @@ var DARK = {
 };
 
 var LIGHT = {
-  bg: '#F5F7FA', surface: '#FFFFFF', border: '#E2E8F0',
-  text: '#1A202C', muted: '#718096',
-  primary: '#0099CC', accent: '#9B59B6',
-  inputBg: '#FFFFFF', inputBorder: '#CBD5E0',
-  cardBg: '#FFFFFF', cardBorder: '#E2E8F0',
-  badgeBg: '#EDF2F7',
+  bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6',
+  text: '#111827', muted: '#4B5563',
+  primary: '#0077B6', accent: '#7C3AED',
+  inputBg: '#FFFFFF', inputBorder: '#9CA3AF',
+  cardBg: '#FFFFFF', cardBorder: '#D1D9E6',
+  badgeBg: '#E5E7EB',
   mode: 'light',
 };
 
