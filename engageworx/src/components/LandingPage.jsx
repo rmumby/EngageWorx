@@ -9,8 +9,6 @@ const LandingPage = () => {
   const observerRef = useRef(null);
   const [legalPage, setLegalPage] = useState(null);
   const [page, setPage] = useState('home');
-  const [contactForm, setContactForm] = useState({ name: '', email: '', company: '', type: 'general', message: '' });
-  const [contactSubmitted, setContactSubmitted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [demoUnlocked, setDemoUnlocked] = useState(false);
   const [demoCode, setDemoCode] = useState('');
@@ -21,7 +19,6 @@ const LandingPage = () => {
     window.scrollTo(0, 0);
   };
 
-  // Handle direct URL paths for TCR/legal reviewers
   useEffect(() => {
     const path = window.location.pathname.toLowerCase();
     if (path === '/privacypolicy' || path === '/privacy') {
@@ -38,7 +35,6 @@ const LandingPage = () => {
   }, []);
 
   useEffect(() => {
-    // Scroll reveal observer
     observerRef.current = new IntersectionObserver((entries) => {
       entries.forEach((entry, i) => {
         if (entry.isIntersecting) {
@@ -50,14 +46,12 @@ const LandingPage = () => {
 
     document.querySelectorAll('.lp-fade-up').forEach(el => observerRef.current.observe(el));
 
-    // Nav scroll effect
     const handleScroll = () => {
       const nav = document.getElementById('lp-navbar');
       if (nav) nav.classList.toggle('lp-scrolled', window.scrollY > 50);
     };
     window.addEventListener('scroll', handleScroll);
 
-    // Load Outfit font
     const link = document.createElement('link');
     link.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap';
     link.rel = 'stylesheet';
@@ -75,17 +69,10 @@ const LandingPage = () => {
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Navigate to signup page
-  const goToSignup = () => {
-    window.location.href = PORTAL_URL;
-  };
+  const goToSignup = () => { window.location.href = PORTAL_URL; };
+  const goToLogin = () => { window.location.href = PORTAL_URL; };
 
-  const goToLogin = () => {
-    window.location.href = PORTAL_URL;
-  };
-
-
-    // If showing a legal page, render it
+  // ─── LEGAL PAGES ────────────────────────────────────────────────────────────
   if (legalPage) {
     const pageData = legalPages[legalPage];
     if (!pageData) return (<div style={{background: '#050810', color: '#E8F4FD', minHeight: '100vh', padding: 60}}><h1>Page Not Found</h1><button onClick={() => setLegalPage(null)}>Back</button></div>);
@@ -139,7 +126,7 @@ const LandingPage = () => {
     );
   }
 
-  // Shared sub-page wrapper with nav
+  // ─── SHARED NAV ─────────────────────────────────────────────────────────────
   const SubPageNav = () => (
     <>
       <style>{`
@@ -214,7 +201,7 @@ const LandingPage = () => {
     </>
   );
 
-  // Shared sub-page footer
+  // ─── SHARED FOOTER ───────────────────────────────────────────────────────────
   const SubPageFooter = () => (
     <footer style={{ borderTop: '1px solid #1a2540', padding: '40px 40px 30px', marginTop: 80 }}>
       <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
@@ -231,8 +218,7 @@ const LandingPage = () => {
     </footer>
   );
 
-  // ─── PRICING PAGE ───────────────────────────────────────────────────────────
-  // Demo page (password-protected)
+  // ─── DEMO PAGE ───────────────────────────────────────────────────────────────
   if (page === 'demo') {
     if (!demoUnlocked) {
       return (
@@ -255,14 +241,8 @@ const LandingPage = () => {
             {demoCode.length >= 10 && demoCode !== 'EWDEMO2026' && (
               <p style={{ color: '#FF3B30', fontSize: 13, marginBottom: 16 }}>Invalid access code.</p>
             )}
-            <button
-              onClick={() => { if (demoCode === 'EWDEMO2026') setDemoUnlocked(true); }}
-              style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginBottom: 16 }}
-            >Enter Demo</button>
-            <button
-              onClick={() => navigateTo('home')}
-              style={{ background: 'none', border: 'none', color: '#6B8BAE', fontSize: 13, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}
-            >Back to Home</button>
+            <button onClick={() => { if (demoCode === 'EWDEMO2026') setDemoUnlocked(true); }} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif", marginBottom: 16 }}>Enter Demo</button>
+            <button onClick={() => navigateTo('home')} style={{ background: 'none', border: 'none', color: '#6B8BAE', fontSize: 13, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Back to Home</button>
           </div>
         </div>
       );
@@ -270,7 +250,8 @@ const LandingPage = () => {
     return <EngageWorxDemo />;
   }
 
-    if (page === 'pricing') {
+  // ─── PRICING PAGE ────────────────────────────────────────────────────────────
+  if (page === 'pricing') {
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
         <SubPageNav />
@@ -280,7 +261,6 @@ const LandingPage = () => {
             <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Simple, transparent pricing.</h1>
             <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>Start free, scale as you grow. No hidden fees, no long-term contracts.</p>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 40 }}>
             {[
               { name: 'Starter', price: '$99', period: '/mo', desc: 'Everything you need to start engaging customers with SMS and AI.', features: ['1,000 SMS/month', 'SMS + Email channels', 'AI Chatbot included', '1 phone number', 'Analytics dashboard'], featured: false },
@@ -303,8 +283,6 @@ const LandingPage = () => {
               </div>
             ))}
           </div>
-
-          {/* Enterprise CTA */}
           <div style={{ maxWidth: 1000, margin: '0 auto 60px', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <div style={{ flex: 1, minWidth: 280 }}>
@@ -317,8 +295,6 @@ const LandingPage = () => {
               <a href="tel:+17869827800" style={{ color: '#6B8BAE', fontSize: 13, textDecoration: 'none' }}>or call +1 (786) 982-7800</a>
             </div>
           </div>
-
-          {/* Simple CTA */}
           <div style={{ textAlign: 'center', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 24, padding: '60px 48px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 12 }}>Ready to get started?</h2>
@@ -331,41 +307,28 @@ const LandingPage = () => {
     );
   }
 
-    // ─── ABOUT PAGE ─────────────────────────────────────────────────────────────
+  // ─── ABOUT PAGE ──────────────────────────────────────────────────────────────
   if (page === 'about') {
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
         <SubPageNav />
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '120px 40px 0' }}>
-          {/* Hero */}
           <div style={{ textAlign: 'center', marginBottom: 80 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>🏢 About Us</div>
             <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 20 }}>We're building the future of<br /><span style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>customer engagement.</span></h1>
-            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 640, margin: '0 auto', lineHeight: 1.8 }}>
-              EngageWorx was born from a simple frustration: businesses shouldn't need five different tools, a dedicated engineering team, and a six-figure budget to have great customer conversations.
-            </p>
+            <p style={{ color: '#6B8BAE', fontSize: 18, maxWidth: 640, margin: '0 auto', lineHeight: 1.8 }}>EngageWorx was born from a simple frustration: businesses shouldn't need five different tools, a dedicated engineering team, and a six-figure budget to have great customer conversations.</p>
           </div>
-
-          {/* Mission */}
           <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '48px 40px', marginBottom: 48, position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 16, color: '#00C9FF' }}>Our Mission</h2>
-            <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8 }}>
-              To democratize customer engagement by providing an all-in-one, AI-powered communication platform that any business can deploy in minutes — not months. We believe every company, regardless of size, deserves enterprise-grade messaging capabilities.
-            </p>
+            <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8 }}>To democratize customer engagement by providing an all-in-one, AI-powered communication platform that any business can deploy in minutes — not months. We believe every company, regardless of size, deserves enterprise-grade messaging capabilities.</p>
           </div>
-
-          {/* What We Do */}
           <h2 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 24 }}>What we do</h2>
-          <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8, marginBottom: 40 }}>
-            EngageWorx is an AI-powered Communication Platform as a Service (CPaaS) that unifies SMS, RCS, WhatsApp, and Email into a single intelligent platform. Our tools include AI chatbots that handle conversations automatically, visual automation builders, smart campaign management, and real-time analytics — all wrapped in a beautiful, white-label-ready interface.
-          </p>
-
-          {/* Values */}
+          <p style={{ color: '#9BB0C7', fontSize: 16, lineHeight: 1.8, marginBottom: 40 }}>EngageWorx is an AI-powered Communication Platform as a Service (CPaaS) that unifies SMS, RCS, WhatsApp, and Email into a single intelligent platform. Our tools include AI chatbots that handle conversations automatically, visual automation builders, smart campaign management, and real-time analytics — all wrapped in a beautiful, white-label-ready interface.</p>
           <h2 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -1, marginBottom: 24 }}>What drives us</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20, marginBottom: 48 }}>
             {[
-              { icon: '⚡', title: 'Speed Over Complexity', desc: 'We obsess over reducing time-to-value. If it takes more than 10 minutes to set up, we haven\'t done our job.' },
+              { icon: '⚡', title: 'Speed Over Complexity', desc: "We obsess over reducing time-to-value. If it takes more than 10 minutes to set up, we haven't done our job." },
               { icon: '🤖', title: 'AI That Helps, Not Hypes', desc: 'We use AI where it genuinely saves you time — generating campaigns, handling conversations, and surfacing insights.' },
               { icon: '🌍', title: 'Global By Default', desc: 'Built for businesses operating across the US, UK, and EU with compliance tools for TCPA, GDPR, PECR, and more.' },
               { icon: '🔒', title: 'Trust & Security', desc: 'End-to-end encryption, SOC 2 practices, GDPR compliance, and row-level data isolation. Your data is yours.' },
@@ -379,34 +342,21 @@ const LandingPage = () => {
               </div>
             ))}
           </div>
-
-          {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 1, background: '#1a2540', borderRadius: 16, overflow: 'hidden', border: '1px solid #1a2540', marginBottom: 48 }}>
-            {[
-              { num: '🤖', label: 'AI integrated' },
-              { num: '6', label: 'Channels supported' },
-              { num: '99.9%', label: 'Uptime SLA' },
-              { num: '∞', label: 'Multi-tenant ready' },
-            ].map((s, i) => (
+            {[{ num: '🤖', label: 'AI integrated' }, { num: '6', label: 'Channels supported' }, { num: '99.9%', label: 'Uptime SLA' }, { num: '∞', label: 'Multi-tenant ready' }].map((s, i) => (
               <div key={i} style={{ background: '#0d1220', padding: '32px 24px', textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{s.num}</div>
                 <div style={{ fontSize: 13, color: '#6B8BAE', marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
           </div>
-
-          {/* Location */}
           <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px', marginBottom: 48, display: 'flex', alignItems: 'center', gap: 32 }}>
             <div style={{ fontSize: 48 }}>☀️</div>
             <div>
               <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Based in Miami, serving the world</h3>
-              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7 }}>
-                Our team operates from Miami, Florida with a global infrastructure spanning the US, Europe, and beyond. We serve businesses across North America, the United Kingdom, and the European Union with localized compliance and support.
-              </p>
+              <p style={{ color: '#6B8BAE', fontSize: 15, lineHeight: 1.7 }}>Our team operates from Miami, Florida with a global infrastructure spanning the US, Europe, and beyond. We serve businesses across North America, the United Kingdom, and the European Union with localized compliance and support.</p>
             </div>
           </div>
-
-          {/* CTA */}
           <div style={{ textAlign: 'center', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 24, padding: '60px 48px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <h2 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, marginBottom: 12 }}>Want to learn more?</h2>
@@ -422,21 +372,12 @@ const LandingPage = () => {
     );
   }
 
-  // ─── CONTACT PAGE ───────────────────────────────────────────────────────────
+  // ─── CONTACT PAGE ────────────────────────────────────────────────────────────
   if (page === 'contact') {
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      const subject = encodeURIComponent(`[${contactForm.type}] Inquiry from ${contactForm.name}`);
-      const body = encodeURIComponent(`Name: ${contactForm.name}\nEmail: ${contactForm.email}\nCompany: ${contactForm.company}\nType: ${contactForm.type}\n\nMessage:\n${contactForm.message}`);
-      window.location.href = `mailto:hello@engwx.com?subject=${subject}&body=${body}`;
-      setContactSubmitted(true);
-    };
-
     return (
       <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', minHeight: '100vh' }}>
         <SubPageNav />
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '120px 40px 0' }}>
-          {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 60 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#131b2e', border: '1px solid #1a2540', borderRadius: 100, padding: '6px 16px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#00C9FF', marginBottom: 16 }}>🤖 AI-Powered Support</div>
             <h1 style={{ fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: -2, lineHeight: 1.1, marginBottom: 16 }}>Reach us any way you want.</h1>
@@ -444,82 +385,39 @@ const LandingPage = () => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 48, alignItems: 'start' }}>
-            {/* Contact Form */}
-<DemoRequestForm />
-              ) : (
-                <>
-                  <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 24 }}>Send us a message</h2>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                    <div>
-                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Your Name</label>
-                      <input type="text" value={contactForm.name} onChange={(e) => setContactForm({...contactForm, name: e.target.value})} placeholder="John Smith" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Email Address</label>
-                      <input type="email" value={contactForm.email} onChange={(e) => setContactForm({...contactForm, email: e.target.value})} placeholder="john@company.com" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                    <div>
-                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Company</label>
-                      <input type="text" value={contactForm.company} onChange={(e) => setContactForm({...contactForm, company: e.target.value})} placeholder="Acme Corp" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box' }} />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Inquiry Type</label>
-                      <select value={contactForm.type} onChange={(e) => setContactForm({...contactForm, type: e.target.value})} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box', appearance: 'auto' }}>
-                        <option value="general">General Inquiry</option>
-                        <option value="demo">Request a Demo</option>
-                        <option value="sales">Sales / Enterprise</option>
-                        <option value="support">Technical Support</option>
-                        <option value="partnership">Partnership</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: 20 }}>
-                    <label style={{ display: 'block', color: '#6B8BAE', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Message</label>
-                    <textarea value={contactForm.message} onChange={(e) => setContactForm({...contactForm, message: e.target.value})} rows={5} placeholder="Tell us how we can help..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid #1a2540', borderRadius: 10, padding: '12px 16px', color: '#E8F4FD', fontSize: 14, fontFamily: "'Outfit', sans-serif", boxSizing: 'border-box', resize: 'vertical' }} />
-                  </div>
-                  <button onClick={handleSubmit} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '16px', borderRadius: 12, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Send Message →</button>
-                </>
-              )}
+
+            {/* ── LEFT: Demo Request Form ── */}
+            <div>
+              <DemoRequestForm />
             </div>
 
-            {/* Multi-Channel Contact Options */}
+            {/* ── RIGHT: Contact options ── */}
             <div>
               <div style={{ background: 'linear-gradient(135deg, #0d1220, #131b2e)', border: '1px solid #00C9FF33', borderRadius: 16, padding: '28px', marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
                 <div style={{ position: 'absolute', top: 8, right: 12, background: '#00E67622', border: '1px solid #00E67644', borderRadius: 100, padding: '2px 10px', fontSize: 10, fontWeight: 700, color: '#00E676' }}>AI-POWERED</div>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>📧</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Email Us</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 12 }}>
-                  Get an AI-powered response in under 30 seconds. Our AI reads your message, understands your needs, and replies instantly.
-                </p>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 12 }}>Get an AI-powered response in under 30 seconds. Our AI reads your message, understands your needs, and replies instantly.</p>
                 <a href="mailto:hello@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>hello@engwx.com</a>
                 <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 10 }}>
                   <div style={{ color: '#00C9FF', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>TRY IT NOW</div>
                   <div style={{ color: '#6B8BAE', fontSize: 12 }}>Send an email and watch the AI respond. Every conversation is tracked in our own EngageWorx Live Inbox.</div>
                 </div>
               </div>
-
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>📞</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Call Us</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
-                  Speak directly with our team anytime.
-                </p>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>Speak directly with our team anytime.</p>
                 <a href="tel:+17869827800" style={{ color: '#00C9FF', textDecoration: 'none', fontSize: 16, fontWeight: 700 }}>+1 (786) 982-7800</a>
               </div>
-
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20, opacity: 0.7 }}>
                 <div style={{ position: 'relative' }}>
                   <div style={{ position: 'absolute', top: -8, right: -8, background: '#FFD60022', border: '1px solid #FFD60044', borderRadius: 100, padding: '2px 10px', fontSize: 10, fontWeight: 700, color: '#FFD600' }}>COMING SOON</div>
                   <div style={{ fontSize: 28, marginBottom: 12 }}>💬</div>
                   <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Text Us (SMS)</h3>
-                  <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
-                    AI-powered SMS conversations. Text our number and get instant, intelligent responses.
-                  </p>
+                  <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>AI-powered SMS conversations. Text our number and get instant, intelligent responses.</p>
                 </div>
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                 <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '20px', textAlign: 'center' }}>
                   <div style={{ fontSize: 24, marginBottom: 8 }}>⏱️</div>
@@ -532,22 +430,15 @@ const LandingPage = () => {
                   <div style={{ color: '#6B8BAE', fontSize: 11, marginTop: 2 }}>24/7 AI assistance</div>
                 </div>
               </div>
-
               <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 16, padding: '28px', marginBottom: 20 }}>
                 <div style={{ fontSize: 24, marginBottom: 12 }}>📍</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Location</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>
-                  Miami, Florida, USA<br />
-                  Serving customers in the US, UK & EU
-                </p>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7 }}>Miami, Florida, USA<br />Serving customers in the US, UK & EU</p>
               </div>
-
               <div style={{ background: 'linear-gradient(135deg, #131b2e, #0d1220)', border: '1px solid #E040FB33', borderRadius: 16, padding: '28px' }}>
                 <div style={{ fontSize: 24, marginBottom: 12 }}>🚀</div>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Ready to start?</h3>
-                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
-                  Skip the form. Self-service signup — go live in under 5 minutes.
-                </p>
+                <p style={{ color: '#6B8BAE', fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>Skip the form. Self-service signup — go live in under 5 minutes.</p>
                 <button onClick={goToSignup} style={{ width: '100%', background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '12px', borderRadius: 10, fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Start Free Trial →</button>
               </div>
             </div>
@@ -558,331 +449,121 @@ const LandingPage = () => {
     );
   }
 
+  // ─── HOME PAGE ────────────────────────────────────────────────────────────────
   return (
     <div style={{ fontFamily: "'Outfit', sans-serif", background: '#050810', color: '#E8F4FD', overflowX: 'hidden', WebkitFontSmoothing: 'antialiased', minHeight: '100vh' }}>
       <style>{`
-        /* ── LANDING PAGE SCOPED STYLES ──────────────── */
         .lp-root * { margin: 0; padding: 0; box-sizing: border-box; }
         .lp-root ::selection { background: #00C9FF; color: #000; }
-
-        /* Noise overlay */
-        .lp-noise {
-          position: fixed; inset: 0; z-index: 0; opacity: 0.025; pointer-events: none;
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        }
-
-        .lp-grid-bg {
-          position: fixed; inset: 0; z-index: 0; pointer-events: none;
-          background-image:
-            linear-gradient(rgba(0,201,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,201,255,0.03) 1px, transparent 1px);
-          background-size: 60px 60px;
-        }
-
-        /* Animations */
+        .lp-noise { position: fixed; inset: 0; z-index: 0; opacity: 0.025; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+        .lp-grid-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; background-image: linear-gradient(rgba(0,201,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,255,0.03) 1px, transparent 1px); background-size: 60px 60px; }
         @keyframes lp-fadeUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes lp-float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
-        @keyframes lp-pulse-glow {
-          0%, 100% { box-shadow: 0 0 20px rgba(0,201,255,0.15), 0 0 60px rgba(0,201,255,0.05); }
-          50% { box-shadow: 0 0 40px rgba(0,201,255,0.15), 0 0 100px rgba(0,201,255,0.1); }
-        }
+        @keyframes lp-pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(0,201,255,0.15), 0 0 60px rgba(0,201,255,0.05); } 50% { box-shadow: 0 0 40px rgba(0,201,255,0.15), 0 0 100px rgba(0,201,255,0.1); } }
         @keyframes lp-gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-
         .lp-fade-up { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
         .lp-fade-up.lp-visible { opacity: 1; transform: translateY(0); }
-
-        /* Nav */
-        .lp-nav {
-          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-          padding: 16px 40px; display: flex; align-items: center; justify-content: space-between;
-          background: rgba(5,8,16,0.8); backdrop-filter: blur(20px);
-          border-bottom: 1px solid rgba(26,37,64,0.5); transition: all 0.3s;
-        }
+        .lp-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 16px 40px; display: flex; align-items: center; justify-content: space-between; background: rgba(5,8,16,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(26,37,64,0.5); transition: all 0.3s; }
         .lp-nav.lp-scrolled { padding: 12px 40px; background: rgba(5,8,16,0.95); }
-
         .lp-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; cursor: pointer; }
-        .lp-logo-icon {
-          width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB);
-          border-radius: 10px; display: flex; align-items: center; justify-content: center;
-          font-weight: 900; font-size: 16px; color: #000;
-        }
+        .lp-logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: #000; }
         .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
         .lp-logo-text span { color: #00C9FF; }
-
         .lp-nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
-        .lp-nav-links a, .lp-nav-links span {
-          color: #6B8BAE; text-decoration: none; font-size: 14px; font-weight: 500;
-          transition: color 0.2s; position: relative; cursor: pointer;
-        }
+        .lp-nav-links a, .lp-nav-links span { color: #6B8BAE; text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; position: relative; cursor: pointer; }
         .lp-nav-links a:hover, .lp-nav-links span:hover { color: #E8F4FD; }
-        .lp-nav-links a::after, .lp-nav-links span::after {
-          content: ""; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px;
-          background: #00C9FF; transition: width 0.3s;
-        }
+        .lp-nav-links a::after, .lp-nav-links span::after { content: ""; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #00C9FF; transition: width 0.3s; }
         .lp-nav-links a:hover::after, .lp-nav-links span:hover::after { width: 100%; }
-
-        .lp-nav-cta {
-          background: linear-gradient(135deg, #00C9FF, #E040FB) !important;
-          color: #000 !important; padding: 10px 24px !important; border-radius: 8px;
-          font-weight: 700 !important; font-size: 14px !important;
-          transition: transform 0.2s, box-shadow 0.2s !important;
-        }
+        .lp-nav-cta { background: linear-gradient(135deg, #00C9FF, #E040FB) !important; color: #000 !important; padding: 10px 24px !important; border-radius: 8px; font-weight: 700 !important; font-size: 14px !important; transition: transform 0.2s, box-shadow 0.2s !important; }
         .lp-nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,201,255,0.15); }
         .lp-nav-cta::after { display: none !important; }
-
-        /* Hero */
-        .lp-hero {
-          position: relative; min-height: 100vh; display: flex; align-items: center;
-          justify-content: center; padding: 120px 40px 80px; overflow: hidden;
-        }
+        .lp-hero { position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 120px 40px 80px; overflow: hidden; }
         .lp-hero-orb { position: absolute; border-radius: 50%; filter: blur(80px); pointer-events: none; }
-        .lp-hero-orb-1 {
-          width: 600px; height: 600px; top: -100px; right: -200px;
-          background: radial-gradient(circle, rgba(0,201,255,0.12), transparent 70%);
-          animation: lp-float 8s ease-in-out infinite;
-        }
-        .lp-hero-orb-2 {
-          width: 500px; height: 500px; bottom: -100px; left: -150px;
-          background: radial-gradient(circle, rgba(224,64,251,0.08), transparent 70%);
-          animation: lp-float 10s ease-in-out infinite 2s;
-        }
+        .lp-hero-orb-1 { width: 600px; height: 600px; top: -100px; right: -200px; background: radial-gradient(circle, rgba(0,201,255,0.12), transparent 70%); animation: lp-float 8s ease-in-out infinite; }
+        .lp-hero-orb-2 { width: 500px; height: 500px; bottom: -100px; left: -150px; background: radial-gradient(circle, rgba(224,64,251,0.08), transparent 70%); animation: lp-float 10s ease-in-out infinite 2s; }
         .lp-hero-content { position: relative; z-index: 2; text-align: center; max-width: 900px; }
-
-        .lp-hero-badge {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #131b2e; border: 1px solid #1a2540; border-radius: 100px;
-          padding: 6px 18px 6px 8px; font-size: 13px; color: #6B8BAE;
-          margin-bottom: 32px; animation: lp-fadeUp 0.8s ease both;
-        }
-        .lp-hero-badge-dot {
-          width: 8px; height: 8px; background: #00E676; border-radius: 50%;
-          animation: lp-pulse-glow 2s infinite;
-        }
+        .lp-hero-badge { display: inline-flex; align-items: center; gap: 8px; background: #131b2e; border: 1px solid #1a2540; border-radius: 100px; padding: 6px 18px 6px 8px; font-size: 13px; color: #6B8BAE; margin-bottom: 32px; animation: lp-fadeUp 0.8s ease both; }
+        .lp-hero-badge-dot { width: 8px; height: 8px; background: #00E676; border-radius: 50%; animation: lp-pulse-glow 2s infinite; }
         .lp-hero-badge strong { color: #00C9FF; font-weight: 600; }
-
-        .lp-hero h1 {
-          font-size: clamp(48px, 7vw, 86px); font-weight: 900; line-height: 1.05;
-          letter-spacing: -3px; margin-bottom: 24px; animation: lp-fadeUp 0.8s ease 0.1s both;
-        }
-        .lp-gradient-text {
-          background: linear-gradient(135deg, #00C9FF, #E040FB, #00E676);
-          background-size: 200% 200%;
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          background-clip: text; animation: lp-gradient-shift 4s ease infinite;
-        }
-        .lp-hero-sub {
-          font-size: clamp(16px, 2vw, 20px); color: #6B8BAE; line-height: 1.7;
-          max-width: 640px; margin: 0 auto 40px; animation: lp-fadeUp 0.8s ease 0.2s both;
-        }
-        .lp-hero-actions {
-          display: flex; gap: 16px; justify-content: center; animation: lp-fadeUp 0.8s ease 0.3s both;
-        }
-
-        .lp-btn-primary {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: linear-gradient(135deg, #00C9FF, #E040FB); color: #000;
-          padding: 16px 36px; border-radius: 12px; font-size: 16px; font-weight: 800;
-          text-decoration: none; transition: all 0.3s; border: none; cursor: pointer;
-          font-family: 'Outfit', sans-serif;
-        }
+        .lp-hero h1 { font-size: clamp(48px, 7vw, 86px); font-weight: 900; line-height: 1.05; letter-spacing: -3px; margin-bottom: 24px; animation: lp-fadeUp 0.8s ease 0.1s both; }
+        .lp-gradient-text { background: linear-gradient(135deg, #00C9FF, #E040FB, #00E676); background-size: 200% 200%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: lp-gradient-shift 4s ease infinite; }
+        .lp-hero-sub { font-size: clamp(16px, 2vw, 20px); color: #6B8BAE; line-height: 1.7; max-width: 640px; margin: 0 auto 40px; animation: lp-fadeUp 0.8s ease 0.2s both; }
+        .lp-hero-actions { display: flex; gap: 16px; justify-content: center; animation: lp-fadeUp 0.8s ease 0.3s both; }
+        .lp-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #00C9FF, #E040FB); color: #000; padding: 16px 36px; border-radius: 12px; font-size: 16px; font-weight: 800; text-decoration: none; transition: all 0.3s; border: none; cursor: pointer; font-family: 'Outfit', sans-serif; }
         .lp-btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,201,255,0.15); }
-
-        .lp-btn-secondary {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: rgba(255,255,255,0.04); border: 1px solid #1a2540; color: #E8F4FD;
-          padding: 16px 36px; border-radius: 12px; font-size: 16px; font-weight: 600;
-          text-decoration: none; transition: all 0.3s; cursor: pointer;
-          font-family: 'Outfit', sans-serif;
-        }
+        .lp-btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); border: 1px solid #1a2540; color: #E8F4FD; padding: 16px 36px; border-radius: 12px; font-size: 16px; font-weight: 600; text-decoration: none; transition: all 0.3s; cursor: pointer; font-family: 'Outfit', sans-serif; }
         .lp-btn-secondary:hover { background: rgba(255,255,255,0.08); border-color: #00C9FF; transform: translateY(-2px); }
-
-        /* Floating badges */
         .lp-hero-floating { position: absolute; z-index: 1; pointer-events: none; }
-        .lp-float-badge {
-          background: #131b2e; border: 1px solid #1a2540; border-radius: 12px;
-          padding: 12px 16px; display: flex; align-items: center; gap: 8px;
-          font-size: 13px; color: #6B8BAE; white-space: nowrap;
-          animation: lp-float 6s ease-in-out infinite; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }
+        .lp-float-badge { background: #131b2e; border: 1px solid #1a2540; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6B8BAE; white-space: nowrap; animation: lp-float 6s ease-in-out infinite; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
         .lp-float-badge .lp-emoji { font-size: 18px; }
         .lp-float-badge strong { color: #E8F4FD; font-weight: 700; }
         .lp-fb-1 { top: 25%; left: 5%; animation-delay: 0s; }
         .lp-fb-2 { top: 35%; right: 3%; animation-delay: 1.5s; }
         .lp-fb-3 { bottom: 25%; left: 8%; animation-delay: 3s; }
         .lp-fb-4 { bottom: 20%; right: 6%; animation-delay: 0.8s; }
-
-        /* Stats bar */
-        .lp-stats-bar {
-          position: relative; z-index: 2; max-width: 1000px; margin: -40px auto 0;
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
-          background: #1a2540; border-radius: 16px; overflow: hidden; border: 1px solid #1a2540;
-        }
+        .lp-stats-bar { position: relative; z-index: 2; max-width: 1000px; margin: -40px auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #1a2540; border-radius: 16px; overflow: hidden; border: 1px solid #1a2540; }
         .lp-stat-item { background: #0d1220; padding: 32px 24px; text-align: center; }
-        .lp-stat-number {
-          font-size: 36px; font-weight: 900; letter-spacing: -1px;
-          background: linear-gradient(135deg, #00C9FF, #E040FB);
-          -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        }
+        .lp-stat-number { font-size: 36px; font-weight: 900; letter-spacing: -1px; background: linear-gradient(135deg, #00C9FF, #E040FB); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .lp-stat-label { font-size: 13px; color: #6B8BAE; margin-top: 4px; font-weight: 500; }
-
-        /* Sections */
         .lp-section { position: relative; z-index: 2; padding: 120px 40px; }
-        .lp-section-label {
-          display: inline-flex; align-items: center; gap: 8px;
-          background: #131b2e; border: 1px solid #1a2540; border-radius: 100px;
-          padding: 6px 16px; font-size: 12px; font-weight: 700;
-          text-transform: uppercase; letter-spacing: 1.5px; color: #00C9FF; margin-bottom: 16px;
-        }
-        .lp-section-title {
-          font-size: clamp(32px, 5vw, 52px); font-weight: 900;
-          letter-spacing: -2px; line-height: 1.1; margin-bottom: 16px;
-        }
+        .lp-section-label { display: inline-flex; align-items: center; gap: 8px; background: #131b2e; border: 1px solid #1a2540; border-radius: 100px; padding: 6px 16px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #00C9FF; margin-bottom: 16px; }
+        .lp-section-title { font-size: clamp(32px, 5vw, 52px); font-weight: 900; letter-spacing: -2px; line-height: 1.1; margin-bottom: 16px; }
         .lp-section-sub { font-size: 18px; color: #6B8BAE; max-width: 600px; line-height: 1.7; }
-
-        /* Channels grid */
         .lp-channels-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1100px; margin: 60px auto 0; }
-        .lp-channel-card {
-          background: #0d1220; border: 1px solid #1a2540; border-radius: 16px;
-          padding: 32px 24px; text-align: center;
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); position: relative; overflow: hidden;
-        }
-        .lp-channel-card:hover {
-          transform: translateY(-8px); border-color: rgba(0,201,255,0.3);
-          box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px rgba(0,201,255,0.15);
-        }
-        .lp-channel-icon {
-          width: 56px; height: 56px; border-radius: 14px; display: flex;
-          align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px;
-        }
+        .lp-channel-card { background: #0d1220; border: 1px solid #1a2540; border-radius: 16px; padding: 32px 24px; text-align: center; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); position: relative; overflow: hidden; }
+        .lp-channel-card:hover { transform: translateY(-8px); border-color: rgba(0,201,255,0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 40px rgba(0,201,255,0.15); }
+        .lp-channel-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px; }
         .lp-channel-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
         .lp-channel-card p { color: #6B8BAE; font-size: 14px; line-height: 1.6; }
-        .lp-channel-badge {
-          display: inline-block; margin-top: 12px; padding: 4px 10px;
-          border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
-        }
-
-        /* Features grid */
+        .lp-channel-badge { display: inline-block; margin-top: 12px; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
         .lp-features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1100px; margin: 60px auto 0; }
-        .lp-feature-card {
-          background: #0d1220; border: 1px solid #1a2540; border-radius: 16px;
-          padding: 32px 28px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .lp-feature-card:hover {
-          transform: translateY(-4px); border-color: rgba(0,201,255,0.2);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.2);
-        }
-        .lp-feature-icon {
-          width: 48px; height: 48px; border-radius: 12px; display: flex;
-          align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;
-          background: #131b2e; border: 1px solid #1a2540;
-        }
+        .lp-feature-card { background: #0d1220; border: 1px solid #1a2540; border-radius: 16px; padding: 32px 28px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .lp-feature-card:hover { transform: translateY(-4px); border-color: rgba(0,201,255,0.2); box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+        .lp-feature-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px; background: #131b2e; border: 1px solid #1a2540; }
         .lp-feature-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
         .lp-feature-card p { color: #6B8BAE; font-size: 14px; line-height: 1.7; }
-
-        /* Steps */
-        .lp-steps {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px;
-          max-width: 1000px; margin: 60px auto 0; position: relative;
-        }
-        .lp-steps::before {
-          content: ""; position: absolute; top: 40px; left: 15%; right: 15%; height: 2px;
-          background: linear-gradient(90deg, #00C9FF, #E040FB, #00E676); opacity: 0.3;
-        }
+        .lp-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; max-width: 1000px; margin: 60px auto 0; position: relative; }
+        .lp-steps::before { content: ""; position: absolute; top: 40px; left: 15%; right: 15%; height: 2px; background: linear-gradient(90deg, #00C9FF, #E040FB, #00E676); opacity: 0.3; }
         .lp-step { text-align: center; position: relative; }
-        .lp-step-num {
-          width: 64px; height: 64px; border-radius: 50%; background: #0d1220;
-          border: 2px solid #00C9FF; display: flex; align-items: center; justify-content: center;
-          font-size: 24px; font-weight: 900; color: #00C9FF; margin: 0 auto 20px;
-          position: relative; z-index: 2;
-        }
+        .lp-step-num { width: 64px; height: 64px; border-radius: 50%; background: #0d1220; border: 2px solid #00C9FF; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; color: #00C9FF; margin: 0 auto 20px; position: relative; z-index: 2; }
         .lp-step h3 { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
         .lp-step p { color: #6B8BAE; font-size: 14px; line-height: 1.7; }
-
-        /* Pricing */
         .lp-pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1000px; margin: 60px auto 0; }
-        .lp-price-card {
-          background: #0d1220; border: 1px solid #1a2540; border-radius: 20px;
-          padding: 36px 28px; position: relative; transition: all 0.4s;
-        }
+        .lp-price-card { background: #0d1220; border: 1px solid #1a2540; border-radius: 20px; padding: 36px 28px; position: relative; transition: all 0.4s; }
         .lp-price-card:hover { transform: translateY(-4px); }
-        .lp-price-card.lp-featured {
-          border-color: #00C9FF;
-          box-shadow: 0 0 40px rgba(0,201,255,0.15), 0 20px 60px rgba(0,0,0,0.3);
-        }
-        .lp-price-card.lp-featured::before {
-          content: "MOST POPULAR"; position: absolute; top: -12px; left: 50%;
-          transform: translateX(-50%); background: linear-gradient(135deg, #00C9FF, #E040FB);
-          color: #000; padding: 4px 16px; border-radius: 100px;
-          font-size: 10px; font-weight: 800; letter-spacing: 1px;
-        }
+        .lp-price-card.lp-featured { border-color: #00C9FF; box-shadow: 0 0 40px rgba(0,201,255,0.15), 0 20px 60px rgba(0,0,0,0.3); }
+        .lp-price-card.lp-featured::before { content: "MOST POPULAR"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #00C9FF, #E040FB); color: #000; padding: 4px 16px; border-radius: 100px; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
         .lp-price-name { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #6B8BAE; margin-bottom: 12px; }
         .lp-price-amount { font-size: 48px; font-weight: 900; letter-spacing: -2px; margin-bottom: 4px; }
         .lp-price-amount span { font-size: 16px; font-weight: 500; color: #6B8BAE; letter-spacing: 0; }
         .lp-price-desc { color: #6B8BAE; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
         .lp-price-features { list-style: none; margin-bottom: 28px; padding: 0; }
-        .lp-price-features li {
-          padding: 8px 0; font-size: 14px; color: #6B8BAE;
-          display: flex; align-items: center; gap: 10px;
-        }
+        .lp-price-features li { padding: 8px 0; font-size: 14px; color: #6B8BAE; display: flex; align-items: center; gap: 10px; }
         .lp-price-features li::before { content: "✓"; color: #00E676; font-weight: 800; font-size: 14px; }
-
-        .lp-price-btn {
-          display: block; width: 100%; padding: 14px; border-radius: 10px;
-          text-align: center; font-size: 15px; font-weight: 700; text-decoration: none;
-          transition: all 0.3s; cursor: pointer; border: none; font-family: 'Outfit', sans-serif;
-        }
+        .lp-price-btn { display: block; width: 100%; padding: 14px; border-radius: 10px; text-align: center; font-size: 15px; font-weight: 700; text-decoration: none; transition: all 0.3s; cursor: pointer; border: none; font-family: 'Outfit', sans-serif; }
         .lp-price-btn-primary { background: linear-gradient(135deg, #00C9FF, #E040FB); color: #000; }
         .lp-price-btn-primary:hover { box-shadow: 0 8px 30px rgba(0,201,255,0.15); transform: translateY(-2px); }
         .lp-price-btn-outline { background: transparent; border: 1px solid #1a2540; color: #E8F4FD; }
         .lp-price-btn-outline:hover { border-color: #00C9FF; background: rgba(0,201,255,0.05); }
-
-        /* Testimonials */
         .lp-testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1100px; margin: 60px auto 0; }
         .lp-testimonial-card { background: #131b2e; border: 1px solid #1a2540; border-radius: 16px; padding: 28px; }
         .lp-testimonial-stars { color: #FFD600; font-size: 14px; letter-spacing: 2px; margin-bottom: 12px; }
         .lp-testimonial-text { color: #E8F4FD; font-size: 15px; line-height: 1.7; margin-bottom: 16px; font-style: italic; }
         .lp-testimonial-author { display: flex; align-items: center; gap: 10px; }
-        .lp-testimonial-avatar {
-          width: 36px; height: 36px; border-radius: 50%;
-          background: linear-gradient(135deg, #00C9FF, #E040FB); display: flex;
-          align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #000;
-        }
+        .lp-testimonial-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #00C9FF, #E040FB); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #000; }
         .lp-testimonial-name { font-size: 14px; font-weight: 700; }
         .lp-testimonial-role { font-size: 12px; color: #3A5068; }
-
-        /* CTA */
-        .lp-cta-box {
-          max-width: 800px; margin: 0 auto; background: #0d1220;
-          border: 1px solid #1a2540; border-radius: 24px; padding: 60px 48px;
-          position: relative; overflow: hidden;
-        }
-        .lp-cta-box::before {
-          content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-          background: linear-gradient(90deg, #00C9FF, #E040FB, #00E676);
-        }
+        .lp-cta-box { max-width: 800px; margin: 0 auto; background: #0d1220; border: 1px solid #1a2540; border-radius: 24px; padding: 60px 48px; position: relative; overflow: hidden; }
+        .lp-cta-box::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00C9FF, #E040FB, #00E676); }
         .lp-cta-box h2 { font-size: 40px; font-weight: 900; letter-spacing: -1.5px; margin-bottom: 12px; position: relative; }
         .lp-cta-box p { color: #6B8BAE; font-size: 17px; margin-bottom: 32px; line-height: 1.6; position: relative; }
-
-        /* Footer */
         .lp-footer { position: relative; z-index: 2; border-top: 1px solid #1a2540; padding: 60px 40px 30px; }
-        .lp-footer-grid {
-          display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px;
-          max-width: 1100px; margin: 0 auto 40px;
-        }
+        .lp-footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; max-width: 1100px; margin: 0 auto 40px; }
         .lp-footer-brand p { color: #6B8BAE; font-size: 14px; line-height: 1.7; margin-top: 12px; max-width: 280px; }
         .lp-footer-col h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #E8F4FD; margin-bottom: 16px; }
-        .lp-footer-col a {
-          display: block; color: #6B8BAE; text-decoration: none; font-size: 14px;
-          padding: 4px 0; transition: color 0.2s; cursor: pointer;
-        }
+        .lp-footer-col a { display: block; color: #6B8BAE; text-decoration: none; font-size: 14px; padding: 4px 0; transition: color 0.2s; cursor: pointer; }
         .lp-footer-col a:hover { color: #00C9FF; }
-        .lp-footer-bottom {
-          max-width: 1100px; margin: 0 auto; padding-top: 24px;
-          border-top: 1px solid #1a2540; display: flex;
-          justify-content: space-between; align-items: center; color: #3A5068; font-size: 13px;
-        }
-
-        /* Responsive */
+        .lp-footer-bottom { max-width: 1100px; margin: 0 auto; padding-top: 24px; border-top: 1px solid #1a2540; display: flex; justify-content: space-between; align-items: center; color: #3A5068; font-size: 13px; }
         @media (max-width: 768px) {
           .lp-nav { padding: 12px 20px; }
           .lp-nav-links { display: none !important; }
@@ -925,36 +606,33 @@ const LandingPage = () => {
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
           </ul>
-        <button className="lp-main-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ display: 'none', background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer' }}>☰</button>
-        {mobileMenuOpen && (
-          <div style={{ position: 'fixed', inset: 0, background: '#080d1aee', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-            <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
-            <span onClick={() => scrollTo('lp-channels')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Channels</span>
-            <span onClick={() => scrollTo('lp-features')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Features</span>
-            <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
-            <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
-            <a href="/blog" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>Blog</a>
-            <a href="/api-docs" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>API Docs</a>
-            <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
-            <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
-            <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
-              <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
-              <a href="https://x.com/worxengage57849" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
-              <a href="https://www.instagram.com/engageworx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
-              <a href="https://www.facebook.com/share/183HtoTX1Q/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
+          <button className="lp-main-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ display: 'none', background: 'none', border: 'none', color: '#fff', fontSize: 24, cursor: 'pointer' }}>☰</button>
+          {mobileMenuOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: '#080d1aee', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+              <button onClick={() => setMobileMenuOpen(false)} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', color: '#fff', fontSize: 28, cursor: 'pointer' }}>✕</button>
+              <span onClick={() => scrollTo('lp-channels')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Channels</span>
+              <span onClick={() => scrollTo('lp-features')} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Features</span>
+              <span onClick={() => { navigateTo('pricing'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>Pricing</span>
+              <span onClick={() => { navigateTo('about'); setMobileMenuOpen(false); }} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, cursor: 'pointer' }}>About</span>
+              <a href="/blog" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>Blog</a>
+              <a href="/api-docs" onClick={() => setMobileMenuOpen(false)} style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none', cursor: 'pointer' }}>API Docs</a>
+              <a href="https://portal.engwx.com" style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 600, textDecoration: 'none' }}>Login</a>
+              <button onClick={() => { goToSignup(); setMobileMenuOpen(false); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', color: '#000', padding: '14px 32px', borderRadius: 10, fontSize: 16, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Get Started Free</button>
+              <div style={{ display: "flex", gap: 20, marginTop: 16 }}>
+                <a href="https://www.linkedin.com/company/engwx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>in</a>
+                <a href="https://x.com/worxengage57849" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>𝕏</a>
+                <a href="https://www.instagram.com/engageworx" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>📷</a>
+                <a href="https://www.facebook.com/share/183HtoTX1Q/" target="_blank" rel="noopener noreferrer" style={{ color: '#6B8BAE', textDecoration: 'none', fontSize: 22 }}>f</a>
+              </div>
             </div>
-          </div>
-        )}
+          )}
         </nav>
 
         {/* HERO */}
         <section className="lp-hero">
           <div className="lp-hero-orb lp-hero-orb-1" />
           <div className="lp-hero-orb lp-hero-orb-2" />
-
-          <div className="lp-hero-floating lp-fb-1">
-            
-          </div>
+          <div className="lp-hero-floating lp-fb-1" />
           <div className="lp-hero-floating lp-fb-2">
             <div className="lp-float-badge"><span className="lp-emoji">🤖</span> <strong>94%</strong>&nbsp;AI resolution rate</div>
           </div>
@@ -964,17 +642,13 @@ const LandingPage = () => {
           <div className="lp-hero-floating lp-fb-4">
             <div className="lp-float-badge"><span className="lp-emoji">📈</span> <strong>3.2x</strong>&nbsp;conversion lift</div>
           </div>
-
           <div className="lp-hero-content">
             <div className="lp-hero-badge">
               <div className="lp-hero-badge-dot" />
               Now with <strong>RCS Business Messaging</strong>
             </div>
             <h1>Smarter conversations.<br /><span className="lp-gradient-text">One platform.</span></h1>
-            <p className="lp-hero-sub">
-              The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email.
-              Automate conversations, build campaigns, and delight customers at scale.
-            </p>
+            <p className="lp-hero-sub">The AI-powered engagement platform for SMS, RCS, WhatsApp, and Email. Automate conversations, build campaigns, and delight customers at scale.</p>
             <div className="lp-hero-actions">
               <button className="lp-btn-primary" onClick={goToSignup}>Start Free Trial →</button>
               <button className="lp-btn-secondary" onClick={() => scrollTo('lp-how')}>See How It Works</button>
@@ -995,33 +669,27 @@ const LandingPage = () => {
           <div style={{ textAlign: 'center' }} className="lp-fade-up">
             <div className="lp-section-label">📡 Channels</div>
             <h2 className="lp-section-title">Every channel.<br />One platform.</h2>
-            <p className="lp-section-sub" style={{ margin: '0 auto' }}>
-              Reach customers wherever they are — SMS, RCS, WhatsApp, or Email — all managed from a single intelligent inbox.
-            </p>
+            <p className="lp-section-sub" style={{ margin: '0 auto' }}>Reach customers wherever they are — SMS, RCS, WhatsApp, or Email — all managed from a single intelligent inbox.</p>
           </div>
           <div className="lp-channels-grid">
             <div className="lp-channel-card lp-fade-up">
               <div className="lp-channel-icon" style={{ background: 'rgba(0,201,255,0.1)', border: '1px solid rgba(0,201,255,0.2)' }}>💬</div>
-              <h3>SMS</h3>
-              <p>Reliable, universal messaging with 98% open rates. A2P compliant with 10DLC registration built in.</p>
+              <h3>SMS</h3><p>Reliable, universal messaging with 98% open rates. A2P compliant with 10DLC registration built in.</p>
               <div className="lp-channel-badge" style={{ background: 'rgba(0,230,118,0.1)', color: '#00E676' }}>LIVE</div>
             </div>
             <div className="lp-channel-card lp-fade-up">
               <div className="lp-channel-icon" style={{ background: 'rgba(224,64,251,0.1)', border: '1px solid rgba(224,64,251,0.2)' }}>✨</div>
-              <h3>RCS</h3>
-              <p>Rich cards, carousels, and branded messaging. The future of business texting is here.</p>
+              <h3>RCS</h3><p>Rich cards, carousels, and branded messaging. The future of business texting is here.</p>
               <div className="lp-channel-badge" style={{ background: 'rgba(0,201,255,0.1)', color: '#00C9FF' }}>NEW</div>
             </div>
             <div className="lp-channel-card lp-fade-up">
               <div className="lp-channel-icon" style={{ background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.2)' }}>📱</div>
-              <h3>WhatsApp</h3>
-              <p>Connect with 2B+ users globally. Templates, media, and interactive buttons included.</p>
+              <h3>WhatsApp</h3><p>Connect with 2B+ users globally. Templates, media, and interactive buttons included.</p>
               <div className="lp-channel-badge" style={{ background: 'rgba(0,230,118,0.1)', color: '#00E676' }}>LIVE</div>
             </div>
             <div className="lp-channel-card lp-fade-up">
               <div className="lp-channel-icon" style={{ background: 'rgba(255,107,53,0.1)', border: '1px solid rgba(255,107,53,0.2)' }}>📧</div>
-              <h3>Email</h3>
-              <p>Transactional and marketing email with templates, tracking, and deliverability monitoring.</p>
+              <h3>Email</h3><p>Transactional and marketing email with templates, tracking, and deliverability monitoring.</p>
               <div className="lp-channel-badge" style={{ background: 'rgba(0,230,118,0.1)', color: '#00E676' }}>LIVE</div>
             </div>
           </div>
@@ -1032,9 +700,7 @@ const LandingPage = () => {
           <div style={{ textAlign: 'center' }} className="lp-fade-up">
             <div className="lp-section-label">⚡ Features</div>
             <h2 className="lp-section-title">Everything included.<br />Nothing to build.</h2>
-            <p className="lp-section-sub" style={{ margin: '0 auto' }}>
-              Self-service from day one. Sign up, configure, and go live — no sales call, no developer, no waiting.
-            </p>
+            <p className="lp-section-sub" style={{ margin: '0 auto' }}>Self-service from day one. Sign up, configure, and go live — no sales call, no developer, no waiting.</p>
           </div>
           <div className="lp-features-grid">
             {[
@@ -1062,9 +728,7 @@ const LandingPage = () => {
           <div style={{ textAlign: 'center' }} className="lp-fade-up">
             <div className="lp-section-label">🚀 How It Works</div>
             <h2 className="lp-section-title">Self-service.<br />Live in minutes.</h2>
-            <p className="lp-section-sub" style={{ margin: '0 auto' }}>
-              No sales call. No developer. Sign up, configure, and send your first campaign in under 5 minutes.
-            </p>
+            <p className="lp-section-sub" style={{ margin: '0 auto' }}>No sales call. No developer. Sign up, configure, and send your first campaign in under 5 minutes.</p>
           </div>
           <div className="lp-steps">
             {[
@@ -1093,45 +757,24 @@ const LandingPage = () => {
               <div className="lp-price-name">Starter</div>
               <div className="lp-price-amount">$99<span>/mo</span></div>
               <div className="lp-price-desc">1 phone number, 1,000 SMS/month, AI bot included.</div>
-              <ul className="lp-price-features">
-                <li>1,000 SMS/month</li>
-                <li>SMS + Email channels</li>
-                <li>AI Chatbot included</li>
-                <li>1 phone number</li>
-                <li>Overage: $0.025/SMS</li>
-              </ul>
+              <ul className="lp-price-features"><li>1,000 SMS/month</li><li>SMS + Email channels</li><li>AI Chatbot included</li><li>1 phone number</li><li>Overage: $0.025/SMS</li></ul>
               <button className="lp-price-btn lp-price-btn-outline" onClick={goToSignup}>Start Free Trial</button>
             </div>
             <div className="lp-price-card lp-featured lp-fade-up">
               <div className="lp-price-name">Growth</div>
               <div className="lp-price-amount">$249<span>/mo</span></div>
               <div className="lp-price-desc">3 phone numbers, 5,000 SMS/month, AI bot included.</div>
-              <ul className="lp-price-features">
-                <li>5,000 SMS/month</li>
-                <li>SMS + Email channels</li>
-                <li>AI Chatbot included</li>
-                <li>3 phone numbers</li>
-                <li>Overage: $0.025/SMS</li>
-              </ul>
+              <ul className="lp-price-features"><li>5,000 SMS/month</li><li>SMS + Email channels</li><li>AI Chatbot included</li><li>3 phone numbers</li><li>Overage: $0.025/SMS</li></ul>
               <button className="lp-price-btn lp-price-btn-primary" onClick={goToSignup}>Start Free Trial</button>
             </div>
             <div className="lp-price-card lp-fade-up">
               <div className="lp-price-name">Pro</div>
               <div className="lp-price-amount">$499<span>/mo</span></div>
               <div className="lp-price-desc">10 phone numbers, 20,000 SMS/month, AI bot included.</div>
-              <ul className="lp-price-features">
-                <li>20,000 SMS/month</li>
-                <li>All channels + API access</li>
-                <li>White-label branding</li>
-                <li>Custom integrations</li>
-                <li>10 phone numbers</li>
-                <li>Overage: $0.025/SMS</li>
-              </ul>
+              <ul className="lp-price-features"><li>20,000 SMS/month</li><li>All channels + API access</li><li>White-label branding</li><li>Custom integrations</li><li>10 phone numbers</li><li>Overage: $0.025/SMS</li></ul>
               <button className="lp-price-btn lp-price-btn-outline" onClick={goToSignup}>Start Free Trial</button>
             </div>
           </div>
-
-          {/* Enterprise CTA */}
           <div className="lp-fade-up" style={{ maxWidth: 1000, margin: '40px auto 0', background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #00C9FF, #E040FB, #00E676)' }} />
             <div style={{ flex: 1, minWidth: 280 }}>
@@ -1163,27 +806,20 @@ const LandingPage = () => {
                 <p className="lp-testimonial-text">{t.text}</p>
                 <div className="lp-testimonial-author">
                   <div className="lp-testimonial-avatar">{t.initials}</div>
-                  <div>
-                    <div className="lp-testimonial-name">{t.name}</div>
-                    <div className="lp-testimonial-role">{t.role}</div>
-                  </div>
+                  <div><div className="lp-testimonial-name">{t.name}</div><div className="lp-testimonial-role">{t.role}</div></div>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* SMS CONSENT & OPT-IN — Required for TCR/A2P compliance */}
+        {/* SMS CONSENT */}
         <section className="lp-section" id="lp-sms-consent" style={{ background: 'linear-gradient(180deg, #050810, #0a1018, #050810)' }}>
           <div style={{ textAlign: 'center', maxWidth: 800, margin: '0 auto' }} className="lp-fade-up">
             <div className="lp-section-label">📱 SMS Communications</div>
             <h2 className="lp-section-title">Stay connected<br />via SMS.</h2>
-            <p className="lp-section-sub" style={{ margin: '0 auto 40px' }}>
-              EngageWorx enables businesses to communicate with their customers through compliant, consent-based SMS messaging.
-            </p>
-
+            <p className="lp-section-sub" style={{ margin: '0 auto 40px' }}>EngageWorx enables businesses to communicate with their customers through compliant, consent-based SMS messaging.</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 24, textAlign: 'left', maxWidth: 700, margin: '0 auto' }}>
-              {/* How to Opt In */}
               <div style={{ background: 'rgba(0,201,255,0.04)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 16, padding: 28 }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>✅</div>
                 <h3 style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>How to Opt In</h3>
@@ -1196,8 +832,6 @@ const LandingPage = () => {
                   <strong style={{ color: '#E8F4FD' }}>Consent language:</strong> "I agree to receive SMS messages from [Business Name] powered by EngageWorx. Message frequency varies. Message and data rates may apply. Reply STOP to opt out at any time. Reply HELP for help."
                 </div>
               </div>
-
-              {/* How to Opt Out */}
               <div style={{ background: 'rgba(255,59,48,0.04)', border: '1px solid rgba(255,59,48,0.15)', borderRadius: 16, padding: 28 }}>
                 <div style={{ fontSize: 28, marginBottom: 12 }}>🛑</div>
                 <h3 style={{ color: '#E8F4FD', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>How to Opt Out</h3>
@@ -1211,32 +845,17 @@ const LandingPage = () => {
                 </div>
               </div>
             </div>
-
-            {/* Compliance details */}
             <div style={{ maxWidth: 700, margin: '32px auto 0', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: 28, textAlign: 'left' }}>
               <h3 style={{ color: '#E8F4FD', fontSize: 16, fontWeight: 700, marginBottom: 16 }}>📋 SMS Messaging Compliance</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13, color: '#6B8BAE', lineHeight: 1.8 }}>
-                <div>
-                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Types</div>
-                  Transactional notifications, appointment reminders, customer support responses, account alerts, and marketing messages (with explicit consent).
-                </div>
-                <div>
-                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Frequency</div>
-                  Message frequency varies by the type of communication and the business you've opted in with. Typically 1-10 messages per month.
-                </div>
-                <div>
-                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Data Rates</div>
-                  Message and data rates may apply. Contact your wireless carrier for details about your messaging plan.
-                </div>
-                <div>
-                  <div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Supported Carriers</div>
-                  EngageWorx supports all major US carriers including AT&T, T-Mobile, Verizon, and their subsidiaries.
-                </div>
+                <div><div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Types</div>Transactional notifications, appointment reminders, customer support responses, account alerts, and marketing messages (with explicit consent).</div>
+                <div><div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Message Frequency</div>Message frequency varies by the type of communication and the business you've opted in with. Typically 1-10 messages per month.</div>
+                <div><div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Data Rates</div>Message and data rates may apply. Contact your wireless carrier for details about your messaging plan.</div>
+                <div><div style={{ color: '#E8F4FD', fontWeight: 600, marginBottom: 4 }}>Supported Carriers</div>EngageWorx supports all major US carriers including AT&T, T-Mobile, Verizon, and their subsidiaries.</div>
               </div>
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: 12, color: '#6B8BAE', lineHeight: 1.7 }}>
-                For questions about SMS messaging, contact us at <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>. 
-                View our <span onClick={() => { setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details on data handling and compliance.
-                EngageWorx complies with TCPA, CTIA guidelines, and 10DLC/A2P messaging standards.
+                For questions about SMS messaging, contact us at <a href="mailto:support@engwx.com" style={{ color: '#00C9FF', textDecoration: 'none' }}>support@engwx.com</a>.
+                View our <span onClick={() => { setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Privacy Policy</span> and <span onClick={() => { setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }} style={{ color: '#00C9FF', cursor: 'pointer' }}>Terms of Service</span> for complete details. EngageWorx complies with TCPA, CTIA guidelines, and 10DLC/A2P messaging standards.
               </div>
             </div>
           </div>
@@ -1249,7 +868,7 @@ const LandingPage = () => {
             <p>Start your free trial today. No credit card required.<br />Set up in under 10 minutes.</p>
             <div className="lp-hero-actions" style={{ marginTop: 0 }}>
               <button className="lp-btn-primary" onClick={goToSignup}>Start Free Trial →</button>
-              <button className="lp-btn-secondary" onClick={() => window.location.href='mailto:sales@engwx.com'}>Book a Demo</button>
+              <button className="lp-btn-secondary" onClick={() => navigateTo('contact')}>Book a Demo</button>
             </div>
           </div>
         </section>
