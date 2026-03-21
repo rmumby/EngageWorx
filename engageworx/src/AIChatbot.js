@@ -284,7 +284,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                 <div style={{ display: "grid", gap: 20 }}>
                   {/* Agent Identity */}
                   <div style={card}>
-                    <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Agent Identity</h3>
+                    <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Agent Name & Status</h3>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Agent Name</div>
