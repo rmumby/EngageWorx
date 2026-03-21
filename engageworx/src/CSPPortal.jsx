@@ -4,7 +4,7 @@ import { useTheme, ThemeToggle } from './ThemeContext';
 
 function getCSPColors(themeObj) {
   if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
-  return { bg: '#F5F7FA', surface: '#FFFFFF', border: '#E2E8F0', primary: '#0099CC', accent: '#9B59B6', text: '#1A202C', muted: '#718096' };
+  return { bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6', primary: '#0077B6', accent: '#7C3AED', text: '#111827', muted: '#4B5563' };
 }
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
