@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { legalPages } from './LegalContent';
 import EngageWorxDemo from './EngageWorxDemo';
+import DemoRequestForm from './DemoRequestForm';
 
 const PORTAL_URL = 'https://portal.engwx.com';
 
@@ -444,14 +445,7 @@ const LandingPage = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 48, alignItems: 'start' }}>
             {/* Contact Form */}
-            <div style={{ background: '#0d1220', border: '1px solid #1a2540', borderRadius: 20, padding: '40px' }}>
-              {contactSubmitted ? (
-                <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                  <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-                  <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Thanks for reaching out!</h2>
-                  <p style={{ color: '#6B8BAE', fontSize: 15 }}>Your email client should open with your message. We'll get back to you within one business day.</p>
-                  <button onClick={() => setContactSubmitted(false)} style={{ marginTop: 20, background: 'rgba(255,255,255,0.06)', border: '1px solid #1a2540', borderRadius: 8, padding: '10px 24px', color: '#E8F4FD', fontWeight: 600, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>Send another message</button>
-                </div>
+<DemoRequestForm />
               ) : (
                 <>
                   <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 24 }}>Send us a message</h2>
