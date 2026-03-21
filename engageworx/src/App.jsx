@@ -13,6 +13,7 @@ import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import AgentPortal from './AgentPortal';
+import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
@@ -935,7 +936,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
     channels: ["SMS", "Email"],
   };
-  const C = tenant.colors;
+  const cpTheme = useTheme();
+  const C = getThemedColors(tenant.colors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
 
   const navItems = [
@@ -1225,7 +1227,8 @@ function AppInner() {
     setSpPage("dashboard");
   };
 
-  const C = TENANTS.serviceProvider.colors;
+  const { theme, isDark } = useTheme();
+  const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
 
   var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
@@ -1689,6 +1692,7 @@ function AppInner() {
           </div>
         )}
 
+        <ThemeToggle style={{ marginBottom: 8 }} />
         <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
 
         {!sidebarCollapsed && (
@@ -1732,8 +1736,10 @@ function AppInner() {
 // ─── WRAP WITH AUTH PROVIDER ──────────────────────────────────────────────────
 export default function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <AppInner />
     </AuthProvider>
+    </ThemeProvider>
   );
 }
