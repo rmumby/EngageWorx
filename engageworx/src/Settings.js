@@ -788,8 +788,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                             <div key={f.key}>
                               <label style={label}>{f.label}</label>
                               {f.type === "note" ? (
-                                <div style={{ background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6B8BAE", lineHeight: 1.5 }}>
-                                  ℹ️ {f.text}
+                                <div style={{ background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 12, color: "#6B8BAE", lineHeight: 1.6 }}>
+                                  <div>ℹ️ {f.text}</div>
+                                  <div style={{ marginTop: 6, color: "#00C9FF", fontWeight: 600, fontSize: 11 }}>→ Click "AI Chatbot" in the sidebar to configure</div>
                                 </div>
                               ) : f.type === "select" ? (
                                 <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
