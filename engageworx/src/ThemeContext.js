@@ -85,8 +85,93 @@ export function ThemeProvider({ children }) {
   var theme = mode === 'dark' ? DARK : LIGHT;
   var isDark = mode === 'dark';
 
+  // Global CSS overrides for light mode — forces readable text on white backgrounds
+  // This overrides hardcoded dark-mode inline styles throughout the app
+  var lightModeCSS = !isDark ? (
+    <style dangerouslySetInnerHTML={{ __html: `
+      /* Light mode global overrides */
+      [style*="color: #fff"], [style*="color: rgb(255, 255, 255)"],
+      [style*="color:#fff"] { color: #111827 !important; }
+      [style*="color: #E8F4FD"], [style*="color: rgb(232, 244, 253)"],
+      [style*="color:#E8F4FD"] { color: #111827 !important; }
+      [style*="color: #e2e8f0"], [style*="color:#e2e8f0"] { color: #111827 !important; }
+      [style*="color: #FFF0E8"] { color: #111827 !important; }
+      [style*="color: #E8FFF2"] { color: #111827 !important; }
+      [style*="color: #EDE8FF"] { color: #111827 !important; }
+
+      /* Muted text */
+      [style*="color: #6B8BAE"], [style*="color:#6B8BAE"],
+      [style*="color: rgb(107, 139, 174)"] { color: #4B5563 !important; }
+      [style*="color: #8B6B55"] { color: #4B5563 !important; }
+      [style*="color: #4B8B65"] { color: #4B5563 !important; }
+      [style*="color: #6B5B8B"] { color: #4B5563 !important; }
+
+      /* Semi-transparent white text used for labels */
+      [style*="color: rgba(255, 255, 255, 0.4)"],
+      [style*="color: rgba(255,255,255,0.4)"] { color: #6B7280 !important; }
+      [style*="color: rgba(255, 255, 255, 0.5)"],
+      [style*="color: rgba(255,255,255,0.5)"] { color: #6B7280 !important; }
+      [style*="color: rgba(255, 255, 255, 0.6)"],
+      [style*="color: rgba(255,255,255,0.6)"] { color: #4B5563 !important; }
+      [style*="color: rgba(255, 255, 255, 0.7)"],
+      [style*="color: rgba(255,255,255,0.7)"] { color: #374151 !important; }
+      [style*="color: rgba(255, 255, 255, 0.8)"],
+      [style*="color: rgba(255,255,255,0.8)"] { color: #1F2937 !important; }
+
+      /* Background overrides for dark panels */
+      [style*="background: #080d1a"], [style*="background:#080d1a"],
+      [style*="background: rgb(8, 13, 26)"] { background: #F0F2F5 !important; }
+      [style*="background: #0d1425"], [style*="background:#0d1425"],
+      [style*="background: rgb(13, 20, 37)"] { background: #FFFFFF !important; }
+      [style*="background: #0a0d14"], [style*="background:#0a0d14"] { background: #E5E7EB !important; }
+      [style*="background: #050810"], [style*="background:#050810"] { background: #F0F2F5 !important; }
+      [style*="background: #0d1220"], [style*="background:#0d1220"] { background: #FFFFFF !important; }
+      [style*="background: #0c0a10"] { background: #F0F2F5 !important; }
+      [style*="background: #141018"] { background: #FFFFFF !important; }
+      [style*="background: #080d10"] { background: #F0F2F5 !important; }
+      [style*="background: #0d1518"] { background: #FFFFFF !important; }
+      [style*="background: #0a0810"] { background: #F0F2F5 !important; }
+      [style*="background: #110e1c"] { background: #FFFFFF !important; }
+
+      /* Semi-transparent dark backgrounds used for cards */
+      [style*="background: rgba(255, 255, 255, 0.03)"],
+      [style*="background: rgba(255,255,255,0.03)"] { background: #FFFFFF !important; border-color: #D1D9E6 !important; }
+      [style*="background: rgba(255, 255, 255, 0.02)"],
+      [style*="background: rgba(255,255,255,0.02)"] { background: #F9FAFB !important; }
+      [style*="background: rgba(255, 255, 255, 0.04)"],
+      [style*="background: rgba(255,255,255,0.04)"] { background: #F3F4F6 !important; }
+      [style*="background: rgba(255, 255, 255, 0.05)"],
+      [style*="background: rgba(255,255,255,0.05)"] { background: #F3F4F6 !important; }
+      [style*="background: rgba(255, 255, 255, 0.06)"],
+      [style*="background: rgba(255,255,255,0.06)"] { background: #E5E7EB !important; }
+
+      /* Border overrides */
+      [style*="border-color: #182440"], [style*="border: 1px solid #182440"],
+      [style*="border-color: rgba(255, 255, 255, 0.07)"],
+      [style*="border-color: rgba(255,255,255,0.07)"] { border-color: #D1D9E6 !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.08)"],
+      [style*="border: 1px solid rgba(255,255,255,0.08)"] { border-color: #D1D9E6 !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.06)"],
+      [style*="border: 1px solid rgba(255,255,255,0.06)"] { border-color: #D1D9E6 !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.1)"],
+      [style*="border: 1px solid rgba(255,255,255,0.1)"] { border-color: #D1D9E6 !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.12)"],
+      [style*="border: 1px solid rgba(255,255,255,0.12)"] { border-color: #D1D9E6 !important; }
+
+      /* Input backgrounds */
+      [style*="background: rgba(0, 0, 0, 0.3)"],
+      [style*="background: rgba(0,0,0,0.3)"] { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #111827 !important; }
+      [style*="background: rgba(0, 0, 0, 0.2)"],
+      [style*="background: rgba(0,0,0,0.2)"] { background: #F9FAFB !important; color: #111827 !important; }
+
+      /* Select and input text */
+      select, input, textarea { color: #111827 !important; }
+    ` }} />
+  ) : null;
+
   return (
     <ThemeContext.Provider value={{ theme: theme, isDark: isDark, mode: mode, preference: preference, toggleTheme: toggleTheme, setThemeMode: setThemeMode }}>
+      {lightModeCSS}
       {children}
     </ThemeContext.Provider>
   );
