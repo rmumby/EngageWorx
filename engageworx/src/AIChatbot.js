@@ -82,7 +82,7 @@ const BOT_ANALYTICS = {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  const [activeTab, setActiveTab] = useState("personality");
+  const [activeTab, setActiveTab] = useState("configure");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
   const [botName, setBotName] = useState("EngageBot");
   const [greeting, setGreeting] = useState(PERSONALITIES[1].greeting);
@@ -94,6 +94,64 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [enableMarkdown, setEnableMarkdown] = useState(true);
   const [fallbackMsg, setFallbackMsg] = useState("I'm not sure I understand. Let me connect you with a human agent who can help.");
   const [systemPrompt, setSystemPrompt] = useState("You are a helpful customer support assistant for EngageWorx, a multi-channel communications platform. Be friendly, accurate, and concise. Always try to resolve the customer's issue, and escalate to a human agent if needed.");
+
+  // Live AI config from Supabase
+  const [aiConfig, setAiConfig] = useState({ agentName: "Eva", businessInfo: "", aiEnabled: true, channels: { sms: true, whatsapp: true, email: true, voice: true } });
+  const [configLoading, setConfigLoading] = useState(false);
+  const [configSaved, setConfigSaved] = useState(false);
+  const [configError, setConfigError] = useState(null);
+
+  // Load live config from channel_configs
+  useEffect(() => {
+    if (!currentTenantId || demoMode) return;
+    (async () => {
+      setConfigLoading(true);
+      try {
+        const { supabase } = await import('./supabaseClient');
+        // Load configs for all channels
+        const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
+        if (!error && data && data.length > 0) {
+          var merged = { agentName: "Eva", businessInfo: "", aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
+          data.forEach(function(cfg) {
+            var c = cfg.config_encrypted || {};
+            if (c.ai_agent_name) merged.agentName = c.ai_agent_name;
+            if (c.ai_business_info && c.ai_business_info.length > (merged.businessInfo || '').length) merged.businessInfo = c.ai_business_info;
+            if (c.ai_enabled !== undefined) merged.aiEnabled = c.ai_enabled;
+            if (cfg.channel && cfg.enabled) merged.channels[cfg.channel] = true;
+          });
+          setAiConfig(merged);
+          setBotName(merged.agentName);
+        }
+      } catch (err) { console.error('AI config load error:', err); }
+      setConfigLoading(false);
+    })();
+  }, [currentTenantId, demoMode]);
+
+  // Save AI config to all channel_configs
+  async function saveAIConfig() {
+    if (!currentTenantId) return;
+    setConfigSaved(false);
+    setConfigError(null);
+    try {
+      const { supabase } = await import('./supabaseClient');
+      var channelList = ['sms', 'whatsapp', 'email', 'voice'];
+      for (var i = 0; i < channelList.length; i++) {
+        var ch = channelList[i];
+        var configData = { ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], ai_agent_name: aiConfig.agentName, ai_business_info: aiConfig.businessInfo };
+        // Upsert — update if exists, insert if not
+        var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
+        if (existing.data) {
+          await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
+        } else if (aiConfig.channels[ch]) {
+          await supabase.from('channel_configs').insert({ tenant_id: currentTenantId, channel: ch, config_encrypted: configData, enabled: true, provider: ch, status: 'connected' });
+        }
+      }
+      setConfigSaved(true);
+      setTimeout(function() { setConfigSaved(false); }, 3000);
+    } catch (err) {
+      setConfigError(err.message);
+    }
+  }
 
   // Preview simulator
   const [previewMessages, setPreviewMessages] = useState([]);
@@ -200,6 +258,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
           {/* Tabs */}
           <div style={{ display: "flex", gap: 2, marginBottom: 24 }}>
             {[
+              { id: "configure", label: "Agent Settings", icon: "⚙️" },
               { id: "personality", label: "Personality", icon: "🎭" },
               { id: "knowledge", label: "Knowledge Base", icon: "📚" },
               { id: "escalation", label: "Escalation Rules", icon: "↗️" },
@@ -215,6 +274,80 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
               }}>{t.icon} {t.label}</button>
             ))}
           </div>
+
+          {/* ═══════════ CONFIGURE TAB (LIVE) ═══════════ */}
+          {activeTab === "configure" && (
+            <div>
+              {configLoading ? (
+                <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading AI configuration...</div>
+              ) : (
+                <div style={{ display: "grid", gap: 20 }}>
+                  {/* Agent Identity */}
+                  <div style={card}>
+                    <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Agent Identity</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Agent Name</div>
+                        <input value={aiConfig.agentName} onChange={function(e) { setAiConfig(Object.assign({}, aiConfig, { agentName: e.target.value })); }} placeholder="Eva" style={inputStyle} />
+                        <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>This is what your AI agent calls itself on calls and in messages</div>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>AI Enabled</div>
+                        <div onClick={function() { setAiConfig(Object.assign({}, aiConfig, { aiEnabled: !aiConfig.aiEnabled })); }} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "10px 14px", background: aiConfig.aiEnabled ? C.primary + "15" : "rgba(255,255,255,0.03)", border: "1px solid " + (aiConfig.aiEnabled ? C.primary + "44" : "rgba(255,255,255,0.1)"), borderRadius: 10 }}>
+                          <div style={{ width: 40, height: 22, borderRadius: 11, background: aiConfig.aiEnabled ? C.primary : "rgba(255,255,255,0.15)", position: "relative", transition: "background 0.2s" }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 9, background: "#fff", position: "absolute", top: 2, left: aiConfig.aiEnabled ? 20 : 2, transition: "left 0.2s" }} />
+                          </div>
+                          <span style={{ color: aiConfig.aiEnabled ? "#fff" : C.muted, fontWeight: 600, fontSize: 13 }}>{aiConfig.aiEnabled ? "AI is active" : "AI is disabled"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Active Channels */}
+                  <div style={card}>
+                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>Active Channels</h3>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Toggle which channels the AI agent responds on</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                      {[
+                        { id: "sms", label: "SMS", icon: "📱", color: "#00C9FF" },
+                        { id: "whatsapp", label: "WhatsApp", icon: "📲", color: "#25D366" },
+                        { id: "email", label: "Email", icon: "📧", color: "#FF6B35" },
+                        { id: "voice", label: "Voice", icon: "📞", color: "#7C4DFF" },
+                      ].map(function(ch) {
+                        var enabled = aiConfig.channels[ch.id];
+                        return (
+                          <div key={ch.id} onClick={function() { var newChannels = Object.assign({}, aiConfig.channels); newChannels[ch.id] = !newChannels[ch.id]; setAiConfig(Object.assign({}, aiConfig, { channels: newChannels })); }} style={{ textAlign: "center", padding: 16, borderRadius: 12, cursor: "pointer", background: enabled ? ch.color + "12" : "rgba(255,255,255,0.02)", border: "1px solid " + (enabled ? ch.color + "44" : "rgba(255,255,255,0.06)"), transition: "all 0.2s" }}>
+                            <div style={{ fontSize: 28, marginBottom: 6 }}>{ch.icon}</div>
+                            <div style={{ color: enabled ? "#fff" : C.muted, fontWeight: 700, fontSize: 13 }}>{ch.label}</div>
+                            <div style={{ color: enabled ? ch.color : C.muted, fontSize: 11, marginTop: 4, fontWeight: 600 }}>{enabled ? "● Active" : "○ Off"}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Business Knowledge */}
+                  <div style={card}>
+                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>Business Knowledge</h3>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Provide information your AI agent needs to answer customer questions accurately. Include your products/services, pricing, hours, policies, FAQ — anything a customer might ask about.</div>
+                    <textarea value={aiConfig.businessInfo} onChange={function(e) { setAiConfig(Object.assign({}, aiConfig, { businessInfo: e.target.value })); }} placeholder="Example:\nWe are ABC Dental, a family dentistry practice.\nHours: Mon-Fri 8am-5pm, Sat 9am-1pm\nServices: cleanings, fillings, crowns, whitening, implants\nNew patient appointments: call or book online at abcdental.com\nInsurance: we accept most major plans including Delta, Cigna, Aetna" rows={12} style={Object.assign({}, inputStyle, { resize: "vertical", lineHeight: 1.6 })} />
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                      <span style={{ color: C.muted, fontSize: 11 }}>{(aiConfig.businessInfo || "").length} characters</span>
+                      <span style={{ color: C.muted, fontSize: 11 }}>This information is used across all channels — voice, WhatsApp, SMS, and email</span>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button onClick={saveAIConfig} style={btnPrimary}>Save Configuration</button>
+                    {configSaved && <span style={{ color: "#00E676", fontSize: 13, fontWeight: 600 }}>✓ Saved successfully — your AI agent is updated across all channels</span>}
+                    {configError && <span style={{ color: "#FF3B30", fontSize: 13 }}>{configError}</span>}
+                    {demoMode && <span style={{ color: C.muted, fontSize: 12 }}>Demo mode — changes won't be saved</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ═══════════ PERSONALITY TAB ═══════════ */}
           {activeTab === "personality" && (
@@ -557,9 +690,10 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                     <div>
                       <label style={label}>AI Model</label>
                       <select style={inputStyle}>
-                        <option>Claude Sonnet 4 (Recommended)</option>
-                        <option>Claude Haiku 4.5 (Fast)</option>
-                        <option>Claude Opus 4.6 (Most Capable)</option>
+                        <option>Claude 3.5 Sonnet (Recommended)</option>
+                        <option>Claude 3.5 Haiku (Fast)</option>
+                        <option>Claude 3 Opus (Most Capable)</option>
+                        <option>GPT-4o</option>
                         <option>Custom Fine-tuned Model</option>
                       </select>
                     </div>
@@ -594,7 +728,6 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                       { ch: "SMS", icon: "💬", color: "#00C9FF", active: true },
                       { ch: "WhatsApp", icon: "📱", color: "#25D366", active: true },
                       { ch: "Email", icon: "📧", color: "#FF6B35", active: true },
-                      { ch: "Voice", icon: "📞", color: "#FFD600", active: true },
                       { ch: "RCS", icon: "✨", color: "#7C4DFF", active: false },
                       { ch: "MMS", icon: "📷", color: "#E040FB", active: false },
                       { ch: "Web Widget", icon: "🌐", color: "#00E676", active: true },
@@ -740,7 +873,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
             }}>Send</button>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude Sonnet 4 </span>
+            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude 3.5 Sonnet</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
             <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Temp: {temperature}</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
