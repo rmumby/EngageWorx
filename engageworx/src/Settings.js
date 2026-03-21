@@ -303,7 +303,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
       { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
       { key: "from_name", label: "From Name", placeholder: "Your Business Name" },
-      { key: "ai_business_info", label: "AI Email Response Info (what the AI knows about your business)", type: "textarea", placeholder: "Company name, services, pricing, hours, contact info, FAQ answers..." },
+      { key: "_ai_note", label: "AI Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including email." },
       { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
       { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
     ]},
@@ -317,11 +317,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "service_account", label: "Service Account Email" },
     ]},
         { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
-      { key: "ai_agent_name", label: "AI Agent Name", placeholder: "Eva" },
+      { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
       { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
       { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
       { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna (US Female)", "Polly.Joanna-Neural (US Female Natural)", "Polly.Salli (US Female)", "Polly.Amy (UK Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Emma (UK Female)", "Polly.Matthew (US Male)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Joey (US Male)", "Polly.Brian (UK Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
-      { key: "ai_business_info", label: "AI Business Info (what the AI knows about your business)", type: "textarea", placeholder: "Company name, services, pricing, hours, contact info..." },
       { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
       { key: "timezone", label: "Timezone", type: "select", options: ["Europe/London", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"] },
@@ -788,7 +787,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                           {ch.fields.filter(function(f) { return !f.spOnly || viewLevel === "sp"; }).map(f => (
                             <div key={f.key}>
                               <label style={label}>{f.label}</label>
-                              {f.type === "select" ? (
+                              {f.type === "note" ? (
+                                <div style={{ background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#6B8BAE", lineHeight: 1.5 }}>
+                                  ℹ️ {f.text}
+                                </div>
+                              ) : f.type === "select" ? (
                                 <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
                                   {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
                                 </select>
