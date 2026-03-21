@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useTheme, ThemeToggle } from './ThemeContext';
 
-var C = {
-  bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF',
-  accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE',
-};
+function getCSPColors(themeObj) {
+  if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
+  return { bg: '#F5F7FA', surface: '#FFFFFF', border: '#E2E8F0', primary: '#0099CC', accent: '#9B59B6', text: '#1A202C', muted: '#718096' };
+}
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
+  var themeCtx = useTheme();
+  var C = getCSPColors(themeCtx.theme);
   var pageState = useState('dashboard');
   var page = pageState[0];
   var setPage = pageState[1];
@@ -183,8 +186,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           })}
         </div>
 
-        {/* Collapse + Logout */}
+        {/* Theme + Collapse + Logout */}
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!sidebarCollapsed && <ThemeToggle />}
           <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
             <span>{sidebarCollapsed ? '»' : '«'}</span>
             {!sidebarCollapsed && <span>Collapse</span>}
