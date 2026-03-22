@@ -58,9 +58,9 @@ export default function DemoRequestForm({ onSuccess }) {
             <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: "12px", padding: "20px", textAlign: "left" }}>
               <div style={{ fontSize: "12px", color: "#6366f1", fontWeight: 700, letterSpacing: "0.06em", marginBottom: "12px" }}>YOUR SUGGESTED FIT</div>
               <div style={{ color: "#e2e8f0", fontSize: "14px", lineHeight: 1.7 }}>
-                <div>📦 <strong>Package:</strong> {result.estimated_package}</div>
-                <div>💡 <strong>Summary:</strong> {result.summary}</div>
-                <div>⚡ <strong>Next:</strong> {result.suggested_next_action}</div>
+                <div>📦 <strong>Package:</strong> {result.package || result.estimated_package}</div>
+<div>💡 <strong>Summary:</strong> {result.summary}</div>
+<div>⚡ <strong>Next:</strong> {result.next_action || result.suggested_next_action}</div>
               </div>
             </div>
           )}
