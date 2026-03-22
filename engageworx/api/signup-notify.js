@@ -1,4 +1,4 @@
-// api/signup-notify.js
+../../ api/signup-notify.js
 // Called when a new user signs up via the portal
 // Writes lead to Supabase pipeline + sends branded alert email to Rob
 //
