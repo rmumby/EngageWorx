@@ -6,6 +6,8 @@
 //   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 //   RESEND_API_KEY, ALERT_EMAIL (defaults to rob@engwx.com)
 
+const CALENDLY = "https://calendly.com/rob-engwx/30min";
+
 const SIGNATURE = `
 <table cellpadding="0" cellspacing="0" style="font-family:Arial,sans-serif;background:#ffffff;border:1px solid #E8EAF0;border-radius:12px;padding:16px 20px;margin-top:24px;">
   <tr><td style="padding-bottom:14px;">
@@ -31,6 +33,10 @@ const SIGNATURE = `
       <td style="padding-right:24px;">
         <div style="font-family:Arial,sans-serif;font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:3px;">Website</div>
         <a href="https://engwx.com" style="font-family:Arial,sans-serif;font-size:12px;color:#00BFFF;text-decoration:none;font-weight:500;white-space:nowrap;">engwx.com</a>
+      </td>
+      <td style="padding-right:24px;">
+        <div style="font-family:Arial,sans-serif;font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:3px;">Book a Call</div>
+        <a href="${CALENDLY}" style="font-family:Arial,sans-serif;font-size:12px;color:#A855F7;text-decoration:none;font-weight:600;white-space:nowrap;">Schedule 30 min →</a>
       </td>
       <td>
         <div style="font-family:Arial,sans-serif;font-size:10px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.7px;margin-bottom:3px;">LinkedIn</div>
@@ -174,9 +180,15 @@ JSON structure:
                   <div style="font-size:14px;color:#cbd5e1;line-height:1.6;">${classification.summary}</div>
                 </div>
 
-                <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+                <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:16px 20px;margin-bottom:16px;">
                   <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">⚡ Recommended Next Action</div>
                   <div style="font-size:14px;color:#cbd5e1;line-height:1.6;">&rarr; ${classification.next_action}</div>
+                </div>
+
+                <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+                  <div style="font-size:11px;font-weight:700;color:#a855f7;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">📅 Book a Call</div>
+                  <a href="${CALENDLY}" style="display:inline-block;background:linear-gradient(135deg,#a855f7,#6366f1);color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px;font-weight:700;font-size:14px;">Send Calendly Link &rarr;</a>
+                  <div style="margin-top:8px;font-size:11px;color:#64748b;">${CALENDLY}</div>
                 </div>
 
                 ${message ? `
