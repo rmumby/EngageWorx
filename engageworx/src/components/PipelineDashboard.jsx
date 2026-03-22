@@ -112,7 +112,9 @@ function Modal({ lead, onClose, onSave, onDelete }) {
       ...form,
       name: combined,
       ai_next_action: aiText || form.ai_next_action,
-      // Remove fields that don't exist in the table
+      // Convert empty date strings to null
+      go_live_date: form.go_live_date || null,
+      last_action_at: form.last_action_at || null,
       id: undefined,
     };
     // Remove undefined fields
