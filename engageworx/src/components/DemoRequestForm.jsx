@@ -54,13 +54,17 @@ export default function DemoRequestForm({ onSuccess }) {
           <p style={{ color: "#94a3b8", fontSize: "15px", margin: "0 0 24px", lineHeight: 1.6 }}>
             We'll be in touch within a few hours. In the meantime, here's what we think you need:
           </p>
+          <a href="https://calendly.com/rob-engwx/30min" target="_blank" rel="noopener noreferrer"
+            style={{ display: "inline-block", background: "linear-gradient(135deg, #a855f7, #6366f1)", color: "#fff", textDecoration: "none", padding: "12px 28px", borderRadius: "8px", fontWeight: 700, fontSize: "14px", marginBottom: "24px" }}>
+            📅 Book a 30-min call now →
+          </a>
           {result && (
             <div style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: "12px", padding: "20px", textAlign: "left" }}>
               <div style={{ fontSize: "12px", color: "#6366f1", fontWeight: 700, letterSpacing: "0.06em", marginBottom: "12px" }}>YOUR SUGGESTED FIT</div>
               <div style={{ color: "#e2e8f0", fontSize: "14px", lineHeight: 1.7 }}>
                 <div>📦 <strong>Package:</strong> {result.package || result.estimated_package}</div>
-<div>💡 <strong>Summary:</strong> {result.summary}</div>
-<div>⚡ <strong>Next:</strong> {result.next_action || result.suggested_next_action}</div>
+                <div>💡 <strong>Summary:</strong> {result.summary}</div>
+                <div>⚡ <strong>Next:</strong> {result.next_action || result.suggested_next_action}</div>
               </div>
             </div>
           )}
