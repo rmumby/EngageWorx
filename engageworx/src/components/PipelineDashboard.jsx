@@ -32,6 +32,18 @@ function daysSince(d) {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
 
+// Helper — combine first + last into name for display and storage
+function fullName(first, last) {
+  return [first, last].filter(Boolean).join(" ").trim();
+}
+
+// Helper — split stored name into first/last
+function splitName(name) {
+  if (!name) return { first: "", last: "" };
+  const parts = name.trim().split(" ");
+  return { first: parts[0] || "", last: parts.slice(1).join(" ") || "" };
+}
+
 const labelStyle = { fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.06em", textTransform: "uppercase" };
 const inputStyle = { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#f1f5f9", fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
@@ -58,10 +70,14 @@ function LeadCard({ lead, onSelect }) {
 }
 
 function Modal({ lead, onClose, onSave, onDelete }) {
-  const [form, setForm]           = useState({ ...lead });
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiText, setAiText]       = useState(lead.ai_next_action || "");
-  const [saving, setSaving]       = useState(false);
+  const { first: initFirst, last: initLast } = splitName(lead.name);
+  const [firstName, setFirstName]   = useState(initFirst);
+  const [lastName, setLastName]     = useState(initLast);
+  const [form, setForm]             = useState({ ...lead });
+  const [aiLoading, setAiLoading]   = useState(false);
+  const [aiText, setAiText]         = useState(lead.ai_next_action || "");
+  const [saving, setSaving]         = useState(false);
+  const [saveError, setSaveError]   = useState("");
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
 
   const handleAI = async () => {
@@ -75,7 +91,7 @@ function Modal({ lead, onClose, onSave, onDelete }) {
           max_tokens: 1000,
           messages: [{
             role: "user",
-            content: `You are a sharp B2B sales advisor for EngageWorx — AI-powered omnichannel comms platform (SMS, WhatsApp, Email, Voice, RCS). Pricing: Starter $99, Growth $249, Pro $499, Enterprise.\n\nLead: ${form.name} at ${form.company || "unknown"}\nType: ${form.type} | Stage: ${stage.label} | Urgency: ${form.urgency}\nPackage: ${form.package || "not selected"} | Days stale: ${daysSince(form.last_action_at) ?? "unknown"}\nNotes: ${form.notes || "none"}\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff.`
+            content: `You are a sharp B2B sales advisor for EngageWorx — AI-powered omnichannel comms platform (SMS, WhatsApp, Email, Voice, RCS). Pricing: Starter $99, Growth $249, Pro $499, Enterprise.\n\nLead: ${fullName(firstName, lastName)} at ${form.company || "unknown"}\nType: ${form.type} | Stage: ${stage.label} | Urgency: ${form.urgency}\nPackage: ${form.package || "not selected"} | Days stale: ${daysSince(form.last_action_at) ?? "unknown"}\nNotes: ${form.notes || "none"}\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff.`
           }],
         }),
       });
@@ -88,8 +104,33 @@ function Modal({ lead, onClose, onSave, onDelete }) {
   };
 
   const handleSave = async () => {
+    setSaveError("");
+    const combined = fullName(firstName, lastName);
+    if (!combined) { setSaveError("First name is required."); return; }
     setSaving(true);
-    await onSave({ ...form, ai_next_action: aiText || form.ai_next_action });
+    const payload = {
+      ...form,
+      name: combined,
+      ai_next_action: aiText || form.ai_next_action,
+      // Remove fields that don't exist in the table
+      id: undefined,
+    };
+    // Remove undefined fields
+    Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+    try {
+      if (lead.id && !String(lead.id).startsWith("new_")) {
+        const { error } = await supabase.from("leads").update(payload).eq("id", lead.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("leads").insert(payload);
+        if (error) throw error;
+      }
+      onSave();
+    } catch (err) {
+      console.error("Save error:", err);
+      setSaveError(err.message || "Save failed. Check console for details.");
+    }
     setSaving(false);
   };
 
@@ -98,12 +139,13 @@ function Modal({ lead, onClose, onSave, onDelete }) {
       <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", width: "100%", maxWidth: "620px", maxHeight: "90vh", overflowY: "auto", padding: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "24px" }}>
           <div>
-            <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.name || "New Lead"}</div>
+            <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{fullName(firstName, lastName) || "New Lead"}</div>
             <div style={{ fontSize: "13px", color: "#64748b" }}>{form.company || "No company"}</div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "22px", cursor: "pointer" }}>✕</button>
         </div>
 
+        {/* Stage */}
         <div style={{ marginBottom: "20px" }}>
           <label style={labelStyle}>Stage</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
@@ -116,23 +158,70 @@ function Modal({ lead, onClose, onSave, onDelete }) {
           </div>
         </div>
 
+        {/* Name fields */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "14px" }}>
-          {[["name","Name","text"],["company","Company","text"],["email","Email","email"],["phone","Phone","text"]].map(([f,l,t]) => (
-            <div key={f}><label style={labelStyle}>{l}</label><input style={inputStyle} type={t} value={form[f]||""} onChange={(e)=>setForm({...form,[f]:e.target.value})} /></div>
-          ))}
-          <div><label style={labelStyle}>Lead Type</label><select style={inputStyle} value={form.type||""} onChange={(e)=>setForm({...form,type:e.target.value})}>{TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}</select></div>
-          <div><label style={labelStyle}>Urgency</label><select style={inputStyle} value={form.urgency||"Warm"} onChange={(e)=>setForm({...form,urgency:e.target.value})}>{"Hot,Warm,Cold".split(",").map(u=><option key={u}>{u}</option>)}</select></div>
-          <div><label style={labelStyle}>Package</label><select style={inputStyle} value={form.package||""} onChange={(e)=>setForm({...form,package:e.target.value})}><option value="">Not selected</option>{PACKAGE_OPTIONS.map(p=><option key={p}>{p}</option>)}</select></div>
-          <div><label style={labelStyle}>Source</label><select style={inputStyle} value={form.source||"Website"} onChange={(e)=>setForm({...form,source:e.target.value})}>{SOURCE_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
-          <div><label style={labelStyle}>Go-Live Date</label><input type="date" style={inputStyle} value={form.go_live_date||""} onChange={(e)=>setForm({...form,go_live_date:e.target.value})} /></div>
-          <div><label style={labelStyle}>Last Action</label><input type="date" style={inputStyle} value={form.last_action_at||""} onChange={(e)=>setForm({...form,last_action_at:e.target.value})} /></div>
+          <div>
+            <label style={labelStyle}>First Name *</label>
+            <input style={inputStyle} value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" />
+          </div>
+          <div>
+            <label style={labelStyle}>Last Name</label>
+            <input style={inputStyle} value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Smith" />
+          </div>
+          <div>
+            <label style={labelStyle}>Company</label>
+            <input style={inputStyle} value={form.company||""} onChange={e=>setForm({...form,company:e.target.value})} placeholder="Acme Corp" />
+          </div>
+          <div>
+            <label style={labelStyle}>Email</label>
+            <input style={inputStyle} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})} placeholder="jane@company.com" />
+          </div>
+          <div>
+            <label style={labelStyle}>Phone</label>
+            <input style={inputStyle} value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})} placeholder="+1 (305) 000-0000" />
+          </div>
+          <div>
+            <label style={labelStyle}>Lead Type</label>
+            <select style={inputStyle} value={form.type||"Unknown"} onChange={e=>setForm({...form,type:e.target.value})}>
+              {TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Urgency</label>
+            <select style={inputStyle} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>
+              {["Hot","Warm","Cold"].map(u=><option key={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Package</label>
+            <select style={inputStyle} value={form.package||""} onChange={e=>setForm({...form,package:e.target.value})}>
+              <option value="">Not selected</option>
+              {PACKAGE_OPTIONS.map(p=><option key={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Source</label>
+            <select style={inputStyle} value={form.source||"Website"} onChange={e=>setForm({...form,source:e.target.value})}>
+              {SOURCE_OPTIONS.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Go-Live Date</label>
+            <input type="date" style={inputStyle} value={form.go_live_date||""} onChange={e=>setForm({...form,go_live_date:e.target.value})} />
+          </div>
+          <div>
+            <label style={labelStyle}>Last Action</label>
+            <input type="date" style={inputStyle} value={form.last_action_at||""} onChange={e=>setForm({...form,last_action_at:e.target.value})} />
+          </div>
         </div>
 
+        {/* Notes */}
         <div style={{ marginBottom: "14px" }}>
           <label style={labelStyle}>Notes</label>
-          <textarea style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }} value={form.notes||""} onChange={(e)=>setForm({...form,notes:e.target.value})} />
+          <textarea style={{ ...inputStyle, minHeight: "80px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
         </div>
 
+        {/* Quick actions */}
         <div style={{ marginBottom: "20px" }}>
           <label style={labelStyle}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
@@ -145,6 +234,7 @@ function Modal({ lead, onClose, onSave, onDelete }) {
           </div>
         </div>
 
+        {/* AI Advisor */}
         <div style={{ background:"rgba(99,102,241,0.08)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:"10px", padding:"16px", marginBottom:"20px" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
             <span style={{ fontSize:"12px", fontWeight:700, color:"#a5b4fc", letterSpacing:"0.05em" }}>⚡ AI SALES ADVISOR</span>
@@ -157,12 +247,24 @@ function Modal({ lead, onClose, onSave, onDelete }) {
             : <div style={{ fontSize:"12px", color:"#475569" }}>Click to get AI-powered next actions for this lead.</div>}
         </div>
 
+        {/* Error */}
+        {saveError && (
+          <div style={{ background:"rgba(239,68,68,0.1)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:"8px", padding:"10px 14px", marginBottom:"14px", color:"#ef4444", fontSize:"13px" }}>
+            {saveError}
+          </div>
+        )}
+
+        {/* Buttons */}
         <div style={{ display:"flex", gap:"10px" }}>
           <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:"12px", borderRadius:"8px", background:saving?"rgba(99,102,241,0.5)":"#6366f1", color:"#fff", fontWeight:700, fontSize:"14px", border:"none", cursor:"pointer" }}>
             {saving ? "Saving..." : "Save Lead"}
           </button>
           {lead.id && !String(lead.id).startsWith("new_") && (
-            <button onClick={()=>onDelete(lead.id)} style={{ padding:"12px 16px", borderRadius:"8px", background:"rgba(239,68,68,0.1)", color:"#ef4444", fontWeight:600, fontSize:"13px", border:"1px solid rgba(239,68,68,0.2)", cursor:"pointer" }}>Delete</button>
+            <button onClick={async () => {
+              if (!window.confirm("Delete this lead?")) return;
+              await supabase.from("leads").delete().eq("id", lead.id);
+              onSave();
+            }} style={{ padding:"12px 16px", borderRadius:"8px", background:"rgba(239,68,68,0.1)", color:"#ef4444", fontWeight:600, fontSize:"13px", border:"1px solid rgba(239,68,68,0.2)", cursor:"pointer" }}>Delete</button>
           )}
           <button onClick={onClose} style={{ padding:"12px 16px", borderRadius:"8px", background:"rgba(255,255,255,0.05)", color:"#94a3b8", fontWeight:600, fontSize:"14px", border:"1px solid rgba(255,255,255,0.08)", cursor:"pointer" }}>Cancel</button>
         </div>
@@ -172,16 +274,17 @@ function Modal({ lead, onClose, onSave, onDelete }) {
 }
 
 export default function PipelineDashboard() {
-  const [leads, setLeads]             = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [selected, setSelected]       = useState(null);
-  const [filterType, setFilterType]   = useState("All");
-  const [search, setSearch]           = useState("");
-  const [lastSync, setLastSync]       = useState(null);
-  const [liveFlash, setLiveFlash]     = useState(false);
+  const [leads, setLeads]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [selected, setSelected]     = useState(null);
+  const [filterType, setFilterType] = useState("All");
+  const [search, setSearch]         = useState("");
+  const [lastSync, setLastSync]     = useState(null);
+  const [liveFlash, setLiveFlash]   = useState(false);
 
   const fetchLeads = async () => {
-    const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    if (error) console.error("Fetch error:", error);
     setLeads(data || []);
     setLastSync(new Date());
     setLoading(false);
@@ -200,22 +303,6 @@ export default function PipelineDashboard() {
       }).subscribe();
     return () => supabase.removeChannel(channel);
   }, []);
-
-  const handleSave = async (updated) => {
-    if (updated.id && !String(updated.id).startsWith("new_")) {
-      await supabase.from("leads").update(updated).eq("id", updated.id);
-    } else {
-      const { id, ...rest } = updated;
-      await supabase.from("leads").insert(rest);
-    }
-    setSelected(null);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this lead?")) return;
-    await supabase.from("leads").delete().eq("id", id);
-    setSelected(null);
-  };
 
   const newLead = {
     id: `new_${Date.now()}`, name:"", company:"", email:"", phone:"",
@@ -309,7 +396,14 @@ export default function PipelineDashboard() {
         </div>
       )}
 
-      {selected && <Modal lead={selected} onClose={()=>setSelected(null)} onSave={handleSave} onDelete={handleDelete} />}
+      {selected && (
+        <Modal
+          lead={selected}
+          onClose={() => setSelected(null)}
+          onSave={() => { setSelected(null); fetchLeads(); }}
+          onDelete={() => { setSelected(null); fetchLeads(); }}
+        />
+      )}
     </div>
   );
 }
