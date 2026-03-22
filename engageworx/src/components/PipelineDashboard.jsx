@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from '../supabaseClient';
-import { useState, useEffect } from "react";
-import { supabase } from '../supabaseClient';
 
 const STAGES = [
 
