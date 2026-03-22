@@ -40,7 +40,6 @@ function LeadCard({ lead, onSelect }) {
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
   const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#64748b" }[lead.urgency] || "#64748b";
-
   return (
     <div onClick={() => onSelect(lead)}
       style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${stale ? "#ef4444" : "rgba(255,255,255,0.08)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
@@ -51,7 +50,7 @@ function LeadCard({ lead, onSelect }) {
       <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{lead.company || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
-        {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥",Warm:"⚡",Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
+        {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥", Warm:"⚡", Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
       </div>
     </div>
@@ -59,27 +58,32 @@ function LeadCard({ lead, onSelect }) {
 }
 
 function Modal({ lead, onClose, onSave, onDelete }) {
-  const [form, setForm]     = useState({ ...lead });
+  const [form, setForm]           = useState({ ...lead });
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiText, setAiText] = useState(lead.ai_next_action || "");
-  const [saving, setSaving] = useState(false);
+  const [aiText, setAiText]       = useState(lead.ai_next_action || "");
+  const [saving, setSaving]       = useState(false);
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
 
   const handleAI = async () => {
-    setAiLoading(true); setAiText("");
+    setAiLoading(true);
+    setAiText("");
     try {
-      // Call via proxy to avoid CORS — /api/ai-advisor routes through Vercel serverless
       const res = await fetch("/api/ai-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           max_tokens: 1000,
-          messages: [{ role: "user", content: `You are a sharp B2B sales advisor for EngageWorx — AI-powered omnichannel comms platform (SMS, WhatsApp, Email, Voice, RCS). Pricing: Starter $99, Growth $249, Pro $499, Enterprise.\n\nLead: ${form.name} at ${form.company || "unknown"}\nType: ${form.type} | Stage: ${stage.label} | Urgency: ${form.urgency}\nPackage: ${form.package || "not selected"} | Days stale: ${daysSince(form.last_action_at) ?? "unknown"}\nNotes: ${form.notes || "none"}\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff.` }],
+          messages: [{
+            role: "user",
+            content: `You are a sharp B2B sales advisor for EngageWorx — AI-powered omnichannel comms platform (SMS, WhatsApp, Email, Voice, RCS). Pricing: Starter $99, Growth $249, Pro $499, Enterprise.\n\nLead: ${form.name} at ${form.company || "unknown"}\nType: ${form.type} | Stage: ${stage.label} | Urgency: ${form.urgency}\nPackage: ${form.package || "not selected"} | Days stale: ${daysSince(form.last_action_at) ?? "unknown"}\nNotes: ${form.notes || "none"}\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff.`
+          }],
         }),
       });
       const data = await res.json();
       setAiText(data.content?.find((b) => b.type === "text")?.text || "No suggestion.");
-    } catch { setAiText("Error reaching AI. Try again."); }
+    } catch {
+      setAiText("Error reaching AI. Try again.");
+    }
     setAiLoading(false);
   };
 
@@ -133,34 +137,34 @@ function Modal({ lead, onClose, onSave, onDelete }) {
           <label style={labelStyle}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
             {(NEXT_ACTIONS[form.stage]||[]).map(a=>(
-              <button key={a} onClick={()=>setForm({...form,notes:(form.notes?form.notes+"\n":"")+`→ ${a}`,last_action_at:new Date().toISOString().split("T")[0]})}
-                style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",cursor:"pointer",background:"rgba(99,102,241,0.1)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)" }}>
+              <button key={a} onClick={()=>setForm({...form, notes:(form.notes?form.notes+"\n":"")+`→ ${a}`, last_action_at:new Date().toISOString().split("T")[0]})}
+                style={{ padding:"5px 10px", borderRadius:"5px", fontSize:"11px", cursor:"pointer", background:"rgba(99,102,241,0.1)", color:"#a5b4fc", border:"1px solid rgba(99,102,241,0.2)" }}>
                 + {a}
               </button>
             ))}
           </div>
         </div>
 
-        <div style={{ background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"20px" }}>
-          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px" }}>
-            <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc",letterSpacing:"0.05em" }}>⚡ AI SALES ADVISOR</span>
-            <button onClick={handleAI} disabled={aiLoading} style={{ padding:"6px 14px",borderRadius:"6px",fontSize:"12px",fontWeight:700,cursor:aiLoading?"wait":"pointer",background:aiLoading?"rgba(99,102,241,0.3)":"#6366f1",color:"#fff",border:"none" }}>
-              {aiLoading?"Thinking...":"Get Next Actions"}
+        <div style={{ background:"rgba(99,102,241,0.08)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:"10px", padding:"16px", marginBottom:"20px" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+            <span style={{ fontSize:"12px", fontWeight:700, color:"#a5b4fc", letterSpacing:"0.05em" }}>⚡ AI SALES ADVISOR</span>
+            <button onClick={handleAI} disabled={aiLoading} style={{ padding:"6px 14px", borderRadius:"6px", fontSize:"12px", fontWeight:700, cursor:aiLoading?"wait":"pointer", background:aiLoading?"rgba(99,102,241,0.3)":"#6366f1", color:"#fff", border:"none" }}>
+              {aiLoading ? "Thinking..." : "Get Next Actions"}
             </button>
           </div>
           {aiText
-            ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
-            : <div style={{ fontSize:"12px",color:"#475569" }}>Click to get AI-powered next actions for this lead.</div>}
+            ? <div style={{ fontSize:"13px", color:"#cbd5e1", lineHeight:1.7, whiteSpace:"pre-wrap" }}>{aiText}</div>
+            : <div style={{ fontSize:"12px", color:"#475569" }}>Click to get AI-powered next actions for this lead.</div>}
         </div>
 
-        <div style={{ display:"flex",gap:"10px" }}>
-          <button onClick={handleSave} disabled={saving} style={{ flex:1,padding:"12px",borderRadius:"8px",background:saving?"rgba(99,102,241,0.5)":"#6366f1",color:"#fff",fontWeight:700,fontSize:"14px",border:"none",cursor:"pointer" }}>
-            {saving?"Saving...":"Save Lead"}
+        <div style={{ display:"flex", gap:"10px" }}>
+          <button onClick={handleSave} disabled={saving} style={{ flex:1, padding:"12px", borderRadius:"8px", background:saving?"rgba(99,102,241,0.5)":"#6366f1", color:"#fff", fontWeight:700, fontSize:"14px", border:"none", cursor:"pointer" }}>
+            {saving ? "Saving..." : "Save Lead"}
           </button>
           {lead.id && !String(lead.id).startsWith("new_") && (
-            <button onClick={()=>onDelete(lead.id)} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(239,68,68,0.1)",color:"#ef4444",fontWeight:600,fontSize:"13px",border:"1px solid rgba(239,68,68,0.2)",cursor:"pointer" }}>Delete</button>
+            <button onClick={()=>onDelete(lead.id)} style={{ padding:"12px 16px", borderRadius:"8px", background:"rgba(239,68,68,0.1)", color:"#ef4444", fontWeight:600, fontSize:"13px", border:"1px solid rgba(239,68,68,0.2)", cursor:"pointer" }}>Delete</button>
           )}
-          <button onClick={onClose} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",color:"#94a3b8",fontWeight:600,fontSize:"14px",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer" }}>Cancel</button>
+          <button onClick={onClose} style={{ padding:"12px 16px", borderRadius:"8px", background:"rgba(255,255,255,0.05)", color:"#94a3b8", fontWeight:600, fontSize:"14px", border:"1px solid rgba(255,255,255,0.08)", cursor:"pointer" }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -168,13 +172,13 @@ function Modal({ lead, onClose, onSave, onDelete }) {
 }
 
 export default function PipelineDashboard() {
-  const [leads, setLeads]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [filterType, setFilterType] = useState("All");
-  const [search, setSearch]     = useState("");
-  const [lastSync, setLastSync] = useState(null);
-  const [liveFlash, setLiveFlash] = useState(false);
+  const [leads, setLeads]             = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [selected, setSelected]       = useState(null);
+  const [filterType, setFilterType]   = useState("All");
+  const [search, setSearch]           = useState("");
+  const [lastSync, setLastSync]       = useState(null);
+  const [liveFlash, setLiveFlash]     = useState(false);
 
   const fetchLeads = async () => {
     const { data } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -213,7 +217,12 @@ export default function PipelineDashboard() {
     setSelected(null);
   };
 
-  const newLead = { id: `new_${Date.now()}`, name:"", company:"", email:"", phone:"", type:"Unknown", urgency:"Warm", stage:"inquiry", package:"", go_live_date:"", notes:"", source:"Website", last_action_at: new Date().toISOString().split("T")[0] };
+  const newLead = {
+    id: `new_${Date.now()}`, name:"", company:"", email:"", phone:"",
+    type:"Unknown", urgency:"Warm", stage:"inquiry", package:"",
+    go_live_date:"", notes:"", source:"Website",
+    last_action_at: new Date().toISOString().split("T")[0],
+  };
 
   const filtered = leads.filter(l => {
     const mt = filterType === "All" || l.type === filterType;
@@ -221,7 +230,7 @@ export default function PipelineDashboard() {
     return mt && ms;
   });
 
-  const pipeline = leads.filter(l => l.stage !== "customer").length;
+  const pipeline  = leads.filter(l => l.stage !== "customer").length;
   const customers = leads.filter(l => l.stage === "customer").length;
   const hot       = leads.filter(l => l.urgency === "Hot").length;
   const stale     = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS).length;
@@ -239,51 +248,60 @@ export default function PipelineDashboard() {
       <div style={{ padding:"24px 28px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"20px" }}>
           <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
-            <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
-            <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>EngageWorx</span>
-            <span style={{ fontSize:"11px",color:"#475569",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
-            <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
-              <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",animation:liveFlash?"pulse 0.8s infinite":"none",transition:"background 0.3s" }} />
-              <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"● LIVE UPDATE":lastSync?`synced ${lastSync.toLocaleTimeString()}`:"connecting..."}</span>
+            <div style={{ width:"34px", height:"34px", background:"linear-gradient(135deg,#6366f1,#ec4899)", borderRadius:"9px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"17px" }}>⚡</div>
+            <span style={{ fontSize:"17px", fontWeight:800, letterSpacing:"-0.02em" }}>EngageWorx</span>
+            <span style={{ fontSize:"11px", color:"#475569", fontFamily:"DM Mono", background:"rgba(255,255,255,0.04)", padding:"2px 8px", borderRadius:"4px", border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
+            <div style={{ display:"flex", alignItems:"center", gap:"5px" }}>
+              <div style={{ width:"7px", height:"7px", borderRadius:"50%", background:liveFlash?"#10b981":"#1e293b", animation:liveFlash?"pulse 0.8s infinite":"none", transition:"background 0.3s" }} />
+              <span style={{ fontSize:"10px", color:"#334155", fontFamily:"DM Mono" }}>
+                {liveFlash ? "● LIVE UPDATE" : lastSync ? `synced ${lastSync.toLocaleTimeString()}` : "connecting..."}
+              </span>
             </div>
           </div>
-          <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>
+          <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px", background:"linear-gradient(135deg,#6366f1,#8b5cf6)", border:"none", borderRadius:"8px", color:"#fff", fontWeight:700, fontSize:"13px", cursor:"pointer" }}>+ Add Lead</button>
         </div>
 
-        <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
-          {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"}].map(k=>(
+        <div style={{ display:"flex", gap:"28px", marginBottom:"18px" }}>
+          {[
+            {l:"Pipeline",     v:pipeline,  c:"#6366f1"},
+            {l:"Customers",    v:customers, c:"#10b981"},
+            {l:"Hot Leads",    v:hot,       c:hot>0?"#ef4444":"#334155"},
+            {l:"Needs Action", v:stale,     c:stale>0?"#f59e0b":"#334155"},
+          ].map(k=>(
             <div key={k.l}>
-              <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
-              <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
+              <div style={{ fontSize:"28px", fontWeight:800, color:k.c, fontFamily:"DM Mono", lineHeight:1 }}>{loading?"—":k.v}</div>
+              <div style={{ fontSize:"10px", color:"#475569", fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", marginTop:"3px" }}>{k.l}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
-          <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"180px",marginTop:0,padding:"7px 11px" }} />
+        <div style={{ display:"flex", gap:"8px", alignItems:"center", paddingBottom:"16px", flexWrap:"wrap" }}>
+          <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}
+            style={{ ...inputStyle, width:"180px", marginTop:0, padding:"7px 11px" }} />
           {["All",...TYPE_OPTIONS].map(t=>(
-            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
+            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px", borderRadius:"6px", fontSize:"12px", fontWeight:600, cursor:"pointer", border:"1px solid rgba(255,255,255,0.08)", background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)", color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
           ))}
         </div>
       </div>
 
       {loading ? (
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting to Supabase...</div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"300px", color:"#334155", fontSize:"14px" }}>Connecting to Supabase...</div>
       ) : (
-        <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 230px)" }}>
-          {STAGES.map(stage=>{
-            const sl = filtered.filter(l=>l.stage===stage.id);
+        <div style={{ display:"flex", overflowX:"auto", padding:"20px 16px", gap:"12px", minHeight:"calc(100vh - 230px)" }}>
+          {STAGES.map(stage => {
+            const sl = filtered.filter(l => l.stage === stage.id);
             return (
-              <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
-                  <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
-                  <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
-                  <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
+              <div key={stage.id} style={{ minWidth:"220px", maxWidth:"220px", flexShrink:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"7px", marginBottom:"12px", padding:"0 4px" }}>
+                  <div style={{ width:"8px", height:"8px", borderRadius:"50%", background:stage.color }} />
+                  <span style={{ fontSize:"11px", fontWeight:700, color:"#64748b", letterSpacing:"0.06em", textTransform:"uppercase" }}>{stage.label}</span>
+                  <span style={{ marginLeft:"auto", fontSize:"11px", fontFamily:"DM Mono", color:"#334155", background:"rgba(255,255,255,0.04)", padding:"1px 6px", borderRadius:"4px" }}>{sl.length}</span>
                 </div>
-                <div style={{ background:"rgba(255,255,255,0.02)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid rgba(255,255,255,0.04)" }}>
-                  {sl.length===0
-                    ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
-                    : sl.map(lead=><LeadCard key={lead.id} lead={lead} onSelect={setSelected} />)}
+                <div style={{ background:"rgba(255,255,255,0.02)", borderRadius:"10px", padding:"10px", minHeight:"80px", border:"1px solid rgba(255,255,255,0.04)" }}>
+                  {sl.length === 0
+                    ? <div style={{ textAlign:"center", padding:"16px 0", fontSize:"11px", color:"#1e293b" }}>Empty</div>
+                    : sl.map(lead => <LeadCard key={lead.id} lead={lead} onSelect={setSelected} />)
+                  }
                 </div>
               </div>
             );
