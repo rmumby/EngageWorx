@@ -202,8 +202,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       return;
     }
     try {
-      const { error } = await supabase.from('contacts').insert({
-        tenant_id: currentTenantId,
+      // Look up real tenant UUID — currentTenantId may be a slug or UUID
+      let tenantUUID = null;
+      const { data: tenantRow } = await supabase
+        .from("tenants").select("id")
+        .or(`id.eq.${currentTenantId},slug.eq.${currentTenantId}`)
+        .maybeSingle();
+      if (tenantRow) tenantUUID = tenantRow.id;
+
+      const { error } = await supabase.from("contacts").insert({
         first_name: newContact.firstName,
         last_name: newContact.lastName,
         email: newContact.email,
@@ -213,6 +220,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         channel_preference: newContact.channel_preference,
         tags: [],
         source: 'manual',
+        tenant_id: tenantUUID,
       });
       if (error) throw error;
       // Refresh contacts
