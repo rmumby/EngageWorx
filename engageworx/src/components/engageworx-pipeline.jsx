@@ -73,11 +73,12 @@ function Modal({ lead, onClose, onSave, onDelete }) {
   const handleAI = async () => {
     setAiLoading(true); setAiText("");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      // Call via proxy to avoid CORS — /api/ai-advisor routes through Vercel serverless
+      const res = await fetch("/api/ai-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
+          max_tokens: 1000,
           messages: [{ role: "user", content: `You are a sharp B2B sales advisor for EngageWorx — AI-powered omnichannel comms platform (SMS, WhatsApp, Email, Voice, RCS). Pricing: Starter $99, Growth $249, Pro $499, Enterprise.\n\nLead: ${form.name} at ${form.company || "unknown"}\nType: ${form.type} | Stage: ${stage.label} | Urgency: ${form.urgency}\nPackage: ${form.package || "not selected"} | Days stale: ${daysSince(form.last_action_at) ?? "unknown"}\nNotes: ${form.notes || "none"}\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff.` }],
         }),
       });
@@ -217,7 +218,7 @@ export default function PipelineDashboard() {
     setSelected(null);
   };
 
-  const newLead = { id: `new_${Date.now()}`, name:"", company:"", email:"", phone:"", type:"Unknown", urgency:"Warm", stage:"inquiry", package:"", go_live_date:"", notes:"", source:"LinkedIn", last_action_at: new Date().toISOString().split("T")[0] };
+  const newLead = { id: `new_${Date.now()}`, name:"", company:"", email:"", phone:"", type:"Unknown", urgency:"Warm", stage:"inquiry", package:"", go_live_date:"", notes:"", source:"Website", last_action_at: new Date().toISOString().split("T")[0] };
 
   const filtered = leads.filter(l => {
     const mt = filterType === "All" || l.type === filterType;
