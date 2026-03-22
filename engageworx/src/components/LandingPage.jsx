@@ -171,9 +171,9 @@ const LandingPage = () => {
           <li><span onClick={() => navigateTo('home')}>Home</span></li>
           <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
           <li><span onClick={() => navigateTo('about')}>About</span></li>
-          <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
-          <li><a href="/api-docs" style={{ color: '#E8F4FD' }}>API Docs</a></li>
-          <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
+          <li><a href="/blog">Blog</a></li>
+<li><a href="/api-docs">API Docs</a></li>
+<li><a href={PORTAL_URL} style={{ fontWeight: 600 }}>Login</a></li>
           <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
           <li><button className="lp-sub-cta" onClick={goToSignup}>Get Started Free</button></li>
         </ul>
@@ -600,9 +600,9 @@ const LandingPage = () => {
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
             <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
             <li><span onClick={() => navigateTo('about')}>About</span></li>
-            <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
-            <li><a href="/api-docs" style={{ color: '#E8F4FD' }}>API Docs</a></li>
-            <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
+           <li><a href="/blog">Blog</a></li>
+<li><a href="/api-docs">API Docs</a></li>
+<li><a href={PORTAL_URL} style={{ fontWeight: 600 }}>Login</a></li>
             <li><a href={PORTAL_URL} style={{ color: '#E8F4FD', fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
           </ul>
