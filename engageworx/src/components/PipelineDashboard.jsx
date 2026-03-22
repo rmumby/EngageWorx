@@ -2,8 +2,6 @@ import { useState, useEffect } from "react";
 import { supabase } from '../supabaseClient';
 
 const STAGES = [
-
-const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
   { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬" },
   { id: "sandbox_shared",    label: "Sandbox Shared",    color: "#a855f7", icon: "🧪" },
