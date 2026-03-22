@@ -570,7 +570,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
-                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
+                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : "#00C9FF", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
