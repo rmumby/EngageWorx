@@ -1,15 +1,13 @@
 // api/intake.js
 // EngageWorx lead intake — Vercel serverless function
-// Form POST → Claude classifies → Supabase insert → SMS alert to Rob
+// Form POST → Claude classifies → Supabase insert → Email alert to Rob via Resend
 //
 // ENV VARS (Vercel → Settings → Environment Variables):
 //   ANTHROPIC_API_KEY         — your Anthropic key
 //   SUPABASE_URL              — e.g. https://xxxx.supabase.co
-//   SUPABASE_SERVICE_KEY      — Settings → API → service_role key (not anon)
-//   TWILIO_ACCOUNT_SID        — Twilio account SID
-//   TWILIO_AUTH_TOKEN         — Twilio auth token
-//   TWILIO_FROM_NUMBER        — +17869827800
-//   ALERT_TO_NUMBER           — Rob's mobile in E.164 format
+//   SUPABASE_SERVICE_KEY      — service_role key
+//   RESEND_API_KEY            — your Resend API key
+//   ALERT_EMAIL               — email to send alerts to (defaults to rob@engwx.com)
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "https://engwx.com");
@@ -98,39 +96,74 @@ JSON structure:
     const sbData = await sbRes.json();
     const leadId = Array.isArray(sbData) ? sbData[0]?.id : sbData?.id;
 
-    // ── Step 3: SMS alert to Rob ────────────────────────────────────────────
-    if (process.env.TWILIO_ACCOUNT_SID && process.env.ALERT_TO_NUMBER) {
-      const emoji = { Hot: "🔥", Warm: "⚡", Cold: "❄️" }[classification.urgency] || "📥";
-      const smsBody = [
-        `${emoji} New EngageWorx Lead`,
-        `${name}${company ? ` · ${company}` : ""}`,
-        `${classification.type} · ${classification.urgency}`,
-        `→ ${classification.next_action}`,
-        email,
-      ].join("\n");
+    // ── Step 3: Email alert to Rob via Resend ───────────────────────────────
+    const urgencyEmoji = { Hot: "🔥", Warm: "⚡", Cold: "❄️" }[classification.urgency] || "📥";
+    const alertTo = process.env.ALERT_EMAIL || "rob@engwx.com";
 
-      const twilioAuth = Buffer.from(
-        `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
-      ).toString("base64");
+    try {
+      await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: "EngageWorx Pipeline <hello@engwx.com>",
+          to: [alertTo],
+          subject: `${urgencyEmoji} New Lead: ${name}${company ? ` · ${company}` : ""} [${classification.urgency}]`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #070d1a; color: #f1f5f9; border-radius: 12px; overflow: hidden;">
 
-      await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Authorization: `Basic ${twilioAuth}`,
-          },
-          body: new URLSearchParams({
-            From: process.env.TWILIO_FROM_NUMBER,
-            To: process.env.ALERT_TO_NUMBER,
-            Body: smsBody,
-          }),
-        }
-      );
+              <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 24px 32px;">
+                <div style="font-size: 22px; font-weight: 800;">⚡ EngageWorx Pipeline</div>
+                <div style="font-size: 13px; opacity: 0.85; margin-top: 4px;">New inbound lead — action required</div>
+              </div>
+
+              <div style="padding: 28px 32px;">
+                <div style="font-size: 24px; font-weight: 800; margin-bottom: 4px;">${name}</div>
+                <div style="font-size: 15px; color: #94a3b8; margin-bottom: 20px;">${company || "No company"} &middot; ${email}${phone ? ` &middot; ${phone}` : ""}</div>
+
+                <div style="margin-bottom: 24px;">
+                  <span style="background: rgba(99,102,241,0.2); color: #a5b4fc; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-right: 6px;">${classification.type}</span>
+                  <span style="background: rgba(245,158,11,0.2); color: #fcd34d; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-right: 6px;">${urgencyEmoji} ${classification.urgency}</span>
+                  ${classification.package !== "Unknown" ? `<span style="background: rgba(245,158,11,0.15); color: #fcd34d; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-right: 6px;">${classification.package}</span>` : ""}
+                  <span style="background: rgba(255,255,255,0.06); color: #64748b; border-radius: 6px; padding: 4px 12px; font-size: 12px;">via ${source}</span>
+                </div>
+
+                <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">💡 AI Summary</div>
+                  <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">${classification.summary}</div>
+                </div>
+
+                <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">⚡ Recommended Next Action</div>
+                  <div style="font-size: 14px; color: #cbd5e1; line-height: 1.6;">&rarr; ${classification.next_action}</div>
+                </div>
+
+                ${message ? `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px 20px; margin-bottom: 24px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">📝 Their Message</div>
+                  <div style="font-size: 13px; color: #94a3b8; line-height: 1.6;">${message}</div>
+                </div>` : ""}
+
+                <a href="https://portal.engwx.com" style="display: block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; text-decoration: none; text-align: center; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px;">
+                  View in Pipeline Dashboard &rarr;
+                </a>
+              </div>
+
+              <div style="padding: 16px 32px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #334155; text-align: center;">
+                EngageWorx Pipeline &middot; engwx.com &middot; Lead ID: ${leadId || "pending"}
+              </div>
+            </div>
+          `,
+        }),
+      });
+    } catch (emailErr) {
+      console.warn("Email alert failed:", emailErr.message);
     }
 
     return res.status(200).json({ success: true, lead_id: leadId, classification });
+
   } catch (err) {
     console.error("Intake error:", err);
     return res.status(500).json({ error: "Internal server error" });
