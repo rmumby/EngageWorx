@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from '../supabaseClient';
-  process.env.REACT_APP_SUPABASE_URL || "",
-  process.env.REACT_APP_SUPABASE_ANON_KEY || ""
-);
+import { useState, useEffect } from "react";
+import { supabase } from '../supabaseClient';
+
+const STAGES = [
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
