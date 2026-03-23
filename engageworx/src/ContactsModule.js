@@ -5,8 +5,8 @@ const TAGS = ["VIP", "New", "Active", "Inactive", "Churned", "Lead", "Prospect",
 const TAG_COLORS = { VIP: "#FFD600", New: "#00E676", Active: "#00C9FF", Inactive: "#FF9800", Churned: "#FF3B30", Lead: "#E040FB", Prospect: "#7C4DFF", Enterprise: "#FF6B35", SMB: "#6B8BAE", Newsletter: "#25D366" };
 const CHANNELS = ["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"];
 const CHANNEL_ICONS = { SMS: "💬", Email: "📧", WhatsApp: "📱", RCS: "✨", MMS: "📷", Voice: "📞" };
-const STATUSES = ["subscribed", "unsubscribed", "bounced", "pending"];
-const STATUS_COLORS = { subscribed: "#00E676", unsubscribed: "#FF3B30", bounced: "#FF9800", pending: "#6B8BAE" };
+const STATUSES = ["active", "unsubscribed", "bounced", "blocked"];
+const STATUS_COLORS = { active: "#00E676", unsubscribed: "#FF3B30", bounced: "#FF9800", blocked: "#6B8BAE" };
 
 const FIRST_NAMES = ["Sarah", "James", "Maria", "Alex", "Emma", "David", "Sophia", "Michael", "Olivia", "Daniel", "Isabella", "Ethan", "Ava", "Ryan", "Mia", "Chris", "Luna", "Marcus", "Zara", "Nathan", "Priya", "Kevin", "Rachel", "Tom", "Grace", "Leo", "Nora", "Ben", "Chloe", "Sam", "Aisha", "Tyler", "Maya", "Jake", "Lily", "Omar", "Hannah", "Evan", "Ella", "Noah"];
 const LAST_NAMES = ["Johnson", "Chen", "Rodriguez", "Williams", "Patel", "Kim", "Murphy", "Garcia", "Anderson", "Taylor", "Thomas", "Brown", "Martinez", "Wilson", "Lee", "Jackson", "White", "Harris", "Clark", "Lewis", "Young", "King", "Wright", "Lopez", "Hill", "Scott", "Green", "Adams", "Baker", "Hall"];
@@ -74,15 +74,15 @@ function generateActivity(contact) {
 
 const SEGMENTS = [
   { id: "all", name: "All Contacts", icon: "👥", desc: "Every contact in your database", filter: () => true },
-  { id: "subscribed", name: "Subscribed", icon: "✅", desc: "Active subscribers", filter: c => c.status === "subscribed" },
+  { id: "active", name: "Active", icon: "✅", desc: "Active contacts", filter: c => c.status === "active" },
   { id: "vip", name: "VIP Customers", icon: "⭐", desc: "Tagged as VIP", filter: c => c.tags.includes("VIP") },
   { id: "new30", name: "New (30 days)", icon: "🆕", desc: "Joined in the last 30 days", filter: c => (Date.now() - c.created) < 30 * 86400000 },
   { id: "inactive", name: "Inactive 30+ Days", icon: "😴", desc: "No activity in 30+ days", filter: c => (Date.now() - c.lastActive) > 30 * 86400000 },
   { id: "highvalue", name: "High Value", icon: "💎", desc: "LTV over $1,000", filter: c => c.ltv > 1000 },
   { id: "enterprise", name: "Enterprise", icon: "🏢", desc: "Tagged as Enterprise", filter: c => c.tags.includes("Enterprise") },
   { id: "unsubscribed", name: "Unsubscribed", icon: "🚫", desc: "Opted out", filter: c => c.status === "unsubscribed" },
-  { id: "sms_only", name: "SMS Subscribers", icon: "💬", desc: "Subscribed to SMS channel", filter: c => c.channels.includes("SMS") && c.status === "subscribed" },
-  { id: "email_only", name: "Email Subscribers", icon: "📧", desc: "Subscribed to Email channel", filter: c => c.channels.includes("Email") && c.status === "subscribed" },
+  { id: "sms_only", name: "SMS Subscribers", icon: "💬", desc: "Active SMS contacts", filter: c => c.channels.includes("SMS") && c.status === "active" },
+{ id: "email_only", name: "Email Subscribers", icon: "📧", desc: "Active Email contacts", filter: c => c.channels.includes("Email") && c.status === "active" },
 ];
 
 const CRM_INTEGRATIONS = [
@@ -136,7 +136,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [showImport, setShowImport] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
-  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
+  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
