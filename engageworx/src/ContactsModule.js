@@ -136,7 +136,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [showImport, setShowImport] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
-  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+  const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
@@ -177,7 +177,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         messagesSent: 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0,
         city: "", state: "", notes: "", customFields: {},
       }, ...prev]);
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
       return;
     }
@@ -200,7 +200,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         .order('created_at', { ascending: false });
       if (fetchError) throw fetchError;
       setContacts((data || []).map(mapContact));
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
     } catch (err) {
       console.error('Add contact error:', err);
@@ -480,7 +480,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Add Contact</h3>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label><input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} /></div>
