@@ -205,11 +205,18 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     try {
       // Look up real tenant UUID — currentTenantId may be a slug or UUID
       let tenantUUID = null;
-      const { data: tenantRow } = await supabase
-        .from("tenants").select("id")
-        .or(`id.eq.${currentTenantId},slug.eq.${currentTenantId}`)
-        .maybeSingle();
-      if (tenantRow) tenantUUID = tenantRow.id;
+      // Try as UUID first
+      const { data: byId } = await supabase
+        .from("tenants").select("id").eq("id", currentTenantId).maybeSingle();
+      if (byId) {
+        tenantUUID = byId.id;
+      } else {
+        // Fall back to slug lookup
+        const { data: bySlug } = await supabase
+          .from("tenants").select("id").eq("slug", currentTenantId).maybeSingle();
+        if (bySlug) tenantUUID = bySlug.id;
+      }
+      console.log('tenantUUID resolved:', tenantUUID, 'from:', currentTenantId);
 
       const { error } = await supabase.from("contacts").insert({
         first_name: newContact.firstName,
@@ -614,7 +621,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Add Contact</h3>
-                <button onClick={() => setShowAddContact(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={() => { 
+  setShowAddContact(false); 
+  setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" }); 
+}}>Cancel</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div>
