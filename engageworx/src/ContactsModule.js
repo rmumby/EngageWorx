@@ -170,65 +170,58 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   }, [demoMode, currentTenantId, viewLevel]);
 
   // Add contact
-  const handleAddContact = async () => {
-    if (!newContact.firstName || !newContact.phone) return;
-    if (demoMode) {
-      // Add to local state in demo mode
-      const demoContact = {
-        id: "ct_" + Date.now(),
-        firstName: newContact.firstName,
-        lastName: newContact.lastName,
-        email: newContact.email,
-        phone: newContact.phone,
-        company: newContact.company,
-        status: newContact.status || "subscribed",
-        tags: [],
-        channels: [newContact.channel_preference || "SMS"],
-        created: new Date(),
-        lastActive: new Date(),
-        messagesSent: 0,
-        messagesReceived: 0,
-        openRate: 0,
-        clickRate: 0,
-        ltv: 0,
-        city: "",
-        state: "",
-        notes: "",
-        customFields: {},
-      };
-      setContacts(prev => [demoContact, ...prev]);
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
-      setShowAddContact(false);
-      return;
-    }
-    try {
+  try {
       const { error } = await supabase.from('contacts').insert({
         tenant_id: currentTenantId,
         first_name: newContact.firstName,
         last_name: newContact.lastName,
-        email: newContact.email,
+        email: newContact.email || null,
         phone: newContact.phone,
-        company: newContact.company,
+        company: newContact.company || null,
         status: newContact.status,
         channel_preference: newContact.channel_preference,
         source: 'manual',
       });
       if (error) throw error;
-      // Refresh contacts
-      const { data } = await supabase.from('contacts').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
+
+      // Refresh — use same tenant filter as fetch
+      const { data, error: fetchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('tenant_id', currentTenantId)
+        .order('created_at', { ascending: false });
+      
+      if (fetchError) throw fetchError;
+
       const mapped = (data || []).map(c => ({
-        id: c.id, firstName: c.first_name || '', lastName: c.last_name || '', email: c.email || '',
-        phone: c.phone || '', company: c.company || '', status: c.status || 'subscribed',
-        tags: c.tags || [], channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
-        created: new Date(c.created_at), lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
-        messagesSent: c.message_count || 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0,
-        city: '', state: '', notes: '', customFields: c.custom_fields || {}, tenant_id: c.tenant_id,
+        id: c.id,
+        firstName: c.first_name || '',
+        lastName: c.last_name || '',
+        email: c.email || '',
+        phone: c.phone || '',
+        company: c.company || '',
+        status: c.status || 'subscribed',
+        tags: c.tags || [],
+        channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
+        created: new Date(c.created_at),
+        lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
+        messagesSent: c.message_count || 0,
+        messagesReceived: 0,
+        openRate: 0,
+        clickRate: 0,
+        ltv: 0,
+        city: '',
+        state: '',
+        notes: '',
+        customFields: c.custom_fields || {},
+        tenant_id: c.tenant_id,
       }));
+
       setContacts(mapped);
       setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
-   } catch (err) {
-      console.warn('Add contact error:', err.message);
+    } catch (err) {
+      console.error('Add contact error:', err);
       alert('Save failed: ' + err.message);
     }
   };
