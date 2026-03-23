@@ -210,7 +210,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         .maybeSingle();
       if (tenantRow) tenantUUID = tenantRow.id;
 
-      const { error } = await supabase.from("contacts").insert({
+      const { error } = await supabase.from("contacts").insert({ ...formData, tenant_id: currentTenantUUID }),
         first_name: newContact.firstName,
         last_name: newContact.lastName,
         email: newContact.email,
