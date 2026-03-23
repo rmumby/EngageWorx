@@ -211,7 +211,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         company: newContact.company,
         status: newContact.status,
         channel_preference: newContact.channel_preference,
-        tags: [],
         source: 'manual',
       });
       if (error) throw error;
@@ -228,8 +227,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       setContacts(mapped);
       setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
-    } catch (err) {
+   } catch (err) {
       console.warn('Add contact error:', err.message);
+      alert('Save failed: ' + err.message);
     }
   };
 
