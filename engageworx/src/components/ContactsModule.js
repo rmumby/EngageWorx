@@ -196,6 +196,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         notes: "",
         customFields: {},
       };
+      console.log('DEMO MODE INTERCEPTED — demoMode value:', demoMode);
       setContacts(prev => [demoContact, ...prev]);
       setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
