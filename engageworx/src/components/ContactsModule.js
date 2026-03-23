@@ -171,7 +171,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Add contact
   const handleAddContact = async () => {
-    if (!newContact.firstName || !newContact.phone) { 
+    console.log('handleAddContact called, demoMode=', demoMode, 'currentTenantId=', currentTenantId);
+    if (!newContact.firstName || !newContact.phone) {
   alert('First name and phone number are required.'); 
   return; 
 }
