@@ -224,7 +224,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       });
       if (error) throw error;
       // Refresh contacts
-      const { data } = await supabase.from('contacts').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
+    const { data } = await supabase.from('contacts').select('*').eq('tenant_id', tenantUUID).order('created_at', { ascending: false });
       const mapped = (data || []).map(c => ({
         id: c.id, firstName: c.first_name || '', lastName: c.last_name || '', email: c.email || '',
         phone: c.phone || '', company: c.company || '', status: c.status || 'subscribed',
@@ -238,6 +238,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       setShowAddContact(false);
     } catch (err) {
       console.warn('Add contact error:', err.message);
+      alert('Save failed: ' + err.message);
     }
   };
 
