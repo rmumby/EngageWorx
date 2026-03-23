@@ -190,7 +190,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         phone: newContact.phone,
         company: newContact.company || null,
         status: newContact.status,
-        channel_preference: newContact.channel_preference,
+        channel_preference: newContact.channel_preference.toLowerCase(),
         source: 'manual',
       });
       if (error) throw error;
@@ -485,7 +485,33 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label><input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} /></div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Last Name</label><input value={newContact.lastName} onChange={e => setNewContact(p => ({ ...p, lastName: e.target.value }))} placeholder="Doe" style={inputStyle} /></div>
-                <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Phone *</label><input value={newContact.phone} onChange={e => setNewContact(p => ({ ...p, phone: e.target.value }))} placeholder="+15551234567" style={inputStyle} /></div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Phone *</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <select value={newContact.countryCode || "+1"} onChange={e => setNewContact(p => ({ ...p, countryCode: e.target.value }))}
+                      style={{ ...inputStyle, width: "110px", flexShrink: 0 }}>
+                      {[
+                        { code: "+1",   flag: "🇺🇸", label: "US/CA" },
+                        { code: "+44",  flag: "🇬🇧", label: "UK" },
+                        { code: "+61",  flag: "🇦🇺", label: "AU" },
+                        { code: "+55",  flag: "🇧🇷", label: "BR" },
+                        { code: "+52",  flag: "🇲🇽", label: "MX" },
+                        { code: "+91",  flag: "🇮🇳", label: "IN" },
+                        { code: "+971", flag: "🇦🇪", label: "UAE" },
+                        { code: "+27",  flag: "🇿🇦", label: "ZA" },
+                        { code: "+49",  flag: "🇩🇪", label: "DE" },
+                        { code: "+33",  flag: "🇫🇷", label: "FR" },
+                        { code: "+34",  flag: "🇪🇸", label: "ES" },
+                        { code: "+39",  flag: "🇮🇹", label: "IT" },
+                        { code: "+31",  flag: "🇳🇱", label: "NL" },
+                        { code: "+65",  flag: "🇸🇬", label: "SG" },
+                        { code: "+64",  flag: "🇳🇿", label: "NZ" },
+                      ].map(c => <option key={c.code} value={c.code}>{c.flag} {c.code} {c.label}</option>)}
+                    </select>
+                    <input value={newContact.phoneNumber || ""} onChange={e => setNewContact(p => ({ ...p, phoneNumber: e.target.value, phone: (p.countryCode || "+1") + e.target.value.replace(/\D/g, "") }))}
+                      placeholder="555 123 4567" style={{ ...inputStyle, flex: 1 }} />
+                  </div>
+                </div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Email</label><input value={newContact.email} onChange={e => setNewContact(p => ({ ...p, email: e.target.value }))} placeholder="john@example.com" style={inputStyle} /></div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Company</label><input value={newContact.company} onChange={e => setNewContact(p => ({ ...p, company: e.target.value }))} placeholder="Acme Inc" style={inputStyle} /></div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Channel</label><select value={newContact.channel_preference} onChange={e => setNewContact(p => ({ ...p, channel_preference: e.target.value }))} style={inputStyle}>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select></div>
