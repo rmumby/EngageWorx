@@ -14,12 +14,12 @@ function getSupabase() {
 
 async function sendSMS(to, body, from) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const authToken  = process.env.TWILIO_AUTH_TOKEN;
   const fromNumber = from || process.env.TWILIO_PHONE_NUMBER;
 
-  const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+  const auth   = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
   const params = new URLSearchParams();
-  params.append('To', to);
+  params.append('To',   to);
   params.append('From', fromNumber);
   params.append('Body', body);
 
@@ -29,7 +29,7 @@ async function sendSMS(to, body, from) {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type':  'application/x-www-form-urlencoded',
       },
       body: params.toString(),
     }
@@ -38,15 +38,91 @@ async function sendSMS(to, body, from) {
   return { data: await response.json(), ok: response.ok, status: response.status };
 }
 
+// ─── FIND OR CREATE CONTACT ────────────────────────────────────────────────
+// Looks up a contact by phone within a tenant; creates a minimal record if not found.
+async function findOrCreateContact(supabase, tenantId, phone) {
+  if (!tenantId) return null;
+  try {
+    const { data: existing } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .or(`phone.eq.${phone},mobile.eq.${phone}`)
+      .single();
+
+    if (existing?.id) return existing.id;
+
+    const { data: created } = await supabase
+      .from('contacts')
+      .insert({
+        tenant_id:  tenantId,
+        phone:      phone,
+        source:     'inbound_sms',
+        status:     'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    return created?.id || null;
+  } catch (err) {
+    console.error('[Contact] findOrCreate error:', err.message);
+    return null;
+  }
+}
+
+// ─── FIND OR CREATE CONVERSATION ──────────────────────────────────────────
+// Finds an open SMS conversation for this contact+tenant, or creates one.
+async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone) {
+  if (!tenantId || !contactId) return null;
+  try {
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('tenant_id',  tenantId)
+      .eq('channel',    'sms')
+      .eq('contact_id', contactId)
+      .in('status', ['open', 'active', 'pending'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (existing?.id) return existing.id;
+
+    const { data: created } = await supabase
+      .from('conversations')
+      .insert({
+        tenant_id:            tenantId,
+        contact_id:           contactId,
+        channel:              'sms',
+        status:               'open',
+        subject:              `SMS from ${fromPhone}`,
+        last_message_at:      new Date().toISOString(),
+        last_message_preview: '',
+        message_count:        0,
+        unread_count:         1,
+        created_at:           new Date().toISOString(),
+        updated_at:           new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    return created?.id || null;
+  } catch (err) {
+    console.error('[Conversation] findOrCreate error:', err.message);
+    return null;
+  }
+}
+
 // ─── NOTIFY INBOUND ────────────────────────────────────────────────────────
-// Looks up tenant members with inbound_message notifications enabled.
-// Falls back to PLATFORM_ADMIN_EMAIL if none found.
+// Sends email notification to tenant members with inbound_message enabled.
+// Falls back to PLATFORM_ADMIN_EMAIL env var if no tenant members found.
 async function notifyInbound(supabase, tenantId, from, body) {
   try {
     let emailsToNotify = [];
 
     if (tenantId) {
-      // 1. Get active tenant members
       const { data: members } = await supabase
         .from('tenant_members')
         .select('user_id')
@@ -56,7 +132,6 @@ async function notifyInbound(supabase, tenantId, from, body) {
       if (members && members.length > 0) {
         const userIds = members.map(m => m.user_id);
 
-        // 2. Filter to those with inbound_message email notifications enabled
         const { data: prefs } = await supabase
           .from('notification_preferences')
           .select('user_id')
@@ -64,12 +139,11 @@ async function notifyInbound(supabase, tenantId, from, body) {
           .eq('event_type', 'inbound_message')
           .eq('email_enabled', true);
 
-        const notifiableUserIds = prefs ? prefs.map(p => p.user_id) : [];
+        // Use explicit prefs if found, otherwise notify all active members
+        const lookupIds = (prefs && prefs.length > 0)
+          ? prefs.map(p => p.user_id)
+          : userIds;
 
-        // 3. If no explicit prefs found, fall back to all active members
-        const lookupIds = notifiableUserIds.length > 0 ? notifiableUserIds : userIds;
-
-        // 4. Get emails from users table
         const { data: users } = await supabase
           .from('users')
           .select('email')
@@ -81,7 +155,7 @@ async function notifyInbound(supabase, tenantId, from, body) {
       }
     }
 
-    // Fallback to platform admin if no tenant emails found
+    // Fallback to platform admin
     if (emailsToNotify.length === 0) {
       const adminEmail = process.env.PLATFORM_ADMIN_EMAIL;
       if (adminEmail) emailsToNotify = [adminEmail];
@@ -92,25 +166,32 @@ async function notifyInbound(supabase, tenantId, from, body) {
       return;
     }
 
-    // 5. Send notification via /api/email
     const baseUrl = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : 'https://portal.engwx.com';
 
     for (const email of emailsToNotify) {
       await fetch(`${baseUrl}/api/email`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: email,
+          to:      email,
           subject: `New inbound SMS from ${from}`,
           html: `
             <p>A new inbound SMS has arrived in your Live Inbox.</p>
             <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">
-              <tr><td style="padding:6px 12px;font-weight:bold;color:#374151;">From</td><td style="padding:6px 12px;">${from}</td></tr>
-              <tr style="background:#F9FAFB;"><td style="padding:6px 12px;font-weight:bold;color:#374151;">Message</td><td style="padding:6px 12px;">${body}</td></tr>
+              <tr>
+                <td style="padding:6px 12px;font-weight:bold;color:#374151;">From</td>
+                <td style="padding:6px 12px;">${from}</td>
+              </tr>
+              <tr style="background:#F9FAFB;">
+                <td style="padding:6px 12px;font-weight:bold;color:#374151;">Message</td>
+                <td style="padding:6px 12px;">${body}</td>
+              </tr>
             </table>
-            <p style="margin-top:16px;"><a href="https://portal.engwx.com" style="color:#00BFFF;font-weight:600;">Open Live Inbox →</a></p>
+            <p style="margin-top:16px;">
+              <a href="https://portal.engwx.com" style="color:#00BFFF;font-weight:600;">Open Live Inbox →</a>
+            </p>
           `,
         }),
       });
@@ -118,44 +199,48 @@ async function notifyInbound(supabase, tenantId, from, body) {
     }
   } catch (err) {
     console.error('[Notify] Failed to send inbound notification:', err);
-    // Fail silently — don't block the webhook
+    // Fail silently — never block the webhook
   }
 }
 
+// ─── MAIN HANDLER ──────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (req.method !== 'POST')   return res.status(405).json({ error: 'POST only' });
 
   const action = req.query.action || 'send';
 
-  // ─── TEST ─────────────────────────────────────────────────────────
+  // ─── TEST ───────────────────────────────────────────────────────────────
   if (action === 'test') {
     const { to } = req.body;
     if (!to) return res.status(400).json({ error: 'Missing "to" phone number' });
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const authToken  = process.env.TWILIO_AUTH_TOKEN;
     const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
     if (!accountSid || !authToken || !fromNumber) {
       return res.status(500).json({
-        error: 'Missing env vars',
-        has_sid: !!accountSid,
-        has_token: !!authToken,
+        error:      'Missing env vars',
+        has_sid:    !!accountSid,
+        has_token:  !!authToken,
         has_number: !!fromNumber,
       });
     }
 
-    const result = await sendSMS(to, '🚀 EngageWorx SMS test successful! Your Twilio integration is live.', fromNumber);
+    const result = await sendSMS(
+      to,
+      '🚀 EngageWorx SMS test successful! Your Twilio integration is live.',
+      fromNumber
+    );
 
     if (!result.ok) {
       return res.status(result.status).json({
-        error: result.data.message,
-        code: result.data.code,
+        error:    result.data.message,
+        code:     result.data.code,
         moreInfo: result.data.more_info,
       });
     }
@@ -163,38 +248,38 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Test SMS sent!',
-      sid: result.data.sid,
-      to: result.data.to,
-      from: result.data.from,
-      status: result.data.status,
+      sid:     result.data.sid,
+      to:      result.data.to,
+      from:    result.data.from,
+      status:  result.data.status,
     });
   }
 
-  // ─── SEND ─────────────────────────────────────────────────────────
+  // ─── SEND ───────────────────────────────────────────────────────────────
   if (action === 'send') {
     const { to, body, from, tenant_id } = req.body;
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!accountSid || !authToken) return res.status(500).json({ error: 'Twilio credentials not configured' });
+    const authToken  = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken)
+      return res.status(500).json({ error: 'Twilio credentials not configured' });
 
-    // ── Usage check before sending ──
     if (tenant_id) {
       try {
-        var supabaseUsage = getSupabase();
-        var usageResult = await supabaseUsage.rpc('increment_usage', {
+        const supabaseUsage = getSupabase();
+        const usageResult   = await supabaseUsage.rpc('increment_usage', {
           p_tenant_id: tenant_id,
-          p_channel: 'sms',
-          p_count: 1,
+          p_channel:   'sms',
+          p_count:     1,
         });
         if (usageResult.data && !usageResult.data.allowed) {
           return res.status(429).json({
-            error: 'Message limit reached. Purchase a top-up or upgrade your plan.',
-            usage: usageResult.data.usage,
-            limit: usageResult.data.limit,
+            error:     'Message limit reached. Purchase a top-up or upgrade your plan.',
+            usage:     usageResult.data.usage,
+            limit:     usageResult.data.limit,
             remaining: 0,
-            status: 'blocked',
+            status:    'blocked',
           });
         }
       } catch (usageErr) {
@@ -207,18 +292,18 @@ module.exports = async function handler(req, res) {
 
       if (!result.ok) {
         return res.status(result.status).json({
-          error: result.data.message,
-          code: result.data.code,
+          error:    result.data.message,
+          code:     result.data.code,
           moreInfo: result.data.more_info,
         });
       }
 
       return res.status(200).json({
-        success: true,
-        messageSid: result.data.sid,
-        status: result.data.status,
-        to: result.data.to,
-        from: result.data.from,
+        success:     true,
+        messageSid:  result.data.sid,
+        status:      result.data.status,
+        to:          result.data.to,
+        from:        result.data.from,
         dateCreated: result.data.date_created,
       });
     } catch (err) {
@@ -227,7 +312,7 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ─── WEBHOOK (Twilio inbound + status) ────────────────────────────
+  // ─── WEBHOOK (Twilio inbound + status) ──────────────────────────────────
   if (action === 'webhook') {
     try {
       const {
@@ -237,7 +322,7 @@ module.exports = async function handler(req, res) {
 
       const supabase = getSupabase();
 
-      // Delivery status update
+      // ── Delivery status update ──────────────────────────────────────────
       if (MessageStatus || SmsStatus) {
         const status = MessageStatus || SmsStatus;
         console.log(`[Twilio] Status update: ${MessageSid} → ${status}`);
@@ -246,105 +331,131 @@ module.exports = async function handler(req, res) {
           .from('messages')
           .update({
             status,
-            error_code: ErrorCode || null,
+            error_code:    ErrorCode    || null,
             error_message: ErrorMessage || null,
-            updated_at: new Date().toISOString(),
+            updated_at:    new Date().toISOString(),
           })
-          .eq('external_id', MessageSid);
+          .eq('provider_message_id', MessageSid);
 
         res.setHeader('Content-Type', 'text/xml');
         return res.status(200).send('<Response></Response>');
       }
 
-      // ── Inbound SMS ────────────────────────────────────────────────
-
+      // ── Inbound SMS ─────────────────────────────────────────────────────
       console.log(`[Twilio] Inbound from ${From} to ${To}: ${Body}`);
 
-      // 1. Look up tenant by To number BEFORE insert
+      // 1. Resolve tenant from phone_numbers table
       let tenantId = null;
       try {
-        const { data: channelConfig } = await supabase
-          .from('channel_configs')
-          .select('tenant_id, config')
-          .eq('phone_number', To)
+        const { data: phoneRecord } = await supabase
+          .from('phone_numbers')
+          .select('tenant_id')
+          .eq('number', To)
           .single();
 
-        if (channelConfig?.tenant_id) {
-          tenantId = channelConfig.tenant_id;
+        if (phoneRecord?.tenant_id) {
+          tenantId = phoneRecord.tenant_id;
           console.log(`[Twilio] Resolved tenant ${tenantId} for number ${To}`);
         } else {
-          // Also try phone_numbers table as fallback
-          const { data: phoneRecord } = await supabase
-            .from('phone_numbers')
-            .select('tenant_id')
-            .eq('number', To)
-            .single();
-
-          if (phoneRecord?.tenant_id) {
-            tenantId = phoneRecord.tenant_id;
-            console.log(`[Twilio] Resolved tenant ${tenantId} via phone_numbers for ${To}`);
-          }
+          console.log(`[Twilio] No tenant found for ${To} — using platform fallback`);
         }
       } catch (lookupErr) {
-        console.log('[Twilio] Tenant lookup failed, inserting without tenant_id:', lookupErr.message);
+        console.log('[Twilio] Tenant lookup failed:', lookupErr.message);
       }
 
       // 2. Classify message type
-      const upperBody = (Body || '').trim().toUpperCase();
-      const optOutWords = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPTOUT', 'REVOKE'];
-      const optInWords = ['START', 'SUBSCRIBE', 'YES'];
-      const helpWords = ['HELP', 'INFO'];
+      const upperBody   = (Body || '').trim().toUpperCase();
+      const optOutWords = ['STOP','STOPALL','UNSUBSCRIBE','CANCEL','END','QUIT','OPTOUT','REVOKE'];
+      const optInWords  = ['START','SUBSCRIBE','YES'];
+      const helpWords   = ['HELP','INFO'];
 
       let messageType = 'inbound';
-      if (optOutWords.includes(upperBody)) messageType = 'opt_out';
-      else if (optInWords.includes(upperBody)) messageType = 'opt_in';
-      else if (helpWords.includes(upperBody)) messageType = 'help';
+      if (optOutWords.includes(upperBody))      messageType = 'opt_out';
+      else if (optInWords.includes(upperBody))  messageType = 'opt_in';
+      else if (helpWords.includes(upperBody))   messageType = 'help';
 
-      // 3. Insert message WITH tenant_id
-      await supabase.from('messages').insert({
-        external_id: MessageSid,
-        direction: 'inbound',
-        channel: 'sms',
-        from_number: From,
-        to_number: To,
-        body: Body,
-        status: 'received',
-        message_type: messageType,
-        media_count: parseInt(NumMedia || '0'),
-        tenant_id: tenantId,         // ← now included
-        created_at: new Date().toISOString(),
-      });
+      // 3. Find or create contact
+      const contactId = await findOrCreateContact(supabase, tenantId, From);
 
-      // 4. Handle opt-in / opt-out contact updates
-      if (messageType === 'opt_out') {
-        await supabase.from('contacts')
-          .update({ sms_opted_out: true, sms_opted_out_at: new Date().toISOString() })
-          .eq('phone', From);
-      } else if (messageType === 'opt_in') {
-        await supabase.from('contacts')
-          .update({ sms_opted_out: false, sms_opted_in_at: new Date().toISOString() })
-          .eq('phone', From);
+      // 4. Find or create conversation
+      const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
+
+      // 5. Insert message with correct schema
+      const now = new Date().toISOString();
+      const { error: insertError } = await supabase
+        .from('messages')
+        .insert({
+          tenant_id:           tenantId,
+          conversation_id:     conversationId,
+          contact_id:          contactId,
+          direction:           'inbound',
+          channel:             'sms',
+          body:                Body,
+          status:              'received',
+          provider:            'twilio',
+          provider_message_id: MessageSid,
+          sender_type:         'contact',
+          media_urls:          [],
+          metadata: {
+            from_number:  From,
+            to_number:    To,
+            message_type: messageType,
+            media_count:  parseInt(NumMedia || '0'),
+          },
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (insertError) {
+        console.error('[Twilio] Message insert error:', insertError.message);
+      } else {
+        console.log(`[Twilio] Message inserted — tenant:${tenantId} conversation:${conversationId} contact:${contactId}`);
       }
 
-      // 5. Send inbound notification email to tenant admins / platform admin
+      // 6. Update conversation preview + timestamp
+      if (conversationId) {
+        await supabase
+          .from('conversations')
+          .update({
+            last_message_at:      now,
+            last_message_preview: (Body || '').substring(0, 100),
+            updated_at:           now,
+          })
+          .eq('id', conversationId)
+          .catch(err => console.error('[Conversation] Update error:', err.message));
+      }
+
+      // 7. Handle opt-in / opt-out contact status updates
+      if (messageType === 'opt_out' && contactId) {
+        await supabase
+          .from('contacts')
+          .update({ status: 'unsubscribed', updated_at: now })
+          .eq('id', contactId);
+      } else if (messageType === 'opt_in' && contactId) {
+        await supabase
+          .from('contacts')
+          .update({ status: 'active', updated_at: now })
+          .eq('id', contactId);
+      }
+
+      // 8. Send inbound notification email (non-blocking)
       notifyInbound(supabase, tenantId, From, Body);
 
-      // ─── AI AUTO-RESPONSE ───────────────────────────────────────────
-      // Only respond to regular inbound messages (not opt-in/out/help)
+      // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
       if (messageType === 'inbound' && process.env.ANTHROPIC_API_KEY) {
         try {
-          // Re-use tenantId already resolved above
-          var aiAllowed = true;
+          let aiAllowed = true;
+
           if (tenantId) {
             try {
-              var usageCheck = await supabase.rpc('increment_usage', {
+              const usageCheck = await supabase.rpc('increment_usage', {
                 p_tenant_id: tenantId,
-                p_channel: 'sms',
-                p_count: 1,
+                p_channel:   'sms',
+                p_count:     1,
               });
               if (usageCheck.data && !usageCheck.data.allowed) {
                 aiAllowed = false;
-                console.log('[Usage] AI reply blocked - tenant', tenantId, 'at limit');
+                console.log('[Usage] AI reply blocked — tenant', tenantId, 'at limit');
               }
             } catch (ue) {
               console.log('[Usage] Check failed, allowing AI reply (fail-open)');
@@ -371,33 +482,32 @@ module.exports = async function handler(req, res) {
               .single();
 
             tenantConfig = {
-              businessName: tenant?.name || 'our business',
-              industry: tenant?.industry || 'general business',
-              personality: chatbotConfig?.personality || 'friendly and professional',
-              knowledgeBase: chatbotConfig?.knowledge_base || '',
-              escalationRules: chatbotConfig?.escalation_rules || '',
+              businessName:      tenant?.name                    || 'our business',
+              industry:          tenant?.industry                || 'general business',
+              personality:       chatbotConfig?.personality      || 'friendly and professional',
+              knowledgeBase:     chatbotConfig?.knowledge_base   || '',
+              escalationRules:   chatbotConfig?.escalation_rules || '',
               maxResponseLength: 160,
             };
           }
 
-          // Fetch recent conversation history
+          // Fetch recent conversation history scoped to this conversation
           const { data: history } = await supabase
             .from('messages')
             .select('direction, body, created_at')
-            .or(`from_number.eq.${From},to_number.eq.${From}`)
+            .eq('conversation_id', conversationId)
             .order('created_at', { ascending: true })
             .limit(10);
 
-          // Call AI endpoint
           const baseUrl = process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`
             : 'https://portal.engwx.com';
 
           const aiResponse = await fetch(`${baseUrl}/api/ai?action=respond`, {
-            method: 'POST',
+            method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message: Body,
+              message:             Body,
               conversationHistory: history || [],
               tenantConfig,
             }),
@@ -408,15 +518,19 @@ module.exports = async function handler(req, res) {
           if (aiData.success && aiData.response && !aiData.escalate) {
             res.setHeader('Content-Type', 'text/xml');
             return res.status(200).send(
-              `<Response><Message>${aiData.response.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Message></Response>`
+              `<Response><Message>${aiData.response
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+              }</Message></Response>`
             );
           }
 
-          console.log(`[AI] Escalating message from ${From}: ${aiData.escalate ? 'escalation requested' : 'AI failed'}`);
+          console.log(`[AI] Escalating from ${From}: ${aiData.escalate ? 'escalation requested' : 'AI failed'}`);
 
         } catch (aiErr) {
           console.error('[AI] Auto-response error:', aiErr);
-          // Fail silently — don't block the webhook
+          // Fail silently — never block the webhook
         }
       }
 
