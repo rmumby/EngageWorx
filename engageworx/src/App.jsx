@@ -1387,7 +1387,13 @@ function AppInner() {
 
         <nav style={{ flex: 1 }}>
           {spNavItems.map(item => (
-            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} title={sidebarCollapsed ? item.label : undefined} style={{
+            <button key={item.id} onClick={() => {
+setSpPage(item.id);
+if (isMobile) setSidebarOpen(false);
+// Auto-collapse when leaving dashboard, expand when returning
+if (item.id !== "dashboard") setSidebarCollapsed(true);
+else setSidebarCollapsed(false);
+}} title={sidebarCollapsed ? item.label : undefined} style={{
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
               justifyContent: sidebarCollapsed ? "center" : "flex-start",
               padding: sidebarCollapsed ? "11px 0" : "11px 12px", borderRadius: 9, border: "none",
