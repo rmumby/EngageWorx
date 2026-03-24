@@ -211,7 +211,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
 
       {/* Main Content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', transition: 'margin-left 0.25s ease' }}>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', height: page === 'inbox' ? '100vh' : 'auto', overflow: page === 'inbox' ? 'hidden' : 'visible', transition: 'margin-left 0.25s ease' }}>
 
         {/* Top bar — hidden on inbox to give full height */}
         {page !== 'inbox' && (
@@ -223,18 +223,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {/* ═══ LIVE INBOX ═══ */}
         {page === 'inbox' && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
-            <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, height: '100%', transition: 'margin-left 0.25s ease', overflow: 'hidden' }}>
-              <LiveInbox
-                C={C}
-                tenants={[]}
-                viewLevel="tenant"
-                currentTenantId={cspTenantId}
-                demoMode={false}
-                supabase={supabase}
-              />
-            </div>
-          </div>
+          <LiveInbox
+            C={C}
+            tenants={[]}
+            viewLevel="tenant"
+            currentTenantId={cspTenantId}
+            demoMode={false}
+            supabase={supabase}
+          />
         )}
 
         {/* ═══ CONTACTS ═══ */}
