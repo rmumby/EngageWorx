@@ -166,17 +166,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>💬 Live Inbox</span>
           </div>
-          {/* Right: nav links + sign out */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {navItems.filter(function(n) { return n.id !== 'inbox'; }).map(function(item) {
-              return (
-                <span key={item.id} onClick={function() { setPage(item.id); }} style={{ color: C.muted, fontSize: 12, cursor: 'pointer', fontWeight: 500, transition: 'color 0.2s' }}
-                  onMouseEnter={function(e) { e.target.style.color = '#fff'; }}
-                  onMouseLeave={function(e) { e.target.style.color = C.muted; }}>
-                  {item.icon} {item.label}
-                </span>
-              );
-            })}
+          {/* Right: back to portal + sign out */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>⏻ Sign Out</span>
           </div>
@@ -218,7 +210,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
         </div>
 
-        {/* Nav */}
+      {/* Nav */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
           {navItems.map(function(item) {
             var active = page === item.id;
@@ -231,31 +223,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             );
           })}
         </div>
-
-        {/* Theme + Collapse + Logout */}
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {!sidebarCollapsed && <ThemeToggle />}
-          <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <span>{sidebarCollapsed ? '»' : '«'}</span>
-            {!sidebarCollapsed && <span>Collapse</span>}
-          </div>
-          <div onClick={function() {
-            supabase.auth.signOut().then(function() {
-              if (onLogout) onLogout();
-              window.location.href = '/';
-            }).catch(function() {
-              window.location.href = '/';
-            });
-          }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}>
-            <span>⏻</span>
-            {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
-          </div>
-        </div>
       </div>
 
       {/* Main Content */}
       <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', height: page === 'inbox' ? '100vh' : 'auto', overflow: page === 'inbox' ? 'hidden' : 'visible', transition: 'margin-left 0.25s ease' }}>
-
         {/* Top bar — hidden on inbox to give full height */}
         {page !== 'inbox' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
@@ -263,7 +234,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
           </div>
         )}
-
         {/* ═══ CONTACTS ═══ */}
         {page === 'contacts' && (
           <ContactsModule
