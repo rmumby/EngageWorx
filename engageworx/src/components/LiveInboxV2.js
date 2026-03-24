@@ -590,7 +590,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Errors shown inline in the conversation list
 
   return (
-   <div style={{ display: "flex", height: "100%", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+   <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", marginLeft: offsetLeft }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
       <div style={{ width: 340, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
