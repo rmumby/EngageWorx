@@ -354,7 +354,9 @@ module.exports = async function handler(req, res) {
       // MessageStatus is only present on outbound delivery callbacks.
       // SmsStatus=received arrives on INBOUND messages too — do NOT use it to gate here.
       if (MessageStatus) {
-        const status = MessageStatus;
+        // Map Twilio status values to allowed DB values
+        const statusMap = { received: 'delivered', receiving: 'delivered', accepted: 'queued' };
+        const status = statusMap[MessageStatus] || MessageStatus;
         console.log(`[Twilio] Status update: ${MessageSid} → ${status}`);
 
         await supabase
@@ -421,7 +423,7 @@ module.exports = async function handler(req, res) {
           direction:           'inbound',
           channel:             'sms',
           body:                Body,
-          status:              'received',
+          status:              'delivered',  // 'received' not in check constraint; allowed: queued|sent|delivered|read|failed|bounced
           provider:            'twilio',
           provider_message_id: MessageSid,
           sender_type:         'contact',
