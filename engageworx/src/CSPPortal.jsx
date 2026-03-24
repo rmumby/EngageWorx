@@ -223,14 +223,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {/* ═══ LIVE INBOX ═══ */}
         {page === 'inbox' && (
-          <LiveInbox
-            C={C}
-            tenants={[]}
-            viewLevel="tenant"
-            currentTenantId={cspTenantId}
-            demoMode={false}
-            supabase={supabase}
-          />
+          <div style={{ position: 'fixed', top: 0, left: sidebarCollapsed ? 64 : 240, right: 0, bottom: 0, transition: 'left 0.25s ease', zIndex: 10 }}>
+            <LiveInbox
+              C={C}
+              tenants={[]}
+              viewLevel="tenant"
+              currentTenantId={cspTenantId}
+              demoMode={false}
+              supabase={supabase}
+            />
+          </div>
         )}
 
         {/* ═══ CONTACTS ═══ */}
