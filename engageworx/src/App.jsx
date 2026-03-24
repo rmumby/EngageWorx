@@ -930,7 +930,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto" }}>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows" || page === "support") ? "hidden" : "auto",
+height: (page === "inbox" || page === "flows" || page === "support") ? "100vh" : "auto" }}>
         {page === "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
@@ -1391,8 +1392,7 @@ function AppInner() {
 setSpPage(item.id);
 if (isMobile) setSidebarOpen(false);
 // Auto-collapse when leaving dashboard, expand when returning
-if (item.id !== "dashboard") setSidebarCollapsed(true);
-else setSidebarCollapsed(false);
+setSidebarCollapsed(item.id !== "dashboard");
 }} title={sidebarCollapsed ? item.label : undefined} style={{
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
               justifyContent: sidebarCollapsed ? "center" : "flex-start",
@@ -1451,7 +1451,8 @@ else setSidebarCollapsed(false);
         <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.2s" }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows") ? "hidden" : "auto", height: (spPage === "inbox" || spPage === "flows") ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "hidden" : "auto",
+height: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
