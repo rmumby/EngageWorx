@@ -1,719 +1,358 @@
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_ANON_KEY
-);
-
-const COLORS = {
-  bg: "#0A0E1A",
-  surface: "#111827",
-  border: "#1e2d45",
-  accent: "#00C9FF",
-  accent2: "#E040FB",
-  accent3: "#00E676",
-  accent4: "#FF6B35",
-  text: "#E8F4FD",
-  muted: "#6B8BAE",
-  dim: "#3a5068",
-};
-
-const intentColors = {
-  purchase_inquiry: COLORS.accent3,
-  support: COLORS.accent,
-  complaint: COLORS.accent4,
-  opt_out: "#FF4444",
-  general: COLORS.muted,
-  positive_feedback: COLORS.accent3,
-  booking: COLORS.accent2,
-  greeting: COLORS.accent,
-};
-
-const sentimentColors = {
-  positive: COLORS.accent3,
-  neutral: COLORS.muted,
-  negative: COLORS.accent4,
-  very_negative: "#FF4444",
-};
-
-function Badge({ children, color }) {
-  return (
-    <span style={{
-      background: color + "22", color,
-      border: `1px solid ${color}44`,
-      borderRadius: 4, padding: "2px 8px",
-      fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-    }}>{children}</span>
-  );
-}
-
-// Mock data as fallback when no live conversations exist
-const MOCK_CONVERSATIONS = [
+const MOCK_TICKETS = [
   {
-    id: "mock-1", status: "escalated", channel: "SMS",
-    last_message_at: new Date().toISOString(),
-    contact_phone: "+13105551234", contact_name: "Sarah Johnson",
-    lastMessage: "This is absolutely unacceptable, I've been waiting 2 weeks!",
-    intent: "complaint", sentiment: "very_negative", messageCount: 4,
+    id: "t1", ticketNumber: "TKT-202603-0042", status: "pending_agent", priority: "high",
+    escalationReason: "explicit_request", summary: "Customer requesting refund for failed SMS campaign. AI attempted resolution twice.",
+    contact: { name: "Sarah Mitchell", email: "sarah@example.com", phone: "+1 (305) 555-0192" },
+    channel: "email", assignedAgent: null, createdAt: "2 min ago",
+    transcript: [
+      { role: "customer", content: "Hi, my SMS campaign failed to send and I need a refund.", sentAt: "10:14 AM" },
+      { role: "ai", content: "I'm sorry to hear that. I can see your campaign from March 23rd. Let me look into this for you.", sentAt: "10:14 AM" },
+      { role: "customer", content: "I've been waiting 2 days. This is unacceptable. I need to speak to a real person.", sentAt: "10:16 AM" },
+      { role: "ai", content: "I'm connecting you with a member of our team now — they'll have full context of our conversation.", sentAt: "10:16 AM", isEscalation: true },
+    ]
   },
   {
-    id: "mock-2", status: "open", channel: "SMS",
-    last_message_at: new Date(Date.now() - 300000).toISOString(),
-    contact_phone: "+14155559876", contact_name: "Marcus Williams",
-    lastMessage: "Hi, I'd like to know more about your premium plan",
-    intent: "purchase_inquiry", sentiment: "positive", messageCount: 2,
+    id: "t2", ticketNumber: "TKT-202603-0041", status: "agent_active", priority: "medium",
+    escalationReason: "complaint", summary: "WhatsApp template rejected by Meta. Customer frustrated with approval delays.",
+    contact: { name: "James Okafor", email: "james@growthco.io", phone: "+1 (786) 555-0847" },
+    channel: "whatsapp", assignedAgent: "Alex Chen", createdAt: "18 min ago",
+    transcript: [
+      { role: "customer", content: "My WhatsApp template has been rejected 3 times now. What's going on?", sentAt: "9:58 AM" },
+      { role: "ai", content: "WhatsApp template rejections can be frustrating. Can you share the template content so I can review?", sentAt: "9:58 AM" },
+      { role: "customer", content: "I've already tried fixing it. Your AI keeps giving me the same advice. I want to escalate this.", sentAt: "10:01 AM" },
+      { role: "ai", content: "Understood — I'm handing you to a specialist now.", sentAt: "10:01 AM", isEscalation: true },
+      { role: "agent", content: "Hi James, I'm Alex. The issue is the CTA button URL — Meta flags dynamic URLs in utility templates. I can fix this for you now.", sentAt: "10:04 AM" },
+    ]
   },
   {
-    id: "mock-3", status: "open", channel: "SMS",
-    last_message_at: new Date(Date.now() - 600000).toISOString(),
-    contact_phone: "+16505554321", contact_name: "Emily Chen",
-    lastMessage: "My order hasn't arrived yet, order #4821",
-    intent: "support", sentiment: "neutral", messageCount: 3,
+    id: "t3", ticketNumber: "TKT-202603-0040", status: "pending_agent", priority: "critical",
+    escalationReason: "data_loss", summary: "Contact list deleted — customer reports 4,200 contacts missing after import.",
+    contact: { name: "Marina Costa", email: "marina@retailhub.com", phone: "+1 (305) 555-2341" },
+    channel: "sms", assignedAgent: null, createdAt: "34 min ago",
+    transcript: [
+      { role: "customer", content: "URGENT - All my contacts are gone. 4200 contacts after CSV import. Please help.", sentAt: "9:42 AM" },
+      { role: "ai", content: "That sounds very stressful. Can you confirm when the import was run?", sentAt: "9:42 AM" },
+      { role: "customer", content: "About an hour ago. They were there, then I refreshed and they're all gone.", sentAt: "9:43 AM" },
+      { role: "ai", content: "I'm escalating this as critical priority right now. A specialist will be with you immediately.", sentAt: "9:43 AM", isEscalation: true },
+    ]
   },
   {
-    id: "mock-4", status: "escalated", channel: "SMS",
-    last_message_at: new Date(Date.now() - 900000).toISOString(),
-    contact_phone: "+12125558765", contact_name: "David Park",
-    lastMessage: "I want a refund immediately",
-    intent: "complaint", sentiment: "very_negative", messageCount: 6,
-  },
-  {
-    id: "mock-5", status: "open", channel: "SMS",
-    last_message_at: new Date(Date.now() - 1200000).toISOString(),
-    contact_phone: "+17025556543", contact_name: "Lisa Martinez",
-    lastMessage: "Can I book an appointment for next Tuesday?",
-    intent: "booking", sentiment: "positive", messageCount: 1,
+    id: "t4", ticketNumber: "TKT-202603-0039", status: "resolved", priority: "low",
+    escalationReason: "repeat_fail", summary: "Billing invoice question — payment date confusion resolved.",
+    contact: { name: "Tom Haverford", email: "tom@pawnee.biz", phone: "+1 (317) 555-0091" },
+    channel: "web_chat", assignedAgent: "Sarah Kim", createdAt: "2 hr ago",
+    transcript: [
+      { role: "customer", content: "When does my next invoice generate?", sentAt: "8:10 AM" },
+      { role: "ai", content: "Your billing cycle renews on the 1st of each month. Your next invoice will generate on April 1st.", sentAt: "8:10 AM" },
+      { role: "customer", content: "But I signed up on March 15th — why April 1st?", sentAt: "8:12 AM" },
+      { role: "ai", content: "New accounts are prorated for the first partial month. Your first full invoice is April 1st.", sentAt: "8:12 AM" },
+      { role: "agent", content: "Hi Tom, Sarah here confirming — the AI explanation is correct. I've sent a full breakdown to your email.", sentAt: "8:19 AM" },
+      { role: "customer", content: "Perfect, thank you!", sentAt: "8:20 AM" },
+    ]
   },
 ];
 
-const MOCK_MESSAGES = {
-  "mock-1": [
-    { direction: "outbound", content: "Hi Sarah! Thanks for being a customer. How can we help you today?", created_at: new Date(Date.now() - 3600000).toISOString(), sender: "bot" },
-    { direction: "inbound", content: "I ordered 2 weeks ago and nothing has arrived", created_at: new Date(Date.now() - 3500000).toISOString(), sender: "customer" },
-    { direction: "outbound", content: "I'm sorry to hear that! Let me look into your order right away.", created_at: new Date(Date.now() - 3400000).toISOString(), sender: "bot" },
-    { direction: "inbound", content: "This is absolutely unacceptable, I've been waiting 2 weeks!", created_at: new Date(Date.now() - 600000).toISOString(), sender: "customer" },
-  ],
-  "mock-2": [
-    { direction: "inbound", content: "Hi, I'd like to know more about your premium plan", created_at: new Date(Date.now() - 400000).toISOString(), sender: "customer" },
-    { direction: "outbound", content: "Hi Marcus! Our premium plan includes unlimited messaging across all channels. Would you like to know more?", created_at: new Date(Date.now() - 350000).toISOString(), sender: "bot" },
-  ],
-  "mock-3": [
-    { direction: "inbound", content: "My order hasn't arrived yet, order #4821", created_at: new Date(Date.now() - 700000).toISOString(), sender: "customer" },
-    { direction: "outbound", content: "I'm sorry about the delay. Let me check the status of order #4821 for you.", created_at: new Date(Date.now() - 650000).toISOString(), sender: "bot" },
-    { direction: "inbound", content: "Please hurry, I need it this week", created_at: new Date(Date.now() - 600000).toISOString(), sender: "customer" },
-  ],
-};
+const MOCK_AGENTS = [
+  { id: "a1", name: "Alex Chen", role: "agent", isAvailable: true, currentTickets: 1, maxTickets: 5 },
+  { id: "a2", name: "Sarah Kim", role: "supervisor", isAvailable: true, currentTickets: 0, maxTickets: 8 },
+  { id: "a3", name: "Marcus Bell", role: "agent", isAvailable: false, currentTickets: 3, maxTickets: 5 },
+  { id: "a4", name: "Priya Nair", role: "agent", isAvailable: true, currentTickets: 2, maxTickets: 5 },
+];
 
-export default function AgentInbox({ tenantId }) {
-  const [conversations, setConversations] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [reply, setReply] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [sending, setSending] = useState(false);
-  const [isLive, setIsLive] = useState(false);
-  const [loading, setLoading] = useState(true);
+const CHANNEL_ICONS = { sms: "💬", mms: "🖼️", whatsapp: "💚", email: "✉️", voice: "📞", rcs: "✨", web_chat: "🌐" };
+const PRIORITY_COLORS = { low: "#10b981", medium: "#f59e0b", high: "#f97316", critical: "#ef4444" };
+const STATUS_LABELS = { pending_agent: "Pending", agent_active: "Active", resolved: "Resolved", closed: "Closed", pending_upstream: "Upstream" };
+
+export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenantId, demoMode }) {
+  const C = propC || {
+    primary: "#00C9FF", accent: "#E040FB",
+    bg: "#080d1a", surface: "#0d1425", border: "#182440",
+    text: "#E8F4FD", muted: "#6B8BAE",
+  };
+
+  // Detect light vs dark from background color
+  const isDark = !C.bg.startsWith("#f") && !C.bg.startsWith("#e") && !C.bg.startsWith("#d") && C.bg !== "#fff" && C.bg !== "white";
+  const overlayA = isDark ? "rgba(255,255,255," : "rgba(0,0,0,";
+
+  const [viewRole, setViewRole] = useState("supervisor");
+  const [tickets, setTickets] = useState(MOCK_TICKETS);
+  const [selectedTicket, setSelectedTicket] = useState(MOCK_TICKETS[0]);
+  const [replyText, setReplyText] = useState("");
+  const [internalNote, setInternalNote] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [showAgentPanel, setShowAgentPanel] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [selectedTicket]);
 
-  // Fetch conversations from Supabase
-  useEffect(() => {
-    loadConversations();
+  const filteredTickets = tickets.filter(t =>
+    filterStatus === "all" || t.status === filterStatus
+  );
+  const pendingCount = tickets.filter(t => t.status === "pending_agent").length;
+  const activeCount = tickets.filter(t => t.status === "agent_active").length;
 
-    // Real-time subscription for new messages
-    const channel = supabase
-      .channel("inbox-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversation_messages" },
-        (payload) => {
-          handleNewMessage(payload.new);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversations" },
-        () => {
-          loadConversations();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "conversations" },
-        () => {
-          loadConversations();
-        }
-      )
-      .subscribe();
+  const acceptTicket = (ticketId) => {
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: "agent_active", assignedAgent: "You" } : t));
+    setSelectedTicket(prev => prev?.id === ticketId ? { ...prev, status: "agent_active", assignedAgent: "You" } : prev);
+  };
 
-    return () => {
-      supabase.removeChannel(channel);
+  const resolveTicket = (ticketId) => {
+    setTickets(prev => prev.map(t => t.id === ticketId ? { ...t, status: "resolved" } : t));
+    setSelectedTicket(prev => prev?.id === ticketId ? { ...prev, status: "resolved" } : prev);
+  };
+
+  const sendReply = () => {
+    if (!replyText.trim() || !selectedTicket) return;
+    const newMsg = {
+      role: internalNote ? "system" : "agent",
+      content: replyText,
+      sentAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      isInternal: internalNote,
     };
-  }, [tenantId]);
-
-  const loadConversations = async () => {
-    try {
-      let query = supabase
-        .from("conversations")
-        .select(`
-          id,
-          contact_phone,
-          contact_name,
-          status,
-          channel,
-          intent,
-          sentiment,
-          created_at,
-          updated_at,
-          tenant_id,
-          conversation_messages (
-            id,
-            content,
-            direction,
-            created_at,
-            sender
-          )
-        `)
-        .order("updated_at", { ascending: false });
-
-      // Filter by tenant if provided
-      if (tenantId) {
-        query = query.eq("tenant_id", tenantId);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        // Transform live data
-        const transformed = data.map(conv => {
-          const msgs = conv.conversation_messages || [];
-          const sorted = msgs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          const lastMsg = sorted[sorted.length - 1];
-
-          return {
-            id: conv.id,
-            status: conv.status || "open",
-            channel: conv.channel || "SMS",
-            last_message_at: conv.updated_at || conv.created_at,
-            contact_phone: conv.contact_phone,
-            contact_name: conv.contact_name || conv.contact_phone,
-            lastMessage: lastMsg?.content || "No messages yet",
-            intent: conv.intent || "general",
-            sentiment: conv.sentiment || "neutral",
-            messageCount: msgs.length,
-            tenant_id: conv.tenant_id,
-          };
-        });
-
-        setConversations(transformed);
-        setIsLive(true);
-
-        // Auto-select first conversation if none selected
-        if (!selected) {
-          setSelected(transformed[0]);
-          loadMessages(transformed[0].id);
-        }
-      } else {
-        // Fall back to mock data
-        setConversations(MOCK_CONVERSATIONS);
-        setIsLive(false);
-        if (!selected) {
-          setSelected(MOCK_CONVERSATIONS[0]);
-          setMessages(MOCK_MESSAGES["mock-1"] || []);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load conversations:", err);
-      setConversations(MOCK_CONVERSATIONS);
-      setIsLive(false);
-      if (!selected) {
-        setSelected(MOCK_CONVERSATIONS[0]);
-        setMessages(MOCK_MESSAGES["mock-1"] || []);
-      }
-    } finally {
-      setLoading(false);
-    }
+    setTickets(prev => prev.map(t => t.id === selectedTicket.id ? { ...t, transcript: [...t.transcript, newMsg] } : t));
+    setSelectedTicket(prev => ({ ...prev, transcript: [...prev.transcript, newMsg] }));
+    setReplyText("");
   };
-
-  const loadMessages = async (conversationId) => {
-    if (conversationId?.startsWith("mock-")) {
-      setMessages(MOCK_MESSAGES[conversationId] || []);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("conversation_messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
-    } catch (err) {
-      console.error("Failed to load messages:", err);
-      setMessages([]);
-    }
-  };
-
-  const handleNewMessage = (newMsg) => {
-    // If message belongs to currently selected conversation, add it
-    if (selected && newMsg.conversation_id === selected.id) {
-      setMessages(prev => [...prev, newMsg]);
-    }
-
-    // Update conversation list
-    setConversations(prev => prev.map(conv => {
-      if (conv.id === newMsg.conversation_id) {
-        return {
-          ...conv,
-          lastMessage: newMsg.content,
-          last_message_at: newMsg.created_at,
-          messageCount: conv.messageCount + 1,
-        };
-      }
-      return conv;
-    }));
-  };
-
-  // When selecting a conversation, load its messages
-  useEffect(() => {
-    if (selected) {
-      loadMessages(selected.id);
-    }
-  }, [selected?.id]);
-
-  const filtered = conversations.filter(c => {
-    if (filter === "escalated") return c.status === "escalated";
-    if (filter === "open") return c.status === "open";
-    return true;
-  });
-
-  const handleReply = async () => {
-    if (!reply.trim() || sending) return;
-    setSending(true);
-
-    if (isLive && selected && !selected.id?.startsWith("mock-")) {
-      try {
-        // Insert message into Supabase
-        const { error } = await supabase
-          .from("conversation_messages")
-          .insert({
-            conversation_id: selected.id,
-            content: reply,
-            direction: "outbound",
-            sender: "agent",
-          });
-
-        if (error) throw error;
-
-        // Update conversation status
-        await supabase
-          .from("conversations")
-          .update({
-            status: "open",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", selected.id);
-
-      } catch (err) {
-        console.error("Failed to send reply:", err);
-      }
-    } else {
-      // Mock mode — just add to local state
-      const newMsg = {
-        direction: "outbound",
-        content: reply,
-        created_at: new Date().toISOString(),
-        sender: "agent",
-      };
-      setMessages(m => [...m, newMsg]);
-    }
-
-    // Update local conversation state
-    setConversations(prev => prev.map(c =>
-      c.id === selected.id
-        ? { ...c, status: "open", lastMessage: reply, last_message_at: new Date().toISOString() }
-        : c
-    ));
-
-    setReply("");
-    setSending(false);
-  };
-
-  const handleResolve = async () => {
-    if (isLive && selected && !selected.id?.startsWith("mock-")) {
-      try {
-        await supabase
-          .from("conversations")
-          .update({ status: "resolved" })
-          .eq("id", selected.id);
-      } catch (err) {
-        console.error("Failed to resolve:", err);
-      }
-    }
-
-    setConversations(prev => prev.filter(c => c.id !== selected.id));
-    const remaining = conversations.filter(c => c.id !== selected.id);
-    setSelected(remaining[0] || null);
-  };
-
-  const handleEscalate = async () => {
-    if (isLive && selected && !selected.id?.startsWith("mock-")) {
-      try {
-        await supabase
-          .from("conversations")
-          .update({ status: "escalated" })
-          .eq("id", selected.id);
-      } catch (err) {
-        console.error("Failed to escalate:", err);
-      }
-    }
-
-    setConversations(prev => prev.map(c =>
-      c.id === selected.id ? { ...c, status: "escalated" } : c
-    ));
-    setSelected(prev => prev ? { ...prev, status: "escalated" } : null);
-  };
-
-  const formatTime = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    const now = new Date();
-    const diff = Math.floor((now - d) / 60000);
-    if (diff < 1) return "Just now";
-    if (diff < 60) return `${diff}m ago`;
-    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-    return d.toLocaleDateString();
-  };
-
-  const getInitials = (conv) => {
-    if (conv.contact_name && conv.contact_name !== conv.contact_phone) {
-      const parts = conv.contact_name.split(" ");
-      return parts.map(p => p[0]).join("").substring(0, 2).toUpperCase();
-    }
-    return conv.contact_phone?.slice(-2) || "??";
-  };
-
-  const getDisplayName = (conv) => {
-    if (conv.contact_name && conv.contact_name !== conv.contact_phone) {
-      return conv.contact_name;
-    }
-    return conv.contact_phone || "Unknown";
-  };
-
-  const escalatedCount = conversations.filter(c => c.status === "escalated").length;
-  const openCount = conversations.filter(c => c.status === "open").length;
-
-  if (loading) {
-    return (
-      <div style={{
-        display: "flex", height: "100vh", background: COLORS.bg,
-        alignItems: "center", justifyContent: "center",
-        fontFamily: "'DM Sans', sans-serif", color: COLORS.muted,
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>💬</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>Loading conversations...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div style={{
-      display: "flex", height: "100vh", background: COLORS.bg,
-      fontFamily: "'DM Sans', 'Segoe UI', sans-serif", color: COLORS.text,
-    }}>
+    // Uses 100% of the space given by the parent — no fixed positioning, no own sidebar
+    <div style={{ display: "flex", height: "100vh", background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text, overflow: "hidden" }}>
 
-      {/* Left Panel — Conversation List */}
-      <div style={{
-        width: 340, background: COLORS.surface,
-        borderRight: `1px solid ${COLORS.border}`,
-        display: "flex", flexDirection: "column",
-      }}>
-        {/* Header */}
-        <div style={{ padding: "20px 20px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-            <h2 style={{ color: COLORS.text, margin: 0, fontSize: 18, fontWeight: 800 }}>
-              Agent Inbox
-            </h2>
-            {isLive ? (
-              <Badge color={COLORS.accent3}>● Live</Badge>
-            ) : (
-              <Badge color={COLORS.muted}>Demo Mode</Badge>
-            )}
-          </div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16, marginTop: 8 }}>
-            <Badge color={COLORS.accent4}>🔴 {escalatedCount} Escalated</Badge>
-            <Badge color={COLORS.accent}>{openCount} Open</Badge>
-          </div>
+      {/* ── Ticket List Panel ── */}
+      <div style={{ width: 260, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: C.surface }}>
 
-          {/* Filters */}
-          <div style={{ display: "flex", gap: 4, background: COLORS.bg, padding: 4, borderRadius: 8, marginBottom: 16 }}>
-            {["all", "escalated", "open"].map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{
-                flex: 1, background: filter === f ? COLORS.accent : "transparent",
-                border: "none", borderRadius: 6, padding: "6px",
-                color: filter === f ? "#000" : COLORS.muted,
-                fontWeight: filter === f ? 700 : 400,
-                cursor: "pointer", fontSize: 12, textTransform: "capitalize",
-              }}>{f}</button>
+        <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 12 }}>🎫 Support Inbox</div>
+          <div style={{ display: "flex", gap: 3, background: `${overlayA}0.05)`, borderRadius: 8, padding: 3 }}>
+            {["agent", "supervisor", "ew_admin"].map(r => (
+              <button key={r} onClick={() => setViewRole(r)} style={{
+                flex: 1, padding: "5px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 10, fontWeight: 600,
+                background: viewRole === r ? `linear-gradient(135deg,${C.primary},${C.accent})` : "transparent",
+                color: viewRole === r ? "#fff" : C.muted, transition: "all 0.15s",
+              }}>
+                {r === "ew_admin" ? "EW" : r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Conversation List */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {filtered.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center", color: COLORS.muted }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-              <div style={{ fontSize: 13 }}>No conversations found</div>
+        <div style={{ display: "flex", gap: 8, padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
+          {[["Pending", pendingCount, "#f59e0b"], ["Active", activeCount, C.primary], ["Total", tickets.length, C.muted]].map(([label, value, color]) => (
+            <div key={label} style={{ flex: 1, textAlign: "center", padding: "6px 4px", background: `${overlayA}0.04)`, borderRadius: 8 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color }}>{value}</div>
+              <div style={{ fontSize: 10, color: C.muted }}>{label}</div>
             </div>
-          ) : (
-            filtered.map(conv => (
-              <div key={conv.id} onClick={() => setSelected(conv)} style={{
-                padding: "14px 20px",
-                background: selected?.id === conv.id ? COLORS.accent + "11" : "transparent",
-                borderLeft: selected?.id === conv.id ? `3px solid ${COLORS.accent}` : "3px solid transparent",
-                borderBottom: `1px solid ${COLORS.border}`,
-                cursor: "pointer", transition: "all 0.15s",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: "50%",
-                      background: `linear-gradient(135deg, ${intentColors[conv.intent] || COLORS.accent}, ${COLORS.accent2})`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, fontWeight: 800, color: "#000", flexShrink: 0,
-                    }}>
-                      {getInitials(conv)}
-                    </div>
-                    <div>
-                      <div style={{ color: COLORS.text, fontWeight: 700, fontSize: 13 }}>
-                        {getDisplayName(conv)}
-                      </div>
-                      <div style={{ color: COLORS.muted, fontSize: 11 }}>
-                        {conv.channel} · {conv.contact_phone}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ color: COLORS.muted, fontSize: 11 }}>{formatTime(conv.last_message_at)}</div>
-                    {conv.status === "escalated" && (
-                      <div style={{ color: COLORS.accent4, fontSize: 10, fontWeight: 700, marginTop: 2 }}>● ESCALATED</div>
-                    )}
-                  </div>
-                </div>
-                <p style={{
-                  color: COLORS.muted, fontSize: 12, margin: "6px 0 6px 40px",
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {conv.lastMessage}
-                </p>
-                <div style={{ display: "flex", gap: 6, marginLeft: 40 }}>
-                  {conv.intent && conv.intent !== "general" && (
-                    <Badge color={intentColors[conv.intent] || COLORS.muted}>
-                      {conv.intent?.replace(/_/g, " ")}
-                    </Badge>
-                  )}
-                  {conv.sentiment && conv.sentiment !== "neutral" && (
-                    <Badge color={sentimentColors[conv.sentiment] || COLORS.muted}>
-                      {conv.sentiment}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
+          ))}
         </div>
+
+        <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}` }}>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{
+            width: "100%", background: `${overlayA}0.06)`, border: `1px solid ${C.border}`,
+            borderRadius: 7, padding: "6px 10px", color: C.text, fontSize: 12, outline: "none",
+          }}>
+            <option value="all">All Tickets</option>
+            <option value="pending_agent">Pending</option>
+            <option value="agent_active">Active</option>
+            <option value="resolved">Resolved</option>
+          </select>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {filteredTickets.map(ticket => (
+            <div key={ticket.id} onClick={() => setSelectedTicket(ticket)} style={{
+              padding: "12px 16px", cursor: "pointer",
+              borderBottom: `1px solid ${overlayA}0.04)`,
+              background: selectedTicket?.id === ticket.id ? `${C.primary}12` : "transparent",
+              borderLeft: selectedTicket?.id === ticket.id ? `3px solid ${C.primary}` : "3px solid transparent",
+              transition: "all 0.1s",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                <span style={{ fontSize: 11, color: C.primary, fontWeight: 600 }}>{ticket.ticketNumber}</span>
+                <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 20, fontWeight: 700, background: `${PRIORITY_COLORS[ticket.priority]}20`, color: PRIORITY_COLORS[ticket.priority] }}>
+                  {ticket.priority.toUpperCase()}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: C.text, fontWeight: 500, marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {ticket.contact.name}
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {ticket.summary}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 12 }}>{CHANNEL_ICONS[ticket.channel]}</span>
+                <StatusTag status={ticket.status} color={C.primary} />
+                <span style={{ fontSize: 10, color: C.muted, marginLeft: "auto" }}>{ticket.createdAt}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {(viewRole === "supervisor" || viewRole === "ew_admin") && (
+          <button onClick={() => setShowAgentPanel(!showAgentPanel)} style={{
+            padding: "12px 16px", background: `${overlayA}0.03)`, border: "none",
+            borderTop: `1px solid ${C.border}`, color: C.muted, cursor: "pointer",
+            fontSize: 12, fontWeight: 600, textAlign: "left", fontFamily: "inherit",
+          }}>
+            👥 Agents {showAgentPanel ? "▲" : "▼"}
+          </button>
+        )}
       </div>
 
-      {/* Right Panel — Conversation Thread */}
-      {selected ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-          {/* Conversation Header */}
-          <div style={{
-            padding: "16px 24px", background: COLORS.surface,
-            borderBottom: `1px solid ${COLORS.border}`,
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: "50%",
-                background: `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16, fontWeight: 800, color: "#000",
-              }}>
-                {getInitials(selected)}
+      {/* ── Ticket Detail ── */}
+      {selectedTicket ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+
+          <div style={{ padding: "14px 24px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: C.surface, flexShrink: 0 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{selectedTicket.ticketNumber}</span>
+                <StatusTag status={selectedTicket.status} color={C.primary} />
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, fontWeight: 700, background: `${PRIORITY_COLORS[selectedTicket.priority]}20`, color: PRIORITY_COLORS[selectedTicket.priority] }}>
+                  {selectedTicket.priority.toUpperCase()}
+                </span>
+                <span>{CHANNEL_ICONS[selectedTicket.channel]}</span>
               </div>
-              <div>
-                <div style={{ color: COLORS.text, fontWeight: 800, fontSize: 16 }}>
-                  {getDisplayName(selected)}
-                </div>
-                <div style={{ color: COLORS.muted, fontSize: 12, marginTop: 2 }}>
-                  {selected.contact_phone} · {selected.channel} · {selected.messageCount} messages
-                </div>
-              </div>
-              <div style={{ marginLeft: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {selected.intent && selected.intent !== "general" && (
-                  <Badge color={intentColors[selected.intent] || COLORS.muted}>
-                    {selected.intent?.replace(/_/g, " ")}
-                  </Badge>
-                )}
-                {selected.sentiment && (
-                  <Badge color={sentimentColors[selected.sentiment] || COLORS.muted}>
-                    {selected.sentiment}
-                  </Badge>
-                )}
-                {selected.status === "escalated" && <Badge color={COLORS.accent4}>🔴 Escalated</Badge>}
+              <div style={{ fontSize: 13, color: C.muted }}>
+                {selectedTicket.contact.name} · {selectedTicket.contact.email} · {selectedTicket.contact.phone}
+                {selectedTicket.assignedAgent && <span style={{ color: C.primary }}> · {selectedTicket.assignedAgent}</span>}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={handleResolve} style={{
-                background: COLORS.accent3 + "22", border: `1px solid ${COLORS.accent3}55`,
-                borderRadius: 8, padding: "8px 16px", color: COLORS.accent3,
-                fontWeight: 700, cursor: "pointer", fontSize: 13,
-              }}>✓ Resolve</button>
-              <button onClick={handleEscalate} style={{
-                background: COLORS.accent4 + "22", border: `1px solid ${COLORS.accent4}55`,
-                borderRadius: 8, padding: "8px 16px", color: COLORS.accent4,
-                fontWeight: 700, cursor: "pointer", fontSize: 13,
-              }}>⚠ Escalate</button>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              {selectedTicket.status === "pending_agent" && <ActionBtn label="Accept" color={C.primary} onClick={() => acceptTicket(selectedTicket.id)} />}
+              {selectedTicket.status === "agent_active" && <>
+                <ActionBtn label="Transfer" color={C.muted} onClick={() => {}} />
+                <ActionBtn label="✓ Resolve" color="#10b981" onClick={() => resolveTicket(selectedTicket.id)} />
+              </>}
+              {viewRole === "supervisor" && selectedTicket.status === "agent_active" && (
+                <ActionBtn label="👁 Intercept" color="#f59e0b" onClick={() => acceptTicket(selectedTicket.id)} />
+              )}
             </div>
           </div>
 
-          {/* AI Context Bar */}
-          <div style={{
-            padding: "10px 24px", background: COLORS.accent + "08",
-            borderBottom: `1px solid ${COLORS.accent}22`,
-            display: "flex", alignItems: "center", gap: 16,
-          }}>
-            <span style={{ color: COLORS.accent, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>🤖 AI Context:</span>
-            <span style={{ color: COLORS.muted, fontSize: 12 }}>
-              {selected.intent === "complaint"
-                ? "Customer is frustrated. Recommend empathetic response and offer resolution. Consider compensation."
-                : selected.intent === "purchase_inquiry"
-                ? "Customer showing buying intent. Good opportunity to convert — highlight key benefits and offer demo."
-                : selected.intent === "support"
-                ? "Customer needs help. Check order/account status and provide specific resolution steps."
-                : selected.intent === "booking"
-                ? "Customer wants to book. Confirm availability and provide next steps."
-                : selected.intent === "opt_out"
-                ? "Customer wants to opt out. Confirm removal from messaging list and comply immediately."
-                : "Standard conversation. Bot handled initial exchange — review history for context."}
-            </span>
+          <div style={{ margin: "12px 24px 0", padding: "10px 14px", borderRadius: 10, flexShrink: 0, background: `${C.primary}08`, border: `1px solid ${C.primary}25`, fontSize: 13, color: C.muted }}>
+            <span style={{ color: C.primary, fontWeight: 600 }}>🤖 AI Summary: </span>
+            {selectedTicket.summary}
+            <span style={{ marginLeft: 8 }}>· Reason: <span style={{ color: "#f59e0b" }}>{selectedTicket.escalationReason.replace(/_/g, " ")}</span></span>
           </div>
 
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
-            {messages.length === 0 ? (
-              <div style={{ textAlign: "center", color: COLORS.muted, padding: 40 }}>
-                <div style={{ fontSize: 24, marginBottom: 8 }}>💬</div>
-                <div style={{ fontSize: 13 }}>No messages in this conversation yet</div>
-              </div>
-            ) : (
-              messages.map((msg, i) => (
-                <div key={msg.id || i} style={{ display: "flex", justifyContent: msg.direction === "outbound" ? "flex-end" : "flex-start" }}>
-                  <div style={{ maxWidth: "65%" }}>
-                    {/* Sender label */}
-                    <div style={{
-                      fontSize: 10, fontWeight: 600, marginBottom: 3,
-                      color: msg.direction === "outbound"
-                        ? (msg.sender === "bot" ? COLORS.accent2 : COLORS.accent3)
-                        : COLORS.muted,
-                      textAlign: msg.direction === "outbound" ? "right" : "left",
-                    }}>
-                      {msg.direction === "outbound"
-                        ? (msg.sender === "bot" ? "🤖 AI Bot" : "👤 Agent")
-                        : "Customer"}
-                    </div>
-                    <div style={{
-                      padding: "12px 16px",
-                      background: msg.direction === "outbound"
-                        ? (msg.sender === "bot" ? COLORS.accent2 + "33" : COLORS.accent)
-                        : COLORS.surface,
-                      color: msg.direction === "outbound" && msg.sender !== "bot" ? "#000" : COLORS.text,
-                      borderRadius: msg.direction === "outbound" ? "14px 14px 0 14px" : "14px 14px 14px 0",
-                      fontSize: 14, lineHeight: 1.5,
-                      border: msg.direction === "inbound" ? `1px solid ${COLORS.border}` : 
-                             (msg.sender === "bot" ? `1px solid ${COLORS.accent2}44` : "none"),
-                    }}>
-                      {msg.content}
-                    </div>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 6, marginTop: 4,
-                      justifyContent: msg.direction === "outbound" ? "flex-end" : "flex-start",
-                    }}>
-                      <span style={{ color: COLORS.dim, fontSize: 11 }}>{formatTime(msg.created_at)}</span>
-                    </div>
-                  </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {selectedTicket.transcript.map((msg, i) => (
+              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "customer" ? "flex-start" : "flex-end" }}>
+                <div style={{ fontSize: 10, color: C.muted, marginBottom: 3, paddingLeft: 4, paddingRight: 4 }}>
+                  {msg.role === "customer" ? "👤 Customer" : msg.role === "ai" ? "🤖 AI Agent" : msg.isInternal ? "🔒 Internal" : "🧑‍💻 Agent"}
+                  {" · "}{msg.sentAt}
                 </div>
-              ))
-            )}
+                <div style={{
+                  maxWidth: "70%", padding: "10px 14px", borderRadius: 12, fontSize: 13, lineHeight: 1.5, color: C.text,
+                  background: msg.role === "customer" ? `${overlayA}0.07)`
+                    : msg.isEscalation ? "rgba(245,158,11,0.12)"
+                    : msg.isInternal ? `${C.primary}10`
+                    : msg.role === "ai" ? `${C.primary}18`
+                    : "rgba(16,185,129,0.12)",
+                  border: msg.isEscalation ? "1px solid rgba(245,158,11,0.3)"
+                    : msg.isInternal ? `1px dashed ${C.primary}40` : "none",
+                }}>
+                  {msg.isEscalation && <div style={{ fontSize: 10, color: "#f59e0b", marginBottom: 4, fontWeight: 600 }}>🚨 ESCALATION TRIGGERED</div>}
+                  {msg.isInternal && <div style={{ fontSize: 10, color: C.primary, marginBottom: 4, fontWeight: 600 }}>🔒 INTERNAL NOTE</div>}
+                  {msg.content}
+                </div>
+              </div>
+            ))}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Reply Box */}
-          <div style={{ padding: "16px 24px", background: COLORS.surface, borderTop: `1px solid ${COLORS.border}` }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-              {["I understand your frustration", "Let me check on that", "Is there anything else I can help with?", "I'll escalate this to our team"].map(s => (
-                <button key={s} onClick={() => setReply(s)} style={{
-                  background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                  borderRadius: 6, padding: "5px 10px", color: COLORS.muted,
-                  cursor: "pointer", fontSize: 11, whiteSpace: "nowrap",
-                }}>{s}</button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <textarea
-                value={reply}
-                onChange={e => setReply(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), handleReply())}
-                placeholder={isLive ? "Type your reply... (Enter to send via SMS)" : "Type your reply... (Enter to send — demo mode)"}
-                rows={3}
-                style={{
-                  flex: 1, background: COLORS.bg, border: `1px solid ${COLORS.border}`,
-                  borderRadius: 10, padding: "12px 14px", color: COLORS.text,
-                  fontSize: 14, resize: "none", outline: "none",
-                  fontFamily: "'DM Sans', sans-serif",
-                }}
-              />
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button onClick={handleReply} disabled={sending || !reply.trim()} style={{
-                  background: reply.trim() ? `linear-gradient(135deg, ${COLORS.accent}, ${COLORS.accent2})` : COLORS.border,
-                  border: "none", borderRadius: 10, padding: "12px 20px",
-                  color: reply.trim() ? "#000" : COLORS.muted,
-                  fontWeight: 800, cursor: reply.trim() ? "pointer" : "not-allowed",
-                  fontSize: 14, flex: 1,
+          {(selectedTicket.status === "agent_active" || selectedTicket.status === "pending_agent") && (
+            <div style={{ padding: "12px 24px 16px", borderTop: `1px solid ${C.border}`, background: C.surface, flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                {[[false, "💬 Reply", "#10b981"], [true, "🔒 Internal", C.primary]].map(([val, label, activeColor]) => (
+                  <button key={String(val)} onClick={() => setInternalNote(val)} style={{
+                    padding: "4px 12px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600,
+                    background: internalNote === val ? `${activeColor}20` : `${overlayA}0.05)`,
+                    color: internalNote === val ? activeColor : C.muted,
+                    fontFamily: "inherit",
+                  }}>{label}</button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+                  placeholder={internalNote ? "Internal note — not visible to customer..." : `Reply via ${selectedTicket.channel}...`}
+                  rows={3} style={{
+                    flex: 1, background: `${overlayA}0.05)`, border: `1px solid ${internalNote ? C.primary + "40" : C.border}`,
+                    borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 13,
+                    outline: "none", resize: "none", fontFamily: "inherit",
+                  }}
+                />
+                <button onClick={sendReply} disabled={!replyText.trim()} style={{
+                  padding: "0 20px", borderRadius: 10, border: "none", cursor: replyText.trim() ? "pointer" : "default",
+                  background: replyText.trim()
+                    ? internalNote ? `linear-gradient(135deg,${C.primary},${C.accent})` : "linear-gradient(135deg,#059669,#10b981)"
+                    : `${overlayA}0.05)`,
+                  color: replyText.trim() ? "#fff" : C.muted,
+                  fontWeight: 700, fontSize: 13, alignSelf: "flex-end", height: 44, transition: "all 0.2s",
+                  fontFamily: "inherit",
                 }}>
-                  {sending ? "..." : "Send"}
+                  {internalNote ? "Save" : "Send →"}
                 </button>
-                <button style={{
-                  background: COLORS.accent2 + "22", border: `1px solid ${COLORS.accent2}44`,
-                  borderRadius: 10, padding: "10px",
-                  color: COLORS.accent2, cursor: "pointer", fontSize: 12, fontWeight: 700,
-                }}>🤖 AI Draft</button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ textAlign: "center", color: COLORS.muted }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.text }}>Select a conversation</div>
-            <div style={{ fontSize: 14, marginTop: 8 }}>Choose from the inbox on the left</div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: C.muted }}>
+          Select a ticket
+        </div>
+      )}
+
+      {/* ── Agent Monitor ── */}
+      {showAgentPanel && (viewRole === "supervisor" || viewRole === "ew_admin") && (
+        <div style={{ width: 210, borderLeft: `1px solid ${C.border}`, padding: 16, overflowY: "auto", flexShrink: 0, background: C.surface }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Agents</div>
+          {MOCK_AGENTS.map(agent => (
+            <div key={agent.id} style={{ padding: "10px 12px", borderRadius: 10, marginBottom: 8, background: `${overlayA}0.04)`, border: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: agent.isAvailable ? "#10b981" : C.muted, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{agent.name}</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{agent.role} · {agent.isAvailable ? "Available" : "Offline"}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: `${overlayA}0.08)` }}>
+                  <div style={{ height: "100%", borderRadius: 2, width: `${(agent.currentTickets / agent.maxTickets) * 100}%`, background: agent.currentTickets / agent.maxTickets > 0.7 ? "#f97316" : C.primary, transition: "width 0.3s" }} />
+                </div>
+                <span style={{ fontSize: 10, color: C.muted }}>{agent.currentTickets}/{agent.maxTickets}</span>
+              </div>
+            </div>
+          ))}
+          <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: `${C.primary}08`, border: `1px solid ${C.primary}20` }}>
+            <div style={{ fontSize: 11, color: C.primary, fontWeight: 600, marginBottom: 4 }}>📊 Live</div>
+            <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
+              Available: {MOCK_AGENTS.filter(a => a.isAvailable).length}/{MOCK_AGENTS.length}<br />
+              Pending: {pendingCount}
+            </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function StatusTag({ status, color }) {
+  const colors = { pending_agent: "#f59e0b", agent_active: "#6366f1", resolved: "#10b981", closed: "#475569", pending_upstream: "#ef4444" };
+  const col = colors[status] || "#475569";
+  return (
+    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, fontWeight: 600, background: `${col}20`, color: col }}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
+
+function ActionBtn({ label, color, onClick }) {
+  return (
+    <button onClick={onClick} style={{ padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: `${color}20`, color, fontWeight: 600, fontSize: 12, transition: "all 0.15s", fontFamily: "inherit" }}>
+      {label}
+    </button>
   );
 }
