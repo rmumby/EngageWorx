@@ -121,7 +121,7 @@ export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenant
 
   return (
     // Uses 100% of the space given by the parent — no fixed positioning, no own sidebar
-    <div style={{ display: "flex", height: "100%", minHeight: 0, background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text, overflow: "hidden", gap: 16 }}>
+    <div style={{ display: "flex", height: "100vh", minHeight: 0, background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text, overflow: "hidden", paddingLeft: 16, boxSizing: "border-box" }}>
 
       {/* ── Ticket List Panel ── */}
       <div style={{ width: 260, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: C.surface }}>
