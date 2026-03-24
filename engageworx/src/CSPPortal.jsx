@@ -223,9 +223,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {/* ═══ LIVE INBOX ═══ */}
         {page === 'inbox' && (
-          <div style={{ position: 'fixed', top: 0, left: sidebarCollapsed ? 64 : 240, right: 0, bottom: 0, transition: 'left 0.25s ease', zIndex: 10, overflow: 'hidden' }}>
-            <style>{'.ew-inbox-wrap > div { height: 100% !important; max-height: 100vh; }'}</style>
-            <div className="ew-inbox-wrap" style={{ height: '100%', overflow: 'hidden' }}>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+            <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, height: '100%', transition: 'margin-left 0.25s ease', overflow: 'hidden' }}>
               <LiveInbox
                 C={C}
                 tenants={[]}
