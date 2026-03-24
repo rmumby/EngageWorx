@@ -104,7 +104,7 @@ async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone
       .eq('tenant_id',  tenantId)
       .eq('channel',    'sms')
       .eq('contact_id', contactId)
-      .in('status', ['open', 'active', 'pending'])
+      .in('status', ['active', 'waiting', 'snoozed'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -117,7 +117,7 @@ async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone
         tenant_id:            tenantId,
         contact_id:           contactId,
         channel:              'sms',
-        status:               'open',
+        status:               'active',
         subject:              `SMS from ${fromPhone}`,
         last_message_at:      new Date().toISOString(),
         last_message_preview: '',
