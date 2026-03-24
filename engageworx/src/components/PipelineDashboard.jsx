@@ -57,8 +57,8 @@ function LeadCard({ lead, onSelect }) {
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}>
       {stale && <div style={{ position: "absolute", top: 8, right: 8, fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
-      <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0 }}>{lead.name}</div>
-      <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{lead.company || "—"}</div>
+     <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0 }}>{lead.company || lead.name}</div>
+<div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{lead.name}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥", Warm:"⚡", Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
