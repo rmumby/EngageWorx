@@ -331,6 +331,12 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
           
+          // Don't restore unread badge for currently selected conversation
+          assembled = assembled.map(function(c) {
+            return (selectedConv && c.id === selectedConv.id)
+              ? Object.assign({}, c, { unread: 0 })
+              : c;
+          });
           setConversations(assembled);
           
           // Also refresh selected conversation messages
@@ -661,7 +667,20 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={() => setSelectedConv(conv)} style={{
+              <div key={conv.id} onClick={() => {
+  setSelectedConv(conv);
+  // Clear unread badge in local state
+  setConversations(prev => prev.map(c =>
+    c.id === conv.id ? { ...c, unread: 0 } : c
+  ));
+  // Clear unread count in Supabase
+  if (supabase && conv.unread > 0) {
+    supabase.from('conversations')
+      .update({ unread_count: 0 })
+      .eq('id', conv.id)
+      .catch(() => {});
+  }
+}} style={{
                 padding: "12px 16px", cursor: "pointer", transition: "background 0.15s",
                 background: isSelected ? `${C.primary}15` : "transparent",
                 borderLeft: isSelected ? `3px solid ${C.primary}` : "3px solid transparent",
