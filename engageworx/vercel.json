@@ -3,6 +3,8 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/smsconsent", "destination": "/smsconsent.html" },
-    { "source": "/accessibility", "destination": "/accessibility.html" }
+    { "source": "/accessibility", "destination": "/accessibility.html" },
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
