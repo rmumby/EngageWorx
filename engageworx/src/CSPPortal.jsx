@@ -230,7 +230,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             currentTenantId={cspTenantId}
             demoMode={false}
             supabase={supabase}
-            offsetLeft={sidebarCollapsed ? 64 : 240}
           />
         )}
 
