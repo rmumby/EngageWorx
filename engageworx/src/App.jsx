@@ -959,7 +959,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "support" && <AgentInbox />}
+        {page === "support" && <AgentInbox C={C} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && (
           <div style={{ padding: "32px 36px" }}>
@@ -1458,7 +1458,7 @@ else setSidebarCollapsed(false);
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "support" && <AgentInbox />}
+        {spPage === "support" && <AgentInbox C={C} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
