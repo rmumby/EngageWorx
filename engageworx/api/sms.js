@@ -183,9 +183,8 @@ async function notifyInbound(supabase, tenantId, from, body) {
       return;
     }
 
-    const baseUrl = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'https://portal.engwx.com';
+    // Always use production URL — VERCEL_URL resolves to preview deployments
+    const baseUrl = 'https://portal.engwx.com';
 
     for (const email of emailsToNotify) {
       await fetch(`${baseUrl}/api/email`, {
@@ -434,7 +433,7 @@ module.exports = async function handler(req, res) {
             media_count:  parseInt(NumMedia || '0'),
           },
           created_at: now,
-          updated_at: now,
+          // updated_at intentionally omitted — not in messages schema
         });
 
       if (insertError) {
@@ -529,9 +528,8 @@ module.exports = async function handler(req, res) {
             .order('created_at', { ascending: true })
             .limit(10);
 
-          const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : 'https://portal.engwx.com';
+          // Always use production URL — VERCEL_URL resolves to preview deployments
+          const baseUrl = 'https://portal.engwx.com';
 
           const aiResponse = await fetch(`${baseUrl}/api/ai?action=respond`, {
             method:  'POST',
