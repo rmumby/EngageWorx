@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { useTheme, ThemeToggle } from './ThemeContext';
+import ContactsModule from './ContactsModule';
 
 function getCSPColors(themeObj) {
   if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -125,6 +126,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
     { id: 'tenants', label: 'Tenant Management', icon: '🏢' },
     { id: 'campaigns', label: 'Campaigns', icon: '🚀' },
+    { id: 'contacts', label: 'Contacts', icon: '👥' },
     { id: 'inbox', label: 'Live Inbox', icon: '💬' },
     { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -215,8 +217,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
         </div>
 
-        {/* ═══ DASHBOARD ═══ */}
-        {page === 'dashboard' && (
+       {/* ═══ CONTACTS ═══ */}
+        {page === 'contacts' && (
+          <ContactsModule
+            C={C}
+            tenants={[]}
+            viewLevel="tenant"
+            currentTenantId={cspTenantId}
+            demoMode={false}
+          />
+        )}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
               <div>
