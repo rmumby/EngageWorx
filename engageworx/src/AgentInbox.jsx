@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTheme, getThemedColors } from "./ThemeContext";
 
 const MOCK_TICKETS = [
   {
@@ -66,14 +67,15 @@ const PRIORITY_COLORS = { low: "#10b981", medium: "#f59e0b", high: "#f97316", cr
 const STATUS_LABELS = { pending_agent: "Pending", agent_active: "Active", resolved: "Resolved", closed: "Closed", pending_upstream: "Upstream" };
 
 export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenantId, demoMode }) {
-  const C = propC || {
+  // Read theme directly — don't rely solely on prop being passed correctly
+  const { theme } = useTheme();
+  const baseColors = propC || {
     primary: "#00C9FF", accent: "#E040FB",
     bg: "#080d1a", surface: "#0d1425", border: "#182440",
     text: "#E8F4FD", muted: "#6B8BAE",
   };
-
-  // Trust C entirely — same pattern as ContactsModule, CampaignsModule etc.
-  // getThemedColors() in App.jsx already handles light/dark switching before passing C in.
+  // Apply theme overrides — same as getThemedColors() in App.jsx
+  const C = getThemedColors(baseColors, theme);
   const overlayA = (C.bg || "").toLowerCase().startsWith("#f") ? "rgba(0,0,0," : "rgba(255,255,255,";
 
   const [viewRole, setViewRole] = useState("supervisor");
@@ -120,10 +122,13 @@ export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenant
 
   return (
     // Uses 100% of the space given by the parent — no fixed positioning, no own sidebar
-    <div style={{ display: "flex", height: "100vh", minHeight: 0, background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text, overflow: "hidden", paddingLeft: 16, boxSizing: "border-box" }}>
+    <div style={{ display: "flex", height: "100vh", minHeight: 0, background: C.bg, fontFamily: "'DM Sans', system-ui, sans-serif", color: C.text, overflow: "hidden" }}>
+
+      {/* Spacer to push ticket panel away from collapsed main menu */}
+      <div style={{ width: 16, flexShrink: 0, background: C.bg }} />
 
       {/* ── Ticket List Panel ── */}
-      <div style={{ width: 260, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: C.surface }}>
+      <div style={{ width: 260, borderRight: `1px solid ${C.border}`, borderLeft: `1px solid ${C.border}`, display: "flex", flexDirection: "column", flexShrink: 0, background: C.surface }}>
 
         <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 12 }}>🎫 Support Inbox</div>
