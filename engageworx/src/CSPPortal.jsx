@@ -153,6 +153,27 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   });
 
+  // Full-screen inbox — bypass sidebar entirely
+  if (page === 'inbox') {
+    return (
+      <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg }}>
+        <button
+          onClick={function() { setPage('dashboard'); }}
+          style={{ position: 'fixed', top: 16, left: 16, zIndex: 200, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 6 }}>
+          ← {cspInfo ? cspInfo.name : 'Portal'}
+        </button>
+        <LiveInbox
+          C={C}
+          tenants={[]}
+          viewLevel="tenant"
+          currentTenantId={cspTenantId}
+          demoMode={false}
+          supabase={supabase}
+        />
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
       {/* Sidebar */}
@@ -219,18 +240,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
             <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
           </div>
-        )}
-
-        {/* ═══ LIVE INBOX ═══ */}
-        {page === 'inbox' && (
-          <LiveInbox
-            C={C}
-            tenants={[]}
-            viewLevel="tenant"
-            currentTenantId={cspTenantId}
-            demoMode={false}
-            supabase={supabase}
-          />
         )}
 
         {/* ═══ CONTACTS ═══ */}
