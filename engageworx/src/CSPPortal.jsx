@@ -153,23 +153,45 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   });
 
-  // Full-screen inbox — bypass sidebar entirely
+  // Full-screen inbox — bypass sidebar entirely, show slim top bar instead
   if (page === 'inbox') {
     return (
-      <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg }}>
-        <button
-          onClick={function() { setPage('dashboard'); }}
-          style={{ position: 'fixed', top: 16, left: 16, zIndex: 200, background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 8, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 6 }}>
-          ← {cspInfo ? cspInfo.name : 'Portal'}
-        </button>
-        <LiveInbox
-          C={C}
-          tenants={[]}
-          viewLevel="tenant"
-          currentTenantId={cspTenantId}
-          demoMode={false}
-          supabase={supabase}
-        />
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+        {/* Slim top bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
+          {/* Left: logo + name + back */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>💬 Live Inbox</span>
+          </div>
+          {/* Right: nav links + sign out */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {navItems.filter(function(n) { return n.id !== 'inbox'; }).map(function(item) {
+              return (
+                <span key={item.id} onClick={function() { setPage(item.id); }} style={{ color: C.muted, fontSize: 12, cursor: 'pointer', fontWeight: 500, transition: 'color 0.2s' }}
+                  onMouseEnter={function(e) { e.target.style.color = '#fff'; }}
+                  onMouseLeave={function(e) { e.target.style.color = C.muted; }}>
+                  {item.icon} {item.label}
+                </span>
+              );
+            })}
+            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+            <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>⏻ Sign Out</span>
+          </div>
+        </div>
+        {/* Inbox fills remaining height */}
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <LiveInbox
+            C={C}
+            tenants={[]}
+            viewLevel="tenant"
+            currentTenantId={cspTenantId}
+            demoMode={false}
+            supabase={supabase}
+          />
+        </div>
       </div>
     );
   }
