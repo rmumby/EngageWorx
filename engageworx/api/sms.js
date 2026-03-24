@@ -12,6 +12,29 @@ function getSupabase() {
   );
 }
 
+// ─── FORM BODY PARSER ─────────────────────────────────────────────────────
+// Twilio webhooks are application/x-www-form-urlencoded, not JSON.
+// Vercel's default body parser mishandles this — we read and parse raw bytes.
+async function parseFormBody(req) {
+  return new Promise((resolve, reject) => {
+    // If Vercel already parsed it and fields look correct, use it
+    if (req.body && typeof req.body === 'object' && req.body.MessageSid) {
+      return resolve(req.body);
+    }
+    let raw = '';
+    req.on('data', chunk => { raw += chunk.toString(); });
+    req.on('end', () => {
+      try {
+        const parsed = Object.fromEntries(new URLSearchParams(raw));
+        resolve(parsed);
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 async function sendSMS(to, body, from) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken  = process.env.TWILIO_AUTH_TOKEN;
@@ -39,7 +62,6 @@ async function sendSMS(to, body, from) {
 }
 
 // ─── FIND OR CREATE CONTACT ────────────────────────────────────────────────
-// Looks up a contact by phone within a tenant; creates a minimal record if not found.
 async function findOrCreateContact(supabase, tenantId, phone) {
   if (!tenantId) return null;
   try {
@@ -73,7 +95,6 @@ async function findOrCreateContact(supabase, tenantId, phone) {
 }
 
 // ─── FIND OR CREATE CONVERSATION ──────────────────────────────────────────
-// Finds an open SMS conversation for this contact+tenant, or creates one.
 async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone) {
   if (!tenantId || !contactId) return null;
   try {
@@ -116,8 +137,6 @@ async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone
 }
 
 // ─── NOTIFY INBOUND ────────────────────────────────────────────────────────
-// Sends email notification to tenant members with inbound_message enabled.
-// Falls back to PLATFORM_ADMIN_EMAIL env var if no tenant members found.
 async function notifyInbound(supabase, tenantId, from, body) {
   try {
     let emailsToNotify = [];
@@ -139,7 +158,6 @@ async function notifyInbound(supabase, tenantId, from, body) {
           .eq('event_type', 'inbound_message')
           .eq('email_enabled', true);
 
-        // Use explicit prefs if found, otherwise notify all active members
         const lookupIds = (prefs && prefs.length > 0)
           ? prefs.map(p => p.user_id)
           : userIds;
@@ -155,7 +173,6 @@ async function notifyInbound(supabase, tenantId, from, body) {
       }
     }
 
-    // Fallback to platform admin
     if (emailsToNotify.length === 0) {
       const adminEmail = process.env.PLATFORM_ADMIN_EMAIL;
       if (adminEmail) emailsToNotify = [adminEmail];
@@ -199,7 +216,6 @@ async function notifyInbound(supabase, tenantId, from, body) {
     }
   } catch (err) {
     console.error('[Notify] Failed to send inbound notification:', err);
-    // Fail silently — never block the webhook
   }
 }
 
@@ -314,11 +330,24 @@ module.exports = async function handler(req, res) {
 
   // ─── WEBHOOK (Twilio inbound + status) ──────────────────────────────────
   if (action === 'webhook') {
+    // !! CRITICAL: Parse raw form body — Twilio sends application/x-www-form-urlencoded
+    // Vercel's default JSON body parser corrupts this, so we parse manually.
+    let twilioBody;
+    try {
+      twilioBody = await parseFormBody(req);
+    } catch (parseErr) {
+      console.error('[Twilio] Body parse error:', parseErr.message);
+      res.setHeader('Content-Type', 'text/xml');
+      return res.status(200).send('<Response></Response>');
+    }
+
+    console.log('[Twilio] Parsed webhook body:', JSON.stringify(twilioBody));
+
     try {
       const {
         MessageSid, From, To, Body, NumMedia,
         MessageStatus, SmsStatus, ErrorCode, ErrorMessage,
-      } = req.body;
+      } = twilioBody;
 
       const supabase = getSupabase();
 
@@ -370,9 +399,9 @@ module.exports = async function handler(req, res) {
       const helpWords   = ['HELP','INFO'];
 
       let messageType = 'inbound';
-      if (optOutWords.includes(upperBody))      messageType = 'opt_out';
-      else if (optInWords.includes(upperBody))  messageType = 'opt_in';
-      else if (helpWords.includes(upperBody))   messageType = 'help';
+      if (optOutWords.includes(upperBody))     messageType = 'opt_out';
+      else if (optInWords.includes(upperBody)) messageType = 'opt_in';
+      else if (helpWords.includes(upperBody))  messageType = 'help';
 
       // 3. Find or create contact
       const contactId = await findOrCreateContact(supabase, tenantId, From);
@@ -491,7 +520,6 @@ module.exports = async function handler(req, res) {
             };
           }
 
-          // Fetch recent conversation history scoped to this conversation
           const { data: history } = await supabase
             .from('messages')
             .select('direction, body, created_at')
@@ -530,7 +558,6 @@ module.exports = async function handler(req, res) {
 
         } catch (aiErr) {
           console.error('[AI] Auto-response error:', aiErr);
-          // Fail silently — never block the webhook
         }
       }
 
