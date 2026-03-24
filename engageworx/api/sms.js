@@ -352,8 +352,10 @@ module.exports = async function handler(req, res) {
       const supabase = getSupabase();
 
       // ── Delivery status update ──────────────────────────────────────────
-      if (MessageStatus || SmsStatus) {
-        const status = MessageStatus || SmsStatus;
+      // MessageStatus is only present on outbound delivery callbacks.
+      // SmsStatus=received arrives on INBOUND messages too — do NOT use it to gate here.
+      if (MessageStatus) {
+        const status = MessageStatus;
         console.log(`[Twilio] Status update: ${MessageSid} → ${status}`);
 
         await supabase
