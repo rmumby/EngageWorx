@@ -156,7 +156,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
       {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 100, transition: 'all 0.25s ease', overflow: 'hidden' }}>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
         {/* Back to SP (when drilled down from Super Admin) */}
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
@@ -230,6 +230,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             currentTenantId={cspTenantId}
             demoMode={false}
             supabase={supabase}
+            offsetLeft={sidebarCollapsed ? 64 : 240}
           />
         )}
 
