@@ -200,7 +200,7 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase, offsetLeft = 0 }) {
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
