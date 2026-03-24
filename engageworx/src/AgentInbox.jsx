@@ -72,10 +72,9 @@ export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenant
     text: "#E8F4FD", muted: "#6B8BAE",
   };
 
-  // Detect light vs dark — ThemeContext light bg is "#F5F7FA" (capital F), must lowercase first
-  const bg = (C.bg || "").toLowerCase();
-  const isDark = !bg.startsWith("#f") && !bg.startsWith("#e") && !bg.startsWith("#d") && bg !== "#fff" && bg !== "white";
-  const overlayA = isDark ? "rgba(255,255,255," : "rgba(0,0,0,";
+  // Trust C entirely — same pattern as ContactsModule, CampaignsModule etc.
+  // getThemedColors() in App.jsx already handles light/dark switching before passing C in.
+  const overlayA = (C.bg || "").toLowerCase().startsWith("#f") ? "rgba(0,0,0," : "rgba(255,255,255,";
 
   const [viewRole, setViewRole] = useState("supervisor");
   const [tickets, setTickets] = useState(MOCK_TICKETS);
