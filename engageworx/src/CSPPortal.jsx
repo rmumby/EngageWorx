@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { useTheme, ThemeToggle } from './ThemeContext';
 import ContactsModule from './ContactsModule';
+import LiveInbox from './components/LiveInboxV2';
 
 function getCSPColors(themeObj) {
   if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -210,14 +211,29 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
 
       {/* Main Content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
-        {/* Top bar with navigation */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
-          {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
-          <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
-        </div>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', transition: 'margin-left 0.25s ease' }}>
 
-       {/* ═══ CONTACTS ═══ */}
+        {/* Top bar — hidden on inbox to give full height */}
+        {page !== 'inbox' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
+            {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
+            <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
+          </div>
+        )}
+
+        {/* ═══ LIVE INBOX ═══ */}
+        {page === 'inbox' && (
+          <LiveInbox
+            C={C}
+            tenants={[]}
+            viewLevel="tenant"
+            currentTenantId={cspTenantId}
+            demoMode={false}
+            supabase={supabase}
+          />
+        )}
+
+        {/* ═══ CONTACTS ═══ */}
         {page === 'contacts' && (
           <ContactsModule
             C={C}
@@ -227,6 +243,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             demoMode={false}
           />
         )}
+
+        {/* ═══ DASHBOARD ═══ */}
+        {page === 'dashboard' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
               <div>
@@ -360,7 +379,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
         {/* ═══ OTHER PAGES (placeholder) ═══ */}
-        {(page === 'campaigns' || page === 'inbox' || page === 'analytics' || page === 'settings') && (
+        {(page === 'campaigns' || page === 'analytics' || page === 'settings') && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{navItems.find(function(n) { return n.id === page; }).label}</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon. For now, manage individual tenants from the Dashboard or Tenant Management.</p>
