@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing email or password' });
     }
 
-    const { createClient } = require('@supabase/supabase-js');
+    var { createClient } = require('@supabase/supabase-js');
     var supabase = createClient(
       process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -358,7 +358,7 @@ module.exports = async function handler(req, res) {
           var session = event.data.object;
           console.log(`[Stripe] Checkout completed: ${session.customer_email}, sub: ${session.subscription}`);
 
-          const { createClient } = require('@supabase/supabase-js');
+          var { createClient } = require('@supabase/supabase-js');
           var supabase = createClient(
             process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -489,7 +489,7 @@ module.exports = async function handler(req, res) {
               var teamEmails = userMeta.team_emails;
               if (teamEmails) {
                 var emails = teamEmails.split(',').map(e => e.trim()).filter(Boolean);
-                for (const inviteEmail of emails) {
+                for (var inviteEmail of emails) {
                   await supabase.from('tenant_members').insert({
                     tenant_id: tenant.id,
                     role: 'member',
@@ -512,7 +512,7 @@ module.exports = async function handler(req, res) {
           var sub = event.data.object;
           console.log(`[Stripe] Subscription cancelled: ${sub.id}`);
 
-          const { createClient } = require('@supabase/supabase-js');
+          var { createClient } = require('@supabase/supabase-js');
           var supabase = createClient(
             process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
