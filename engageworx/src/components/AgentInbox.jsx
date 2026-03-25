@@ -129,7 +129,7 @@ export default function AgentInbox({ offsetLeft = 0 }) {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0a0e1a", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e2e8f0", overflow: "hidden", marginLeft: offsetLeft }}>
+    <div style={{ display: "flex", height: "100%", background: "#0a0e1a", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e2e8f0", overflow: "hidden" }}>
 
       {/* ── Sidebar ── */}
       <div style={{ width: 280, borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
