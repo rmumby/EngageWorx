@@ -115,7 +115,178 @@ module.exports = async function handler(req, res) {
   function xml(text) {
     return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
   }
+// ─── PASTE THIS BLOCK INTO twilio-voice.js ───────────────────────────────────
+// INSERT LOCATION: immediately before the line "if (action === 'inbound') {"
+// ─────────────────────────────────────────────────────────────────────────────
 
+  // ── AI Voice Agent (sandbox tenants) ──────────────────────────────────────
+  // Webhook: POST /api/twilio-voice?action=ai
+  // Conversational Claude AI answers calls, uses tenant chatbot config
+  if (action === 'ai') {
+    var aiBody       = req.body || {};
+    var speechResult = aiBody.SpeechResult || '';
+    var callSid      = aiBody.CallSid      || '';
+    var toNumber     = aiBody.To           || '';
+    var fromNumber   = aiBody.From         || '';
+
+    // 1. Look up tenant from phone_numbers table
+    var aiTenantConfig = {
+      businessName:  'EngageWorx',
+      personality:   'friendly and professional',
+      knowledgeBase: '',
+      tenantId:      null,
+    };
+
+    try {
+      var phoneRes = await supabase
+        .from('phone_numbers')
+        .select('tenant_id')
+        .eq('number', toNumber)
+        .single();
+
+      if (phoneRes.data && phoneRes.data.tenant_id) {
+        var tid = phoneRes.data.tenant_id;
+        aiTenantConfig.tenantId = tid;
+
+        var tenantRes = await supabase
+          .from('tenants')
+          .select('name, industry')
+          .eq('id', tid)
+          .single();
+
+        var chatbotRes = await supabase
+          .from('chatbot_configs')
+          .select('personality, knowledge_base')
+          .eq('tenant_id', tid)
+          .single();
+
+        if (tenantRes.data) {
+          aiTenantConfig.businessName = tenantRes.data.name || 'EngageWorx';
+          aiTenantConfig.industry     = tenantRes.data.industry || '';
+        }
+        if (chatbotRes.data) {
+          aiTenantConfig.personality   = chatbotRes.data.personality   || 'friendly and professional';
+          aiTenantConfig.knowledgeBase = chatbotRes.data.knowledge_base || '';
+        }
+      }
+    } catch (tenantErr) {
+      console.log('[Voice AI] Tenant lookup error:', tenantErr.message);
+    }
+
+    // 2. First turn — no speech yet, greet caller
+    if (!speechResult) {
+      var greeting = xml('Hello, thank you for calling ' + aiTenantConfig.businessName + '. I\'m an AI assistant — how can I help you today?');
+      return res.status(200).send(twiml(
+        '<Gather input="speech" action="/api/twilio-voice?action=ai" method="POST" speechTimeout="auto" language="en-US">' +
+          say('Hello, thank you for calling ' + aiTenantConfig.businessName + ". I'm an AI assistant. How can I help you today?") +
+        '</Gather>' +
+        say("I didn't catch that. Please call back and try again.")
+      ));
+    }
+
+    // 3. Caller has spoken — get AI response
+    console.log('[Voice AI] Caller said: "' + speechResult + '" | Tenant: ' + aiTenantConfig.businessName);
+
+    try {
+      // Fetch conversation history for this call from call_messages
+      // Note: call_messages uses call_id (UUID from calls table), not CallSid directly
+      // We store CallSid in the calls table — look it up first
+      var callRecord = null;
+      var callHistoryMessages = [];
+
+      try {
+        var callRes = await supabase
+          .from('calls')
+          .select('id')
+          .eq('call_sid', callSid)
+          .single();
+
+        if (callRes.data) {
+          callRecord = callRes.data;
+          var histRes = await supabase
+            .from('call_messages')
+            .select('role, content')
+            .eq('call_id', callRecord.id)
+            .order('created_at', { ascending: true })
+            .limit(10);
+          callHistoryMessages = histRes.data || [];
+        }
+      } catch (histErr) {
+        console.log('[Voice AI] History lookup skipped:', histErr.message);
+      }
+
+      // Build Claude messages array
+      var claudeMessages = callHistoryMessages.map(function(m) {
+        return { role: m.role, content: m.content };
+      });
+      claudeMessages.push({ role: 'user', content: speechResult });
+
+      // Call Claude API (Haiku for voice — fast and cost efficient)
+      var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-api-key':         process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model:      'claude-haiku-4-5-20251001',
+          max_tokens: 150,
+          system: 'You are a ' + aiTenantConfig.personality + ' AI voice assistant for ' + aiTenantConfig.businessName + '. ' +
+                  'You are on a phone call. Keep ALL responses to 1-2 short sentences maximum. ' +
+                  'Speak naturally and conversationally. Never use bullet points, lists, or formatting. ' +
+                  (aiTenantConfig.knowledgeBase ? 'About the business: ' + aiTenantConfig.knowledgeBase + ' ' : '') +
+                  'If you cannot help with something, offer to take a message.',
+          messages: claudeMessages,
+        }),
+      });
+
+      var claudeData = await claudeRes.json();
+      var aiReply = (claudeData && claudeData.content && claudeData.content[0] && claudeData.content[0].text)
+        ? claudeData.content[0].text
+        : "I'm sorry, I'm having trouble right now. Could you please repeat that?";
+
+      console.log('[Voice AI] AI response: "' + aiReply + '"');
+
+      // Save conversation turns to call_messages if we have a call record
+      if (callRecord) {
+        await supabase.from('call_messages').insert([
+          { call_id: callRecord.id, role: 'user',      content: speechResult, created_at: new Date().toISOString() },
+          { call_id: callRecord.id, role: 'assistant', content: aiReply,      created_at: new Date().toISOString() },
+        ]).catch(function(e) { console.log('[Voice AI] Save messages error:', e.message); });
+      }
+
+      // Check if caller is ending the call
+      var endPhrases = ['goodbye', 'bye', 'thank you bye', "that's all", 'no thanks', 'nothing else', 'no thank you'];
+      var isEnding   = endPhrases.some(function(p) { return speechResult.toLowerCase().includes(p); });
+
+      if (isEnding) {
+        return res.status(200).send(twiml(
+          say(aiReply) + '<Hangup/>'
+        ));
+      }
+
+      // Continue conversation — gather next speech turn
+      return res.status(200).send(twiml(
+        '<Gather input="speech" action="/api/twilio-voice?action=ai" method="POST" speechTimeout="auto" language="en-US">' +
+          say(aiReply) +
+        '</Gather>' +
+        say("I didn't catch that. Is there anything else I can help you with?") +
+        '<Gather input="speech" action="/api/twilio-voice?action=ai" method="POST" speechTimeout="auto" language="en-US">' +
+          '<Pause length="1"/>' +
+        '</Gather>' +
+        '<Hangup/>'
+      ));
+
+    } catch (aiErr) {
+      console.error('[Voice AI] Error:', aiErr.message);
+      return res.status(200).send(twiml(
+        say("I apologize, I'm having a technical issue right now. Please try calling back in a moment.") +
+        '<Hangup/>'
+      ));
+    }
+  }
+  // ── END action=ai ──────────────────────────────────────────────────────────
   if (action === 'inbound') {
     // Look up voice config for this number
     var voiceConfig = null;
