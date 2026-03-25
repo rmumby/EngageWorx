@@ -71,7 +71,7 @@ const STATUS_LABELS = { pending_agent: "Pending", agent_active: "Active", resolv
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export default function AgentInbox() {
+export default function AgentInbox({ offsetLeft = 0 }) {
   const [viewRole, setViewRole] = useState("supervisor");
   const [tickets, setTickets] = useState(MOCK_TICKETS);
   const [selectedTicket, setSelectedTicket] = useState(MOCK_TICKETS[0]);
@@ -129,7 +129,7 @@ export default function AgentInbox() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#0a0e1a", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e2e8f0", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", background: "#0a0e1a", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e2e8f0", overflow: "hidden", marginLeft: offsetLeft }}>
 
       {/* ── Sidebar ── */}
       <div style={{ width: 280, borderRight: "1px solid rgba(255,255,255,0.07)", display: "flex", flexDirection: "column", flexShrink: 0 }}>
