@@ -110,6 +110,11 @@ module.exports = async function handler(req, res) {
   var action = req.query.action || 'inbound';
   var body = req.body || {};
   console.log('📞 Voice webhook:', action, 'To:', body.To, 'From:', body.From);
+  // Temporary: immediate forward for Delamere number
+if (body.To === '+441606827617') {
+  res.setHeader('Content-Type', 'text/xml');
+  return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Dial timeout="30" callerId="+441606827617">+447827997562</Dial></Response>');
+}
 
   // Helper to build safe XML strings
   function xml(text) {
