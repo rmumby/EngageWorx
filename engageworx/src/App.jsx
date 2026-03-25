@@ -1466,7 +1466,7 @@ height: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "10
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "pipeline" && <PipelineDashboard />}
-        {spPage === "support" && <AgentInbox C={C} viewLevel="sp" demoMode={demoMode} offsetLeft={sidebarCollapsed ? 64 : 240} />}
+        {spPage === "support" && <AgentInbox C={C} viewLevel="sp" demoMode={demoMode} offsetLeft={0} />}
       </div>
     </div>
   );
