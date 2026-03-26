@@ -1715,14 +1715,7 @@ function AppInner() {
             </div>
           </div>
         )}
-
-        {/* Collapse Toggle */}
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{
-          width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`,
-          background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14,
-          fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.2s",
-        }}>{sidebarCollapsed ? "»" : "«"}</button>
-      </div>
+       
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
