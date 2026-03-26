@@ -28,7 +28,7 @@ const privacy = [
   { type: 'h', text: 'Changes to This Policy' },
   { type: 'p', text: 'We may update this Privacy Policy periodically. Material changes will be communicated via email and a prominent notice on our website.' },
   { type: 'h', text: 'Contact Us' },
-  { type: 'p', text: 'For privacy inquiries: privacy@engwx.com | +1 (305) 810-8877. If you are in the UK, you may also contact the ICO at ico.org.uk. If you are in the EU, contact your local Data Protection Authority.' },
+  { type: 'p', text: 'For privacy inquiries: privacy@engwx.com | +1 (786) 982-7800. If you are in the UK, you may also contact the ICO at ico.org.uk. If you are in the EU, contact your local Data Protection Authority.' },
 ];
 
 const terms = [
@@ -44,7 +44,7 @@ const terms = [
   { type: 'h', text: '5. Messaging Compliance' },
   { type: 'p', text: 'You are solely responsible for ensuring your messaging activities comply with all applicable laws including TCPA, CAN-SPAM, CTIA guidelines, TCR/10DLC requirements (US), PECR, UK GDPR, Ofcom regulations (UK), and ePrivacy Directive, EU GDPR (EU). We may suspend accounts that violate messaging regulations.' },
   { type: 'h', text: 'SMS Program Details' },
-  { type: 'p', text: 'Program Name: EngageWorx SMS Messaging Service. Message frequency varies by business and interaction type. Message and data rates may apply. For help, text HELP to any EngageWorx-powered number. To opt out, text STOP to any EngageWorx-powered number. For support, contact support@engwx.com or call +1 (305) 810-8877.' },
+  { type: 'p', text: 'Program Name: EngageWorx SMS Messaging Service. Message frequency varies by business and interaction type. Message and data rates may apply. For help, text HELP to any EngageWorx-powered number. To opt out, text STOP to any EngageWorx-powered number. For support, contact support@engwx.com or call +1 (786) 982-7800.' },
   { type: 'h', text: '6. Intellectual Property' },
   { type: 'p', text: 'The Service is owned by EngageWorx and protected by intellectual property laws. Your subscription grants a limited, non-exclusive, non-transferable license to use the Service. You retain ownership of your content and data.' },
   { type: 'h', text: '7. Billing and Payments' },
@@ -64,7 +64,7 @@ const terms = [
   { type: 'h', text: '14. Modifications' },
   { type: 'p', text: 'We may update these Terms at any time. Material changes will be notified by email at least 30 days before they take effect.' },
   { type: 'h', text: 'Contact' },
-  { type: 'p', text: 'For questions about these Terms: legal@engwx.com | +1 (305) 810-8877' },
+  { type: 'p', text: 'For questions about these Terms: legal@engwx.com | +1 (786) 982-7800' },
 ];
 
 const smsconsent = [
@@ -86,7 +86,7 @@ const smsconsent = [
   { type: 'h', text: 'Privacy' },
   { type: 'p', text: 'Your phone number and personal information are handled in accordance with our Privacy Policy. We do not sell or share your phone number with third parties for marketing purposes.' },
   { type: 'h', text: 'Contact' },
-  { type: 'p', text: 'For questions about SMS consent: support@engwx.com | +1 (305) 810-8877 | www.engwx.com' },
+  { type: 'p', text: 'For questions about SMS consent: support@engwx.com | +1 (786) 982-7800 | www.engwx.com' },
 ];
 
 const accessibility = [
@@ -103,7 +103,7 @@ const accessibility = [
   { type: 'h', text: 'Testing' },
   { type: 'p', text: 'We regularly evaluate accessibility through automated testing tools (axe, Lighthouse, WAVE), manual keyboard navigation testing, screen reader testing, and periodic third-party audits.' },
   { type: 'h', text: 'Feedback' },
-  { type: 'p', text: 'We welcome feedback on accessibility. Contact us at accessibility@engwx.com | +1 (305) 810-8877. We aim to acknowledge feedback within 2 business days and provide a resolution within 10 business days.' },
+  { type: 'p', text: 'We welcome feedback on accessibility. Contact us at accessibility@engwx.com | +1 (786) 982-7800. We aim to acknowledge feedback within 2 business days and provide a resolution within 10 business days.' },
   { type: 'h', text: 'Enforcement' },
   { type: 'p', text: 'US: File a complaint under the ADA at ada.gov. UK: Contact the Equality Advisory Support Service (EASS) at equalityadvisoryservice.com. EU: Contact your national equality body.' },
 ];
