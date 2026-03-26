@@ -13,6 +13,7 @@ import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import AgentPortal from './AgentPortal';
+import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
@@ -948,6 +949,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "contacts", label: "Contacts", icon: "👥" },
+    { id: "support", label: "Support", icon: "🎫" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
@@ -1090,7 +1092,17 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
         )}
 
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && (
+        {page === "support" && (
+          <HelpDeskModule
+            tenantId={tenantId}
+            userRole="tenant"
+            userId={user?.id}
+            userName={user?.user_metadata?.full_name || user?.email}
+            userEmail={user?.email}
+            C={C}
+          />
+        )}
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -1230,12 +1242,13 @@ function AppInner() {
   const { theme, isDark } = useTheme();
   const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
 
-  var spNavBase = [
+ var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
+    { id: "helpdesk", label: "Help Desk", icon: "🎫" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
@@ -1728,6 +1741,7 @@ function AppInner() {
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "helpdesk" && <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} />}
       </div>
     </div>
   );
