@@ -1096,9 +1096,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <HelpDeskModule
             tenantId={tenantId}
             userRole="tenant"
-            userId={user?.id}
-            userName={user?.user_metadata?.full_name || user?.email}
-            userEmail={user?.email}
             C={C}
           />
         )}
@@ -1728,7 +1725,7 @@ function AppInner() {
         }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows") ? "hidden" : "auto", height: (spPage === "inbox" || spPage === "flows") ? "100vh" : "auto", transition: "margin-left 0.25s ease", minWidth: 0 }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", height: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "100vh" : "auto", transition: "margin-left 0.25s ease", minWidth: 0 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
