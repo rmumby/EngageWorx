@@ -70,7 +70,7 @@ function Field({ label, required, children, style }) {
 
 // ── Ticket Detail ──────────────────────────────────────────────────────────
 function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, colors, onBack, onUpdate }) {
-  var { bg, surface, surface2, border, text, textMuted } = colors;
+  var { bg, surface, border, text, textMuted } = colors;
   var accent = '#6366f1';
   var [reply, setReply] = useState('');
   var [mode, setMode] = useState('reply');
@@ -128,9 +128,8 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
   var pc = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.normal;
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: bg, color: text }}>
-      {/* Header */}
-      <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
+      <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
         <button onClick={onBack} style={btnStyle(surface, border, text)}>← Back</button>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ticket.subject}</div>
@@ -155,9 +154,8 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
         )}
       </div>
 
-      {/* Escalation banner */}
       {ticket.status === 'escalated' && (
-        <div style={{ padding: '10px 24px', background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ padding: '10px 24px', background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           <span>🚨</span>
           <div>
             <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: 13 }}>Escalated — human agent required</span>
@@ -168,13 +166,12 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
         </div>
       )}
 
-      {/* Message thread */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {localMessages
           .filter(function(m) { return !m.is_internal || canActAsAgent; })
           .map(function(m) {
             var isUser = m.role === 'user';
-            var isAI   = m.role === 'ai';
+            var isAI = m.role === 'ai';
             var isSystem = m.role === 'system';
             return (
               <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: 4 }}>
@@ -204,8 +201,7 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Reply box */}
-      <div style={{ padding: '16px 24px', borderTop: '1px solid ' + border, background: surface }}>
+      <div style={{ padding: '16px 24px', borderTop: '1px solid ' + border, background: surface, flexShrink: 0 }}>
         {canActAsAgent && (
           <div style={{ display: 'flex', gap: 0, marginBottom: 10, border: '1px solid ' + border, borderRadius: 8, overflow: 'hidden', width: 'fit-content' }}>
             {['reply', 'internal'].map(function(m) {
@@ -269,8 +265,8 @@ function NewTicketForm({ tenantId, userId, userName, userEmail, submitterType, c
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: bg, color: text }}>
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
+      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onCancel} style={btnStyle(surface, border, text)}>← Back</button>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: text }}>New Support Ticket</div>
@@ -333,24 +329,22 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
   var maxStatus = Math.max.apply(null, byStatus.map(function(s) { return s.count; }).concat([1]));
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', background: bg, color: text }}>
-      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
+      <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <button onClick={onBack} style={btnStyle(surface, border, text)}>← Back</button>
         <div style={{ fontSize: 16, fontWeight: 700, color: text }}>Help Desk Statistics</div>
       </div>
-      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 700 }}>
-        {/* AI rate hero */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 700 }}>
         <div style={{ padding: 32, borderRadius: 12, background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', textAlign: 'center' }}>
           <div style={{ fontSize: 56, fontWeight: 800, color: '#06b6d4', lineHeight: 1 }}>{stats.resolution_rate || 0}%</div>
           <div style={{ fontSize: 15, color: textMuted, marginTop: 8 }}>AI Resolution Rate</div>
           <div style={{ fontSize: 12, color: textMuted, marginTop: 4 }}>Target: 90%+</div>
         </div>
-        {/* Summary cards */}
         <div style={{ display: 'flex', gap: 12 }}>
           {[
-            { label: 'Total Tickets', value: stats.total || 0, color: text },
-            { label: 'Open',          value: stats.open || 0,  color: '#6366f1' },
-            { label: 'Escalated',     value: stats.escalated || 0, color: '#f59e0b' },
+            { label: 'Total Tickets', value: stats.total || 0,       color: text },
+            { label: 'Open',          value: stats.open || 0,        color: '#6366f1' },
+            { label: 'Escalated',     value: stats.escalated || 0,   color: '#f59e0b' },
             { label: 'AI Resolved',   value: stats.ai_resolved || 0, color: '#10b981' },
           ].map(function(s) {
             return (
@@ -361,7 +355,6 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
             );
           })}
         </div>
-        {/* By status bars */}
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>By Status</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -378,7 +371,6 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
             })}
           </div>
         </div>
-        {/* By channel */}
         {byChannel.length > 0 && (
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.06em' }}>By Channel</div>
@@ -451,10 +443,34 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
     setTicketMessages(data.messages || []);
   }
 
+  if (view === 'detail' && selectedTicket) return (
+    <TicketDetail
+      ticket={selectedTicket} messages={ticketMessages}
+      userId={userId} userName={userName}
+      isSPAdmin={isSPAdmin} isAgent={isAgent}
+      colors={colors}
+      onBack={function() { setView('list'); loadTickets(); }}
+      onUpdate={function(t, m) { setSelectedTicket(t); setTicketMessages(m); }}
+    />
+  );
+
+  if (view === 'new') return (
+    <NewTicketForm
+      tenantId={tenantId} userId={userId} userName={userName} userEmail={userEmail}
+      submitterType={isSPAdmin ? 'sp_admin' : isCSP ? 'csp' : isAgent ? 'agent' : 'tenant'}
+      colors={colors}
+      onCancel={function() { setView('list'); }}
+      onCreated={function() { setView('list'); loadTickets(); }}
+    />
+  );
+
+  if (view === 'stats') return (
+    <HelpDeskStats tickets={tickets} stats={stats} colors={colors} onBack={function() { setView('list'); }} />
+  );
+
   // ── List View ────────────────────────────────────────────────────────────
-  if (view === 'list') return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: bg, color: text, minHeight: 0 }}>
-      {/* Header */}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
       <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: text }}>Help Desk</div>
@@ -466,14 +482,13 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
         </div>
       </div>
 
-      {/* Stats bar */}
       <div style={{ padding: '12px 24px', borderBottom: '1px solid ' + border, display: 'flex', gap: 24, flexShrink: 0 }}>
         {[
-          { label: 'Total',       value: stats.total || 0,           color: text },
-          { label: 'Open',        value: stats.open || 0,            color: '#6366f1' },
-          { label: 'Escalated',   value: stats.escalated || 0,       color: '#f59e0b' },
-          { label: 'AI Resolved', value: stats.ai_resolved || 0,     color: '#10b981' },
-          { label: 'AI Rate',     value: (stats.resolution_rate || 0) + '%', color: '#06b6d4' },
+          { label: 'Total',       value: stats.total || 0,                    color: text },
+          { label: 'Open',        value: stats.open || 0,                     color: '#6366f1' },
+          { label: 'Escalated',   value: stats.escalated || 0,                color: '#f59e0b' },
+          { label: 'AI Resolved', value: stats.ai_resolved || 0,              color: '#10b981' },
+          { label: 'AI Rate',     value: (stats.resolution_rate || 0) + '%',  color: '#06b6d4' },
         ].map(function(s) {
           return (
             <div key={s.label} style={{ textAlign: 'center' }}>
@@ -484,7 +499,6 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
         })}
       </div>
 
-      {/* Filters */}
       <div style={{ padding: '10px 24px', borderBottom: '1px solid ' + border, display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
         <input value={filter.search}
           onChange={function(e) { setFilter(function(f) { return Object.assign({}, f, { search: e.target.value }); }); }}
@@ -505,7 +519,6 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
         <button onClick={loadTickets} style={btnStyle(surface, border, textMuted)}>↻ Refresh</button>
       </div>
 
-      {/* Ticket table */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {loading ? (
           <div style={{ padding: 40, textAlign: 'center', color: textMuted }}>Loading tickets...</div>
@@ -554,31 +567,4 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
       </div>
     </div>
   );
-
-  if (view === 'detail' && selectedTicket) return (
-    <TicketDetail
-      ticket={selectedTicket} messages={ticketMessages}
-      userId={userId} userName={userName}
-      isSPAdmin={isSPAdmin} isAgent={isAgent}
-      colors={colors}
-      onBack={function() { setView('list'); loadTickets(); }}
-      onUpdate={function(t, m) { setSelectedTicket(t); setTicketMessages(m); }}
-    />
-  );
-
-  if (view === 'new') return (
-    <NewTicketForm
-      tenantId={tenantId} userId={userId} userName={userName} userEmail={userEmail}
-      submitterType={isSPAdmin ? 'sp_admin' : isCSP ? 'csp' : isAgent ? 'agent' : 'tenant'}
-      colors={colors}
-      onCancel={function() { setView('list'); }}
-      onCreated={function() { setView('list'); loadTickets(); }}
-    />
-  );
-
-  if (view === 'stats') return (
-    <HelpDeskStats tickets={tickets} stats={stats} colors={colors} onBack={function() { setView('list'); }} />
-  );
-
-  return null;
 }
