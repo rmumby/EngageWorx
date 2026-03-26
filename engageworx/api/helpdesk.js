@@ -301,6 +301,18 @@ async function updateStatus(req, res) {
 
 async function escalateTicket(req, res) {
   var { ticket_id, reason, assign_to } = req.body;
+
+  // Fetch ticket details for the notification email
+  var ticketDetails = null;
+  try {
+    var { data: td } = await supabase
+      .from('support_tickets')
+      .select('ticket_number, subject, submitter_name, submitter_email, category, priority')
+      .eq('id', ticket_id)
+      .single();
+    ticketDetails = td;
+  } catch (e) { /* non-fatal */ }
+
   await supabase.from('support_tickets').update({
     status: 'escalated',
     escalation_reason: reason || null,
@@ -316,6 +328,51 @@ async function escalateTicket(req, res) {
     content: 'Ticket escalated to human agent. Reason: ' + (reason || 'Manual escalation'),
     is_internal: true
   });
+
+  // ── Escalation email notification ────────────────────────────────────────
+  try {
+    var sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    var tn = ticketDetails ? ticketDetails.ticket_number : ticket_id;
+    var subj = ticketDetails ? ticketDetails.subject : 'Support Request';
+    var fromName = ticketDetails ? (ticketDetails.submitter_name || ticketDetails.submitter_email || 'Unknown') : 'Unknown';
+    var cat = ticketDetails ? (ticketDetails.category || 'General') : 'General';
+    var pri = ticketDetails ? (ticketDetails.priority || 'Normal') : 'Normal';
+    var portalUrl = 'https://portal.engwx.com';
+
+    var html =
+      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+      '<div style="background:linear-gradient(135deg,#FF6B35,#FF3B30);padding:20px 24px;border-radius:10px 10px 0 0;">' +
+      '<h2 style="color:#fff;margin:0;font-size:18px;">🚨 Help Desk Escalation</h2>' +
+      '<p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Ticket requires human attention</p>' +
+      '</div>' +
+      '<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:14px;">' +
+      '<tr><td style="padding:8px 0;color:#64748b;width:140px;">Ticket</td><td style="padding:8px 0;font-weight:700;color:#1e293b;">' + tn + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#64748b;">Subject</td><td style="padding:8px 0;color:#1e293b;">' + subj + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#64748b;">From</td><td style="padding:8px 0;color:#1e293b;">' + fromName + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#64748b;">Category</td><td style="padding:8px 0;color:#1e293b;">' + cat + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#64748b;">Priority</td><td style="padding:8px 0;color:#1e293b;">' + pri + '</td></tr>' +
+      '</table>' +
+      '<div style="margin:16px 0;padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">' +
+      '<div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Escalation Reason</div>' +
+      '<div style="color:#334155;font-size:14px;line-height:1.6;">' + (reason || 'Manual escalation') + '</div>' +
+      '</div>' +
+      '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Ticket in Portal →</a>' +
+      '</div></div>';
+
+    await sgMail.send({
+      to: 'rob@engwx.com',
+      from: { email: 'hello@engwx.com', name: 'EngageWorx Help Desk' },
+      subject: '🚨 Escalation: ' + tn + ' — ' + subj,
+      text: 'Ticket ' + tn + ' has been escalated.\n\nSubject: ' + subj + '\nFrom: ' + fromName + '\nReason: ' + (reason || 'Manual escalation') + '\n\nView in portal: ' + portalUrl,
+      html: html,
+    });
+    console.log('Escalation email sent:', tn);
+  } catch (emailErr) {
+    console.log('Escalation email failed (non-fatal):', emailErr.message);
+  }
 
   return res.status(200).json({ success: true });
 }
