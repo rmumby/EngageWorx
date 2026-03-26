@@ -1738,7 +1738,11 @@ function AppInner() {
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "helpdesk" && <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} />}
+        {spPage === "helpdesk" && (
+          <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} />
+          </div>
+        )}
       </div>
     </div>
   );
