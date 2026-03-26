@@ -1629,7 +1629,7 @@ function AppInner() {
       {isMobile && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: "border-box", background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
         {/* Header */}
         <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
           {sidebarCollapsed ? (
@@ -1725,7 +1725,7 @@ function AppInner() {
         }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 65 : 241), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column" }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
