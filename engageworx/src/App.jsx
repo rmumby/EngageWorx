@@ -983,7 +983,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           )}
         </div>
 
-        <nav style={{ flex: 1 }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {navItems.map(item => (
             <button key={item.id} onClick={() => { setPage(item.id); if(cpIsMobile) setCpSidebarOpen(false); }} title={cpSidebarCollapsed ? item.label : undefined} style={{
               width: "100%", display: "flex", alignItems: "center", gap: cpSidebarCollapsed ? 0 : 10,
