@@ -13,13 +13,11 @@ import BlogAdmin from './BlogAdmin';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import AgentPortal from './AgentPortal';
-import AgentInbox from './components/AgentInbox';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
-import PipelineDashboard from './components/PipelineDashboard';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
 const ApiDocs = lazy(() => import('./ApiDocs'));
@@ -81,6 +79,7 @@ function useLiveData(demoMode) {
     setLiveLoading(false);
   }, []);
 
+  // Fetch when demoMode turns off
   useEffect(() => {
     if (!demoMode) fetchLiveData();
   }, [demoMode, fetchLiveData]);
@@ -292,6 +291,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [liveTenants, setLiveTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(true);
 
+  // Fetch live tenants from Supabase (skip in demo mode)
   useEffect(() => {
     if (demoMode) {
       setLiveTenants([
@@ -323,8 +323,11 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
             colors: {
               primary: t.brand_primary || '#00C9FF',
               accent: t.brand_secondary || '#E040FB',
-              bg: '#080d1a', surface: '#0d1425', border: '#182440',
-              text: '#E8F4FD', muted: '#6B8BAE',
+              bg: '#080d1a',
+              surface: '#0d1425',
+              border: '#182440',
+              text: '#E8F4FD',
+              muted: '#6B8BAE',
             },
             plan: t.plan || 'starter',
             status: t.status || 'active',
@@ -340,7 +343,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       } catch (err) { console.error('Tenant fetch error:', err); }
       setTenantsLoading(false);
     })();
-  }, [demoResult, demoMode]);
+  }, [demoResult, demoMode]); // Refetch after demo creation or mode change
 
   const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const themePresets = [
@@ -391,6 +394,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
 
       {activeTab === "tenants" && (
         <div>
+          {/* Demo Account Creator */}
           {showDemoForm && (
             <div style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}33`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -571,7 +575,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
-                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : "#00C9FF", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
+                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
@@ -587,6 +591,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                 </div>
                 </div>
 
+                {/* Inline Configure Panel */}
                 {isConfiguring && (
                   <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.primary}33`, borderRadius: "0 0 12px 12px", borderTop: "none", padding: "20px 24px", marginTop: -1 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -662,12 +667,15 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
 
       {activeTab === "branding" && (
         <div>
+          {/* Brand Editor Panel */}
           {editingBrand && (
             <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 18 }}>Edit Brand — {Object.values(TENANTS).find(t => t.id === editingBrand)?.name}</h3>
                 <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "6px 14px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>✕ Close</button>
               </div>
+
+              {/* Theme Presets */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Theme Presets</div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -687,6 +695,8 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                   ))}
                 </div>
               </div>
+
+              {/* Form Fields */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
                 <div>
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Brand Name</div>
@@ -707,29 +717,99 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL</div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo</div>
+                  {brandForm.logo ? (
+                    <div style={{ position: "relative", width: 44, height: 44 }}>
+                      <img src={brandForm.logo} alt="Logo" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: "2px solid rgba(255,255,255,0.15)" }} />
+                      <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#FF3B30", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                    </div>
+                  ) : (
+                    <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 44, background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}10`; }}
+                      onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                      onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
+                    >
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
+                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>📁 Upload</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Logo Upload Area (expanded) */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Logo Upload</div>
+                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <label style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", textAlign: "center" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary + "66"; e.currentTarget.style.background = `${C.primary}08`; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}15`; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
+                  >
+                    <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>📁</div>
+                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 2 }}>Drop logo here or click to upload</div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>PNG, JPG, SVG, or WebP · Max 2MB · Recommended 224×224px</div>
+                  </label>
+                  {brandForm.logo && (
+                    <div style={{ textAlign: "center" }}>
+                      <img src={brandForm.logo} alt="Logo preview" style={{ width: 80, height: 80, borderRadius: 12, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: `2px solid ${brandForm.primary}44`, padding: 8 }} />
+                      <div style={{ marginTop: 6 }}>
+                        <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ background: "#FF3B3022", border: "1px solid #FF3B3044", borderRadius: 6, padding: "3px 10px", color: "#FF3B30", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginBottom: 4 }}>Or paste a URL:</div>
                   <input value={brandForm.logo && !brandForm.logo.startsWith("data:") ? brandForm.logo : ""} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://your-domain.com/logo.png" style={{ ...inputStyleTM, fontSize: 12 }} />
                 </div>
               </div>
+
+              {/* Live Preview */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Live Preview</div>
                 <div style={{ background: "#0a0a14", borderRadius: 12, padding: 20, border: `1px solid ${brandForm.primary}33` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${brandForm.primary}, ${brandForm.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{brandForm.name.slice(0, 2).toUpperCase()}</div>
+                    {brandForm.logo ? (
+                      <img src={brandForm.logo} alt="Logo" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "contain", background: "rgba(255,255,255,0.06)" }} />
+                    ) : (
+                      <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${brandForm.primary}, ${brandForm.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{brandForm.name.slice(0, 2).toUpperCase()}</div>
+                    )}
                     <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{brandForm.name || "Brand Name"}</span>
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <div style={{ flex: 1, height: 6, background: brandForm.primary, borderRadius: 3 }} />
+                    <div style={{ flex: 1, height: 6, background: brandForm.secondary, borderRadius: 3 }} />
+                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     <div style={{ background: brandForm.primary, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: "#000", fontWeight: 700 }}>Primary Button</div>
                     <div style={{ background: "transparent", border: `1px solid ${brandForm.primary}`, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: brandForm.primary, fontWeight: 600 }}>Secondary</div>
+                    <div style={{ background: `${brandForm.primary}22`, borderRadius: 6, padding: "6px 16px", fontSize: 12, color: brandForm.primary }}>Ghost</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ background: `${brandForm.primary}18`, border: `1px solid ${brandForm.primary}33`, borderRadius: 8, padding: "8px 14px", flex: 1 }}>
+                      <div style={{ color: brandForm.primary, fontSize: 11, fontWeight: 700 }}>Card Component</div>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 2 }}>With branded accent</div>
+                    </div>
+                    <div style={{ background: `${brandForm.secondary}18`, border: `1px solid ${brandForm.secondary}33`, borderRadius: 8, padding: "8px 14px", flex: 1 }}>
+                      <div style={{ color: brandForm.secondary, fontSize: 11, fontWeight: 700 }}>Secondary Card</div>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, marginTop: 2 }}>With secondary accent</div>
+                    </div>
                   </div>
                 </div>
               </div>
+
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setEditingBrand(null)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
                 <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
               </div>
             </div>
           )}
+
+          {/* Tenant Brand Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
           {Object.values(liveTenants).map(c => (
             <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${editingBrand === c.id ? C.primary + "66" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 24, overflow: "hidden", transition: "border-color 0.2s" }}>
@@ -756,7 +836,10 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[{ label: "Primary", color: c.brand.primary }, { label: "Secondary", color: c.brand.secondary }].map(sw => (
+                {[
+                  { label: "Primary", color: c.brand.primary },
+                  { label: "Secondary", color: c.brand.secondary },
+                ].map(sw => (
                   <div key={sw.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 28, height: 28, background: sw.color, borderRadius: 6, border: "2px solid rgba(255,255,255,0.2)" }} />
                     <div>
@@ -844,7 +927,10 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const demoTenant = TENANTS[tenantId];
   const liveTenant = liveTenants?.find(t => t.id === tenantId);
   const tenant = demoTenant || liveTenant || {
-    id: tenantId, name: "My Business", logo: "MB", role: "customer",
+    id: tenantId,
+    name: "My Business",
+    logo: "MB",
+    role: "customer",
     brand: { primary: "#00C9FF", secondary: "#E040FB", name: "My Business" },
     colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
     stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
@@ -859,7 +945,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "support", label: "Support", icon: "🎫" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "contacts", label: "Contacts", icon: "👥" },
@@ -870,12 +955,15 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
       {cpIsMobile && !cpSidebarOpen && (
-        <button onClick={() => setCpSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>☰</button>
+        <button onClick={() => setCpSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
+          ☰
+        </button>
       )}
       {cpIsMobile && cpSidebarOpen && (
         <div onClick={() => setCpSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
       <div style={{ width: cpSidebarCollapsed ? 64 : 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: cpSidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+        {/* Back button (when drilled down from SP) */}
         {onBack && (
           <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + "10", border: "1px solid " + C.primary + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
             <span>←</span>
@@ -892,6 +980,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             </>
           )}
         </div>
+
         <nav style={{ flex: 1 }}>
           {navItems.map(item => (
             <button key={item.id} onClick={() => { setPage(item.id); if(cpIsMobile) setCpSidebarOpen(false); }} title={cpSidebarCollapsed ? item.label : undefined} style={{
@@ -909,6 +998,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             </button>
           ))}
         </nav>
+
+        {/* Collapse + Logout */}
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
           <button onClick={() => setCpSidebarCollapsed(!cpSidebarCollapsed)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             <span>{cpSidebarCollapsed ? "»" : "«"}</span>
@@ -919,6 +1010,18 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             {!cpSidebarCollapsed && <span>Sign Out</span>}
           </button>}
         </div>
+
+        {onBack && (
+          <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
+            ← Back to Provider
+          </button>
+        )}
+        {onLogout && (
+          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
+            Sign Out
+          </button>
+        )}
+
         <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#000" }}>{tenant.logo}</div>
@@ -930,8 +1033,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows" || page === "support") ? "hidden" : "auto",
-height: (page === "inbox" || page === "flows" || page === "support") ? "100vh" : "auto" }}>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0 }}>
         {page === "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
@@ -947,21 +1049,47 @@ height: (page === "inbox" || page === "flows" || page === "support") ? "100vh" :
               <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
               <div style={{ display: "flex", gap: 12 }}>
                 {tenant.channels.map(ch => (
-                  <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>● {ch}</div>
+                  <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>
+                    ● {ch}
+                  </div>
                 ))}
               </div>
             </div>
           </div>
         )}
-        {page === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />}
-        {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "support" && <AgentInbox C={C} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} offsetLeft={sidebarCollapsed ? 64 : 240} />}
-        {page === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
+
+        {page === "campaigns" && (
+          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+        {page === "analytics" && (
+          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+        {page === "contacts" && (
+          <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+          {page === "inbox" && (
+            <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />
+          )}
+
+        {page === "chatbot" && (
+          <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+        {page === "flows" && (
+          <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+        {page === "settings" && (
+          <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
+        {page === "registration" && (
+          <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+        )}
+
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
@@ -982,6 +1110,7 @@ height: (page === "inbox" || page === "flows" || page === "support") ? "100vh" :
 function AppInner() {
   const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
   
+  // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
   useEffect(() => {
     if (!demoInitialized && isSuperAdmin && demoMode) {
@@ -991,7 +1120,6 @@ function AppInner() {
       setDemoInitialized(true);
     }
   }, [isSuperAdmin, demoMode, demoInitialized]);
-
   const [view, setView] = useState("login");
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownTenant, setDrillDownTenant] = useState(null);
@@ -1000,7 +1128,7 @@ function AppInner() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [resetMessage, setResetMessage] = useState(null);
-  const [loginTab, setLoginTab] = useState("login");
+  const [loginTab, setLoginTab] = useState("login"); // "login" | "signup" | "reset" | "demo"
   const [loginForm, setLoginForm] = useState({ email: "", password: "", fullName: "", companyName: "" });
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginMessage, setLoginMessage] = useState(null);
@@ -1016,6 +1144,8 @@ function AppInner() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    
+    // Handle return from Stripe checkout
     if (params.get("checkout") === "success" || params.get("signup") === "success") {
       const email = params.get("email") || "";
       window.history.replaceState({}, "", window.location.pathname);
@@ -1023,12 +1153,15 @@ function AppInner() {
       setLoginTab("login");
       if (email) setLoginForm(p => ({ ...p, email: decodeURIComponent(email) }));
     }
+    
+    // Handle direct signup link from landing page
     if (params.get("view") === "signup") {
       window.history.replaceState({}, "", window.location.pathname);
       setLoginTab("signup");
     }
   }, []);
 
+  // Auto-route authenticated users directly to their portal
   useEffect(() => {
     if (isAuthenticated && profile && view === "login") {
       if (profile.role === "superadmin") {
@@ -1058,11 +1191,16 @@ function AppInner() {
     e.preventDefault();
     setLoginLoading(true);
     setLoginMessage(null);
-    const { error } = await signUp({ email: loginForm.email, password: loginForm.password, fullName: loginForm.fullName, companyName: loginForm.companyName });
+    const { error } = await signUp({
+      email: loginForm.email,
+      password: loginForm.password,
+      fullName: loginForm.fullName,
+      companyName: loginForm.companyName,
+    });
     if (error) {
       setLoginMessage({ type: "error", text: error });
     } else {
-      setLoginMessage({ type: "success", text: "Account created! Check your email for a confirmation link." });
+      setLoginMessage({ type: "success", text: "Account created! Check your email for a confirmation link. Once confirmed, you'll be taken directly to your portal." });
       setLoginTab("login");
     }
     setLoginLoading(false);
@@ -1098,14 +1236,12 @@ function AppInner() {
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
-    { id: "support", label: "Support Inbox", icon: "🎫" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
-    { id: "pipeline", label: "Pipeline", icon: "📈" },
   ];
   var spNavItems = isSuperAdmin
     ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6))
@@ -1124,17 +1260,21 @@ function AppInner() {
     return <LandingPage />;
   }
 
+  // Signup page should NEVER be interrupted by loading state
   if (view === "signup") {
     return <SignupPage onBack={() => setView("login")} />;
   }
 
+  // User signed up but didn't complete payment
   if (view === "no_tenant") {
     return (
       <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 440, padding: "0 20px" }}>
           <div style={{ fontSize: 56, marginBottom: 20 }}>💳</div>
           <h1 style={{ color: "#e2e8f0", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Complete Your Subscription</h1>
-          <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>Your account has been created but your subscription is not yet active. Complete the checkout to activate your EngageWorx portal.</p>
+          <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
+            Your account has been created but your subscription is not yet active. Complete the checkout to activate your EngageWorx portal.
+          </p>
           <button onClick={async () => {
             try {
               const meta = user?.user_metadata || {};
@@ -1143,21 +1283,34 @@ function AppInner() {
               const res = await fetch("/api/create-checkout-session", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ priceId: plans[plan] || plans.starter, email: user?.email, plan: plan, tenantName: meta.company_name || meta.business_name || "My Business", successUrl: window.location.origin + "?signup=success" }),
+                body: JSON.stringify({
+                  priceId: plans[plan] || plans.starter,
+                  email: user?.email,
+                  plan: plan,
+                  tenantName: meta.company_name || meta.business_name || "My Business",
+                  successUrl: window.location.origin + "?signup=success",
+                }),
               });
               const { url } = await res.json();
               window.location.href = url;
-            } catch (err) { alert("Error: " + err.message); }
+            } catch (err) {
+              alert("Error: " + err.message);
+            }
           }} style={{ width: "100%", background: "linear-gradient(135deg, #0ea5e9, #0284c7)", color: "#fff", border: "none", borderRadius: 10, padding: "14px 28px", fontSize: 16, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}>
             Complete Checkout
           </button>
-          <button onClick={() => signOut()} style={{ width: "100%", background: "transparent", color: "#64748b", border: "1px solid #334155", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Sign Out</button>
-          <p style={{ color: "#475569", fontSize: 12, marginTop: 24 }}>Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+17869827800" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (786) 982-7800</a></p>
+          <button onClick={() => signOut()} style={{ width: "100%", background: "transparent", color: "#64748b", border: "1px solid #334155", borderRadius: 10, padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>
+            Sign Out
+          </button>
+          <p style={{ color: "#475569", fontSize: 12, marginTop: 24 }}>
+            Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+17869827800" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (786) 982-7800</a>
+          </p>
         </div>
       </div>
     );
   }
 
+  // Show loading while checking auth state
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1170,6 +1323,7 @@ function AppInner() {
   }
 
   if (drillDownTenant) {
+    // Check tenant type — show appropriate portal
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
     if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
       return <CSPPortal cspTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
@@ -1180,6 +1334,7 @@ function AppInner() {
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
 
+  // Password recovery screen
   if (passwordRecovery && isAuthenticated) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1190,9 +1345,13 @@ function AppInner() {
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "36px 32px" }}>
             <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Set New Password</h2>
             <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your new password below</p>
+            
             {resetMessage && (
-              <div style={{ background: resetMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${resetMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: resetMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>{resetMessage.text}</div>
+              <div style={{ background: resetMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${resetMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: resetMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
+                {resetMessage.text}
+              </div>
             )}
+
             <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
               <div>
                 <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>New Password</label>
@@ -1203,13 +1362,30 @@ function AppInner() {
                 <input type="password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} placeholder="Repeat password" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
               </div>
             </div>
+
             <button onClick={async () => {
-              if (!newPassword || newPassword.length < 6) { setResetMessage({ type: "error", text: "Password must be at least 6 characters" }); return; }
-              if (newPassword !== confirmNewPassword) { setResetMessage({ type: "error", text: "Passwords don't match" }); return; }
+              if (!newPassword || newPassword.length < 6) {
+                setResetMessage({ type: "error", text: "Password must be at least 6 characters" });
+                return;
+              }
+              if (newPassword !== confirmNewPassword) {
+                setResetMessage({ type: "error", text: "Passwords don't match" });
+                return;
+              }
               const { error } = await updatePassword(newPassword);
-              if (error) { setResetMessage({ type: "error", text: error }); }
-              else { setResetMessage({ type: "success", text: "Password updated! Redirecting..." }); setNewPassword(""); setConfirmNewPassword(""); setTimeout(() => setResetMessage(null), 2000); }
-            }} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 15 }}>
+              if (error) {
+                setResetMessage({ type: "error", text: error });
+              } else {
+                setResetMessage({ type: "success", text: "Password updated! Redirecting..." });
+                setNewPassword("");
+                setConfirmNewPassword("");
+                setTimeout(() => setResetMessage(null), 2000);
+              }
+            }} style={{
+              width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+              border: "none", borderRadius: 10, padding: "14px",
+              color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 15,
+            }}>
               Update Password
             </button>
           </div>
@@ -1221,7 +1397,6 @@ function AppInner() {
   if (view === "admin_tenants") {
     return <AdminTenants onBack={() => setView("sp")} />;
   }
-
   if (view === "login") {
     const inputLogin = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
 
@@ -1234,8 +1409,12 @@ function AppInner() {
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
+            {/* Mode Toggle */}
             <div style={{ display: "flex", gap: 2, marginBottom: 24, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 10 }}>
-              {[{ id: "login", label: "Sign In" }, { id: "signup", label: "Sign Up" }].map(t => (
+              {[
+                { id: "login", label: "Sign In" },
+                { id: "signup", label: "Sign Up" },
+              ].map(t => (
                 <button key={t.id} onClick={() => { setLoginTab(t.id); setLoginMessage(null); }} style={{
                   flex: 1, background: loginTab === t.id ? C.primary : "transparent",
                   border: "none", borderRadius: 8, padding: "8px 12px",
@@ -1246,14 +1425,19 @@ function AppInner() {
               ))}
             </div>
 
+            {/* Status message */}
             {loginMessage && (
-              <div style={{ background: loginMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${loginMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: loginMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>{loginMessage.text}</div>
+              <div style={{ background: loginMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${loginMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: loginMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
+                {loginMessage.text}
+              </div>
             )}
 
+            {/* ═══ SIGN IN ═══ */}
             {loginTab === "login" && (
               <form onSubmit={handleLogin}>
                 <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Sign In</h2>
                 <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Access your account with email and password</p>
+
                 <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
                   <div>
                     <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Email</label>
@@ -1264,19 +1448,30 @@ function AppInner() {
                     <input type="password" required value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} placeholder="••••••••" style={inputLogin} />
                   </div>
                 </div>
-                <button type="submit" disabled={loginLoading} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer", fontSize: 15, opacity: loginLoading ? 0.7 : 1 }}>
+
+                <button type="submit" disabled={loginLoading} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
                   {loginLoading ? "Signing in..." : "Sign In →"}
                 </button>
+
                 <div style={{ marginTop: 14, textAlign: "center" }}>
-                  <button type="button" onClick={() => { setLoginTab("reset"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>Forgot password?</button>
+                  <button type="button" onClick={() => { setLoginTab("reset"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>
+                    Forgot password?
+                  </button>
                 </div>
               </form>
             )}
 
+            {/* ═══ SIGN UP ═══ */}
             {loginTab === "signup" && (
               <div>
                 <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Create Account</h2>
                 <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Start your free trial — no credit card required</p>
+
                 <div style={{ display: "grid", gap: 14, marginBottom: 20 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                     <div>
@@ -1297,49 +1492,96 @@ function AppInner() {
                     <input type="password" required minLength={6} value={loginForm.password} onChange={e => setLoginForm(p => ({ ...p, password: e.target.value }))} placeholder="Min 6 characters" style={inputLogin} />
                   </div>
                 </div>
+
                 <button type="button" disabled={loginLoading} onClick={async () => {
-                  if (!loginForm.fullName || !loginForm.companyName || !loginForm.email || !loginForm.password) { setLoginMessage({ type: "error", text: "Please fill all fields" }); return; }
-                  if (loginForm.password.length < 6) { setLoginMessage({ type: "error", text: "Password must be at least 6 characters" }); return; }
+                  if (!loginForm.fullName || !loginForm.companyName || !loginForm.email || !loginForm.password) {
+                    setLoginMessage({ type: "error", text: "Please fill all fields" });
+                    return;
+                  }
+                  if (loginForm.password.length < 6) {
+                    setLoginMessage({ type: "error", text: "Password must be at least 6 characters" });
+                    return;
+                  }
                   setLoginLoading(true);
                   setLoginMessage(null);
                   try {
                     const checkoutRes = await fetch("/api/billing?action=signup", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ plan: "starter", email: loginForm.email, password: loginForm.password, fullName: loginForm.fullName, companyName: loginForm.companyName }),
+                      body: JSON.stringify({
+                        plan: "starter",
+                        email: loginForm.email,
+                        password: loginForm.password,
+                        fullName: loginForm.fullName,
+                        companyName: loginForm.companyName,
+                      }),
                     });
                     const checkoutData = await checkoutRes.json();
                     if (checkoutData.url) {
-                      fetch("/api/email?action=send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "rob@engwx.com", subject: "🎉 New Signup: " + loginForm.companyName + " (starter)", html: "<h2>New EngageWorx Signup</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Business:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p>" }) }).catch(() => {});
+                      // Send admin notification in background
+                      fetch("/api/email?action=send", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          to: "rob@engwx.com",
+                          subject: "🎉 New Signup: " + loginForm.companyName + " (starter)",
+                          html: "<h2>New EngageWorx Signup</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Business:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p>",
+                        }),
+                      }).catch(() => {});
                       window.location.href = checkoutData.url;
                     } else {
                       throw new Error(checkoutData.error || "Something went wrong. Please try again or contact hello@engwx.com for help.");
                     }
                   } catch (err) {
                     console.error("SIGNUP ERROR:", err);
-                    fetch("/api/email?action=send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: "rob@engwx.com", subject: "Signup Error: " + loginForm.email, html: "<h2>Signup Failed</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Company:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p><p><b>Error:</b> " + (err.message || "Unknown") + "</p>" }) }).catch(function() {});
+                    // Send error report to Rob
+                    fetch("/api/email?action=send", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        to: "rob@engwx.com",
+                        subject: "Signup Error: " + loginForm.email,
+                        html: "<h2>Signup Failed</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Company:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p><p><b>Error:</b> " + (err.message || "Unknown") + "</p>",
+                      }),
+                    }).catch(function() {});
                     setLoginMessage({ type: "error", text: "We're having trouble processing your signup. Please try again or contact us at hello@engwx.com and we'll get you set up right away." });
                     setLoginLoading(false);
                   }
-                }} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer", fontSize: 15, opacity: loginLoading ? 0.7 : 1 }}>
+                }} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
                   {loginLoading ? "Creating account..." : "Create Account →"}
                 </button>
               </div>
             )}
 
+            {/* ═══ RESET PASSWORD ═══ */}
             {loginTab === "reset" && (
               <form onSubmit={handleReset}>
                 <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Reset Password</h2>
                 <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your email and we'll send a reset link</p>
+
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4, fontWeight: 700 }}>Email</label>
                   <input type="email" required value={loginForm.email} onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))} placeholder="you@company.com" style={inputLogin} />
                 </div>
-                <button type="submit" disabled={loginLoading} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer", fontSize: 15, opacity: loginLoading ? 0.7 : 1 }}>
+
+                <button type="submit" disabled={loginLoading} style={{
+                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
+                  border: "none", borderRadius: 10, padding: "14px",
+                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
+                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
+                }}>
                   {loginLoading ? "Sending..." : "Send Reset Link"}
                 </button>
+
                 <div style={{ marginTop: 14, textAlign: "center" }}>
-                  <button type="button" onClick={() => { setLoginTab("login"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>← Back to Sign In</button>
+                  <button type="button" onClick={() => { setLoginTab("login"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                    ← Back to Sign In
+                  </button>
                 </div>
               </form>
             )}
@@ -1354,26 +1596,31 @@ function AppInner() {
     return <CustomerPortal tenantId={tenantId} onLogout={handleLogout} liveTenants={liveTenants} />;
   }
 
+  // CSP Portal — filtered view for Channel Service Providers
   if (view.startsWith("csp_")) {
     const cspTenantId = view.replace("csp_", "");
     return <CSPPortal cspTenantId={cspTenantId} onLogout={handleLogout} profile={profile} />;
   }
 
+  // Agent Portal — referral partner view
   if (view.startsWith("agent_")) {
     const agentTenantId = view.replace("agent_", "");
     return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} />;
   }
 
-  // ─── SERVICE PROVIDER PORTAL ─────────────────────────────────────────────────
+  // Service Provider portal
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
       {isMobile && !sidebarOpen && (
-        <button onClick={() => setSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>☰</button>
+        <button onClick={() => setSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
+          ☰
+        </button>
       )}
       {isMobile && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
       <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+        {/* Header */}
         <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
           {sidebarCollapsed ? (
             <div style={{ fontSize: 20, fontWeight: 900, color: C.primary }}>EW</div>
@@ -1388,12 +1635,7 @@ function AppInner() {
 
         <nav style={{ flex: 1 }}>
           {spNavItems.map(item => (
-            <button key={item.id} onClick={() => {
-setSpPage(item.id);
-if (isMobile) setSidebarOpen(false);
-// Auto-collapse when leaving dashboard, expand when returning
-setSidebarCollapsed(item.id !== "dashboard");
-}} title={sidebarCollapsed ? item.label : undefined} style={{
+            <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} title={sidebarCollapsed ? item.label : undefined} style={{
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
               justifyContent: sidebarCollapsed ? "center" : "flex-start",
               padding: sidebarCollapsed ? "11px 0" : "11px 12px", borderRadius: 9, border: "none",
@@ -1410,6 +1652,7 @@ setSidebarCollapsed(item.id !== "dashboard");
           ))}
         </nav>
 
+        {/* Demo Mode Toggle — superadmin only */}
         {!sidebarCollapsed && (
           <button onClick={() => toggleDemoMode(!demoMode)} style={{
             width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -1420,17 +1663,33 @@ setSidebarCollapsed(item.id !== "dashboard");
             fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
           }}>
             <span>🎮 Demo Mode</span>
-            <span style={{ width: 36, height: 20, borderRadius: 10, position: "relative", background: demoMode ? C.accent : "rgba(255,255,255,0.15)", display: "inline-block", transition: "all 0.2s" }}>
-              <span style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: demoMode ? 18 : 2, transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+            <span style={{
+              width: 36, height: 20, borderRadius: 10, position: "relative",
+              background: demoMode ? C.accent : "rgba(255,255,255,0.15)",
+              display: "inline-block", transition: "all 0.2s",
+            }}>
+              <span style={{
+                width: 16, height: 16, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 2, left: demoMode ? 18 : 2,
+                transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              }} />
             </span>
           </button>
         )}
         {sidebarCollapsed && (
-          <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{ width: "100%", padding: "10px 0", borderRadius: 9, marginBottom: 8, border: "none", background: demoMode ? `${C.accent}22` : "transparent", color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 18, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>🎮</button>
+          <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{
+            width: "100%", padding: "10px 0", borderRadius: 9, marginBottom: 8, border: "none",
+            background: demoMode ? `${C.accent}22` : "transparent",
+            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 18,
+            fontFamily: "'DM Sans', sans-serif", textAlign: "center",
+          }}>🎮</button>
         )}
 
+        {/* Demo Credentials Manager */}
         {demoMode && !sidebarCollapsed && (
-          <div style={{ background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: C.accent }}>● Demo data active — all modules show sample data</div>
+          <div style={{ background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: C.accent }}>
+            ● Demo data active — all modules show sample data
+          </div>
         )}
 
         <ThemeToggle style={{ marginBottom: 8 }} />
@@ -1448,15 +1707,19 @@ setSidebarCollapsed(item.id !== "dashboard");
           </div>
         )}
 
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.2s" }}>{sidebarCollapsed ? "»" : "«"}</button>
+        {/* Collapse Toggle */}
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{
+          width: "100%", padding: "8px 0", borderRadius: 8, border: `1px solid ${C.border}`,
+          background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.2s",
+        }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "hidden" : "auto",
-height: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "100vh" : "auto", transition: "margin-left 0.25s ease" }}>
+      <div style={{ flex: 1, marginLeft: isMobile ? 0 : (sidebarCollapsed ? 64 : (spPage === "inbox" ? 260 : 240)), overflowY: (spPage === "inbox" || spPage === "flows") ? "hidden" : "auto", height: (spPage === "inbox" || spPage === "flows") ? "100vh" : "auto", transition: "margin-left 0.25s ease", minWidth: 0 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
+        {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "blog" && <BlogAdmin C={C} />}
@@ -1465,8 +1728,6 @@ height: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "10
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "pipeline" && <PipelineDashboard />}
-        {spPage === "support" && <AgentInbox C={C} viewLevel="sp" demoMode={demoMode} offsetLeft={0} />}
       </div>
     </div>
   );
@@ -1476,9 +1737,9 @@ height: (spPage === "inbox" || spPage === "flows" || spPage === "support") ? "10
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AppInner />
-      </AuthProvider>
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
     </ThemeProvider>
   );
 }
