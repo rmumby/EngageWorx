@@ -192,6 +192,26 @@ export function ThemeProvider({ children }) {
       [style*="border-right: 1px solid"], [style*="border-bottom: 1px solid"]
       { border-color: #D1D9E6 !important; }
 
+      /* ═══ LIVE INBOX SPECIFIC ═══ */
+      [style*="background: rgba(0, 0, 0, 0.15)"],
+      [style*="background: rgba(0,0,0,0.15)"] { background: #F3F4F6 !important; }
+      [style*="background: rgba(0, 0, 0, 0.2)"],
+      [style*="background: rgba(0,0,0,0.2)"] { background: #E5E7EB !important; }
+      [style*="background: rgba(0, 0, 0, 0.1)"],
+      [style*="background: rgba(0,0,0,0.1)"] { background: #F9FAFB !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.04)"],
+      [style*="border-bottom: 1px solid rgba(255, 255, 255, 0.04)"],
+      [style*="border-bottom: 1px solid rgba(255,255,255,0.04)"] { border-color: #E5E7EB !important; }
+      [style*="border: 1px solid rgba(255, 255, 255, 0.06)"],
+      [style*="border-right: 1px solid rgba(255, 255, 255, 0.06)"],
+      [style*="border-right: 1px solid rgba(255,255,255,0.06)"],
+      [style*="border-top: 1px solid rgba(255, 255, 255, 0.06)"],
+      [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #D1D9E6 !important; }
+      [style*="color: rgba(255, 255, 255, 0.25)"],
+      [style*="color: rgba(255,255,255,0.25)"] { color: #9CA3AF !important; }
+      [style*="color: rgba(255, 255, 255, 0.3)"],
+      [style*="color: rgba(255,255,255,0.3)"] { color: #6B7280 !important; }
+
       /* ═══ FORM ELEMENTS ═══ */
       select, input, textarea {
         color: #111827 !important;
@@ -266,15 +286,19 @@ export function ThemeProvider({ children }) {
         if (bg === 'rgb(8, 13, 26)' || bg === 'rgb(5, 8, 16)' || bg === 'rgb(10, 13, 20)' || bg === 'rgb(12, 10, 16)' || bg === 'rgb(8, 13, 16)' || bg === 'rgb(10, 8, 16)') el.style.setProperty('background-color', '#F0F2F5', 'important');
         if (bg === 'rgb(13, 20, 37)' || bg === 'rgb(13, 18, 32)' || bg === 'rgb(20, 16, 24)' || bg === 'rgb(13, 21, 24)' || bg === 'rgb(17, 14, 28)') el.style.setProperty('background-color', '#FFFFFF', 'important');
         if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) el.style.setProperty('background-color', '#FFFFFF', 'important'); }
-        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 > 0.15) el.style.setProperty('background-color', '#FFFFFF', 'important'); }
+        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) el.style.setProperty('background-color', ba2 > 0.25 ? '#F3F4F6' : '#F9FAFB', 'important'); }
       }
     }
     var t1 = setTimeout(fixColors, 100);
     var t2 = setTimeout(fixColors, 500);
     var t3 = setTimeout(fixColors, 1500);
+    var t4 = setTimeout(fixColors, 3000);
+    // Run every 2 seconds for first 10 seconds to catch late-rendering components
+    var interval = setInterval(fixColors, 2000);
+    var t5 = setTimeout(function() { clearInterval(interval); }, 10000);
     var observer = new MutationObserver(function() { setTimeout(fixColors, 50); });
     observer.observe(document.body, { childList: true, subtree: true });
-    return function() { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); observer.disconnect(); };
+    return function() { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearInterval(interval); observer.disconnect(); };
   }, [isDark, mode]);
 
   return (
