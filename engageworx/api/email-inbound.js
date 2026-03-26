@@ -46,6 +46,32 @@ module.exports = async function handler(req, res) {
 
     var body = req.body || {};
 
+// SendGrid sends multipart/form-data — parse it manually if body is empty
+if (!body || Object.keys(body).length === 0) {
+  var rawBody = await new Promise(function(resolve) {
+    var chunks = [];
+    req.on('data', function(chunk) { chunks.push(chunk); });
+    req.on('end', function() { resolve(Buffer.concat(chunks).toString()); });
+  });
+  console.log('raw body length:', rawBody.length, 'content-type:', req.headers['content-type']);
+
+  // Parse multipart form data fields
+  var contentType = req.headers['content-type'] || '';
+  var boundary = contentType.split('boundary=')[1];
+  if (boundary) {
+    boundary = boundary.split(';')[0].trim();
+    var parts = rawBody.split('--' + boundary);
+    body = {};
+    parts.forEach(function(part) {
+      var match = part.match(/Content-Disposition: form-data; name="([^"]+)"\r\n\r\n([\s\S]*?)\r\n$/);
+      if (match) {
+        body[match[1]] = match[2];
+      }
+    });
+    console.log('parsed body keys:', Object.keys(body));
+  }
+}
+
     // SendGrid Inbound Parse fields
     var from        = body.from || '';
     var to          = body.to || '';
