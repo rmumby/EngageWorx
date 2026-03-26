@@ -1643,7 +1643,7 @@ function AppInner() {
           )}
         </div>
 
-        <nav style={{ flex: 1 }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
           {spNavItems.map(item => (
             <button key={item.id} onClick={() => { setSpPage(item.id); if(isMobile) setSidebarOpen(false); }} title={sidebarCollapsed ? item.label : undefined} style={{
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
@@ -1662,45 +1662,44 @@ function AppInner() {
           ))}
         </nav>
 
-        {/* Demo Mode Toggle — superadmin only */}
+        {/* Demo Mode Toggle */}
         {!sidebarCollapsed && (
           <button onClick={() => toggleDemoMode(!demoMode)} style={{
             width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "10px 12px", borderRadius: 9, marginBottom: 8,
+            padding: "8px 12px", borderRadius: 9, marginBottom: 6,
             background: demoMode ? `${C.accent}22` : "rgba(255,255,255,0.03)",
             border: `1px solid ${demoMode ? C.accent + "44" : "rgba(255,255,255,0.08)"}`,
-            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 13,
-            fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 12,
+            fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", flexShrink: 0,
           }}>
             <span>🎮 Demo Mode</span>
-            <span style={{
-              width: 36, height: 20, borderRadius: 10, position: "relative",
-              background: demoMode ? C.accent : "rgba(255,255,255,0.15)",
-              display: "inline-block", transition: "all 0.2s",
-            }}>
-              <span style={{
-                width: 16, height: 16, borderRadius: "50%", background: "#fff",
-                position: "absolute", top: 2, left: demoMode ? 18 : 2,
-                transition: "all 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-              }} />
+            <span style={{ width: 32, height: 18, borderRadius: 9, position: "relative", background: demoMode ? C.accent : "rgba(255,255,255,0.15)", display: "inline-block", transition: "all 0.2s" }}>
+              <span style={{ width: 14, height: 14, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: demoMode ? 16 : 2, transition: "all 0.2s" }} />
             </span>
           </button>
         )}
         {sidebarCollapsed && (
-          <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{
-            width: "100%", padding: "10px 0", borderRadius: 9, marginBottom: 8, border: "none",
-            background: demoMode ? `${C.accent}22` : "transparent",
-            color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 18,
-            fontFamily: "'DM Sans', sans-serif", textAlign: "center",
-          }}>🎮</button>
+          <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{ width: "100%", padding: "8px 0", borderRadius: 9, marginBottom: 6, border: "none", background: demoMode ? `${C.accent}22` : "transparent", color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>🎮</button>
         )}
 
-        {/* Demo Credentials Manager */}
-        {demoMode && !sidebarCollapsed && (
-          <div style={{ background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 9, padding: "8px 10px", marginBottom: 8, fontSize: 11, color: C.accent }}>
-            ● Demo data active — all modules show sample data
+        <ThemeToggle style={{ marginBottom: 6 }} />
+
+        <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 8, textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
+
+        {!sidebarCollapsed && (
+          <div style={{ padding: "10px 12px", marginBottom: 8, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#000", flexShrink: 0 }}>EW</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>EngageWorx Admin</div>
+                <div style={{ color: C.muted, fontSize: 10 }}>Service Provider</div>
+              </div>
+            </div>
           </div>
         )}
+
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "6px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "»" : "«"}</button>
+      </div>
 
         <ThemeToggle style={{ marginBottom: 8 }} />
         <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
