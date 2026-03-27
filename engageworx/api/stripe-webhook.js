@@ -26,11 +26,22 @@ module.exports = async function handler(req, res) {
 
         if (!email) { console.warn('[Stripe] No email in session'); break; }
 
-        // Find user via auth admin
-        var authLookup = await supabase.auth.admin.getUserByEmail(email);
-        var userId = authLookup && authLookup.data && authLookup.data.user && authLookup.data.user.id;
-        if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
+        // Find user by email in user_profiles
+var userResult = await supabase
+  .from('user_profiles')
+  .select('id')
+  .eq('email', email)
+  .limit(1);
+var userId = userResult.data && userResult.data.length > 0 ? userResult.data[0].id : null;
 
+// Fallback — try auth.users via listUsers filtered search
+if (!userId) {
+  var listResult = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  var matchedUser = listResult.data && listResult.data.users ? listResult.data.users.find(function(u) { return u.email === email; }) : null;
+  userId = matchedUser ? matchedUser.id : null;
+}
+
+if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
         // Check if user already has a tenant
         var profileResult = await supabase.from('user_profiles').select('tenant_id').eq('id', userId).single();
         if (profileResult.data && profileResult.data.tenant_id) {
