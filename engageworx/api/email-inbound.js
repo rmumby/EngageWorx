@@ -300,7 +300,7 @@ try {
     console.log('Lead already exists for:', senderEmail, '— skipping');
   }
 } catch (leadErr) {
-  console.log('Lead auto-create failed (non-fatal):', leadErr.message);
+  console.error('Lead auto-create failed:', leadErr.message, JSON.stringify(leadErr));
 }
     supabase.from('email_ai_log').insert({
       from_email: senderEmail,
