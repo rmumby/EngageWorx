@@ -28,10 +28,10 @@ module.exports = async function handler(req, res) {
 
         if (!email) { console.warn('[Stripe] No email in session'); break; }
 
-        // Find user in Supabase
-        var { data: users } = await supabase.auth.admin.listUsers();
-        var user = (users?.users || []).find(function(u) { return u.email === email; });
-        if (!user) { console.warn('[Stripe] No user found for:', email); break; }
+        // Find user ID from auth
+var authLookup = await supabase.auth.admin.getUserByEmail(email);
+var userId = authLookup?.data?.user?.id;
+if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
 
         // Check if tenant already exists
         var { data: existingTenant } = await supabase
