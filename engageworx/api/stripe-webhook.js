@@ -81,6 +81,17 @@ if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
 
         console.log('[Stripe] Tenant created:', tenant.id, 'for:', email);
 
+        // ── Welcome email to new customer ─────────────────────────────────
+        try {
+          var sgMailWelcome = require('@sendgrid/mail');
+          sgMailWelcome.setApiKey(process.env.SENDGRID_API_KEY);
+          await sgMailWelcome.send({
+            to: email,
+            from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+            subject: 'Welcome to EngageWorx — Your Account is Ready 🎉',
+            text: 'Welcome to EngageWorx!\n\nYour account is live at portal.engwx.com\n\nEmail: ' + email + '\nPlan: ' + plan + '\n\n3 things to do first:\n1. Add your phone number (Settings → Phone Numbers)\n2. Import your contacts (Contacts → Import)\n3. Set up your AI Chatbot\n\nBook an onboarding call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx\n+1 (786) 982-7800\nengwx.com',
+            html: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);border-radius:12px;padding:32px;text-align:center;margin-bottom:24px;"><span style="color:#fff;font-weight:900;font-size:22px;">EngageWorx</span><div style="color:#fff;font-size:13px;opacity:0.85;letter-spacing:1px;text-transform:uppercase;margin-top:4px;">AI-Powered CX</div><h1 style="color:#fff;margin:16px 0 8px;font-size:26px;font-weight:800;">Welcome! 🎉</h1><p style="color:rgba(255,255,255,0.9);margin:0;font-size:15px;">Your account is live and ready to go.</p></div><div style="background:#fff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;"><h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">Your Login Details</h2><table style="width:100%;border-collapse:collapse;"><tr><td style="padding:10px 0;color:#64748b;font-size:14px;width:120px;">Portal</td><td style="padding:10px 0;font-size:14px;"><a href="https://portal.engwx.com" style="color:#00C9FF;text-decoration:none;font-weight:700;">portal.engwx.com</a></td></tr><tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#64748b;font-size:14px;">Email</td><td style="padding:10px 0;font-size:14px;color:#1e293b;font-weight:600;">' + email + '</td></tr><tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#64748b;font-size:14px;">Plan</td><td style="padding:10px 0;font-size:14px;color:#1e293b;">' + plan.charAt(0).toUpperCase() + plan.slice(1) + '</td></tr></table><div style="margin-top:20px;text-align:center;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Log In to Your Portal →</a></div></div><div style="background:#fff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;"><h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">3 Things to Do First</h2><div style="padding:14px;background:#f8fafc;border-radius:8px;margin-bottom:10px;"><strong style="color:#1e293b
+
         // Notify rob@engwx.com
         try {
           var sgMail = require('@sendgrid/mail');
