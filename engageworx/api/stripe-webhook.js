@@ -33,17 +33,16 @@ var authLookup = await supabase.auth.admin.getUserByEmail(email);
 var userId = authLookup?.data?.user?.id;
 if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
 
-        // Check if tenant already exists
-        var { data: existingTenant } = await supabase
-          .from('tenants')
-          .select('id')
-          .eq('slug', companyName.toLowerCase().replace(/[^a-z0-9]/g, '-'))
-          .limit(1);
-
-        if (existingTenant && existingTenant.length > 0) {
-          console.log('[Stripe] Tenant already exists, skipping');
-          break;
-        }
+        // Check if user already has a tenant
+var { data: existingProfile } = await supabase
+  .from('user_profiles')
+  .select('tenant_id')
+  .eq('id', userId)
+  .single();
+if (existingProfile && existingProfile.tenant_id) {
+  console.log('[Stripe] User already has tenant, skipping:', existingProfile.tenant_id);
+  break;
+}
 
         // Create tenant
         var slug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
