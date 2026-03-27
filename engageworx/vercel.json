@@ -2,6 +2,9 @@
   "functions": {
     "api/email-inbound.js": {
       "maxDuration": 30
+    },
+    "api/billing.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
