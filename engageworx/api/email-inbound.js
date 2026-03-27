@@ -277,7 +277,7 @@ try {
       email: senderEmail,
       company: company,
       source: 'inbound_email',
-      stage: 'New Inquiry',
+      stage: 'inquiry',
       type: extracted.intent === 'partnership' ? 'partner' : 'prospect',
       urgency: extracted.urgency || 'normal',
       message: emailBody.substring(0, 500),
