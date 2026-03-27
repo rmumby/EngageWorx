@@ -184,7 +184,94 @@ module.exports = async function handler(req, res) {
         }).then(function() {}).catch(function() {});
         break;
       }
+case 'checkout.session.expired': {
+        var expiredSession = event.data.object;
+        var expiredEmail = expiredSession.customer_email ||
+          (expiredSession.customer_details && expiredSession.customer_details.email) ||
+          (expiredSession.metadata && expiredSession.metadata.email);
+        var expiredName = (expiredSession.customer_details && expiredSession.customer_details.name) || '';
+        var expiredPlan = (expiredSession.metadata && expiredSession.metadata.plan) || 'starter';
 
+        console.log('[Stripe] Checkout expired:', expiredEmail);
+        if (!expiredEmail) { console.warn('[Stripe] No email in expired session'); break; }
+
+        // Skip if user already has a tenant — they completed a previous session
+        var expiredUserResult = await supabase.from('user_profiles').select('id, tenant_id').eq('email', expiredEmail).limit(1);
+        var expiredUser = expiredUserResult.data && expiredUserResult.data.length > 0 ? expiredUserResult.data[0] : null;
+
+        if (expiredUser && expiredUser.tenant_id) {
+          console.log('[Stripe] Expired session but user already has tenant — skipping recovery email');
+          break;
+        }
+
+        // Add to pipeline as abandoned checkout
+        try {
+          var existingAbandon = await supabase.from('leads').select('id').eq('email', expiredEmail).limit(1);
+          if (!existingAbandon.data || existingAbandon.data.length === 0) {
+            await supabase.from('leads').insert({
+              name: expiredName || expiredEmail,
+              email: expiredEmail,
+              source: 'abandoned_checkout',
+              stage: 'inquiry',
+              type: 'prospect',
+              urgency: 'normal',
+              notes: 'Abandoned Stripe checkout — ' + expiredPlan + ' plan. Session expired.',
+              ai_summary: 'Started signup but did not complete payment.',
+              ai_next_action: 'Send recovery email and follow up within 48 hours.',
+              last_action_at: new Date().toISOString().split('T')[0],
+            });
+            console.log('[Stripe] Abandoned checkout lead created:', expiredEmail);
+          }
+        } catch (leadErr) { console.log('[Stripe] Abandon lead create failed:', leadErr.message); }
+
+        // Send recovery email
+        try {
+          var sgMailRecover = require('@sendgrid/mail');
+          sgMailRecover.setApiKey(process.env.SENDGRID_API_KEY);
+          var firstName = expiredName ? expiredName.split(' ')[0] : 'there';
+          var recoverHtml =
+            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
+            '<div style="text-align:center;margin-bottom:32px;">' +
+            '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);display:inline-block;padding:8px 16px;border-radius:8px;">' +
+            '<span style="color:#fff;font-weight:900;font-size:20px;">EngageWorx</span></div>' +
+            '</div>' +
+            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
+            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Looks like you started signing up for EngageWorx but didn\'t quite finish — no worries at all.</p>' +
+            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">If you hit a snag, had a question, or just got pulled away — I\'m happy to help. Just reply to this email and I\'ll get back to you personally.</p>' +
+            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 24px;">If you\'re ready to jump back in, you can complete your signup below:</p>' +
+            '<div style="text-align:center;margin:28px 0;">' +
+            '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a>' +
+            '</div>' +
+            '<p style="font-size:14px;color:#64748b;line-height:1.7;margin:0 0 24px;">Or if you\'d like a quick walkthrough first, grab 30 minutes on my calendar — no pressure at all.</p>' +
+            '<div style="text-align:center;margin:0 0 32px;">' +
+            '<a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a>' +
+            '</div>' +
+            '<table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
+            '<tr><td style="padding-right:16px;vertical-align:top;">' +
+            '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div>' +
+            '</td><td style="vertical-align:top;">' +
+            '<div style="font-weight:bold;color:#222;font-size:14px;">Rob Mumby</div>' +
+            '<div style="color:#555;font-size:13px;">Founder &amp; CEO, EngageWorx</div>' +
+            '<div style="color:#777;font-size:12px;margin-top:2px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
+            '<div style="margin-top:4px;font-size:12px;">' +
+            '📞 <a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> &nbsp;|&nbsp;' +
+            '🌐 <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a>' +
+            '</div></td></tr></table></div>';
+
+          await sgMailRecover.send({
+            to: expiredEmail,
+            from: { email: 'hello@engwx.com', name: 'Rob at EngageWorx' },
+            subject: 'Did you have any questions about EngageWorx?',
+            text: 'Hi ' + firstName + ',\n\nLooks like you started signing up but didn\'t quite finish — no worries at all.\n\nIf you hit a snag or had a question, just reply here and I\'ll help personally.\n\nReady to jump back in? portal.engwx.com\n\nOr book a quick call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx\n+1 (786) 982-7800',
+            html: recoverHtml,
+          });
+          console.log('[Stripe] Recovery email sent to:', expiredEmail);
+        } catch (recoverErr) {
+          console.log('[Stripe] Recovery email failed (non-fatal):', recoverErr.message);
+        }
+
+        break;
+      }
       case 'customer.subscription.deleted': {
         var sub = event.data.object;
         console.log('[Stripe] Subscription cancelled:', sub.customer);
