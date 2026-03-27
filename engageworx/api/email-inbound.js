@@ -128,7 +128,6 @@ module.exports = async function handler(req, res) {
     await sgMail.send({
       to: senderEmail,
       from: { email: 'hello@engwx.com', name: 'EngageWorx' },
-      cc: 'rob@engwx.com',
       replyTo: 'hello@engwx.com',
       subject: replySubject,
       text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
