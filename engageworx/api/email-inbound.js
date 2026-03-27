@@ -134,7 +134,8 @@ module.exports = async function handler(req, res) {
       html: htmlReply,
     });
 
-    console.log('AI reply sent to:', senderEmail, 'CC: rob@engwx.com');
+    console.log('AI reply sent to:', senderEmail);
+    console.log('🔵 Starting inbox wiring...');
     console.log('Proceeding to inbox and leads wiring...');
     
     // ── Wire into Live Inbox ──────────────────────────────────────────────────
@@ -252,7 +253,8 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Audit log ────────────────────────────────────────────────────────────
-    // ── Auto-add to leads pipeline ────────────────────────────────────────────
+   // ── Auto-add to leads pipeline ────────────────────────────────────────────
+    console.log('🔵 Starting leads block for:', senderEmail);
 try {
   // Skip if already in pipeline
   var { data: existingLead } = await supabase
