@@ -248,9 +248,9 @@ module.exports = async function handler(req, res) {
         console.log('Live Inbox updated — conversation:', conversationId);
       }
     } catch (inboxErr) {
-      // Non-blocking — email still sent even if inbox wiring fails
       console.log('Live Inbox wiring error (non-fatal):', inboxErr.message);
     }
+    console.log('🟢 Past inbox block, entering leads block');
 
     // ── Audit log ────────────────────────────────────────────────────────────
    // ── Auto-add to leads pipeline ────────────────────────────────────────────
