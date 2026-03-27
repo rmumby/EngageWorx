@@ -133,30 +133,29 @@ module.exports = async function handler(req, res) {
       text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
       html: htmlReply,
     });
+    console.log('✅ AI reply sent to:', senderEmail);
 
-    console.log('AI reply sent to:', senderEmail);
-    console.log('🔵 Starting inbox wiring...');
-    console.log('Proceeding to inbox and leads wiring...');
-    
-    // ── Wire into Live Inbox ──────────────────────────────────────────────────
+   // ── Wire into Live Inbox ──────────────────────────────────────────────────
     try {
+      console.log('🔵 Inbox block started');
       // 1. Find or create contact
       var contactId = null;
       var nameParts = (senderName || '').split(' ');
       var firstName = nameParts[0] || senderEmail.split('@')[0];
-      var lastName  = nameParts.slice(1).join(' ') || '';
+      var lastName = nameParts.slice(1).join(' ') || '';
 
-      var { data: existingContacts } = await supabase
+      var existingContactsResult = await supabase
         .from('contacts')
         .select('id')
         .eq('email', senderEmail)
         .eq('tenant_id', EW_TENANT_ID)
         .limit(1);
+      var existingContacts = existingContactsResult.data;
 
       if (existingContacts && existingContacts.length > 0) {
         contactId = existingContacts[0].id;
       } else {
-        var { data: newContact } = await supabase
+        var newContactResult = await supabase
           .from('contacts')
           .insert({
             tenant_id: EW_TENANT_ID,
@@ -167,15 +166,13 @@ module.exports = async function handler(req, res) {
           })
           .select()
           .single();
-        contactId = newContact ? newContact.id : null;
+        contactId = newContactResult.data ? newContactResult.data.id : null;
       }
+      console.log('📋 Contact id:', contactId);
 
-      console.log('Contact id:', contactId);
-
-      // 2. Find or create conversation
       var conversationId = null;
       if (contactId) {
-        var { data: existingConvs } = await supabase
+        var existingConvsResult = await supabase
           .from('conversations')
           .select('id')
           .eq('contact_id', contactId)
@@ -183,11 +180,12 @@ module.exports = async function handler(req, res) {
           .eq('channel', 'email')
           .in('status', ['active', 'waiting'])
           .limit(1);
+        var existingConvs = existingConvsResult.data;
 
         if (existingConvs && existingConvs.length > 0) {
           conversationId = existingConvs[0].id;
         } else {
-          var { data: newConv } = await supabase
+          var newConvResult = await supabase
             .from('conversations')
             .insert({
               tenant_id: EW_TENANT_ID,
@@ -200,13 +198,11 @@ module.exports = async function handler(req, res) {
             })
             .select()
             .single();
-          conversationId = newConv ? newConv.id : null;
+          conversationId = newConvResult.data ? newConvResult.data.id : null;
         }
       }
+      console.log('💬 Conversation id:', conversationId);
 
-      console.log('Conversation id:', conversationId);
-
-      // 3. Insert inbound message
       if (conversationId) {
         await supabase.from('messages').insert({
           conversation_id: conversationId,
@@ -221,7 +217,6 @@ module.exports = async function handler(req, res) {
           metadata: { sender_name: senderName },
         });
 
-        // 4. Insert AI reply message
         await supabase.from('messages').insert({
           conversation_id: conversationId,
           tenant_id: EW_TENANT_ID,
@@ -235,7 +230,6 @@ module.exports = async function handler(req, res) {
           metadata: { ai_generated: true },
         });
 
-        // 5. Update conversation last_message_at
         await supabase
           .from('conversations')
           .update({
@@ -245,21 +239,12 @@ module.exports = async function handler(req, res) {
           })
           .eq('id', conversationId);
 
-        console.log('Live Inbox updated — conversation:', conversationId);
+        console.log('✅ Live Inbox updated — conversation:', conversationId);
       }
-   // ── Wire into Live Inbox ──────────────────────────────────────────────────
-    /* TEMPORARILY DISABLED FOR DEBUGGING
-    try {
-      ...entire inbox block...
     } catch (inboxErr) {
-      console.log('Live Inbox wiring error (non-fatal):', inboxErr.message);
-    }
-    */
+      console.error('🔴 Live Inbox error:', inboxErr.message, inboxErr.stack);
     }
     console.log('🟢 Past inbox block, entering leads block');
-
-    // ── Audit log ────────────────────────────────────────────────────────────
-   // ── Auto-add to leads pipeline ────────────────────────────────────────────
     console.log('🔵 Starting leads block for:', senderEmail);
 try {
   // Skip if already in pipeline
