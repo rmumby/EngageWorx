@@ -136,7 +136,8 @@ module.exports = async function handler(req, res) {
     });
 
     console.log('AI reply sent to:', senderEmail, 'CC: rob@engwx.com');
-
+    console.log('Proceeding to inbox and leads wiring...');
+    
     // ── Wire into Live Inbox ──────────────────────────────────────────────────
     try {
       // 1. Find or create contact
