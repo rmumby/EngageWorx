@@ -1239,9 +1239,10 @@ function AppInner() {
   const { theme, isDark } = useTheme();
   const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
 
- var spNavBase = [
+var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
+    { id: "pipeline", label: "Pipeline", icon: "📈" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
