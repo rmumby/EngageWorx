@@ -287,6 +287,50 @@ try {
       last_action_at: new Date().toISOString().split('T')[0],
     });
     console.log('Lead auto-created for:', senderEmail, 'company:', company);
+
+    // ── Auto-create Help Desk ticket for support/billing intents ─────────────
+    var ticketIntents = ['support', 'billing'];
+    if (ticketIntents.indexOf(extracted.intent) !== -1) {
+      try {
+        var ticketPriority = extracted.intent === 'billing' ? 'high' : (extracted.urgency === 'high' ? 'high' : 'normal');
+        var ticketResult = await supabase.from('support_tickets').insert({
+          tenant_id: EW_TENANT_ID,
+          submitter_type: 'external',
+          submitter_name: senderName || senderEmail,
+          submitter_email: senderEmail,
+          subject: subject,
+          description: emailBody.substring(0, 1000),
+          channel: 'email',
+          category: extracted.intent,
+          priority: ticketPriority,
+          status: 'open',
+          metadata: { source: 'inbound_email', ai_intent: extracted.intent }
+        }).select().single();
+
+        if (ticketResult.data) {
+          await supabase.from('ticket_messages').insert({
+            ticket_id: ticketResult.data.id,
+            role: 'user',
+            author_name: senderName || senderEmail,
+            author_type: 'external',
+            content: emailBody.substring(0, 1000),
+          });
+          console.log('✅ Support ticket auto-created:', ticketResult.data.ticket_number, 'intent:', extracted.intent);
+
+          // Auto-escalate billing tickets
+          if (extracted.intent === 'billing') {
+            await supabase.from('support_tickets').update({
+              status: 'escalated',
+              escalation_reason: 'Billing enquiry via email — auto-escalated',
+              escalation_trigger: 'ai_decision',
+            }).eq('id', ticketResult.data.id);
+            console.log('🚨 Billing ticket auto-escalated');
+          }
+        }
+      } catch (ticketErr) {
+        console.log('Support ticket auto-create failed (non-fatal):', ticketErr.message);
+      }
+    }
   } else {
     console.log('Lead already exists for:', senderEmail, '— skipping');
   }
