@@ -252,6 +252,54 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Audit log ────────────────────────────────────────────────────────────
+    // ── Auto-add to leads pipeline ────────────────────────────────────────────
+try {
+  // Skip if already in pipeline
+  var { data: existingLead } = await supabase
+    .from('leads')
+    .select('id')
+    .eq('email', senderEmail)
+    .limit(1);
+
+  if (!existingLead || existingLead.length === 0) {
+    // Ask AI to extract company name and intent from the email
+    var summaryRes = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 200,
+      system: 'Extract structured data from this inbound email. Respond ONLY with a JSON object, no markdown. Fields: company (string, guess from email domain if not mentioned), intent (one of: pricing, demo, partnership, support, general), urgency (one of: high, normal, low).',
+      messages: [{ role: 'user', content: 'From: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\n' + emailBody }]
+    });
+    var extracted = { company: '', intent: 'general', urgency: 'normal' };
+    try {
+      var raw = summaryRes.content[0].text.replace(/```json|```/g, '').trim();
+      extracted = JSON.parse(raw);
+    } catch (e) { /* use defaults */ }
+
+    // Derive company from email domain if AI didn't find one
+    var company = extracted.company || senderEmail.split('@')[1]?.split('.')[0] || '';
+    company = company.charAt(0).toUpperCase() + company.slice(1);
+
+    await supabase.from('leads').insert({
+      name: senderName || senderEmail,
+      email: senderEmail,
+      company: company,
+      source: 'inbound_email',
+      stage: 'New Inquiry',
+      type: extracted.intent === 'partnership' ? 'partner' : 'prospect',
+      urgency: extracted.urgency || 'normal',
+      message: emailBody.substring(0, 500),
+      notes: 'Auto-created from inbound email. Subject: ' + subject,
+      ai_summary: 'Inbound enquiry via hello@engwx.com. Intent: ' + (extracted.intent || 'general'),
+      ai_next_action: 'Review AI reply and follow up if needed.',
+      last_action_at: new Date().toISOString().split('T')[0],
+    });
+    console.log('Lead auto-created for:', senderEmail, 'company:', company);
+  } else {
+    console.log('Lead already exists for:', senderEmail, '— skipping');
+  }
+} catch (leadErr) {
+  console.log('Lead auto-create failed (non-fatal):', leadErr.message);
+}
     supabase.from('email_ai_log').insert({
       from_email: senderEmail,
       from_name: senderName,
