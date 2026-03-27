@@ -22,6 +22,256 @@ const NOTIFICATION_PREFS = [
   { id: "np_10", label: "Security alert", email: true, push: true, sms: true },
 ];
 
+function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
+  const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+  const [members, setMembers] = useState([]);
+  const [allTenants, setAllTenants] = useState([]);
+  const [selectedTenantId, setSelectedTenantId] = useState(currentTenantId || EW_SP_TENANT_ID);
+  const [loading, setLoading] = useState(true);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('admin');
+  const [saving, setSaving] = useState(null);
+
+  const NOTIFY_FLAGS = [
+    { key: 'notify_on_escalation', label: 'Ticket Escalations' },
+    { key: 'notify_on_new_signup', label: 'New Signups' },
+    { key: 'notify_on_payment', label: 'Payments' },
+    { key: 'notify_on_new_lead', label: 'New Leads' },
+  ];
+
+  const isOwner = isSuperAdmin || viewLevel === 'sp';
+  const canEdit = (tenantId) => {
+    if (isSuperAdmin) return true;
+    if (viewLevel === 'sp') return tenantId === EW_SP_TENANT_ID;
+    return tenantId === currentTenantId;
+  };
+
+  useEffect(() => {
+    if (isOwner) {
+      supabase.from('tenants').select('id, name, tenant_type').order('name').then(({ data }) => {
+        setAllTenants(data || []);
+      });
+    }
+  }, [isOwner]);
+
+  useEffect(() => {
+    fetchMembers(selectedTenantId);
+  }, [selectedTenantId]);
+
+  async function fetchMembers(tenantId) {
+    setLoading(true);
+    try {
+      var { data: memberData } = await supabase
+        .from('tenant_members')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('joined_at', { ascending: false });
+
+      if (!memberData || memberData.length === 0) { setMembers([]); setLoading(false); return; }
+
+      var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
+      var { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('id, email, full_name, company_name')
+        .in('id', userIds);
+
+      var profileMap = {};
+      (profiles || []).forEach(function(p) { profileMap[p.id] = p; });
+
+      setMembers(memberData.map(function(m) {
+        var profile = profileMap[m.user_id] || {};
+        return Object.assign({}, m, {
+          email: profile.email || 'Unknown',
+          full_name: profile.full_name || profile.company_name || profile.email || 'Unknown',
+        });
+      }));
+    } catch (e) { console.error('fetchMembers error:', e); }
+    setLoading(false);
+  }
+
+  async function toggleFlag(memberId, flag, currentVal) {
+    setSaving(memberId + flag);
+    var update = {};
+    update[flag] = !currentVal;
+    await supabase.from('tenant_members').update(update).eq('id', memberId);
+    setMembers(function(prev) {
+      return prev.map(function(m) {
+        if (m.id !== memberId) return m;
+        var updated = Object.assign({}, m);
+        updated[flag] = !currentVal;
+        return updated;
+      });
+    });
+    setSaving(null);
+  }
+
+  async function updateRole(memberId, role) {
+    await supabase.from('tenant_members').update({ role: role }).eq('id', memberId);
+    setMembers(function(prev) {
+      return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { role: role }) : m; });
+    });
+  }
+
+  async function removeMember(memberId) {
+    if (!window.confirm('Remove this team member?')) return;
+    await supabase.from('tenant_members').delete().eq('id', memberId);
+    setMembers(function(prev) { return prev.filter(function(m) { return m.id !== memberId; }); });
+  }
+
+  async function inviteMember() {
+    if (!inviteEmail) return;
+    setSaving('invite');
+    try {
+      var { data: profile } = await supabase.from('user_profiles').select('id').eq('email', inviteEmail).single();
+      if (!profile) { alert('No user found with that email address. They must sign up first.'); setSaving(null); return; }
+      var { error } = await supabase.from('tenant_members').insert({
+        tenant_id: selectedTenantId,
+        user_id: profile.id,
+        role: inviteRole,
+        status: 'active',
+        joined_at: new Date().toISOString(),
+        notify_on_escalation: false,
+        notify_on_new_signup: false,
+        notify_on_payment: false,
+        notify_on_new_lead: false,
+      });
+      if (error) { alert('Error: ' + error.message); setSaving(null); return; }
+      setInviteEmail('');
+      setShowInvite(false);
+      fetchMembers(selectedTenantId);
+    } catch (e) { alert('Error: ' + e.message); }
+    setSaving(null);
+  }
+
+  var inputSt = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ color: '#fff', fontSize: 18, margin: 0 }}>Team Members</h2>
+        {canEdit(selectedTenantId) && (
+          <button onClick={() => setShowInvite(!showInvite)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>
+        )}
+      </div>
+
+      {/* Tenant selector for SP/Superadmin */}
+      {isOwner && allTenants.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Viewing Team For</label>
+          <select value={selectedTenantId} onChange={function(e) { setSelectedTenantId(e.target.value); }} style={{ ...inputSt, maxWidth: 320 }}>
+            <option value={EW_SP_TENANT_ID}>EngageWorx (SP Admin)</option>
+            {allTenants.filter(function(t) { return t.id !== EW_SP_TENANT_ID; }).map(function(t) {
+              return <option key={t.id} value={t.id}>{t.name} {t.tenant_type === 'csp' ? '(CSP)' : t.tenant_type === 'agent' ? '(Agent)' : ''}</option>;
+            })}
+          </select>
+          {!canEdit(selectedTenantId) && (
+            <div style={{ marginTop: 6, fontSize: 11, color: C.muted }}>👁 View only — you can edit notification flags for your own SP team only</div>
+          )}
+        </div>
+      )}
+
+      {/* Invite form */}
+      {showInvite && canEdit(selectedTenantId) && (
+        <div style={{ background: `${C.primary}08`, border: `1px solid ${C.primary}33`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
+          <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 15 }}>Add Team Member</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Email Address</label>
+              <input value={inviteEmail} onChange={function(e) { setInviteEmail(e.target.value); }} placeholder="colleague@company.com" style={inputSt} />
+            </div>
+            <div>
+              <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Role</label>
+              <select value={inviteRole} onChange={function(e) { setInviteRole(e.target.value); }} style={inputSt}>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="agent">Support Agent</option>
+                <option value="analyst">Analyst</option>
+                <option value="readonly">Read Only</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={inviteMember} disabled={saving === 'invite'} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{saving === 'invite' ? 'Adding...' : 'Add Member'}</button>
+            <button onClick={() => setShowInvite(false)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 18px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Member list */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading team...</div>
+      ) : members.length === 0 ? (
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 40, textAlign: 'center' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
+          <div style={{ color: C.muted, fontSize: 13 }}>Add team members to collaborate and manage notification preferences.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          {members.map(function(m) {
+            var initials = (m.full_name || m.email).split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+            var editable = canEdit(selectedTenantId);
+            return (
+              <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
+                {/* Member header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{m.full_name}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {editable ? (
+                      <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="agent">Support Agent</option>
+                        <option value="analyst">Analyst</option>
+                        <option value="readonly">Read Only</option>
+                      </select>
+                    ) : (
+                      <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>
+                    )}
+                    {editable && (
+                      <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notification flags */}
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Email Notifications</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {NOTIFY_FLAGS.map(function(flag) {
+                      var isOn = m[flag.key] || false;
+                      var isSavingThis = saving === m.id + flag.key;
+                      return (
+                        <button key={flag.key} onClick={editable ? function() { toggleFlag(m.id, flag.key, isOn); } : undefined} disabled={!editable || isSavingThis} style={{
+                          background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)',
+                          border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`,
+                          borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600,
+                          color: isOn ? C.primary : 'rgba(255,255,255,0.3)',
+                          cursor: editable ? 'pointer' : 'default',
+                          fontFamily: "'DM Sans', sans-serif",
+                          transition: 'all 0.2s',
+                          opacity: isSavingThis ? 0.5 : 1,
+                        }}>
+                          {isOn ? '✓ ' : ''}{flag.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("api");
@@ -1133,6 +1383,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
       {/* ═══════════ TEAM TAB ═══════════ */}
       {activeTab === "team" && (
+        <TeamMembersTab
+          C={C}
+          viewLevel={viewLevel}
+          currentTenantId={currentTenantId}
+          isSuperAdmin={viewLevel === 'sp'}
+        />
+      )}
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Team Members</h2>
