@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
-import PipelineDashboard from './components/PipelineDashboard';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
