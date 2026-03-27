@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
+import PipelineDashboard from './components/PipelineDashboard';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
@@ -9,6 +10,7 @@ const STAGES = [
   { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦" },
   { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀" },
   { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅" },
+  { id: "pipeline", label: "Pipeline", icon: "📈" }
 ];
 
 const TYPE_OPTIONS    = ["Direct Business", "White-Label / Reseller", "Agency", "Unknown"];
