@@ -45,9 +45,10 @@ if (!userId) { console.warn('[Stripe] No user found for:', email); break; }
         // Check if user already has a tenant
         var profileResult = await supabase.from('user_profiles').select('tenant_id').eq('id', userId).single();
         if (profileResult.data && profileResult.data.tenant_id) {
-          console.log('[Stripe] User already has tenant, skipping');
-          break;
-        }
+          console.log('[Stripe] User already has tenant, skipping tenant creation');
+          // Still send welcome email if not already sent
+          // (non-blocking, falls through to welcome email below)
+        } else {
 
         // Create tenant
         var slug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
