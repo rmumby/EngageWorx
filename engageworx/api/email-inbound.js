@@ -247,8 +247,14 @@ module.exports = async function handler(req, res) {
 
         console.log('Live Inbox updated — conversation:', conversationId);
       }
+   // ── Wire into Live Inbox ──────────────────────────────────────────────────
+    /* TEMPORARILY DISABLED FOR DEBUGGING
+    try {
+      ...entire inbox block...
     } catch (inboxErr) {
       console.log('Live Inbox wiring error (non-fatal):', inboxErr.message);
+    }
+    */
     }
     console.log('🟢 Past inbox block, entering leads block');
 
