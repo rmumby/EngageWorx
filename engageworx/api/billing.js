@@ -379,24 +379,24 @@ module.exports = async function handler(req, res) {
               });
               console.log('[Stripe] Top-up credited:', sessionMeta.messages, 'messages');
 
-              // Notify Rob
+              // Notify SP admins via _notify.js
               try {
-                var RESEND_KEY = process.env.RESEND_API_KEY;
-                if (RESEND_KEY) {
-                  var tenantRes = await supabase.from('tenants').select('name').eq('id', sessionMeta.tenant_id).single();
-                  var tName = tenantRes.data ? tenantRes.data.name : sessionMeta.tenant_id;
-                  await fetch('https://api.resend.com/emails', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      from: 'EngageWorx <hello@engwx.com>',
-                      to: ['rob@engwx.com'],
-                      subject: 'Top-up purchased: ' + tName + ' (' + sessionMeta.messages + ' messages)',
-                      html: '<h2>Message Top-Up</h2><p><b>Tenant:</b> ' + tName + '</p><p><b>Messages:</b> ' + sessionMeta.messages + '</p><p><b>Amount:</b> $' + ((session.amount_total || 0) / 100).toFixed(2) + '</p>',
-                    }),
-                  });
-                }
-              } catch (ne) { /* non-fatal */ }
+                var { getNotifyEmails } = require('./_notify');
+                var sgMailTopup = require('@sendgrid/mail');
+                sgMailTopup.setApiKey(process.env.SENDGRID_API_KEY);
+                var tenantRes = await supabase.from('tenants').select('name').eq('id', sessionMeta.tenant_id).single();
+                var tName = tenantRes.data ? tenantRes.data.name : sessionMeta.tenant_id;
+                var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+                var notifyEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_payment');
+                if (notifyEmails.length === 0) notifyEmails = ['rob@engwx.com'];
+                await sgMailTopup.send({
+                  to: notifyEmails,
+                  from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                  subject: 'Top-up purchased: ' + tName + ' (' + sessionMeta.messages + ' messages)',
+                  html: '<h2>Message Top-Up</h2><p><b>Tenant:</b> ' + tName + '</p><p><b>Messages:</b> ' + sessionMeta.messages + '</p><p><b>Amount:</b> $' + ((session.amount_total || 0) / 100).toFixed(2) + '</p>',
+                });
+                console.log('[Billing] Top-up notify sent to:', notifyEmails);
+              } catch (ne) { console.log('[Billing] Top-up notify failed (non-fatal):', ne.message); }
             } catch (topupErr) {
               console.error('[Stripe] Top-up credit error:', topupErr.message);
             }
