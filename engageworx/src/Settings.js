@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 
-// ─── DEMO DATA ────────────────────────────────────────────────────────────────
-// API keys loaded from Supabase — see liveApiKeys state
-
-// Webhooks are loaded from Supabase — see liveWebhooks state
-
-// Team members loaded from Supabase — see liveTeam state
 const ROLES = ["Admin", "Campaign Manager", "Analyst", "Support Agent", "Read Only"];
 
 const NOTIFICATION_PREFS = [
@@ -283,252 +277,6 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   );
 }
 
-    {/* SMS/WhatsApp notification channels — coming soon */}
-    <div>
-      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>💬 Other Channels <span style={{ background: '#FFD60022', color: '#FFD600', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginLeft: 6 }}>COMING SOON</span></div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {[{ label: '💬 SMS', key: 'notify_via_sms' }, { label: '📱 WhatsApp', key: 'notify_via_whatsapp' }, { label: '✨ RCS', key: 'notify_via_rcs' }].map(function(ch) {
-          return (
-            <button key={ch.key} disabled style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 6, padding: '5px 12px', fontSize: 11, color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed', fontFamily: "'DM Sans', sans-serif" }}>{ch.label}</button>
-          );
-        })}
-      </div>
-    </div>
-  </div>
-);
-
-  const isOwner = isSuperAdmin || viewLevel === 'sp';
-  const canEdit = (tenantId) => {
-    if (isSuperAdmin) return true;
-    if (viewLevel === 'sp') return tenantId === EW_SP_TENANT_ID;
-    return tenantId === currentTenantId;
-  };
-
-  useEffect(() => {
-    if (isOwner) {
-      supabase.from('tenants').select('id, name, tenant_type').order('name').then(({ data }) => {
-        setAllTenants(data || []);
-      });
-    }
-  }, [isOwner]);
-
-  useEffect(() => {
-    fetchMembers(selectedTenantId);
-  }, [selectedTenantId]);
-
-  async function fetchMembers(tenantId) {
-    setLoading(true);
-    try {
-      var { data: memberData } = await supabase
-        .from('tenant_members')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('joined_at', { ascending: false });
-
-      if (!memberData || memberData.length === 0) { setMembers([]); setLoading(false); return; }
-
-      var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
-      var { data: profiles } = await supabase
-        .from('user_profiles')
-        .select('id, email, full_name, company_name')
-        .in('id', userIds);
-
-      var profileMap = {};
-      (profiles || []).forEach(function(p) { profileMap[p.id] = p; });
-
-      setMembers(memberData.map(function(m) {
-        var profile = profileMap[m.user_id] || {};
-        return Object.assign({}, m, {
-          email: profile.email || 'Unknown',
-          full_name: profile.full_name || profile.company_name || profile.email || 'Unknown',
-        });
-      }));
-    } catch (e) { console.error('fetchMembers error:', e); }
-    setLoading(false);
-  }
-
-  async function toggleFlag(memberId, flag, currentVal) {
-    setSaving(memberId + flag);
-    var update = {};
-    update[flag] = !currentVal;
-    await supabase.from('tenant_members').update(update).eq('id', memberId);
-    setMembers(function(prev) {
-      return prev.map(function(m) {
-        if (m.id !== memberId) return m;
-        var updated = Object.assign({}, m);
-        updated[flag] = !currentVal;
-        return updated;
-      });
-    });
-    setSaving(null);
-  }
-
-  async function updateRole(memberId, role) {
-    await supabase.from('tenant_members').update({ role: role }).eq('id', memberId);
-    setMembers(function(prev) {
-      return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { role: role }) : m; });
-    });
-  }
-
-  async function removeMember(memberId) {
-    if (!window.confirm('Remove this team member?')) return;
-    await supabase.from('tenant_members').delete().eq('id', memberId);
-    setMembers(function(prev) { return prev.filter(function(m) { return m.id !== memberId; }); });
-  }
-
-  async function inviteMember() {
-    if (!inviteEmail) return;
-    setSaving('invite');
-    try {
-      var { data: profile } = await supabase.from('user_profiles').select('id').eq('email', inviteEmail).single();
-      if (!profile) { alert('No user found with that email address. They must sign up first.'); setSaving(null); return; }
-      var { error } = await supabase.from('tenant_members').insert({
-        tenant_id: selectedTenantId,
-        user_id: profile.id,
-        role: inviteRole,
-        status: 'active',
-        joined_at: new Date().toISOString(),
-        notify_on_escalation: false,
-        notify_on_new_signup: false,
-        notify_on_payment: false,
-        notify_on_new_lead: false,
-      });
-      if (error) { alert('Error: ' + error.message); setSaving(null); return; }
-      setInviteEmail('');
-      setShowInvite(false);
-      fetchMembers(selectedTenantId);
-    } catch (e) { alert('Error: ' + e.message); }
-    setSaving(null);
-  }
-
-  var inputSt = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ color: '#fff', fontSize: 18, margin: 0 }}>Team Members</h2>
-        {canEdit(selectedTenantId) && (
-          <button onClick={() => setShowInvite(!showInvite)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>
-        )}
-      </div>
-
-      {/* Tenant selector for SP/Superadmin */}
-      {isOwner && allTenants.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Viewing Team For</label>
-          <select value={selectedTenantId} onChange={function(e) { setSelectedTenantId(e.target.value); }} style={{ ...inputSt, maxWidth: 320 }}>
-            <option value={EW_SP_TENANT_ID}>EngageWorx (SP Admin)</option>
-            {allTenants.filter(function(t) { return t.id !== EW_SP_TENANT_ID; }).map(function(t) {
-              return <option key={t.id} value={t.id}>{t.name} {t.tenant_type === 'csp' ? '(CSP)' : t.tenant_type === 'agent' ? '(Agent)' : ''}</option>;
-            })}
-          </select>
-          {!canEdit(selectedTenantId) && (
-            <div style={{ marginTop: 6, fontSize: 11, color: C.muted }}>👁 View only — you can edit notification flags for your own SP team only</div>
-          )}
-        </div>
-      )}
-
-      {/* Invite form */}
-      {showInvite && canEdit(selectedTenantId) && (
-        <div style={{ background: `${C.primary}08`, border: `1px solid ${C.primary}33`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 15 }}>Add Team Member</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Email Address</label>
-              <input value={inviteEmail} onChange={function(e) { setInviteEmail(e.target.value); }} placeholder="colleague@company.com" style={inputSt} />
-            </div>
-            <div>
-              <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Role</label>
-              <select value={inviteRole} onChange={function(e) { setInviteRole(e.target.value); }} style={inputSt}>
-                <option value="admin">Admin</option>
-                <option value="manager">Manager</option>
-                <option value="agent">Support Agent</option>
-                <option value="analyst">Analyst</option>
-                <option value="readonly">Read Only</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={inviteMember} disabled={saving === 'invite'} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{saving === 'invite' ? 'Adding...' : 'Add Member'}</button>
-            <button onClick={() => setShowInvite(false)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 18px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {/* Member list */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading team...</div>
-      ) : members.length === 0 ? (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 40, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
-          <div style={{ color: C.muted, fontSize: 13 }}>Add team members to collaborate and manage notification preferences.</div>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: 12 }}>
-          {members.map(function(m) {
-            var initials = (m.full_name || m.email).split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-            var editable = canEdit(selectedTenantId);
-            return (
-              <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
-                {/* Member header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{m.full_name}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {editable ? (
-                      <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-                        <option value="admin">Admin</option>
-                        <option value="manager">Manager</option>
-                        <option value="agent">Support Agent</option>
-                        <option value="analyst">Analyst</option>
-                        <option value="readonly">Read Only</option>
-                      </select>
-                    ) : (
-                      <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>
-                    )}
-                    {editable && (
-                      <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Notification flags */}
-                <div>
-                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Email Notifications</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {NOTIFY_FLAGS.map(function(flag) {
-                      var isOn = m[flag.key] || false;
-                      var isSavingThis = saving === m.id + flag.key;
-                      return (
-                        <button key={flag.key} onClick={editable ? function() { toggleFlag(m.id, flag.key, isOn); } : undefined} disabled={!editable || isSavingThis} style={{
-                          background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)',
-                          border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`,
-                          borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600,
-                          color: isOn ? C.primary : 'rgba(255,255,255,0.3)',
-                          cursor: editable ? 'pointer' : 'default',
-                          fontFamily: "'DM Sans', sans-serif",
-                          transition: 'all 0.2s',
-                          opacity: isSavingThis ? 0.5 : 1,
-                        }}>
-                          {isOn ? '✓ ' : ''}{flag.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("api");
@@ -542,7 +290,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user?.email) {
         setUserEmail(data.user.email);
-        // Fetch subscription status from Stripe
         fetch(`/api/billing?action=status&email=${encodeURIComponent(data.user.email)}`)
           .then(r => r.json())
           .then(status => {
@@ -554,7 +301,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     });
   }, []);
 
-  // Load billing usage data
   useEffect(() => {
     if (activeTab !== "billing") return;
     (async () => {
@@ -591,26 +337,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       const response = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          priceId: topup.priceId,
-          email: userEmail,
-          mode: "payment",
-          successUrl: window.location.href + "?topup=success",
-          cancelUrl: window.location.href,
-        }),
+        body: JSON.stringify({ priceId: topup.priceId, email: userEmail, mode: "payment", successUrl: window.location.href + "?topup=success", cancelUrl: window.location.href }),
       });
       const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Error creating checkout session");
-      }
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setTopupLoading(null);
-    }
+      if (data.url) { window.location.href = data.url; } else { alert("Error creating checkout session"); }
+    } catch (err) { alert("Error: " + err.message); }
+    finally { setTopupLoading(null); }
   };
+
   const [upgradeLoading, setUpgradeLoading] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -620,7 +354,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     { id: "pro", name: "Pro", price: "$499", priceId: "price_1T4Of6PEs1sluBAURFjaViRv", features: ["10 phone numbers", "20,000 SMS/month", "AI bot included", "Overage: $0.025/SMS"] },
   ];
 
-  // Determine current plan — prefer live Stripe data, fall back to tenant data
   const tenantsArray = Array.isArray(tenants) ? tenants : Object.values(tenants || {});
   const currentTenant = tenantsArray.find(t => t.id === currentTenantId) || tenantsArray[0];
   const currentPlanId = stripePlan || currentTenant?.plan || currentTenant?.billing_plan || "starter";
@@ -633,54 +366,30 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       const response = await fetch("/api/billing?action=checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          plan: plan.id,
-          email: userEmail,
-          successUrl: window.location.href + "?upgrade=success",
-          cancelUrl: window.location.href,
-        }),
+        body: JSON.stringify({ plan: plan.id, email: userEmail, successUrl: window.location.href + "?upgrade=success", cancelUrl: window.location.href }),
       });
       const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Error: " + (data.error || "Could not create checkout session"));
-      }
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setUpgradeLoading(null);
-    }
+      if (data.url) { window.location.href = data.url; } else { alert("Error: " + (data.error || "Could not create checkout session")); }
+    } catch (err) { alert("Error: " + err.message); }
+    finally { setUpgradeLoading(null); }
   };
 
   const handleManageBilling = async () => {
     try {
-      const response = await fetch("/api/billing?action=portal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail }),
-      });
+      const response = await fetch("/api/billing?action=portal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: userEmail }) });
       const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Error: " + (data.error || "Could not open billing portal"));
-      }
-    } catch (err) {
-      alert("Error: " + err.message);
-    }
+      if (data.url) { window.location.href = data.url; } else { alert("Error: " + (data.error || "Could not open billing portal")); }
+    } catch (err) { alert("Error: " + err.message); }
   };
 
   const [showNewKey, setShowNewKey] = useState(false);
   const [showNewWebhook, setShowNewWebhook] = useState(false);
   const [notifications, setNotifications] = useState(NOTIFICATION_PREFS);
 
-  // ── API Keys: live Supabase data ──
   const [liveApiKeys, setLiveApiKeys] = useState([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(true);
   const [newKeyData, setNewKeyData] = useState({ name: "", environment: "production", permissions: ["messages"] });
   const [generatedKey, setGeneratedKey] = useState(null);
-
   const ALL_PERMISSIONS = ["messages", "contacts", "campaigns", "analytics", "webhooks", "flows", "settings"];
 
   const loadApiKeys = async () => {
@@ -691,7 +400,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     } catch (err) { console.error("Failed to load API keys:", err); }
     setApiKeysLoading(false);
   };
-
   useEffect(() => { if (activeTab === "api") loadApiKeys(); }, [activeTab]);
 
   const generateApiKey = async () => {
@@ -703,10 +411,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(36)).join("").slice(0, 32);
     const fullKey = envPrefix + randomPart;
     const keyPrefix = fullKey.slice(0, 12);
-    const { error } = await supabase.from("api_keys").insert({
-      tenant_id: tenantId, name: newKeyData.name, key_prefix: keyPrefix,
-      key_hash: fullKey, environment: newKeyData.environment, permissions: newKeyData.permissions,
-    });
+    const { error } = await supabase.from("api_keys").insert({ tenant_id: tenantId, name: newKeyData.name, key_prefix: keyPrefix, key_hash: fullKey, environment: newKeyData.environment, permissions: newKeyData.permissions });
     if (error) return alert("Error creating key: " + error.message);
     setGeneratedKey(fullKey);
     setNewKeyData({ name: "", environment: "production", permissions: ["messages"] });
@@ -728,58 +433,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     loadApiKeys();
   };
 
-  // ── Team: live Supabase data ──
-  const [liveTeam, setLiveTeam] = useState([]);
-  const [teamLoading, setTeamLoading] = useState(true);
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteData, setInviteData] = useState({ email: "", role: "member" });
-
-  const ROLE_MAP = { admin: "Admin", campaign_manager: "Campaign Manager", analyst: "Analyst", support_agent: "Support Agent", member: "Member", read_only: "Read Only" };
-  const ROLE_MAP_REV = Object.fromEntries(Object.entries(ROLE_MAP).map(([k, v]) => [v, k]));
-
-  const loadTeam = async () => {
-    setTeamLoading(true);
-    try {
-      const { data, error } = await supabase.from("tenant_members").select("*, user:user_id(email, raw_user_meta_data)").order("created_at", { ascending: true });
-      if (!error && data) setLiveTeam(data);
-    } catch (err) { console.error("Failed to load team:", err); }
-    setTeamLoading(false);
-  };
-
-  useEffect(() => { if (activeTab === "team") loadTeam(); }, [activeTab]);
-
-  const inviteMember = async () => {
-    if (!inviteData.email) return alert("Email is required");
-    const tenantRow = await supabase.from("tenants").select("id").limit(1);
-    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
-    if (!tenantId) return alert("No tenant found");
-    const { error } = await supabase.from("tenant_members").insert({
-      tenant_id: tenantId, user_id: (await supabase.auth.getUser()).data.user.id,
-      role: ROLE_MAP_REV[inviteData.role] || inviteData.role, status: "invited",
-    });
-    if (error) return alert("Error inviting: " + error.message);
-    setShowInvite(false);
-    setInviteData({ email: "", role: "member" });
-    loadTeam();
-  };
-
-  const updateMemberRole = async (memberId, newRole) => {
-    const { error } = await supabase.from("tenant_members").update({ role: ROLE_MAP_REV[newRole] || newRole }).eq("id", memberId);
-    if (error) alert("Error: " + error.message);
-    else loadTeam();
-  };
-
-  const removeMember = async (memberId) => {
-    if (!window.confirm("Remove this team member?")) return;
-    const { error } = await supabase.from("tenant_members").delete().eq("id", memberId);
-    if (error) alert("Error: " + error.message);
-    else loadTeam();
-  };
-
-  // ── Audit Log: live Supabase data ──
   const [auditLog, setAuditLog] = useState([]);
   const [auditLoading, setAuditLoading] = useState(true);
-
   const loadAuditLog = async () => {
     setAuditLoading(true);
     try {
@@ -788,12 +443,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     } catch (err) { console.error("Failed to load audit log:", err); }
     setAuditLoading(false);
   };
-
   useEffect(() => { if (activeTab === "security") loadAuditLog(); }, [activeTab]);
 
   const AUDIT_ICONS = { "api_key.created": "🔑", "api_key.revoked": "🔑", "team.invited": "👤", "team.removed": "👤", "password.changed": "🔒", "2fa.enabled": "🛡️", "2fa.disabled": "🛡️", "login.success": "✅", "login.failed": "🚫", "webhook.created": "🔗", "channel.updated": "📡", "campaign.created": "📣", default: "📋" };
 
-  // ── Channel Configs: live Supabase data ──
   const [channelConfigs, setChannelConfigs] = useState({});
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelSaving, setChannelSaving] = useState(null);
@@ -823,7 +476,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
       { key: "service_account", label: "Service Account Email" },
     ]},
-        { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+    { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
       { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
       { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
       { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
@@ -852,7 +505,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     } catch (err) { console.error("Failed to load channel configs:", err); }
     setChannelsLoading(false);
   };
-
   useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab]);
 
   const saveChannelConfig = async (channelId, config, enabled) => {
@@ -860,21 +512,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     const tenantRow = await supabase.from("tenants").select("id").limit(1);
     const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
     if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
-
     const existing = channelConfigs[channelId];
-    const payload = {
-      tenant_id: tenantId, channel: channelId, enabled: enabled !== undefined ? enabled : (existing?.enabled || false),
-      config_encrypted: config || existing?.config_encrypted || {},
-      status: enabled ? "connected" : "disconnected",
-      updated_at: new Date().toISOString(),
-    };
-
+    const payload = { tenant_id: tenantId, channel: channelId, enabled: enabled !== undefined ? enabled : (existing?.enabled || false), config_encrypted: config || existing?.config_encrypted || {}, status: enabled ? "connected" : "disconnected", updated_at: new Date().toISOString() };
     let error;
-    if (existing) {
-      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id));
-    } else {
-      ({ error } = await supabase.from("channel_configs").insert(payload));
-    }
+    if (existing) { ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id)); }
+    else { ({ error } = await supabase.from("channel_configs").insert(payload)); }
     if (error) alert("Error saving: " + error.message);
     else loadChannelConfigs();
     setChannelSaving(null);
@@ -886,12 +528,12 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       return { ...prev, [channelId]: { ...existing, config_encrypted: { ...existing.config_encrypted, [key]: value } } };
     });
   };
+
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
-  const [editingWebhook, setEditingWebhook] = useState(null); // null = not editing, object = editing
+  const [editingWebhook, setEditingWebhook] = useState(null);
   const [newWebhookData, setNewWebhookData] = useState({ name: "", url: "", events: [], secret: "", retry_policy: "3_exponential" });
   const [webhookTestResult, setWebhookTestResult] = useState({});
-
   const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
 
   const loadWebhooks = async () => {
@@ -902,7 +544,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     } catch (err) { console.error("Failed to load webhooks:", err); }
     setWebhooksLoading(false);
   };
-
   useEffect(() => { if (activeTab === "webhooks") loadWebhooks(); }, [activeTab]);
 
   const generateSecret = () => "whsec_" + Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, "0")).join("");
@@ -912,14 +553,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     if (!newWebhookData.url.startsWith("https://")) return alert("Webhook URL must use HTTPS");
     if (newWebhookData.events.length === 0) return alert("Select at least one event");
     const secret = newWebhookData.secret || generateSecret();
-    const { data: userData } = await supabase.auth.getUser();
     const tenantRow = await supabase.from("tenants").select("id").limit(1);
     const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
     if (!tenantId) return alert("No tenant found");
-    const { error } = await supabase.from("webhooks").insert({
-      tenant_id: tenantId, name: newWebhookData.name, url: newWebhookData.url,
-      events: newWebhookData.events, secret, retry_policy: newWebhookData.retry_policy, status: "active",
-    });
+    const { error } = await supabase.from("webhooks").insert({ tenant_id: tenantId, name: newWebhookData.name, url: newWebhookData.url, events: newWebhookData.events, secret, retry_policy: newWebhookData.retry_policy, status: "active" });
     if (error) return alert("Error creating webhook: " + error.message);
     setNewWebhookData({ name: "", url: "", events: [], secret: "", retry_policy: "3_exponential" });
     setShowNewWebhook(false);
@@ -928,10 +565,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const updateWebhook = async () => {
     if (!editingWebhook) return;
-    const { error } = await supabase.from("webhooks").update({
-      name: editingWebhook.name, url: editingWebhook.url,
-      events: editingWebhook.events, retry_policy: editingWebhook.retry_policy,
-    }).eq("id", editingWebhook.id);
+    const { error } = await supabase.from("webhooks").update({ name: editingWebhook.name, url: editingWebhook.url, events: editingWebhook.events, retry_policy: editingWebhook.retry_policy }).eq("id", editingWebhook.id);
     if (error) return alert("Error updating webhook: " + error.message);
     setEditingWebhook(null);
     loadWebhooks();
@@ -954,14 +588,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const testWebhook = async (wh) => {
     setWebhookTestResult({ ...webhookTestResult, [wh.id]: "testing" });
     try {
-      const res = await fetch(wh.url, {
-        method: "POST", headers: { "Content-Type": "application/json", "X-Webhook-Secret": wh.secret || "" },
-        body: JSON.stringify({ event: "test.ping", timestamp: new Date().toISOString(), data: { message: "EngageWorx webhook test" } }),
-      });
+      const res = await fetch(wh.url, { method: "POST", headers: { "Content-Type": "application/json", "X-Webhook-Secret": wh.secret || "" }, body: JSON.stringify({ event: "test.ping", timestamp: new Date().toISOString(), data: { message: "EngageWorx webhook test" } }) });
       setWebhookTestResult({ ...webhookTestResult, [wh.id]: res.ok ? "success" : `failed (${res.status})` });
-    } catch (err) {
-      setWebhookTestResult({ ...webhookTestResult, [wh.id]: "failed (network)" });
-    }
+    } catch (err) { setWebhookTestResult({ ...webhookTestResult, [wh.id]: "failed (network)" }); }
     setTimeout(() => setWebhookTestResult(prev => { const n = { ...prev }; delete n[wh.id]; return n; }), 5000);
   };
 
@@ -984,13 +613,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Settings</h1>
         <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>API keys, integrations, channels, billing & team management</p>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: "flex", gap: 2, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
         {[
           { id: "api", label: "API Keys", icon: "🔑" },
@@ -1018,8 +645,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>API Keys</h2>
             <button onClick={() => { setShowNewKey(!showNewKey); setGeneratedKey(null); }} style={btnPrimary}>+ Generate Key</button>
           </div>
-
-          {/* Generated key banner */}
           {generatedKey && (
             <div style={{ ...card, marginBottom: 16, border: "1px solid #00E67644", background: "#00E67608" }}>
               <div style={{ color: "#00E676", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>✓ API Key Generated — Copy it now! It won't be shown again.</div>
@@ -1030,7 +655,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               <button onClick={() => setGeneratedKey(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginTop: 8 }}>Dismiss</button>
             </div>
           )}
-
           {showNewKey && (
             <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Generate New API Key</h3>
@@ -1042,15 +666,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 <label style={label}>Permissions</label>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {ALL_PERMISSIONS.map(p => (
-                    <label key={p} onClick={() => {
-                      const perms = newKeyData.permissions.includes(p) ? newKeyData.permissions.filter(x => x !== p) : [...newKeyData.permissions, p];
-                      setNewKeyData({ ...newKeyData, permissions: perms });
-                    }} style={{
-                      display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11,
-                      background: newKeyData.permissions.includes(p) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.08)"}`,
-                      color: newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.5)",
-                    }}>{newKeyData.permissions.includes(p) ? "✓" : "○"} {p}</label>
+                    <label key={p} onClick={() => { const perms = newKeyData.permissions.includes(p) ? newKeyData.permissions.filter(x => x !== p) : [...newKeyData.permissions, p]; setNewKeyData({ ...newKeyData, permissions: perms }); }} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11, background: newKeyData.permissions.includes(p) ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.08)"}`, color: newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.5)" }}>{newKeyData.permissions.includes(p) ? "✓" : "○"} {p}</label>
                   ))}
                 </div>
               </div>
@@ -1060,8 +676,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             </div>
           )}
-
-          {/* API Endpoint */}
           <div style={{ ...card, marginBottom: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
@@ -1071,14 +685,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   <button onClick={() => navigator.clipboard.writeText("https://api.engwx.com/v1")} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11 }}>Copy</button>
                 </div>
               </div>
-              <div>
-                <label style={label}>API Version</label>
-                <div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.5)" }}>v1 (Latest)</div>
-              </div>
+              <div><label style={label}>API Version</label><div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.5)" }}>v1 (Latest)</div></div>
             </div>
           </div>
-
-          {/* Key List */}
           {apiKeysLoading ? (
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading API keys...</div>
           ) : liveApiKeys.length === 0 ? (
@@ -1091,21 +700,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
           ) : (
             <div style={{ display: "grid", gap: 10 }}>
               {liveApiKeys.map(key => (
-                <div key={key.id} style={{
-                  ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px auto",
-                  alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1,
-                  borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}`,
-                }}>
+                <div key={key.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px auto", alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1, borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}` }}>
                   <div>
                     <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{key.name}</div>
                     <div style={{ fontFamily: "monospace", color: C.primary, fontSize: 12, marginTop: 2 }}>{key.key_prefix}...••••••</div>
                     <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>{key.environment} · Created {new Date(key.created_at).toLocaleDateString()}</div>
                   </div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {(key.permissions || []).map(p => (
-                      <span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>
-                    ))}
-                  </div>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(key.permissions || []).map(p => (<span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>))}</div>
                   <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Used: {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}</div>
                   <div><span style={badge(key.status === "active" ? "#00E676" : "#FF3B30")}>{key.status === "active" ? "● Active" : "● Revoked"}</span></div>
                   <div style={{ display: "flex", gap: 6 }}>
@@ -1126,18 +727,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Webhooks</h2>
             <button onClick={() => { setShowNewWebhook(!showNewWebhook); setEditingWebhook(null); }} style={btnPrimary}>+ Add Webhook</button>
           </div>
-
-          {/* Create / Edit Form */}
           {(showNewWebhook || editingWebhook) && (() => {
             const isEdit = !!editingWebhook;
             const data = isEdit ? editingWebhook : newWebhookData;
-            const setData = isEdit
-              ? (updates) => setEditingWebhook({ ...editingWebhook, ...updates })
-              : (updates) => setNewWebhookData({ ...newWebhookData, ...updates });
-            const toggleEvent = (ev) => {
-              const events = data.events.includes(ev) ? data.events.filter(e => e !== ev) : [...data.events, ev];
-              setData({ events });
-            };
+            const setData = isEdit ? (updates) => setEditingWebhook({ ...editingWebhook, ...updates }) : (updates) => setNewWebhookData({ ...newWebhookData, ...updates });
+            const toggleEvent = (ev) => { const events = data.events.includes(ev) ? data.events.filter(e => e !== ev) : [...data.events, ev]; setData({ events }); };
             return (
               <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>{isEdit ? "Edit Webhook" : "New Webhook Endpoint"}</h3>
@@ -1149,14 +743,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   <label style={label}>Events</label>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {ALL_EVENTS.map(ev => (
-                      <label key={ev} onClick={() => toggleEvent(ev)} style={{
-                        display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontFamily: "monospace",
-                        background: data.events.includes(ev) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.08)"}`,
-                        color: data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.5)",
-                      }}>
-                        {data.events.includes(ev) ? "✓" : "○"} {ev}
-                      </label>
+                      <label key={ev} onClick={() => toggleEvent(ev)} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontFamily: "monospace", background: data.events.includes(ev) ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.08)"}`, color: data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.5)" }}>{data.events.includes(ev) ? "✓" : "○"} {ev}</label>
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
@@ -1189,8 +776,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             );
           })()}
-
-          {/* Webhook List */}
           {webhooksLoading ? (
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading webhooks...</div>
           ) : liveWebhooks.length === 0 ? (
@@ -1207,39 +792,17 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 const lastTriggered = wh.last_triggered_at ? new Date(wh.last_triggered_at).toLocaleString() : "Never";
                 const testStatus = webhookTestResult[wh.id];
                 return (
-                  <div key={wh.id} style={{
-                    ...card, display: "grid", gridTemplateColumns: "1fr 120px 140px 80px auto",
-                    alignItems: "center", gap: 14,
-                    borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"}`,
-                  }}>
+                  <div key={wh.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 120px 140px 80px auto", alignItems: "center", gap: 14, borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"}` }}>
                     <div>
                       <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{wh.name}</div>
                       <div style={{ fontFamily: "monospace", color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wh.url}</div>
-                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                        {(wh.events || []).map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}
-                      </div>
+                      <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{(wh.events || []).map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}</div>
                     </div>
-                    <div>
-                      {successRate !== null ? (
-                        <>
-                          <div style={{ color: successRate >= 99 ? "#00E676" : successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{successRate}%</div>
-                          <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{wh.total_deliveries} deliveries</div>
-                        </>
-                      ) : (
-                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>No data yet</div>
-                      )}
-                    </div>
+                    <div>{successRate !== null ? (<><div style={{ color: successRate >= 99 ? "#00E676" : successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{successRate}%</div><div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{wh.total_deliveries} deliveries</div></>) : (<div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>No data yet</div>)}</div>
                     <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>{lastTriggered}</div>
-                    <div>
-                      <button onClick={() => toggleWebhookStatus(wh)} style={{ ...badge(wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"), cursor: "pointer", border: "none", background: (wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600") + "18" }}>
-                        {wh.status}
-                      </button>
-                    </div>
+                    <div><button onClick={() => toggleWebhookStatus(wh)} style={{ ...badge(wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"), cursor: "pointer", border: "none", background: (wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600") + "18" }}>{wh.status}</button></div>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => testWebhook(wh)} disabled={testStatus === "testing"} style={{
-                        ...btnSec, padding: "6px 10px", fontSize: 11,
-                        color: testStatus === "success" ? "#00E676" : testStatus && testStatus.startsWith("failed") ? "#FF3B30" : "#fff",
-                      }}>{testStatus === "testing" ? "..." : testStatus === "success" ? "✓ OK" : testStatus ? "✗ Fail" : "Test"}</button>
+                      <button onClick={() => testWebhook(wh)} disabled={testStatus === "testing"} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: testStatus === "success" ? "#00E676" : testStatus && testStatus.startsWith("failed") ? "#FF3B30" : "#fff" }}>{testStatus === "testing" ? "..." : testStatus === "success" ? "✓ OK" : testStatus ? "✗ Fail" : "Test"}</button>
                       <button onClick={() => { setEditingWebhook({ ...wh }); setShowNewWebhook(false); }} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button>
                       <button onClick={() => deleteWebhook(wh.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>✕</button>
                     </div>
@@ -1272,22 +835,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                         <span style={{ fontSize: 24 }}>{ch.icon}</span>
                         <div>
                           <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{ch.label}</div>
-                          <div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>
-                            {status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}
-                          </div>
+                          <div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div>
                         </div>
                       </div>
-                      <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{
-                        width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative",
-                        background: isEnabled ? ch.color : "rgba(255,255,255,0.15)", transition: "background 0.2s",
-                      }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3,
-                          left: isEnabled ? 23 : 3, transition: "left 0.2s",
-                        }} />
+                      <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.15)", transition: "background 0.2s" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: isEnabled ? 23 : 3, transition: "left 0.2s" }} />
                       </button>
                     </div>
-
                     {isEnabled && (
                       <>
                         <div style={{ display: "grid", gridTemplateColumns: ch.fields.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 14 }}>
@@ -1300,106 +854,45 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                                   <div style={{ marginTop: 6, color: "#00C9FF", fontWeight: 600, fontSize: 11 }}>→ Click "AI Chatbot" in the sidebar to configure</div>
                                 </div>
                               ) : f.type === "select" ? (
-                                <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
-                                  {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                                </select>
+                                <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>{(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>
                               ) : f.type === "textarea" ? (
-                                <textarea
-                                  value={configData[f.key] || ""}
-                                  onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
-                                  placeholder={f.placeholder || ""}
-                                  rows={4}
-                                  style={{ ...inputStyle, resize: "vertical", minHeight: 80 }}
-                                />
+                                <textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={4} style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} />
                               ) : (
-                                <input
-                                  type={f.type || "text"}
-                                  value={configData[f.key] || ""}
-                                  onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
-                                  placeholder={f.placeholder || ""}
-                                  style={inputStyle}
-                                />
+                                <input type={f.type || "text"} value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} style={inputStyle} />
                               )}
                             </div>
                           ))}
                         </div>
-
-                        {/* ── Voice-only: IVR Department Routing ── */}
                         {ch.id === "voice" && (() => {
-                          const depts = configData.departments || [
-                            { digit: "1", name: "", number: "" },
-                            { digit: "2", name: "", number: "" },
-                            { digit: "3", name: "", number: "" },
-                          ];
-                          const updateDept = (idx, field, value) => {
-                            const updated = [...depts];
-                            updated[idx] = { ...updated[idx], [field]: value };
-                            updateChannelField(ch.id, "departments", updated);
-                          };
-                          const addDept = () => {
-                            if (depts.length >= 9) return;
-                            const nextDigit = String(depts.length + 1);
-                            updateChannelField(ch.id, "departments", [...depts, { digit: nextDigit, name: "", number: "" }]);
-                          };
-                          const removeDept = (idx) => {
-                            const updated = depts.filter((_, i) => i !== idx);
-                            updateChannelField(ch.id, "departments", updated);
-                          };
-
+                          const depts = configData.departments || [{ digit: "1", name: "", number: "" }, { digit: "2", name: "", number: "" }, { digit: "3", name: "", number: "" }];
+                          const updateDept = (idx, field, value) => { const updated = [...depts]; updated[idx] = { ...updated[idx], [field]: value }; updateChannelField(ch.id, "departments", updated); };
+                          const addDept = () => { if (depts.length >= 9) return; updateChannelField(ch.id, "departments", [...depts, { digit: String(depts.length + 1), name: "", number: "" }]); };
+                          const removeDept = (idx) => { updateChannelField(ch.id, "departments", depts.filter((_, i) => i !== idx)); };
                           return (
                             <div style={{ marginTop: 18, padding: 16, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                <div>
-                                  <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 14 }}>📋 IVR Department Routing</div>
-                                  <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Configure "Press 1 for Sales, Press 2 for Support..." menu</div>
-                                </div>
+                                <div><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 14 }}>📋 IVR Department Routing</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Configure "Press 1 for Sales, Press 2 for Support..." menu</div></div>
                                 <button onClick={addDept} disabled={depts.length >= 9} style={{ ...btnSec, padding: "6px 12px", fontSize: 11, opacity: depts.length >= 9 ? 0.4 : 1 }}>+ Add</button>
                               </div>
                               <div style={{ display: "grid", gap: 8 }}>
                                 {depts.map((d, i) => (
                                   <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 32px", gap: 8, alignItems: "center" }}>
-                                    <div style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, textAlign: "center", padding: "8px 0", color: "#FFD600", fontWeight: 800, fontSize: 16 }}>
-                                      {d.digit}
-                                    </div>
-                                    <input
-                                      value={d.name}
-                                      onChange={e => updateDept(i, "name", e.target.value)}
-                                      placeholder="Department name"
-                                      style={{ ...inputStyle, fontSize: 12 }}
-                                    />
+                                    <div style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, textAlign: "center", padding: "8px 0", color: "#FFD600", fontWeight: 800, fontSize: 16 }}>{d.digit}</div>
+                                    <input value={d.name} onChange={e => updateDept(i, "name", e.target.value)} placeholder="Department name" style={{ ...inputStyle, fontSize: 12 }} />
                                     <div style={{ display: "flex", gap: 4 }}>
-                                      <select
-                                        value={d.country || "+44"}
-                                        onChange={e => updateDept(i, "country", e.target.value)}
-                                        style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}
-                                      >
-                                        <option value="+44">🇬🇧 +44</option>
-                                        <option value="+1">🇺🇸 +1</option>
-                                        <option value="+61">🇦🇺 +61</option>
-                                        <option value="+49">🇩🇪 +49</option>
-                                        <option value="+33">🇫🇷 +33</option>
-                                        <option value="+34">🇪🇸 +34</option>
-                                        <option value="+353">🇮🇪 +353</option>
+                                      <select value={d.country || "+44"} onChange={e => updateDept(i, "country", e.target.value)} style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}>
+                                        <option value="+44">🇬🇧 +44</option><option value="+1">🇺🇸 +1</option><option value="+61">🇦🇺 +61</option><option value="+49">🇩🇪 +49</option><option value="+33">🇫🇷 +33</option><option value="+34">🇪🇸 +34</option><option value="+353">🇮🇪 +353</option>
                                       </select>
-                                      <input
-                                        value={d.number}
-                                        onChange={e => updateDept(i, "number", e.target.value)}
-                                        placeholder="7700 900000"
-                                        style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace", flex: 1 }}
-                                      />
+                                      <input value={d.number} onChange={e => updateDept(i, "number", e.target.value)} placeholder="7700 900000" style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace", flex: 1 }} />
                                     </div>
                                     <button onClick={() => removeDept(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
                                   </div>
                                 ))}
                               </div>
-                              {depts.length === 0 && (
-                                <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>No departments configured. Calls will go directly to voicemail.</div>
-                              )}
+                              {depts.length === 0 && <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>No departments configured. Calls will go directly to voicemail.</div>}
                             </div>
                           );
                         })()}
-
-                        {/* ── Voice-only: Working Days ── */}
                         {ch.id === "voice" && (() => {
                           const workDays = configData.work_days || [1, 2, 3, 4, 5];
                           const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -1408,43 +901,21 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                               <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div>
                               <div style={{ display: "flex", gap: 6 }}>
                                 {dayNames.map((d, i) => (
-                                  <button key={i} onClick={() => {
-                                    const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort();
-                                    updateChannelField(ch.id, "work_days", updated);
-                                  }} style={{
-                                    flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                                    fontFamily: "'DM Sans', sans-serif", border: "1px solid",
-                                    background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)",
-                                    borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)",
-                                    color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)",
-                                  }}>{d}</button>
+                                  <button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>
                                 ))}
                               </div>
                             </div>
                           );
                         })()}
-
-                        {/* ── Voice-only: Hours Overrides (weddings, events, holidays) ── */}
                         {ch.id === "voice" && (() => {
                           const overrides = configData.hours_overrides || [];
-                          const addOverride = () => {
-                            const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
-                            updateChannelField(ch.id, "hours_overrides", [...overrides, { date: tomorrow, closed: false, open: "10", close: "22" }]);
-                          };
-                          const updateOverride = (idx, field, value) => {
-                            const updated = [...overrides];
-                            updated[idx] = { ...updated[idx], [field]: value };
-                            updateChannelField(ch.id, "hours_overrides", updated);
-                          };
+                          const addOverride = () => { const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]; updateChannelField(ch.id, "hours_overrides", [...overrides, { date: tomorrow, closed: false, open: "10", close: "22" }]); };
+                          const updateOverride = (idx, field, value) => { const updated = [...overrides]; updated[idx] = { ...updated[idx], [field]: value }; updateChannelField(ch.id, "hours_overrides", updated); };
                           const removeOverride = (idx) => updateChannelField(ch.id, "hours_overrides", overrides.filter((_, i) => i !== idx));
-
                           return (
                             <div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                                <div>
-                                  <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13 }}>🗓️ Hours Overrides</div>
-                                  <div style={{ color: C.muted, fontSize: 11 }}>Set custom hours for weddings, events, holidays, etc.</div>
-                                </div>
+                                <div><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13 }}>🗓️ Hours Overrides</div><div style={{ color: C.muted, fontSize: 11 }}>Set custom hours for weddings, events, holidays, etc.</div></div>
                                 <button onClick={addOverride} style={{ ...btnSec, padding: "5px 10px", fontSize: 11 }}>+ Add Date</button>
                               </div>
                               {overrides.length === 0 ? (
@@ -1453,18 +924,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                                 <div style={{ display: "grid", gap: 8 }}>
                                   {overrides.map((o, i) => (
                                     <div key={i} style={{ display: "grid", gridTemplateColumns: "140px auto 70px 70px 32px", gap: 8, alignItems: "center" }}>
-                                      <input type="date" value={o.date} onChange={e => updateOverride(i, "date", e.target.value)}
-                                        style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }} />
-                                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: o.closed ? "#FF3B30" : C.muted, fontSize: 12 }}>
-                                        <input type="checkbox" checked={o.closed || false} onChange={e => updateOverride(i, "closed", e.target.checked)} />
-                                        Closed all day
-                                      </label>
-                                      {!o.closed && <>
-                                        <input value={o.open || "10"} onChange={e => updateOverride(i, "open", e.target.value)}
-                                          placeholder="Open" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} />
-                                        <input value={o.close || "17"} onChange={e => updateOverride(i, "close", e.target.value)}
-                                          placeholder="Close" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} />
-                                      </>}
+                                      <input type="date" value={o.date} onChange={e => updateOverride(i, "date", e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }} />
+                                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: o.closed ? "#FF3B30" : C.muted, fontSize: 12 }}><input type="checkbox" checked={o.closed || false} onChange={e => updateOverride(i, "closed", e.target.checked)} />Closed all day</label>
+                                      {!o.closed && <><input value={o.open || "10"} onChange={e => updateOverride(i, "open", e.target.value)} placeholder="Open" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} /><input value={o.close || "17"} onChange={e => updateOverride(i, "close", e.target.value)} placeholder="Close" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} /></>}
                                       {o.closed && <><span /><span /></>}
                                       <button onClick={() => removeOverride(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
                                     </div>
@@ -1474,25 +936,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                             </div>
                           );
                         })()}
-
                         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                          <button onClick={() => saveChannelConfig(ch.id, channelConfigs[ch.id]?.config_encrypted || configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>
-                            {isSaving ? "Saving..." : "Save Configuration"}
-                          </button>
-                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => {
-                            saveChannelConfig(ch.id, configData, isEnabled).then(() => {
-                              supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).then(() => loadChannelConfigs());
-                            });
-                          }}>Test Connection</button>
+                          <button onClick={() => saveChannelConfig(ch.id, channelConfigs[ch.id]?.config_encrypted || configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
+                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { saveChannelConfig(ch.id, configData, isEnabled).then(() => { supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
                         </div>
                       </>
                     )}
-
-                    {!isEnabled && (
-                      <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>
-                        Enable this channel to configure your {ch.label} integration.
-                      </div>
-                    )}
+                    {!isEnabled && <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>Enable this channel to configure your {ch.label} integration.</div>}
                   </div>
                 );
               })}
@@ -1505,8 +955,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       {activeTab === "billing" && (
         <div>
           <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
-
-          {/* Trial Banner */}
           {(planStatus === "Trial" || stripeStatus === "trialing" || !stripePlan) && (
             <div style={{ background: "linear-gradient(135deg, rgba(0,201,255,0.08), rgba(224,64,251,0.08))", border: "1px solid rgba(0,201,255,0.25)", borderRadius: 14, padding: "24px 28px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
               <div>
@@ -1517,8 +965,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               <button onClick={() => setShowUpgradeModal(true)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>Activate Subscription</button>
             </div>
           )}
-
-          {/* Current Plan */}
           <div style={{ ...card, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
@@ -1535,26 +981,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             </div>
           </div>
-
-          {/* Usage — live from Supabase */}
           {(() => {
-            var planLimits = (stripePlan && stripePlan.includes("Pro")) ? { messages: 500000, contacts: 500000, campaigns: 200, users: 50 }
-              : (stripePlan && stripePlan.includes("Growth")) ? { messages: 250000, contacts: 100000, campaigns: 50, users: 10 }
-              : { messages: 50000, contacts: 10000, campaigns: 10, users: 3 };
-
-            var items = usageData ? [
-              { label: "Messages", used: usageData.messages, limit: planLimits.messages, color: C.primary },
-              { label: "Contacts", used: usageData.contacts, limit: planLimits.contacts, color: "#00E676" },
-              { label: "Campaigns", used: usageData.campaigns, limit: planLimits.campaigns, color: "#FFD600" },
-              { label: "Team Members", used: usageData.members, limit: planLimits.users, color: "#E040FB" },
-            ] : null;
-
+            var planLimits = (stripePlan && stripePlan.includes("Pro")) ? { messages: 500000, contacts: 500000, campaigns: 200, users: 50 } : (stripePlan && stripePlan.includes("Growth")) ? { messages: 250000, contacts: 100000, campaigns: 50, users: 10 } : { messages: 50000, contacts: 10000, campaigns: 10, users: 3 };
+            var items = usageData ? [{ label: "Messages", used: usageData.messages, limit: planLimits.messages, color: C.primary }, { label: "Contacts", used: usageData.contacts, limit: planLimits.contacts, color: "#00E676" }, { label: "Campaigns", used: usageData.campaigns, limit: planLimits.campaigns, color: "#FFD600" }, { label: "Team Members", used: usageData.members, limit: planLimits.users, color: "#E040FB" }] : null;
             return (
               <div style={{ ...card, marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Current Usage</h3>
-                {!items ? (
-                  <div style={{ color: C.muted, fontSize: 13 }}>Loading usage data...</div>
-                ) : (
+                {!items ? <div style={{ color: C.muted, fontSize: 13 }}>Loading usage data...</div> : (
                   <div style={{ display: "grid", gap: 14 }}>
                     {items.map(function(u, i) {
                       var pct = u.limit > 0 ? Math.round((u.used / u.limit) * 100) : 0;
@@ -1575,14 +1008,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             );
           })()}
-
-          {/* SMS Top-Ups */}
           <div style={{ ...card, marginBottom: 20, borderLeft: "4px solid #FFD600" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3>
-                <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div>
-              </div>
+              <div><h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div></div>
               <span style={{ fontSize: 24 }}>📲</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
@@ -1592,24 +1020,17 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.name}</div>
                   <div style={{ color: C.primary, fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t.price}</div>
                   <div style={{ color: C.muted, fontSize: 11, marginBottom: 12 }}>{t.perSms}/SMS</div>
-                  <button onClick={() => handleTopup(t)} disabled={topupLoading === t.id} style={{ width: "100%", background: topupLoading === t.id ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "10px", color: topupLoading === t.id ? C.muted : "#000", fontWeight: 700, cursor: topupLoading === t.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-                    {topupLoading === t.id ? "Loading..." : "Buy Now"}
-                  </button>
+                  <button onClick={() => handleTopup(t)} disabled={topupLoading === t.id} style={{ width: "100%", background: topupLoading === t.id ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "10px", color: topupLoading === t.id ? C.muted : "#000", fontWeight: 700, cursor: topupLoading === t.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{topupLoading === t.id ? "Loading..." : "Buy Now"}</button>
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Payment Method — managed via Stripe */}
           <div style={{ ...card, marginBottom: 20 }}>
             <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Payment Method</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ fontSize: 28 }}>💳</div>
-                <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Managed by Stripe</div>
-                  <div style={{ color: C.muted, fontSize: 12 }}>View and update your payment details securely</div>
-                </div>
+                <div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Managed by Stripe</div><div style={{ color: C.muted, fontSize: 12 }}>View and update your payment details securely</div></div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <button onClick={handleManageBilling} style={btnSec}>Update Payment Method</button>
@@ -1617,8 +1038,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             </div>
           </div>
-
-          {/* Stripe Keys (SP only) */}
           {viewLevel === "sp" && (
             <div style={{ ...card }}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Stripe Integration (Service Provider)</h3>
@@ -1638,29 +1057,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         </div>
       )}
 
-     
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Team Members</h2>
-            <button onClick={() => setShowInvite(!showInvite)} style={btnPrimary}>+ Invite Member</button>
-          </div>
-
-          {showInvite && (
-            <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Invite Team Member</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                <div><label style={label}>Email Address</label><input value={inviteData.email} onChange={e => setInviteData({ ...inviteData, email: e.target.value })} placeholder="colleague@company.com" style={inputStyle} /></div>
-                <div><label style={label}>Role</label><select value={inviteData.role} onChange={e => setInviteData({ ...inviteData, role: e.target.value })} style={inputStyle}>
-                  {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                </select></div>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={inviteMember} style={btnPrimary}>Send Invitation</button>
-                <button onClick={() => setShowInvite(false)} style={btnSec}>Cancel</button>
-              </div>
-            </div>
-          )}
-           {/* ═══════════ TEAM TAB ═══════════ */}
+      {/* ═══════════ TEAM TAB ═══════════ */}
       {activeTab === "team" && (
         <TeamMembersTab
           C={C}
@@ -1668,53 +1065,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
           currentTenantId={currentTenantId}
           isSuperAdmin={viewLevel === 'sp'}
         />
-      )}
-
-          {teamLoading ? (
-            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading team...</div>
-          ) : liveTeam.length === 0 ? (
-            <div style={{ ...card, textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
-              <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Invite your team to collaborate on campaigns, manage contacts, and view analytics.</div>
-              <button onClick={() => setShowInvite(true)} style={btnPrimary}>Invite Your First Member</button>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {liveTeam.map(tm => {
-                const email = tm.user?.email || "Unknown";
-                const name = tm.user?.raw_user_meta_data?.full_name || tm.user?.raw_user_meta_data?.name || email.split("@")[0];
-                const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-                const roleName = ROLE_MAP[tm.role] || tm.role;
-                return (
-                  <div key={tm.id} style={{
-                    ...card, display: "grid", gridTemplateColumns: "1fr 160px 80px auto",
-                    alignItems: "center", gap: 14,
-                    borderLeft: `4px solid ${tm.status === "active" ? "#00E676" : "#FFD600"}`,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: C.primary }}>{initials}</div>
-                      <div>
-                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{name}</div>
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>{email}</div>
-                        <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Joined {tm.joined_at ? new Date(tm.joined_at).toLocaleDateString() : "Pending"}</div>
-                      </div>
-                    </div>
-                    <div>
-                      <select value={roleName} onChange={e => updateMemberRole(tm.id, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}>
-                        {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                    </div>
-                    <div><span style={badge(tm.status === "active" ? "#00E676" : "#FFD600")}>{tm.status}</span></div>
-                    <div>
-                      <button onClick={() => removeMember(tm.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Remove</button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       )}
 
       {/* ═══════════ UPGRADE MODAL ═══════════ */}
@@ -1731,32 +1081,13 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                   {plan.popular && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: C.primary, color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 10 }}>POPULAR</div>}
                   <div style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{plan.name}</div>
                   <div style={{ color: C.primary, fontSize: 28, fontWeight: 800, marginBottom: 12 }}>{plan.price}<span style={{ color: C.muted, fontSize: 13, fontWeight: 400 }}>/mo</span></div>
-                  <div style={{ marginBottom: 16 }}>
-                    {plan.features.map((f, i) => (
-                      <div key={i} style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ color: "#00E676" }}>✓</span> {f}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => handleUpgrade(plan)}
-                    disabled={upgradeLoading === plan.id}
-                    style={{
-                      width: "100%",
-                      background: upgradeLoading === plan.id ? "rgba(255,255,255,0.1)" : plan.popular ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.1)",
-                      border: "none", borderRadius: 8, padding: "10px", color: plan.popular ? "#000" : "#fff",
-                      fontWeight: 700, cursor: upgradeLoading === plan.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif"
-                    }}
-                  >
-                    {upgradeLoading === plan.id ? "Redirecting..." : "Select Plan"}
-                  </button>
+                  <div style={{ marginBottom: 16 }}>{plan.features.map((f, i) => (<div key={i} style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: "#00E676" }}>✓</span> {f}</div>))}</div>
+                  <button onClick={() => handleUpgrade(plan)} disabled={upgradeLoading === plan.id} style={{ width: "100%", background: upgradeLoading === plan.id ? "rgba(255,255,255,0.1)" : plan.popular ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "10px", color: plan.popular ? "#000" : "#fff", fontWeight: 700, cursor: upgradeLoading === plan.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{upgradeLoading === plan.id ? "Redirecting..." : "Select Plan"}</button>
                 </div>
               ))}
             </div>
             <div style={{ textAlign: "center", marginTop: 16 }}>
-              <button onClick={handleManageBilling} style={{ background: "none", border: "none", color: C.primary, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>
-                Or manage your existing subscription →
-              </button>
+              <button onClick={handleManageBilling} style={{ background: "none", border: "none", color: C.primary, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>Or manage your existing subscription →</button>
             </div>
           </div>
         </div>
@@ -1777,9 +1108,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               <div key={n.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 80px", gap: 8, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.03)", alignItems: "center" }}>
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{n.label}</div>
                 {["email", "push", "sms"].map(ch => (
-                  <div key={ch} style={{ textAlign: "center" }} onClick={() => toggleNotif(n.id, ch)}>
-                    <Toggle enabled={n[ch]} />
-                  </div>
+                  <div key={ch} style={{ textAlign: "center" }} onClick={() => toggleNotif(n.id, ch)}><Toggle enabled={n[ch]} /></div>
                 ))}
               </div>
             ))}
@@ -1795,34 +1124,18 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             <div style={card}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Authentication</h3>
               <div style={{ display: "grid", gap: 14 }}>
-                {[
-                  { label: "Two-Factor Authentication (2FA)", desc: "Require 2FA for all team members", enabled: true },
-                  { label: "SSO (Single Sign-On)", desc: "SAML 2.0 / OpenID Connect integration", enabled: false },
-                  { label: "IP Allowlist", desc: "Restrict API access to specific IP addresses", enabled: false },
-                  { label: "Session Timeout", desc: "Auto-logout after 30 minutes of inactivity", enabled: true },
-                ].map((s, i) => (
+                {[{ label: "Two-Factor Authentication (2FA)", desc: "Require 2FA for all team members", enabled: true }, { label: "SSO (Single Sign-On)", desc: "SAML 2.0 / OpenID Connect integration", enabled: false }, { label: "IP Allowlist", desc: "Restrict API access to specific IP addresses", enabled: false }, { label: "Session Timeout", desc: "Auto-logout after 30 minutes of inactivity", enabled: true }].map((s, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <div>
-                      <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{s.label}</div>
-                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 2 }}>{s.desc}</div>
-                    </div>
+                    <div><div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{s.label}</div><div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 2 }}>{s.desc}</div></div>
                     <Toggle enabled={s.enabled} />
                   </div>
                 ))}
               </div>
             </div>
-
             <div style={card}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Data & Compliance</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                {[
-                  { label: "Data Encryption", status: "AES-256 at rest, TLS 1.3 in transit", color: "#00E676" },
-                  { label: "GDPR Compliance", status: "Enabled — DPA signed", color: "#00E676" },
-                  { label: "SOC 2 Type II", status: "Certified", color: "#00E676" },
-                  { label: "Data Retention", status: "90 days (configurable)", color: "#FFD600" },
-                  { label: "PII Masking", status: "Enabled for logs", color: "#00E676" },
-                  { label: "Audit Trail", status: "All actions logged", color: "#00E676" },
-                ].map((item, i) => (
+                {[{ label: "Data Encryption", status: "AES-256 at rest, TLS 1.3 in transit", color: "#00E676" }, { label: "GDPR Compliance", status: "Enabled — DPA signed", color: "#00E676" }, { label: "SOC 2 Type II", status: "Certified", color: "#00E676" }, { label: "Data Retention", status: "90 days (configurable)", color: "#FFD600" }, { label: "PII Masking", status: "Enabled for logs", color: "#00E676" }, { label: "Audit Trail", status: "All actions logged", color: "#00E676" }].map((item, i) => (
                   <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 16px" }}>
                     <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginBottom: 4 }}>{item.label}</div>
                     <div style={{ color: item.color, fontSize: 13, fontWeight: 600 }}>{item.status}</div>
@@ -1830,7 +1143,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 ))}
               </div>
             </div>
-
             <div style={card}>
               <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Recent Security Events</h3>
               {auditLoading ? (
@@ -1840,15 +1152,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               ) : (
                 auditLog.map((ev, i) => {
                   const icon = AUDIT_ICONS[ev.action] || AUDIT_ICONS.default;
-                  const timeAgo = (() => {
-                    const diff = Date.now() - new Date(ev.created_at).getTime();
-                    const mins = Math.floor(diff / 60000);
-                    if (mins < 60) return `${mins} min ago`;
-                    const hrs = Math.floor(mins / 60);
-                    if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
-                    const days = Math.floor(hrs / 24);
-                    return `${days} day${days > 1 ? "s" : ""} ago`;
-                  })();
+                  const timeAgo = (() => { const diff = Date.now() - new Date(ev.created_at).getTime(); const mins = Math.floor(diff / 60000); if (mins < 60) return `${mins} min ago`; const hrs = Math.floor(mins / 60); if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`; const days = Math.floor(hrs / 24); return `${days} day${days > 1 ? "s" : ""} ago`; })();
                   return (
                     <div key={ev.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < auditLog.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                       <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>{icon}</span>
