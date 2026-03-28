@@ -409,6 +409,46 @@ module.exports = async function handler(req, res) {
       // 3. Find or create contact
       const contactId = await findOrCreateContact(supabase, tenantId, From);
 
+      // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
+      if (tenantId) {
+        try {
+          var { getNotifyEmails } = require('./_notify');
+          var spTenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+          if (tenantId === spTenantId) {
+            var existingLead = await supabase.from('leads').select('id').or('phone.eq.' + From + ',email.eq.' + From).limit(1);
+            if (!existingLead.data || existingLead.data.length === 0) {
+              // Ask AI to extract intent from the SMS
+              var smsIntent = 'general';
+              try {
+                var Anthropic = require('@anthropic-ai/sdk');
+                var anthropic = new Anthropic({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
+                var intentRes = await anthropic.messages.create({
+                  model: 'claude-haiku-4-5-20251001',
+                  max_tokens: 100,
+                  system: 'Classify this inbound SMS intent. Respond with ONLY one word: pricing, support, demo, partnership, or general.',
+                  messages: [{ role: 'user', content: Body }]
+                });
+                smsIntent = intentRes.content[0].text.trim().toLowerCase();
+              } catch (aiErr) { /* non-fatal */ }
+
+              await supabase.from('leads').insert({
+                name: From,
+                company: From,
+                email: null,
+                type: 'Unknown',
+                urgency: 'Warm',
+                stage: 'inquiry',
+                source: 'inbound_sms',
+                notes: 'Auto-created from inbound SMS. Message: ' + (Body || '').substring(0, 200),
+                ai_summary: 'Inbound SMS. Intent: ' + smsIntent,
+                last_action_at: new Date().toISOString().split('T')[0],
+                last_activity_at: new Date().toISOString(),
+              });
+              console.log('[SMS] Pipeline lead auto-created for:', From);
+            }
+          }
+        } catch (plErr) { console.log('[SMS] Pipeline lead create failed (non-fatal):', plErr.message); }
+      }
       // 4. Find or create conversation
       const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
 
