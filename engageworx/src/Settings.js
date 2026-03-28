@@ -456,9 +456,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "phone_number", label: "Phone Number", placeholder: "+1 (786) 982-7800" },
       { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
       { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You have opted in to receive SMS from [Business]. Reply STOP to unsubscribe." },
-      { key: "account_sid", label: "Twilio Account SID (SP only)", type: "password", spOnly: true },
-      { key: "auth_token", label: "Twilio Auth Token (SP only)", type: "password", spOnly: true },
-      { key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
+     { key: "account_sid", label: "Carrier Account SID (SP only)", type: "password", spOnly: true },
+{ key: "auth_token", label: "Carrier Auth Token (SP only)", type: "password", spOnly: true },
+{ key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
     ]},
     { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
       { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
