@@ -25,6 +25,7 @@ const NOTIFICATION_PREFS = [
 function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const [members, setMembers] = useState([]);
+  const [editingId, setEditingId] = useState(null);
   const [allTenants, setAllTenants] = useState([]);
   const [selectedTenantId, setSelectedTenantId] = useState(currentTenantId || EW_SP_TENANT_ID);
   const [loading, setLoading] = useState(true);
@@ -33,12 +34,96 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const [inviteRole, setInviteRole] = useState('admin');
   const [saving, setSaving] = useState(null);
 
-  const NOTIFY_FLAGS = [
-    { key: 'notify_on_escalation', label: 'Ticket Escalations' },
-    { key: 'notify_on_new_signup', label: 'New Signups' },
-    { key: 'notify_on_payment', label: 'Payments' },
-    { key: 'notify_on_new_lead', label: 'New Leads' },
-  ];
+  return (
+  <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
+    {/* Member header */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
+      <div style={{ flex: 1 }}>
+        {editingId === m.id ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <input
+              defaultValue={m.full_name}
+              onBlur={async function(e) {
+                await supabase.from('user_profiles').update({ full_name: e.target.value }).eq('id', m.user_id);
+                setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { full_name: e.target.value }) : x; }); });
+              }}
+              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", width: '100%' }}
+              placeholder="Display name"
+            />
+            <input
+              defaultValue={m.email}
+              onBlur={async function(e) {
+                await supabase.from('user_profiles').update({ email: e.target.value }).eq('id', m.user_id);
+                setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { email: e.target.value }) : x; }); });
+              }}
+              style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", width: '100%' }}
+              placeholder="Notification email"
+            />
+          </div>
+        ) : (
+          <div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{m.full_name}</div>
+            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}</div>
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {editable && (
+          <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: editingId === m.id ? `${C.primary}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${editingId === m.id ? C.primary + '44' : 'rgba(255,255,255,0.08)'}`, borderRadius: 6, padding: '5px 10px', color: editingId === m.id ? C.primary : 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ {editingId === m.id ? 'Done' : 'Edit'}</button>
+        )}
+        {editable ? (
+          <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+            <option value="admin">Admin</option>
+            <option value="manager">Manager</option>
+            <option value="agent">Support Agent</option>
+            <option value="analyst">Analyst</option>
+            <option value="readonly">Read Only</option>
+          </select>
+        ) : (
+          <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>
+        )}
+        {editable && (
+          <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+        )}
+      </div>
+    </div>
+
+    {/* Email notification flags */}
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {NOTIFY_FLAGS.map(function(flag) {
+          var isOn = m[flag.key] || false;
+          var isSavingThis = saving === m.id + flag.key;
+          return (
+            <button key={flag.key} onClick={editable ? function() { toggleFlag(m.id, flag.key, isOn); } : undefined} disabled={!editable || isSavingThis} style={{
+              background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`,
+              borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600,
+              color: isOn ? C.primary : 'rgba(255,255,255,0.3)',
+              cursor: editable ? 'pointer' : 'default',
+              fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s',
+              opacity: isSavingThis ? 0.5 : 1,
+            }}>{isOn ? '✓ ' : ''}{flag.label}</button>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* SMS/WhatsApp notification channels — coming soon */}
+    <div>
+      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>💬 Other Channels <span style={{ background: '#FFD60022', color: '#FFD600', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginLeft: 6 }}>COMING SOON</span></div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[{ label: '💬 SMS', key: 'notify_via_sms' }, { label: '📱 WhatsApp', key: 'notify_via_whatsapp' }, { label: '✨ RCS', key: 'notify_via_rcs' }].map(function(ch) {
+          return (
+            <button key={ch.key} disabled style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 6, padding: '5px 12px', fontSize: 11, color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed', fontFamily: "'DM Sans', sans-serif" }}>{ch.label}</button>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+);
 
   const isOwner = isSuperAdmin || viewLevel === 'sp';
   const canEdit = (tenantId) => {
