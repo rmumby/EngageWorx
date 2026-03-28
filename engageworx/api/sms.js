@@ -414,88 +414,42 @@ module.exports = async function handler(req, res) {
         try {
           var { getNotifyEmails } = require('./_notify');
           var spTenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
-          if (tenantId === spTenantId) {
-            var existingLead = await supabase.from('leads').select('id').or('phone.eq.' + From + ',email.eq.' + From).limit(1);
-            if (!existingLead.data || existingLead.data.length === 0) {
-              // Ask AI to extract intent from the SMS
-              var smsIntent = 'general';
-              try {
-                var Anthropic = require('@anthropic-ai/sdk');
-                var anthropic = new Anthropic({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
-                var intentRes = await anthropic.messages.create({
-                  model: 'claude-haiku-4-5-20251001',
-                  max_tokens: 100,
-                  system: 'Classify this inbound SMS intent. Respond with ONLY one word: pricing, support, demo, partnership, or general.',
-                  messages: [{ role: 'user', content: Body }]
-                });
-                smsIntent = intentRes.content[0].text.trim().toLowerCase();
-              } catch (aiErr) { /* non-fatal */ }
-
-              await supabase.from('leads').insert({
-                name: From,
-                company: From,
-                email: null,
-                type: 'Unknown',
-                urgency: 'Warm',
-                stage: 'inquiry',
-                source: 'inbound_sms',
-                notes: 'Auto-created from inbound SMS. Message: ' + (Body || '').substring(0, 200),
-                ai_summary: 'Inbound SMS. Intent: ' + smsIntent,
-                last_action_at: new Date().toISOString().split('T')[0],
-                last_activity_at: new Date().toISOString(),
+          // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
+      try {
+        var spTenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+        if (tenantId === spTenantId) {
+          var existingLead = await supabase.from('leads').select('id').eq('notes', From).limit(1);
+          var leadCheck = await supabase.from('leads').select('id').or('name.eq.' + From + ',notes.ilike.%' + From + '%').limit(1);
+          if (!leadCheck.data || leadCheck.data.length === 0) {
+            var smsIntent = 'general';
+            try {
+              var AnthropicSdk = require('@anthropic-ai/sdk');
+              var anthropicClient = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
+              var intentRes = await anthropicClient.messages.create({
+                model: 'claude-haiku-4-5-20251001',
+                max_tokens: 100,
+                system: 'Classify this inbound SMS intent. Respond with ONLY one word: pricing, support, demo, partnership, or general.',
+                messages: [{ role: 'user', content: Body }]
               });
-              console.log('[SMS] Pipeline lead auto-created for:', From);
-            }
+              smsIntent = intentRes.content[0].text.trim().toLowerCase();
+            } catch (aiErr) { /* non-fatal */ }
+
+            await supabase.from('leads').insert({
+              name: From,
+              company: From,
+              type: 'Unknown',
+              urgency: 'Warm',
+              stage: 'inquiry',
+              source: 'inbound_sms',
+              notes: 'Auto-created from inbound SMS from ' + From + '. Message: ' + (Body || '').substring(0, 200),
+              ai_summary: 'Inbound SMS inquiry. Intent: ' + smsIntent,
+              last_action_at: new Date().toISOString().split('T')[0],
+              last_activity_at: new Date().toISOString(),
+            });
+            console.log('[SMS] Pipeline lead auto-created for:', From);
           }
-        } catch (plErr) { console.log('[SMS] Pipeline lead create failed (non-fatal):', plErr.message); }
-      }
-      // 4. Find or create conversation
-      const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
-
-      // 5. Insert message with correct schema
-      const now = new Date().toISOString();
-      const { error: insertError } = await supabase
-        .from('messages')
-        .insert({
-          tenant_id:           tenantId,
-          conversation_id:     conversationId,
-          contact_id:          contactId,
-          direction:           'inbound',
-          channel:             'sms',
-          body:                Body,
-          status:              'delivered',  // 'received' not in check constraint; allowed: queued|sent|delivered|read|failed|bounced
-          provider:            'twilio',
-          provider_message_id: MessageSid,
-          sender_type:         'contact',
-          media_urls:          [],
-          metadata: {
-            from_number:  From,
-            to_number:    To,
-            message_type: messageType,
-            media_count:  parseInt(NumMedia || '0'),
-          },
-          created_at: now,
-          // updated_at intentionally omitted — not in messages schema
-        });
-
-      if (insertError) {
-        console.error('[Twilio] Message insert error:', insertError.message);
-      } else {
-        console.log(`[Twilio] Message inserted — tenant:${tenantId} conversation:${conversationId} contact:${contactId}`);
-      }
-
-      // 6. Update conversation preview + timestamp
-      if (conversationId) {
-        await supabase
-          .from('conversations')
-          .update({
-            last_message_at:      now,
-            last_message_preview: (Body || '').substring(0, 100),
-            updated_at:           now,
-          })
-          .eq('id', conversationId)
-          .catch(err => console.error('[Conversation] Update error:', err.message));
-      }
+        }
+      } catch (plErr) { console.log('[SMS] Pipeline lead create failed (non-fatal):', plErr.message); }
 
       // 7. Handle opt-in / opt-out contact status updates
       if (messageType === 'opt_out' && contactId) {
