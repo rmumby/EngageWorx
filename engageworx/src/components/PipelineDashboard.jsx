@@ -48,13 +48,13 @@ function LeadCard({ lead, onSelect }) {
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
   const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#64748b" }[lead.urgency] || "#64748b";
+  const nextActionOverdue = lead.next_action_date && new Date(lead.next_action_date) < new Date();
   return (
     <div onClick={() => onSelect(lead)}
       style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${stale ? "#ef4444" : "rgba(255,255,255,0.08)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}>
       {stale && <div style={{ position: "absolute", top: 8, right: 8, fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
-      {/* Company name is primary */}
       <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0 }}>{lead.company || lead.name}</div>
       <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{lead.name || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
@@ -63,6 +63,21 @@ function LeadCard({ lead, onSelect }) {
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
         {lead.contact_count > 0 && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "2px 7px", borderRadius: "4px" }}>👤 {lead.contact_count}</span>}
       </div>
+      {(lead.next_action || lead.next_action_date) && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 10 }}>⚡</span>
+            <span style={{ fontSize: 11, color: nextActionOverdue ? "#ef4444" : "#94a3b8", fontWeight: nextActionOverdue ? 700 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {lead.next_action || ""}
+              {lead.next_action_date && (
+                <span style={{ marginLeft: 4, color: nextActionOverdue ? "#ef4444" : "#64748b", fontWeight: 700 }}>
+                  · {new Date(lead.next_action_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -110,11 +125,6 @@ function ContactsPanel({ leadId, leadCompany }) {
     fetchContacts();
   };
 
-  const handleReplicateToSP = async (contact) => {
-    // Already in SP contacts (tenant_id = SP_TENANT_ID) — just confirm
-    alert(`${contact.first_name} ${contact.last_name || ""} is already in SP Contacts.`);
-  };
-
   return (
     <div style={{ background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -123,7 +133,6 @@ function ContactsPanel({ leadId, leadCompany }) {
           {showAdd ? "Cancel" : "+ Add Contact"}
         </button>
       </div>
-
       {showAdd && (
         <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "12px", marginBottom: "10px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
@@ -138,7 +147,6 @@ function ContactsPanel({ leadId, leadCompany }) {
           </button>
         </div>
       )}
-
       {loading ? (
         <div style={{ fontSize: "12px", color: "#475569" }}>Loading...</div>
       ) : contacts.length === 0 ? (
@@ -207,6 +215,9 @@ function Modal({ lead, onClose, onSave }) {
       ai_next_action: aiText || form.ai_next_action,
       go_live_date: form.go_live_date || null,
       last_action_at: form.last_action_at || null,
+      next_action: form.next_action || null,
+      next_action_date: form.next_action_date || null,
+      last_activity_at: new Date().toISOString(),
     };
     delete payload.id;
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -238,17 +249,13 @@ function Modal({ lead, onClose, onSave }) {
         channels_enabled: ["sms", "email", "whatsapp"],
       }).select().single();
       if (tErr) throw tErr;
-
-      // Migrate all contacts from this pipeline lead to the new tenant
       await supabase.from("contacts").update({ tenant_id: tenant.id }).eq("pipeline_lead_id", lead.id);
-
-      // Update lead stage
       await supabase.from("leads").update({
         stage: "sandbox_shared",
         last_action_at: new Date().toISOString().split("T")[0],
+        last_activity_at: new Date().toISOString(),
         notes: (form.notes ? form.notes + "\n" : "") + `→ Sandbox created — tenant ID: ${tenant.id}`,
       }).eq("id", lead.id);
-
       setConvertDone(true);
       setForm({ ...form, stage: "sandbox_shared" });
     } catch (err) { setSaveError("Conversion failed: " + err.message); }
@@ -258,7 +265,6 @@ function Modal({ lead, onClose, onSave }) {
   const handleReplicateToSPContacts = async () => {
     setReplicating(true);
     try {
-      // Check if already exists
       const { data: existing } = await supabase.from("contacts")
         .select("id").eq("pipeline_lead_id", lead.id).eq("tenant_id", SP_TENANT_ID).limit(1);
       if (existing && existing.length > 0) {
@@ -266,7 +272,6 @@ function Modal({ lead, onClose, onSave }) {
         setReplicating(false);
         return;
       }
-      // Replicate lead itself as a contact if no contacts exist
       await supabase.from("contacts").insert({
         first_name: firstName || form.company,
         last_name: lastName || null,
@@ -333,12 +338,36 @@ function Modal({ lead, onClose, onSave }) {
           <textarea style={{ ...inputStyle, minHeight: "70px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
         </div>
 
+        {/* Next Action */}
+        <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.05em", marginBottom: "10px" }}>⚡ NEXT ACTION</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
+            <div>
+              <label style={labelStyle}>Action</label>
+              <input style={inputStyle} value={form.next_action||""} onChange={e=>setForm({...form,next_action:e.target.value})} placeholder="e.g. Send proposal, Follow up call, Book demo..." />
+            </div>
+            <div>
+              <label style={labelStyle}>Due Date</label>
+              <input type="date" style={{ ...inputStyle, width: "160px" }} value={form.next_action_date||""} onChange={e=>setForm({...form,next_action_date:e.target.value})} />
+            </div>
+          </div>
+          {form.next_action_date && new Date(form.next_action_date) < new Date() && (
+            <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444", fontWeight: 700 }}>⚠ Overdue — {daysSince(form.next_action_date)} days past due</div>
+          )}
+        </div>
+
         {/* Quick actions */}
         <div style={{ marginBottom: "16px" }}>
           <label style={labelStyle}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
             {(NEXT_ACTIONS[form.stage]||[]).map(a=>(
-              <button key={a} onClick={()=>setForm({...form,notes:(form.notes?form.notes+"\n":"")+`→ ${a}`,last_action_at:new Date().toISOString().split("T")[0]})}
+              <button key={a} onClick={()=>setForm({
+                ...form,
+                next_action: a,
+                next_action_date: new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0],
+                notes:(form.notes?form.notes+"\n":"")+`→ ${a}`,
+                last_action_at:new Date().toISOString().split("T")[0]
+              })}
                 style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",cursor:"pointer",background:"rgba(99,102,241,0.1)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)" }}>
                 + {a}
               </button>
@@ -350,10 +379,8 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Contacts panel — only for saved leads */}
-        {!isNew && (
-          <ContactsPanel leadId={lead.id} leadCompany={form.company} />
-        )}
+        {/* Contacts panel */}
+        {!isNew && <ContactsPanel leadId={lead.id} leadCompany={form.company} />}
 
         {/* Replicate to SP Contacts */}
         {!isNew && (
@@ -365,7 +392,7 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         )}
 
-        {/* Convert to Sandbox / Tenant */}
+        {/* Convert to Sandbox */}
         {!isNew && (
           <div style={{ background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
             <div style={{ fontSize:"12px",fontWeight:700,color:"#10b981",letterSpacing:"0.05em",marginBottom:"8px" }}>🧪 CONVERT TO TENANT</div>
@@ -387,7 +414,7 @@ function Modal({ lead, onClose, onSave }) {
         {/* AI Advisor */}
         <div style={{ background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px" }}>
-            <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc",letterSpacing:"0.05em" }}>⚡ AI SALES ADVISOR</span>
+            <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc",letterSpacing:"0.05em" }}>🤖 AI SALES ADVISOR</span>
             <button onClick={handleAI} disabled={aiLoading} style={{ padding:"6px 14px",borderRadius:"6px",fontSize:"12px",fontWeight:700,cursor:aiLoading?"wait":"pointer",background:aiLoading?"rgba(99,102,241,0.3)":"#6366f1",color:"#fff",border:"none" }}>
               {aiLoading?"Thinking...":"Get Next Actions"}
             </button>
@@ -425,7 +452,6 @@ export default function PipelineDashboard() {
   const fetchLeads = async () => {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
     if (error) console.error("Fetch error:", error);
-    // Fetch contact counts per lead
     const ids = (data || []).map(l => l.id);
     let countMap = {};
     if (ids.length > 0) {
@@ -451,13 +477,14 @@ export default function PipelineDashboard() {
     return () => supabase.removeChannel(channel);
   }, []);
 
-  const newLead = { id:`new_${Date.now()}`,name:"",company:"",email:"",phone:"",type:"Unknown",urgency:"Warm",stage:"inquiry",package:"",go_live_date:"",notes:"",source:"Website",last_action_at:new Date().toISOString().split("T")[0] };
+  const newLead = { id:`new_${Date.now()}`,name:"",company:"",email:"",phone:"",type:"Unknown",urgency:"Warm",stage:"inquiry",package:"",go_live_date:"",notes:"",source:"Website",last_action_at:new Date().toISOString().split("T")[0],next_action:"",next_action_date:"" };
 
   const sortedLeads = [...leads].sort((a, b) => {
     let av = a[sortBy] || "", bv = b[sortBy] || "";
     if (sortBy === "urgency") { const ord = {Hot:0,Warm:1,Cold:2}; av = ord[a.urgency]??1; bv = ord[b.urgency]??1; }
     if (sortBy === "stage")   { const ord = STAGES.map(s=>s.id); av = ord.indexOf(a.stage); bv = ord.indexOf(b.stage); }
     if (sortBy === "company") { av = (a.company||a.name||"").toLowerCase(); bv = (b.company||b.name||"").toLowerCase(); }
+    if (sortBy === "next_action_date") { av = a.next_action_date || "9999"; bv = b.next_action_date || "9999"; }
     if (typeof av === "string") av = av.toLowerCase();
     if (typeof bv === "string") bv = bv.toLowerCase();
     if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -475,6 +502,7 @@ export default function PipelineDashboard() {
   const customers = leads.filter(l => l.stage === "customer").length;
   const hot       = leads.filter(l => l.urgency === "Hot").length;
   const stale     = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS).length;
+  const overdue   = leads.filter(l => l.next_action_date && new Date(l.next_action_date) < new Date()).length;
 
   const SortBtn = ({ field, label }) => (
     <button onClick={() => { if (sortBy === field) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortBy(field); setSortDir("asc"); }}}
@@ -508,7 +536,13 @@ export default function PipelineDashboard() {
         </div>
 
         <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
-          {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"}].map(k=>(
+          {[
+            {l:"Pipeline",v:pipeline,c:"#6366f1"},
+            {l:"Customers",v:customers,c:"#10b981"},
+            {l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},
+            {l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},
+            {l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"},
+          ].map(k=>(
             <div key={k.l}>
               <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
               <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
@@ -526,6 +560,7 @@ export default function PipelineDashboard() {
             <SortBtn field="company" label="A–Z" />
             <SortBtn field="urgency" label="Urgency" />
             <SortBtn field="stage" label="Stage" />
+            <SortBtn field="next_action_date" label="Due Date" />
             <SortBtn field="created_at" label="Date" />
           </div>
         </div>
