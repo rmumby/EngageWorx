@@ -1638,15 +1638,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         </div>
       )}
 
-      {/* ═══════════ TEAM TAB ═══════════ */}
-      {activeTab === "team" && (
-        <TeamMembersTab
-          C={C}
-          viewLevel={viewLevel}
-          currentTenantId={currentTenantId}
-          isSuperAdmin={viewLevel === 'sp'}
-        />
-      )}
+     
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Team Members</h2>
@@ -1668,6 +1660,15 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
               </div>
             </div>
           )}
+           {/* ═══════════ TEAM TAB ═══════════ */}
+      {activeTab === "team" && (
+        <TeamMembersTab
+          C={C}
+          viewLevel={viewLevel}
+          currentTenantId={currentTenantId}
+          isSuperAdmin={viewLevel === 'sp'}
+        />
+      )}
 
           {teamLoading ? (
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading team...</div>
