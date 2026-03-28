@@ -138,6 +138,25 @@ module.exports = async function handler(req, res) {
           });
 
           console.log('[Stripe] Tenant created:', tenant.id, 'for:', email);
+          // ── Auto-create pipeline lead ─────────────────────────────────
+        try {
+          var existingLead = await supabase.from('leads').select('id').eq('email', email).limit(1);
+          if (!existingLead.data || existingLead.data.length === 0) {
+            await supabase.from('leads').insert({
+              name: companyName,
+              company: companyName,
+              email: email,
+              type: 'Direct Business',
+              urgency: 'Warm',
+              stage: 'customer',
+              source: 'Website',
+              notes: 'Auto-created from Stripe signup. Plan: ' + plan,
+              last_action_at: new Date().toISOString().split('T')[0],
+              last_activity_at: new Date().toISOString(),
+            });
+            console.log('[Stripe] Pipeline lead auto-created for:', email);
+          }
+        } catch (plErr) { console.log('[Stripe] Pipeline lead create failed (non-fatal):', plErr.message); }
 
           // Notify SP admins
           try {
