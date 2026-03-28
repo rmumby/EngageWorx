@@ -34,8 +34,10 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const [inviteRole, setInviteRole] = useState('admin');
   const [saving, setSaving] = useState(null);
 
-  return (
-  <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
+  var initials = (m.full_name || m.email).split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+            var editable = canEdit(selectedTenantId);
+            return (
+              <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
     {/* Member header */}
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
       <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
