@@ -456,6 +456,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       { key: "phone_number", label: "Phone Number", placeholder: "+1 (786) 982-7800" },
       { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
       { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You have opted in to receive SMS from [Business]. Reply STOP to unsubscribe." },
+      { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
      { key: "account_sid", label: "Carrier Account SID (SP only)", type: "password", spOnly: true },
 { key: "auth_token", label: "Carrier Auth Token (SP only)", type: "password", spOnly: true },
 { key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
