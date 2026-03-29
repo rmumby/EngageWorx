@@ -501,9 +501,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [aiTonePreviews, setAiTonePreviews] = useState({});
 
   const loadChannelConfigs = async () => {
-    setChannelsLoading(true);
-    try {
-      const { data, error } = await supabase.from("channel_configs").select("*");
+  setChannelsLoading(true);
+  try {
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    const { data, error } = await supabase.from("channel_configs").select("*").eq("tenant_id", tenantId);
       if (!error && data) {
         const map = {};
         data.forEach(c => { map[c.channel] = c; });
