@@ -8,15 +8,24 @@ var supabase = createClient(
 
 var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
-async function buildWelcomeEmail(supabase, tenantId, email, plan, companyName) {
-  // Load tenant config — falls back to SP defaults if not set
-  var config = {
-    from: 'hello@engwx.com',
-    fromName: 'Rob at EngageWorx',
-    calendly: 'https://calendly.com/rob-engwx/30min',
-    aiPrompt: null,
-    enabled: true,
-  };
+// ── AI-personalised welcome email ─────────────────────────────────
+        try {
+          var welcomeConfig = await buildWelcomeEmail(supabase, tenant ? tenant.id : null, email, plan, companyName);
+          if (welcomeConfig) {
+            var sgMailWelcome = require('@sendgrid/mail');
+            sgMailWelcome.setApiKey(process.env.SENDGRID_API_KEY);
+            await sgMailWelcome.send({
+              to: email,
+              from: { email: welcomeConfig.from, name: welcomeConfig.fromName },
+              subject: 'Welcome — your account is live 🎉',
+              text: welcomeConfig.text,
+              html: welcomeConfig.html,
+            });
+            console.log('[Stripe] AI welcome email sent to:', email, 'from:', welcomeConfig.from);
+          }
+        } catch (welcomeErr) {
+          console.log('[Stripe] Welcome email failed (non-fatal):', welcomeErr.message);
+        }
 
   if (tenantId) {
     try {
@@ -129,7 +138,7 @@ module.exports = async function handler(req, res) {
               from: { email: 'hello@engwx.com', name: 'EngageWorx' },
               subject: 'Welcome to EngageWorx — Your Account is Ready 🎉',
               text: 'Welcome! Your account is at portal.engwx.com\nEmail: ' + email + '\nPlan: ' + plan,
-              html: buildWelcomeHtml(email, plan),
+              html: buildWelcomeEmail(email, plan),
             });
             console.log('[Stripe] Welcome email sent (no user match):', email);
           } catch (e) { console.log('[Stripe] Welcome email failed:', e.message); }
@@ -219,7 +228,7 @@ module.exports = async function handler(req, res) {
             from: { email: 'hello@engwx.com', name: 'EngageWorx' },
             subject: 'Welcome to EngageWorx — Your Account is Ready 🎉',
             text: 'Welcome to EngageWorx!\n\nYour account is live at portal.engwx.com\n\nEmail: ' + email + '\nPlan: ' + plan + '\n\n3 things to do first:\n1. Add your phone number (Settings → Phone Numbers)\n2. Import your contacts (Contacts → Import)\n3. Set up your AI Chatbot\n\nBook an onboarding call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx\n+1 (786) 982-7800\nengwx.com',
-            html: buildWelcomeHtml(email, plan),
+            html: buildWelcomeEmail(email, plan),
           });
           console.log('[Stripe] Welcome email sent to:', email);
         } catch (welcomeErr) {
