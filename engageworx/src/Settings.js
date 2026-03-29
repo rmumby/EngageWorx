@@ -256,10 +256,10 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
                           await supabase.from('user_profiles').update({ full_name: e.target.value }).eq('id', m.user_id);
                           setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { full_name: e.target.value }) : x; }); });
                         }} placeholder="Display name" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", width: '100%', boxSizing: 'border-box' }} />
-                        <input defaultValue={m.email} onBlur={async function(e) {
-                          await supabase.from('user_profiles').update({ email: e.target.value }).eq('id', m.user_id);
-                          setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { email: e.target.value }) : x; }); });
-                        }} placeholder="Notification email" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", width: '100%', boxSizing: 'border-box' }} />
+                       <input defaultValue={m.notify_email || ''} onBlur={async function(e) {
+  await supabase.from('tenant_members').update({ notify_email: e.target.value || null }).eq('id', m.id);
+  setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { notify_email: e.target.value }) : x; }); });
+}} placeholder="Notification email override (leave blank to use login email)" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", width: '100%', boxSizing: 'border-box' }} />
                       </div>
                     ) : (
                       <div>
