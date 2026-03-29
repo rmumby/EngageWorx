@@ -292,6 +292,51 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [confirmSuspend, setConfirmSuspend] = useState(null);
   const [liveTenants, setLiveTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(true);
+  {showNew && (
+  <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
+    <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Onboard New Tenant</h3>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Company Name *</label>
+        <input value={newTenant.companyName} onChange={e => setNewTenant({...newTenant, companyName: e.target.value})} placeholder="e.g. TechCorp Ltd" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+      </div>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>White-Label Brand Name</label>
+        <input value={newTenant.brandName} onChange={e => setNewTenant({...newTenant, brandName: e.target.value})} placeholder="e.g. TechEngage" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+      </div>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Admin Email *</label>
+        <input value={newTenant.email} onChange={e => setNewTenant({...newTenant, email: e.target.value})} placeholder="admin@techcorp.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+      </div>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Custom Domain</label>
+        <input value={newTenant.domain} onChange={e => setNewTenant({...newTenant, domain: e.target.value})} placeholder="messaging.techcorp.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+      </div>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
+        <select value={newTenant.plan} onChange={e => setNewTenant({...newTenant, plan: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }}>
+          <option value="starter">Starter $99/mo</option>
+          <option value="growth">Growth $249/mo</option>
+          <option value="pro">Pro $499/mo</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+      </div>
+      <div>
+        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Tenant Type</label>
+        <select value={newTenant.type} onChange={e => setNewTenant({...newTenant, type: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box" }}>
+          <option value="direct">Direct Business</option>
+          <option value="csp">CSP / Reseller</option>
+          <option value="agent">Agent</option>
+        </select>
+      </div>
+    </div>
+    {createError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 12 }}>{createError}</div>}
+    <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+      <button onClick={() => handleCreateTenant()} disabled={createLoading} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "10px 22px", color: "#000", fontWeight: 700, cursor: "pointer", opacity: createLoading ? 0.6 : 1 }}>{createLoading ? "Creating..." : "Create Tenant"}</button>
+      <button onClick={() => { setShowNew(false); setCreateError(null); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 22px", color: C.muted, cursor: "pointer" }}>Cancel</button>
+    </div>
+  </div>
+)}
 
   // Fetch live tenants from Supabase (skip in demo mode)
   useEffect(() => {
