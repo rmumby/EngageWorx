@@ -239,18 +239,34 @@ module.exports = async function handler(req, res) {
       }
 
       case 'invoice.payment_succeeded': {
-        var invoice = event.data.object;
-        console.log('[Stripe] Payment succeeded:', invoice.customer_email, '$' + (invoice.amount_paid / 100));
-        supabase.from('audit_log').insert({
-          action: 'payment_succeeded',
-          metadata: {
-            email: invoice.customer_email,
-            amount: invoice.amount_paid / 100,
-            invoice_id: invoice.id,
-          },
-        }).then(function() {}).catch(function() {});
-        break;
-      }
+  var invoice = event.data.object;
+  var invoiceEmail = invoice.customer_email;
+  var invoiceAmount = (invoice.amount_paid / 100).toFixed(2);
+  console.log('[Stripe] Payment succeeded:', invoiceEmail, '$' + invoiceAmount);
+
+  supabase.from('audit_log').insert({
+    action: 'payment_succeeded',
+    metadata: { email: invoiceEmail, amount: invoiceAmount, invoice_id: invoice.id },
+  }).then(function() {}).catch(function() {});
+
+  // Notify SP admins of payment
+  try {
+    var sgMailInv = require('@sendgrid/mail');
+    sgMailInv.setApiKey(process.env.SENDGRID_API_KEY);
+    var spPaymentEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_payment');
+    if (spPaymentEmails.length > 0) {
+      await sgMailInv.send({
+        to: spPaymentEmails,
+        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+        subject: '💳 Payment received: $' + invoiceAmount + ' from ' + invoiceEmail,
+        text: 'Payment received\n\nEmail: ' + invoiceEmail + '\nAmount: $' + invoiceAmount + '\nInvoice: ' + invoice.id,
+      });
+      console.log('[Stripe] Payment notification sent to:', spPaymentEmails);
+    }
+  } catch (payErr) { console.log('[Stripe] Payment notify failed:', payErr.message); }
+
+  break;
+}
 
       case 'checkout.session.expired': {
         var expiredSession = event.data.object;
