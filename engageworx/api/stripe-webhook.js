@@ -1,14 +1,16 @@
 // Updated buildWelcomeEmail function for stripe-webhook.js
 // Changes:
-// 1. Reads tenant brand color from tenants table
-// 2. Reads welcome_email_steps from tenants table (configurable 3 steps)
-// 3. Falls back to SP defaults if not set
+var { createClient } = require('@supabase/supabase-js');
+var { getNotifyEmails } = require('./_notify');
 
-// Updated buildWelcomeEmail function for stripe-webhook.js
-// Changes:
-// 1. Reads tenant brand color from tenants table
-// 2. Reads welcome_email_steps from tenants table (configurable 3 steps)
-// 3. Falls back to SP defaults if not set
+var supabase = createClient(
+  process.env.REACT_APP_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+
+async function buildWelcomeEmail(tenantId, email, plan, companyName) {
 
 async function buildWelcomeEmail(tenantId, email, plan, companyName) {
   var config = {
