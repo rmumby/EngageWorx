@@ -8,15 +8,59 @@ var supabase = createClient(
 
 var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
-function buildWelcomeHtml(email, plan) {
+async function buildWelcomeEmail(supabase, tenantId, email, plan, companyName) {
+  // Load tenant config — falls back to SP defaults if not set
+  var config = {
+    from: 'hello@engwx.com',
+    fromName: 'Rob at EngageWorx',
+    calendly: 'https://calendly.com/rob-engwx/30min',
+    aiPrompt: null,
+    enabled: true,
+  };
+
+  if (tenantId) {
+    try {
+      var tenantRes = await supabase.from('tenants').select('welcome_email_enabled, welcome_email_from, welcome_email_from_name, welcome_email_ai_prompt, welcome_email_calendly').eq('id', tenantId).single();
+      if (tenantRes.data) {
+        var t = tenantRes.data;
+        if (t.welcome_email_enabled === false) return null; // disabled
+        if (t.welcome_email_from) config.from = t.welcome_email_from;
+        if (t.welcome_email_from_name) config.fromName = t.welcome_email_from_name;
+        if (t.welcome_email_calendly) config.calendly = t.welcome_email_calendly;
+        if (t.welcome_email_ai_prompt) config.aiPrompt = t.welcome_email_ai_prompt;
+      }
+    } catch (e) { /* use defaults */ }
+  }
+
+  // Generate AI personalised message
+  var aiMessage = '';
+  try {
+    var AnthropicSdk = require('@anthropic-ai/sdk');
+    var anthropic = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
+    var systemPrompt = config.aiPrompt ||
+      'You are Rob Mumby, Founder & CEO of EngageWorx — an AI-powered omnichannel customer communications platform (SMS, WhatsApp, Email, Voice, RCS). Write a short, warm, personal welcome message to a new customer. 3-4 sentences max. Founder tone — genuine, not corporate. Reference their company name and plan. End by offering a quick onboarding call. No subject line, no sign-off, just the body text.';
+    var aiRes = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: 'New signup — Company: ' + companyName + ', Plan: ' + plan + ', Email: ' + email }]
+    });
+    aiMessage = aiRes.content[0].text.trim();
+  } catch (aiErr) { console.log('[Stripe] AI welcome failed:', aiErr.message); }
+
   var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
-  return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+  var personalNote = aiMessage
+    ? '<div style="background:#f8fafc;border-left:3px solid #00C9FF;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:20px;font-size:15px;color:#1e293b;line-height:1.7;">' + aiMessage + '</div>'
+    : '';
+
+  var html =
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
     '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);border-radius:12px;padding:32px;text-align:center;margin-bottom:24px;">' +
-    '<span style="color:#fff;font-weight:900;font-size:22px;">EngageWorx</span>' +
-    '<div style="color:#fff;font-size:13px;opacity:0.85;letter-spacing:1px;text-transform:uppercase;margin-top:4px;">AI-Powered CX</div>' +
+    '<span style="color:#fff;font-weight:900;font-size:22px;">' + (config.fromName.includes('@') ? 'EngageWorx' : config.fromName.split(' ').slice(-1)[0] || 'EngageWorx') + '</span>' +
     '<h1 style="color:#fff;margin:16px 0 8px;font-size:26px;font-weight:800;">Welcome! 🎉</h1>' +
     '<p style="color:rgba(255,255,255,0.9);margin:0;font-size:15px;">Your account is live and ready to go.</p>' +
     '</div>' +
+    personalNote +
     '<div style="background:#fff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;">' +
     '<h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">Your Login Details</h2>' +
     '<table style="width:100%;border-collapse:collapse;">' +
@@ -24,9 +68,8 @@ function buildWelcomeHtml(email, plan) {
     '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#64748b;font-size:14px;">Email</td><td style="padding:10px 0;font-size:14px;color:#1e293b;font-weight:600;">' + email + '</td></tr>' +
     '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#64748b;font-size:14px;">Plan</td><td style="padding:10px 0;font-size:14px;color:#1e293b;">' + planLabel + '</td></tr>' +
     '</table>' +
-    '<div style="margin-top:20px;text-align:center;">' +
-    '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Log In to Your Portal →</a>' +
-    '</div></div>' +
+    '<div style="margin-top:20px;text-align:center;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Log In to Your Portal →</a></div>' +
+    '</div>' +
     '<div style="background:#fff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;">' +
     '<h2 style="color:#1e293b;margin:0 0 16px;font-size:18px;">3 Things to Do First</h2>' +
     '<div style="padding:14px;background:#f8fafc;border-radius:8px;margin-bottom:10px;"><strong style="color:#1e293b;">1. Add your phone number</strong> — Settings → Phone Numbers</div>' +
@@ -36,15 +79,11 @@ function buildWelcomeHtml(email, plan) {
     '<div style="background:#fff;border-radius:12px;padding:28px;margin-bottom:20px;border:1px solid #e2e8f0;text-align:center;">' +
     '<h3 style="color:#1e293b;margin:0 0 8px;font-size:16px;">📅 Want a quick walkthrough?</h3>' +
     '<p style="color:#64748b;font-size:14px;margin:0 0 16px;">Book a free 30-minute onboarding call.</p>' +
-    '<a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book Onboarding Call →</a>' +
+    '<a href="' + config.calendly + '" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book Onboarding Call →</a>' +
     '</div>' +
-    '<div style="text-align:center;padding:20px 0;">' +
-    '<strong style="color:#1e293b;">Rob Mumby</strong><br>' +
-    '<span style="color:#64748b;font-size:13px;">Founder &amp; CEO, EngageWorx</span><br>' +
-    '<span style="color:#94a3b8;font-size:12px;">SMS · WhatsApp · Email · Voice · RCS</span><br>' +
-    '<a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;font-size:12px;">+1 (786) 982-7800</a> | ' +
-    '<a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;font-size:12px;">engwx.com</a>' +
-    '</div></div>';
+    '</div>';
+
+  return { from: config.from, fromName: config.fromName, html: html, text: (aiMessage || 'Welcome!') + '\n\nYour portal: portal.engwx.com\nEmail: ' + email + '\nPlan: ' + planLabel + '\n\nBook a call: ' + config.calendly };
 }
 
 module.exports = async function handler(req, res) {
