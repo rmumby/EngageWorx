@@ -139,39 +139,64 @@ async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone
 // ─── NOTIFY INBOUND ────────────────────────────────────────────────────────
 async function notifyInbound(supabase, tenantId, from, body) {
   try {
-    let emailsToNotify = [];
+    if (!tenantId) return;
 
-    if (tenantId) {
-      const { data: members } = await supabase
-        .from('tenant_members')
-        .select('user_id')
-        .eq('tenant_id', tenantId)
-        .eq('status', 'active');
+    var membersResult = await supabase
+      .from('tenant_members')
+      .select('user_id, notify_email')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'active');
 
-      if (members && members.length > 0) {
-        const userIds = members.map(m => m.user_id);
+    var members = membersResult.data || [];
+    if (members.length === 0) return;
 
-        const { data: prefs } = await supabase
-          .from('notification_preferences')
-          .select('user_id')
-          .in('user_id', userIds)
-          .eq('event_type', 'inbound_message')
-          .eq('email_enabled', true);
+    var userIds = members.map(function(m) { return m.user_id; });
 
-        const lookupIds = (prefs && prefs.length > 0)
-          ? prefs.map(p => p.user_id)
-          : userIds;
+    var profilesResult = await supabase
+      .from('user_profiles')
+      .select('id, email')
+      .in('id', userIds);
 
-        const { data: users } = await supabase
-          .from('users')
-          .select('email')
-          .in('id', lookupIds);
+    var profiles = profilesResult.data || [];
 
-        if (users && users.length > 0) {
-          emailsToNotify = users.map(u => u.email).filter(Boolean);
-        }
-      }
+    var emailsToNotify = members.map(function(m) {
+      var profile = profiles.find(function(p) { return p.id === m.user_id; });
+      return m.notify_email || (profile && profile.email) || null;
+    }).filter(Boolean);
+
+    if (emailsToNotify.length === 0) return;
+
+    var sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    var html =
+      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 20px;">' +
+      '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">' +
+      '<span style="color:#fff;font-weight:900;font-size:18px;">EngageWorx</span>' +
+      '<div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:4px;">New Inbound SMS</div>' +
+      '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">' +
+      '<tr><td style="padding:10px 12px;font-weight:bold;color:#374151;width:80px;">From</td><td style="padding:10px 12px;color:#111;">' + from + '</td></tr>' +
+      '<tr style="background:#F9FAFB;"><td style="padding:10px 12px;font-weight:bold;color:#374151;">Message</td><td style="padding:10px 12px;color:#111;">' + (body || '') + '</td></tr>' +
+      '</table>' +
+      '<div style="margin-top:20px;text-align:center;">' +
+      '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:800;font-size:14px;">Open Live Inbox →</a>' +
+      '</div></div>';
+
+    for (var i = 0; i < emailsToNotify.length; i++) {
+      await sgMail.send({
+        to: emailsToNotify[i],
+        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+        subject: 'New inbound SMS from ' + from,
+        text: 'New inbound SMS from ' + from + ':\n\n' + body + '\n\nOpen Live Inbox: https://portal.engwx.com',
+        html: html,
+      });
+      console.log('[Notify] Inbound SMS notification sent to:', emailsToNotify[i]);
     }
+  } catch (err) {
+    console.error('[Notify] notifyInbound error:', err.message);
+  }
+}
 
     if (emailsToNotify.length === 0) {
       const adminEmail = process.env.PLATFORM_ADMIN_EMAIL;
