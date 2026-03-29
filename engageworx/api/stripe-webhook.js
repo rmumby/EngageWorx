@@ -33,7 +33,8 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName) {
         if (t.welcome_email_enabled === false) return null;
         if (t.welcome_email_from) config.from = t.welcome_email_from;
         if (t.welcome_email_from_name) config.fromName = t.welcome_email_from_name;
-        if (t.welcome_email_calendly) config.calendly = t.welcome_email_calendly;
+        if (t.welcome_email_onboarding_link) config.calendly = t.welcome_email_onboarding_link;
+else if (t.welcome_email_calendly) config.calendly = t.welcome_email_calendly; // backwards compat
         if (t.welcome_email_ai_prompt) config.aiPrompt = t.welcome_email_ai_prompt;
       }
     } catch (e) { /* use defaults */ }
