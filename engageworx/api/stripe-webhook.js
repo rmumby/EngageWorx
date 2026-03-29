@@ -10,7 +10,7 @@
 // 2. Reads welcome_email_steps from tenants table (configurable 3 steps)
 // 3. Falls back to SP defaults if not set
 
-async async function buildWelcomeEmail(tenantId, email, plan, companyName) {
+async function buildWelcomeEmail(tenantId, email, plan, companyName) {
   var config = {
     from: 'hello@engwx.com',
     fromName: 'Rob at EngageWorx',
