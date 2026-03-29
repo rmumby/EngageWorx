@@ -36,7 +36,7 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
     { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
     { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
-    { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. warm and professional, like a startup founder" },
+    { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome. Reference their company name and plan. Mention booking a call at https://calendly.com/yourlink. No URLs written out directly.", rows: 6 },
     { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
     { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
   ]},
@@ -683,7 +683,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const preview = aiTonePreviews[previewKey] || "";
   return (
     <div>
-      <input value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || "e.g. warm and professional, like a startup founder"} style={inputStyle} />
+      <textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={f.rows || 5} style={{ ...inputStyle, resize: "vertical", minHeight: 100 }} />
       <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button onClick={() => aiTonePreview(configData[f.key], businessName, (p) => setAiTonePreviews(prev => ({ ...prev, [previewKey]: p })))} style={btnAI}>✨ Preview Tone</button>
         <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Describe your style — AI will write in that voice</span>
