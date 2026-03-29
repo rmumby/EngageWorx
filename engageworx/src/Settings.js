@@ -498,6 +498,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelConfigs, setChannelConfigs] = useState({});
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelSaving, setChannelSaving] = useState(null);
+  const [aiTonePreviews, setAiTonePreviews] = useState({});
 
   const loadChannelConfigs = async () => {
     setChannelsLoading(true);
@@ -677,25 +678,26 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       );
     }
 
-    if (f.type === "ai_tone") {
-      const [preview, setPreview] = React.useState("");
-      return (
-        <div>
-          <input value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || "e.g. warm and professional, like a startup founder"} style={inputStyle} />
-          <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button onClick={() => aiTonePreview(configData[f.key], businessName, setPreview)} style={btnAI}>✨ Preview Tone</button>
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Describe your style — AI will write in that voice</span>
-          </div>
-          {preview && (
-            <div style={{ marginTop: 10, background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, fontStyle: "italic" }}>
-              <div style={{ color: "#00C9FF", fontSize: 10, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>AI Preview</div>
-              {preview}
-              <button onClick={() => setPreview("")} style={{ display: "block", background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 10, cursor: "pointer", marginTop: 8, padding: 0 }}>Dismiss</button>
-            </div>
-          )}
+   if (f.type === "ai_tone") {
+  const previewKey = ch.id + "_" + f.key;
+  const preview = aiTonePreviews[previewKey] || "";
+  return (
+    <div>
+      <input value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || "e.g. warm and professional, like a startup founder"} style={inputStyle} />
+      <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <button onClick={() => aiTonePreview(configData[f.key], businessName, (p) => setAiTonePreviews(prev => ({ ...prev, [previewKey]: p })))} style={btnAI}>✨ Preview Tone</button>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Describe your style — AI will write in that voice</span>
+      </div>
+      {preview && (
+        <div style={{ marginTop: 10, background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, fontStyle: "italic" }}>
+          <div style={{ color: "#00C9FF", fontSize: 10, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>AI Preview</div>
+          {preview}
+          <button onClick={() => setAiTonePreviews(prev => ({ ...prev, [previewKey]: "" }))} style={{ display: "block", background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 10, cursor: "pointer", marginTop: 8, padding: 0 }}>Dismiss</button>
         </div>
-      );
-    }
+      )}
+    </div>
+  );
+}
 
     if (f.type === "select") {
       return (
