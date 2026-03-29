@@ -324,7 +324,19 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
           notify_on_payment: true, notify_on_new_lead: false,
         });
       }
-      // Trigger welcome email + SP notification manually
+      // SP admin notification
+      try {
+        var spNotifyRes = await fetch('/api/notify-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject: '🎉 New Tenant Created: ' + newTenant.companyName + ' (' + newTenant.plan + ')',
+            text: 'New tenant manually created\n\nCompany: ' + newTenant.companyName + '\nEmail: ' + newTenant.email + '\nPlan: ' + newTenant.plan + '\nType: ' + newTenant.type,
+          })
+        });
+      } catch(e) { /* non-fatal */ }
+
+      // AI welcome email to customer
       try {
         await fetch('/api/stripe-webhook', {
           method: 'POST',
