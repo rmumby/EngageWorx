@@ -453,23 +453,24 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const CHANNEL_DEFS = [
     { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-      { key: "phone_number", label: "Phone Number", placeholder: "+1 (786) 982-7800" },
+      { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
       { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
       { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You have opted in to receive SMS from [Business]. Reply STOP to unsubscribe." },
       { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
-     { key: "account_sid", label: "Carrier Account SID (SP only)", type: "password", spOnly: true },
-      { key: "welcome_email_enabled", label: "Send Welcome Email to New Signups", type: "select", options: ["Enabled", "Disabled"] },
-{ key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
-{ key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
-{ key: "welcome_email_calendly", label: "Calendly Link for Onboarding Call", placeholder: "https://calendly.com/yourname/30min" },
-{ key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone (SP only)", type: "textarea", spOnly: true, placeholder: "You are Jane, founder of Acme Corp. Write a warm, personal welcome..." },
-{ key: "auth_token", label: "Carrier Auth Token (SP only)", type: "password", spOnly: true },
-{ key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
+      { key: "account_sid", label: "Carrier Account SID (SP only)", type: "password", spOnly: true },
+      { key: "auth_token", label: "Carrier Auth Token (SP only)", type: "password", spOnly: true },
+      { key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
     ]},
     { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
       { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
       { key: "from_name", label: "From Name", placeholder: "Your Business Name" },
       { key: "_ai_note", label: "AI Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including email." },
+      { key: "welcome_email_enabled", label: "Send Welcome Email to New Signups", type: "select", options: ["Enabled", "Disabled"] },
+      { key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
+      { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
+      { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
+      { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone (SP only)", type: "textarea", spOnly: true, placeholder: "You are Jane, founder of Acme Corp. Write a warm, personal welcome..." },
       { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
       { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
     ]},
@@ -484,14 +485,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     ]},
     { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
       { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
-      { key: "phone_country", label: "Country", type: "select", options: ["🇬🇧 UK (+44)", "🇺🇸 US (+1)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7700 900000" },
-      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna (US Female)", "Polly.Joanna-Neural (US Female Natural)", "Polly.Salli (US Female)", "Polly.Amy (UK Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Emma (UK Female)", "Polly.Matthew (US Male)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Joey (US Male)", "Polly.Brian (UK Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
-      { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. " },
+      { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Salli (US Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Amy (UK Female)", "Polly.Emma (UK Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Joey (US Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Brian (UK Male)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
+      { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]." },
       { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
-      { key: "timezone", label: "Timezone", type: "select", options: ["Europe/London", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"] },
-      { key: "business_hours_start", label: "Open (e.g. 9.5 = 9:30)", placeholder: "9.5" },
-      { key: "business_hours_end", label: "Close (e.g. 17.5 = 5:30)", placeholder: "17.5" },
+      { key: "timezone", label: "Timezone", type: "select", options: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"] },
+      { key: "business_hours_start", label: "Open (e.g. 9.5 = 9:30)", placeholder: "9" },
+      { key: "business_hours_end", label: "Close (e.g. 17.5 = 5:30)", placeholder: "17" },
       { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
     ]},
     { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
@@ -886,8 +887,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                                     <div style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, textAlign: "center", padding: "8px 0", color: "#FFD600", fontWeight: 800, fontSize: 16 }}>{d.digit}</div>
                                     <input value={d.name} onChange={e => updateDept(i, "name", e.target.value)} placeholder="Department name" style={{ ...inputStyle, fontSize: 12 }} />
                                     <div style={{ display: "flex", gap: 4 }}>
-                                      <select value={d.country || "+44"} onChange={e => updateDept(i, "country", e.target.value)} style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}>
-                                        <option value="+44">🇬🇧 +44</option><option value="+1">🇺🇸 +1</option><option value="+61">🇦🇺 +61</option><option value="+49">🇩🇪 +49</option><option value="+33">🇫🇷 +33</option><option value="+34">🇪🇸 +34</option><option value="+353">🇮🇪 +353</option>
+                                      <select value={d.country || "+1"} onChange={e => updateDept(i, "country", e.target.value)} style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}>
+                                        <option value="+1">🇺🇸 +1</option><option value="+44">🇬🇧 +44</option><option value="+61">🇦🇺 +61</option><option value="+49">🇩🇪 +49</option><option value="+33">🇫🇷 +33</option><option value="+34">🇪🇸 +34</option><option value="+353">🇮🇪 +353</option>
                                       </select>
                                       <input value={d.number} onChange={e => updateDept(i, "number", e.target.value)} placeholder="7700 900000" style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace", flex: 1 }} />
                                     </div>
