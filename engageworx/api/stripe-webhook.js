@@ -1,12 +1,5 @@
-// Updated buildWelcomeEmail function for stripe-webhook.js
-// Changes:
 var { createClient } = require('@supabase/supabase-js');
 var { getNotifyEmails } = require('./_notify');
-
-var supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
