@@ -325,22 +325,20 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
         });
       }
       // SP admin notification
+      var notifyPayload = {
+        subject: '🎉 New Tenant Created: ' + newTenant.companyName + ' (' + newTenant.plan + ')',
+        text: 'New tenant manually created\n\nCompany: ' + newTenant.companyName + '\nEmail: ' + newTenant.email + '\nPlan: ' + newTenant.plan + '\nType: ' + newTenant.type,
+      };
+      console.log('[CreateTenant] Firing notify-admin with:', notifyPayload);
       try {
         var spNotifyRes = await fetch('/api/notify-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-    type: 'checkout.session.completed',
-    manual: true,
-    data: { object: {
-      customer_email: newTenant.email,
-      customer_details: { email: newTenant.email, name: newTenant.companyName },
-      metadata: { plan: newTenant.plan, tenantName: newTenant.companyName },
-      payment_status: 'paid',
-      status: 'complete'
-    }}
-  })
-      } catch(e) { /* non-fatal */ }
+          body: JSON.stringify(notifyPayload),
+        });
+        var spNotifyData = await spNotifyRes.json();
+        console.log('[CreateTenant] notify-admin response:', spNotifyData);
+      } catch(e) { console.error('[CreateTenant] notify-admin failed:', e.message); }
 
       // AI welcome email to customer
       try {
