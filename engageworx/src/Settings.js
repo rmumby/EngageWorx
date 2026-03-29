@@ -16,6 +16,56 @@ const NOTIFICATION_PREFS = [
   { id: "np_10", label: "Security alert", email: true, push: true, sms: true },
 ];
 
+const CHANNEL_DEFS = [
+  { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
+    { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", aiAssist: true, aiContext: "SMS phone number field for a business — just confirm the number looks correct" },
+    { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name", aiAssist: true, aiContext: "Business name used as SMS sender ID — suggest a clean, professional version" },
+    { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message. Msg & data rates may apply. Reply STOP to unsubscribe. will be appended automatically — do not include it." },
+    { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
+    { key: "_byoc_toggle", label: "Enable BYOC (Bring Your Own Carrier)", type: "select", options: ["Disabled", "Enabled"], spOnly: true },
+    { key: "account_sid", label: "Carrier Account SID", type: "password", spOnly: true, showWhen: "byoc" },
+    { key: "auth_token", label: "Carrier Auth Token", type: "password", spOnly: true, showWhen: "byoc" },
+    { key: "messaging_service_sid", label: "Messaging Service SID", type: "text", spOnly: true, showWhen: "byoc" },
+  ]},
+  { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
+    { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
+    { key: "from_name", label: "From Name", placeholder: "Your Business Name" },
+    { key: "_ai_note", label: "AI Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including email." },
+    { key: "welcome_email_enabled", label: "Send Welcome Email to New Signups", type: "select", options: ["Enabled", "Disabled"] },
+    { key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
+    { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
+    { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
+    { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. warm and professional, like a startup founder" },
+    { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
+    { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
+  ]},
+  { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
+    { key: "business_account_id", label: "Business Account ID" },
+    { key: "phone_number_id", label: "Phone Number ID" },
+    { key: "access_token", label: "Access Token", type: "password" },
+  ]},
+  { id: "rcs", label: "RCS Business Messaging", icon: "✨", color: "#7C4DFF", fields: [
+    { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
+    { key: "service_account", label: "Service Account Email" },
+  ]},
+  { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
+    { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
+    { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+    { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Salli (US Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Amy (UK Female)", "Polly.Emma (UK Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Joey (US Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Brian (UK Male)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
+    { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. Our AI assistant will help you now.", aiAssist: true, aiContext: "Professional during-hours phone greeting. Reference the business name naturally." },
+    { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "You've reached [Business]. We're currently closed. Please leave a message.", aiAssist: true, aiContext: "Professional after-hours phone greeting. Reference the business name naturally." },
+    { key: "timezone", label: "Timezone", type: "select", options: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"] },
+    { key: "business_hours_start", label: "Open", placeholder: "9", hint: "24-hour format · 9 = 9:00 AM · 13 = 1:00 PM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
+    { key: "business_hours_end", label: "Close", placeholder: "17", hint: "24-hour format · 9 = 9:00 AM · 13 = 1:00 PM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
+    { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
+  ]},
+  { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
+    { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
+  ]},
+];
+
 function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const [members, setMembers] = useState([]);
@@ -146,7 +196,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
           <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Viewing Team For</label>
           <select value={selectedTenantId} onChange={function(e) { setSelectedTenantId(e.target.value); }} style={{ ...inputSt, maxWidth: 320 }}>
             <option value={EW_SP_TENANT_ID}>EngageWorx (SP Admin)</option>
-            {allTenants.filter(function(t) { return t.id !== EW_SP_TENANT_ID; }).map(function(t) {
+            {allTenants.filter(function(t) { return t.id !== EW_SP_TENANT_ID; }).sort(function(a,b) { return a.name.localeCompare(b.name); }).map(function(t) {
               return <option key={t.id} value={t.id}>{t.name}{t.tenant_type === 'csp' ? ' (CSP)' : t.tenant_type === 'agent' ? ' (Agent)' : ''}</option>;
             })}
           </select>
@@ -238,7 +288,6 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
                     )}
                   </div>
                 </div>
-
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -259,7 +308,6 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
                     })}
                   </div>
                 </div>
-
                 <div>
                   <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>💬 Other Channels <span style={{ background: '#FFD60022', color: '#FFD600', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginLeft: 6 }}>COMING SOON</span></div>
                   <div style={{ display: 'flex', gap: 8 }}>
@@ -451,55 +499,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelSaving, setChannelSaving] = useState(null);
 
-  const CHANNEL_DEFS = [
-    { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-      { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
-      { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
-      { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You have opted in to receive SMS from [Business]. Reply STOP to unsubscribe." },
-      { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
-      { key: "account_sid", label: "Carrier Account SID (SP only)", type: "password", spOnly: true },
-      { key: "auth_token", label: "Carrier Auth Token (SP only)", type: "password", spOnly: true },
-      { key: "messaging_service_sid", label: "Messaging Service SID (SP only)", type: "text", spOnly: true },
-    ]},
-    { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
-      { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com" },
-      { key: "from_name", label: "From Name", placeholder: "Your Business Name" },
-      { key: "_ai_note", label: "AI Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including email." },
-      { key: "welcome_email_enabled", label: "Send Welcome Email to New Signups", type: "select", options: ["Enabled", "Disabled"] },
-      { key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
-      { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
-      { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
-      { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone (SP only)", type: "textarea", spOnly: true, placeholder: "You are Jane, founder of Acme Corp. Write a warm, personal welcome..." },
-      { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
-      { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
-    ]},
-    { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
-      { key: "business_account_id", label: "Business Account ID" },
-      { key: "phone_number_id", label: "Phone Number ID" },
-      { key: "access_token", label: "Access Token", type: "password" },
-    ]},
-    { id: "rcs", label: "RCS Business Messaging", icon: "✨", color: "#7C4DFF", fields: [
-      { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
-      { key: "service_account", label: "Service Account Email" },
-    ]},
-    { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
-      { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
-      { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-      { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
-      { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Salli (US Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Amy (UK Female)", "Polly.Emma (UK Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Joey (US Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Brian (UK Male)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
-      { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]." },
-      { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "Our office is currently closed. Please leave a message..." },
-      { key: "timezone", label: "Timezone", type: "select", options: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"] },
-      { key: "business_hours_start", label: "Open (e.g. 9.5 = 9:30)", placeholder: "9" },
-      { key: "business_hours_end", label: "Close (e.g. 17.5 = 5:30)", placeholder: "17" },
-      { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
-    ]},
-    { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
-      { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
-    ]},
-  ];
-
   const loadChannelConfigs = async () => {
     setChannelsLoading(true);
     try {
@@ -515,42 +514,71 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab]);
 
   const saveChannelConfig = async (channelId, config, enabled) => {
-  setChannelSaving(channelId);
-  const tenantRow = await supabase.from("tenants").select("id").limit(1);
-  const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
-  if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
-  const existing = channelConfigs[channelId];
-
-  // Key fix: when toggling enabled state, preserve existing config data
-  const existingConfig = existing?.config_encrypted || {};
-  const newConfig = config !== undefined ? config : existingConfig;
-  const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
-
-  const payload = {
-    tenant_id: tenantId,
-    channel: channelId,
-    enabled: newEnabled,
-    config_encrypted: newConfig,
-    status: newEnabled ? "connected" : "disconnected",
-    updated_at: new Date().toISOString()
+    setChannelSaving(channelId);
+    const tenantRow = await supabase.from("tenants").select("id").limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
+    const existing = channelConfigs[channelId];
+    // Preserve existing config when just toggling enabled state
+    const existingConfig = existing?.config_encrypted || {};
+    const newConfig = config !== undefined ? config : existingConfig;
+    const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
+    const payload = {
+      tenant_id: tenantId,
+      channel: channelId,
+      enabled: newEnabled,
+      config_encrypted: newConfig,
+      status: newEnabled ? "connected" : "disconnected",
+      updated_at: new Date().toISOString()
+    };
+    let error;
+    if (existing) {
+      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id));
+    } else {
+      ({ error } = await supabase.from("channel_configs").insert(payload));
+    }
+    if (error) alert("Error saving: " + error.message);
+    else loadChannelConfigs();
+    setChannelSaving(null);
   };
-
-  let error;
-  if (existing) {
-    ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id));
-  } else {
-    ({ error } = await supabase.from("channel_configs").insert(payload));
-  }
-  if (error) alert("Error saving: " + error.message);
-  else loadChannelConfigs();
-  setChannelSaving(null);
-};
 
   const updateChannelField = (channelId, key, value) => {
     setChannelConfigs(prev => {
       const existing = prev[channelId] || { config_encrypted: {} };
       return { ...prev, [channelId]: { ...existing, config_encrypted: { ...existing.config_encrypted, [key]: value } } };
     });
+  };
+
+  const aiAssistField = async (channelId, fieldKey, currentValue, aiContext, businessName) => {
+    try {
+      const res = await fetch("/api/ai-advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          max_tokens: 150,
+          messages: [{ role: "user", content: `Improve this for ${businessName || "our business"}: "${currentValue}". Context: ${aiContext}. Return only the improved text, no explanation.` }]
+        })
+      });
+      const data = await res.json();
+      const improved = (data.content || []).find(b => b.type === "text")?.text || "";
+      if (improved) updateChannelField(channelId, fieldKey, improved.trim());
+    } catch (e) { alert("AI assist failed. Try again."); }
+  };
+
+  const aiTonePreview = async (tone, businessName, setPreview) => {
+    try {
+      const res = await fetch("/api/ai-advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          max_tokens: 200,
+          messages: [{ role: "user", content: `Write a sample welcome email opening in this tone: "${tone || "warm and professional"}". Company: ${businessName || "our business"}. 2-3 sentences, no sign-off, no subject line.` }]
+        })
+      });
+      const data = await res.json();
+      const preview = (data.content || []).find(b => b.type === "text")?.text || "";
+      setPreview(preview);
+    } catch (e) { alert("AI preview failed. Try again."); }
   };
 
   const [liveWebhooks, setLiveWebhooks] = useState([]);
@@ -621,6 +649,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const btnSec = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnAI = { background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "5px 12px", color: "#a5b4fc", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 6 };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
@@ -634,6 +663,69 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
       <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: enabled ? 18 : 2, transition: "all 0.2s" }} />
     </div>
   );
+
+  // ── Channel field renderer ────────────────────────────────────────────────
+  const renderChannelField = (ch, f, configData) => {
+    const businessName = configData["business_name"] || configData["from_name"] || "";
+
+    if (f.type === "note") {
+      return (
+        <div style={{ background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 12, color: "#6B8BAE", lineHeight: 1.6 }}>
+          <div>ℹ️ {f.text}</div>
+          <div style={{ marginTop: 6, color: "#00C9FF", fontWeight: 600, fontSize: 11 }}>→ Click "AI Chatbot" in the sidebar to configure</div>
+        </div>
+      );
+    }
+
+    if (f.type === "ai_tone") {
+      const [preview, setPreview] = React.useState("");
+      return (
+        <div>
+          <input value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || "e.g. warm and professional, like a startup founder"} style={inputStyle} />
+          <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button onClick={() => aiTonePreview(configData[f.key], businessName, setPreview)} style={btnAI}>✨ Preview Tone</button>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Describe your style — AI will write in that voice</span>
+          </div>
+          {preview && (
+            <div style={{ marginTop: 10, background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, fontStyle: "italic" }}>
+              <div style={{ color: "#00C9FF", fontSize: 10, fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>AI Preview</div>
+              {preview}
+              <button onClick={() => setPreview("")} style={{ display: "block", background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 10, cursor: "pointer", marginTop: 8, padding: 0 }}>Dismiss</button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (f.type === "select") {
+      return (
+        <select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>
+          {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
+
+    if (f.type === "textarea") {
+      return (
+        <div>
+          <textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={4} style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} />
+          {f.aiAssist && (
+            <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <input type={f.type || "text"} value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} style={inputStyle} />
+        {f.hint && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{f.hint}</div>}
+        {f.aiAssist && (
+          <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
@@ -846,55 +938,140 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading channels...</div>
           ) : (
             <div style={{ display: "grid", gap: 16 }}>
-              const CHANNEL_DEFS = [
-  { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-    { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", aiAssist: true, aiContext: "SMS phone number for business messaging" },
-    { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name", aiAssist: true, aiContext: "Business name used as SMS sender ID" },
-    { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message. Note: Msg & data rates may apply. Reply STOP to unsubscribe. will be appended automatically." },
-    { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
-    { key: "_byoc_toggle", label: "Enable BYOC (Bring Your Own Carrier)", type: "select", options: ["Disabled", "Enabled"], spOnly: true },
-    { key: "account_sid", label: "Carrier Account SID", type: "password", spOnly: true, showWhen: "byoc" },
-    { key: "auth_token", label: "Carrier Auth Token", type: "password", spOnly: true, showWhen: "byoc" },
-    { key: "messaging_service_sid", label: "Messaging Service SID", type: "text", spOnly: true, showWhen: "byoc" },
-  ]},
-  { id: "email", label: "Email", icon: "📧", color: "#FF6B35", fields: [
-    { key: "from_email", label: "From Email Address", placeholder: "hello@yourbusiness.com", aiAssist: false },
-    { key: "from_name", label: "From Name", placeholder: "Your Business Name", aiAssist: false },
-    { key: "_ai_note", label: "AI Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including email." },
-    { key: "welcome_email_enabled", label: "Send Welcome Email to New Signups", type: "select", options: ["Enabled", "Disabled"] },
-    { key: "welcome_email_from", label: "Welcome Email From Address", placeholder: "hello@yourcompany.com" },
-    { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
-    { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
-    { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", spOnly: false, placeholder: "e.g. warm and professional, like a startup founder" },
-    { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
-    { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
-  ]},
-  { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
-    { key: "business_account_id", label: "Business Account ID" },
-    { key: "phone_number_id", label: "Phone Number ID" },
-    { key: "access_token", label: "Access Token", type: "password" },
-  ]},
-  { id: "rcs", label: "RCS Business Messaging", icon: "✨", color: "#7C4DFF", fields: [
-    { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
-    { key: "service_account", label: "Service Account Email" },
-  ]},
-  { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
-    { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu). Changes there apply to all channels including voice." },
-    { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
-    { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Salli (US Female)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Amy (UK Female)", "Polly.Emma (UK Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Joey (US Male)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Brian (UK Male)", "Polly.Olivia-Neural (AU Female)", "Polly.Kajal-Neural (Indian English Female)"] },
-    { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. Our AI assistant will help you now.", aiAssist: true, aiContext: "Professional during-hours phone greeting for a business" },
-    { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "You've reached [Business]. We're currently closed. Please leave a message or visit our website.", aiAssist: true, aiContext: "Professional after-hours phone greeting for a business" },
-    { key: "timezone", label: "Timezone", type: "select", options: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"] },
-    { key: "business_hours_start", label: "Open", placeholder: "9", hint: "24-hour format · 9 = 9:00 AM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
-    { key: "business_hours_end", label: "Close", placeholder: "17", hint: "24-hour format · 9 = 9:00 AM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
-    { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
-  ]},
-  { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
-    { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
-  ]},
-];
+              {CHANNEL_DEFS.map(ch => {
+                const config = channelConfigs[ch.id] || {};
+                const configData = config.config_encrypted || {};
+                const isEnabled = config.enabled || false;
+                const status = config.status || "disconnected";
+                const isSaving = channelSaving === ch.id;
+                return (
+                  <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.15)"}`, opacity: isEnabled ? 1 : 0.7 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 24 }}>{ch.icon}</span>
+                        <div>
+                          <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{ch.label}</div>
+                          <div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div>
+                        </div>
+                      </div>
+                      <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.15)", transition: "background 0.2s" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: isEnabled ? 23 : 3, transition: "left 0.2s" }} />
+                      </button>
+                    </div>
+                    {isEnabled && (
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                          {ch.fields.filter(f => {
+                            if (f.spOnly && viewLevel !== "sp") return false;
+                            if (f.showWhen === "byoc" && configData["_byoc_toggle"] !== "Enabled") return false;
+                            return true;
+                          }).map(f => (
+                            <div key={f.key}>
+                              <label style={label}>{f.label}</label>
+                              {renderChannelField(ch, f, configData)}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* IVR Department Routing */}
+                        {ch.id === "voice" && (() => {
+                          const depts = configData.departments || [{ digit: "1", name: "", number: "" }, { digit: "2", name: "", number: "" }, { digit: "3", name: "", number: "" }];
+                          const updateDept = (idx, field, value) => { const updated = [...depts]; updated[idx] = { ...updated[idx], [field]: value }; updateChannelField(ch.id, "departments", updated); };
+                          const addDept = () => { if (depts.length >= 9) return; updateChannelField(ch.id, "departments", [...depts, { digit: String(depts.length + 1), name: "", number: "" }]); };
+                          const removeDept = (idx) => { updateChannelField(ch.id, "departments", depts.filter((_, i) => i !== idx)); };
+                          return (
+                            <div style={{ marginTop: 18, padding: 16, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                                <div><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 14 }}>📋 IVR Department Routing</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Configure "Press 1 for Sales, Press 2 for Support..." menu</div></div>
+                                <button onClick={addDept} disabled={depts.length >= 9} style={{ ...btnSec, padding: "6px 12px", fontSize: 11, opacity: depts.length >= 9 ? 0.4 : 1 }}>+ Add</button>
+                              </div>
+                              <div style={{ display: "grid", gap: 8 }}>
+                                {depts.map((d, i) => (
+                                  <div key={i} style={{ display: "grid", gridTemplateColumns: "50px 1fr 1fr 32px", gap: 8, alignItems: "center" }}>
+                                    <div style={{ background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)", borderRadius: 8, textAlign: "center", padding: "8px 0", color: "#FFD600", fontWeight: 800, fontSize: 16 }}>{d.digit}</div>
+                                    <input value={d.name} onChange={e => updateDept(i, "name", e.target.value)} placeholder="Department name" style={{ ...inputStyle, fontSize: 12 }} />
+                                    <div style={{ display: "flex", gap: 4 }}>
+                                      <select value={d.country || "+1"} onChange={e => updateDept(i, "country", e.target.value)} style={{ ...inputStyle, fontSize: 11, width: 72, padding: "6px 4px", flexShrink: 0 }}>
+                                        <option value="+1">🇺🇸 +1</option>
+                                        <option value="+44">🇬🇧 +44</option>
+                                        <option value="+61">🇦🇺 +61</option>
+                                        <option value="+49">🇩🇪 +49</option>
+                                        <option value="+33">🇫🇷 +33</option>
+                                        <option value="+34">🇪🇸 +34</option>
+                                        <option value="+353">🇮🇪 +353</option>
+                                      </select>
+                                      <input value={d.number} onChange={e => updateDept(i, "number", e.target.value)} placeholder="7700 900000" style={{ ...inputStyle, fontSize: 12, fontFamily: "monospace", flex: 1 }} />
+                                    </div>
+                                    <button onClick={() => removeDept(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+                                  </div>
+                                ))}
+                              </div>
+                              {depts.length === 0 && <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "12px 0" }}>No departments configured. Calls will go directly to voicemail.</div>}
+                            </div>
+                          );
+                        })()}
+
+                        {/* Working Days */}
+                        {ch.id === "voice" && (() => {
+                          const workDays = configData.work_days || [1, 2, 3, 4, 5];
+                          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                          return (
+                            <div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                {dayNames.map((d, i) => (
+                                  <button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Hours Overrides */}
+                        {ch.id === "voice" && (() => {
+                          const overrides = configData.hours_overrides || [];
+                          const addOverride = () => { const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0]; updateChannelField(ch.id, "hours_overrides", [...overrides, { date: tomorrow, closed: false, open: "10", close: "22" }]); };
+                          const updateOverride = (idx, field, value) => { const updated = [...overrides]; updated[idx] = { ...updated[idx], [field]: value }; updateChannelField(ch.id, "hours_overrides", updated); };
+                          const removeOverride = (idx) => updateChannelField(ch.id, "hours_overrides", overrides.filter((_, i) => i !== idx));
+                          return (
+                            <div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                <div><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13 }}>🗓️ Hours Overrides</div><div style={{ color: C.muted, fontSize: 11 }}>Set custom hours for weddings, events, holidays, etc.</div></div>
+                                <button onClick={addOverride} style={{ ...btnSec, padding: "5px 10px", fontSize: 11 }}>+ Add Date</button>
+                              </div>
+                              {overrides.length === 0 ? (
+                                <div style={{ color: C.muted, fontSize: 12, textAlign: "center", padding: "8px 0" }}>No overrides set. Default hours will apply every working day.</div>
+                              ) : (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  {overrides.map((o, i) => (
+                                    <div key={i} style={{ display: "grid", gridTemplateColumns: "140px auto 70px 70px 32px", gap: 8, alignItems: "center" }}>
+                                      <input type="date" value={o.date} onChange={e => updateOverride(i, "date", e.target.value)} style={{ ...inputStyle, fontSize: 12, padding: "6px 8px" }} />
+                                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: o.closed ? "#FF3B30" : C.muted, fontSize: 12 }}><input type="checkbox" checked={o.closed || false} onChange={e => updateOverride(i, "closed", e.target.checked)} />Closed all day</label>
+                                      {!o.closed && <><input value={o.open || "10"} onChange={e => updateOverride(i, "open", e.target.value)} placeholder="Open" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} /><input value={o.close || "17"} onChange={e => updateOverride(i, "close", e.target.value)} placeholder="Close" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", textAlign: "center" }} /></>}
+                                      {o.closed && <><span /><span /></>}
+                                      <button onClick={() => removeOverride(i)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                          <button onClick={() => saveChannelConfig(ch.id, channelConfigs[ch.id]?.config_encrypted || configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
+                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { saveChannelConfig(ch.id, configData, isEnabled).then(() => { supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                        </div>
+                      </>
+                    )}
+                    {!isEnabled && <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>Enable this channel to configure your {ch.label} integration.</div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ═══════════ BILLING TAB ═══════════ */}
       {activeTab === "billing" && (
