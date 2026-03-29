@@ -324,6 +324,23 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
           notify_on_payment: true, notify_on_new_lead: false,
         });
       }
+      // Trigger welcome email + SP notification manually
+      try {
+        await fetch('/api/stripe-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'checkout.session.completed',
+            data: { object: {
+              customer_email: newTenant.email,
+              customer_details: { email: newTenant.email, name: newTenant.companyName },
+              metadata: { plan: newTenant.plan, tenantName: newTenant.companyName },
+              payment_status: 'paid',
+              status: 'complete'
+            }}
+          })
+        });
+      } catch(e) { /* non-fatal */ }
       setShowNew(false);
       setNewTenant({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
       window.location.reload();
