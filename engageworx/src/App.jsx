@@ -330,10 +330,16 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            subject: '🎉 New Tenant Created: ' + newTenant.companyName + ' (' + newTenant.plan + ')',
-            text: 'New tenant manually created\n\nCompany: ' + newTenant.companyName + '\nEmail: ' + newTenant.email + '\nPlan: ' + newTenant.plan + '\nType: ' + newTenant.type,
-          })
-        });
+    type: 'checkout.session.completed',
+    manual: true,
+    data: { object: {
+      customer_email: newTenant.email,
+      customer_details: { email: newTenant.email, name: newTenant.companyName },
+      metadata: { plan: newTenant.plan, tenantName: newTenant.companyName },
+      payment_status: 'paid',
+      status: 'complete'
+    }}
+  })
       } catch(e) { /* non-fatal */ }
 
       // AI welcome email to customer
