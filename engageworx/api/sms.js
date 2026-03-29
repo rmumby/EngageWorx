@@ -489,8 +489,12 @@ module.exports = async function handler(req, res) {
           .eq('id', contactId);
       }
 
-      // 8. Send inbound notification email (non-blocking)
-      notifyInbound(supabase, tenantId, From, Body);
+     // 8. Send inbound notification email (non-blocking)
+notifyInbound(supabase, tenantId, From, Body).then(function() {
+  console.log('[Notify] notifyInbound completed');
+}).catch(function(err) {
+  console.error('[Notify] notifyInbound top-level error:', err.message);
+});
 
       // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
       if (messageType === 'inbound' && process.env.ANTHROPIC_API_KEY) {
