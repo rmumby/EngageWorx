@@ -292,6 +292,47 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [confirmSuspend, setConfirmSuspend] = useState(null);
   const [liveTenants, setLiveTenants] = useState([]);
   const [tenantsLoading, setTenantsLoading] = useState(true);
+  const [newTenant, setNewTenant] = useState({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
+  const handleCreateTenant = async () => {
+    if (!newTenant.companyName || !newTenant.email) return alert("Company name and email are required");
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      var slug = newTenant.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+      var tenantRes = await supabase.from('tenants').insert({
+        name: newTenant.companyName,
+        slug: slug,
+        plan: newTenant.plan,
+        status: 'trial',
+        brand_primary: newTenant.color,
+        brand_name: newTenant.brandName || newTenant.companyName,
+        channels_enabled: ['sms', 'email'],
+        tenant_type: newTenant.type,
+        custom_domain: newTenant.domain || null,
+      }).select().single();
+      if (tenantRes.error) throw new Error(tenantRes.error.message);
+      var userRes = await supabase.from('user_profiles').select('id').eq('email', newTenant.email).single();
+      if (userRes.data) {
+        await supabase.from('user_profiles').update({ tenant_id: tenantRes.data.id, role: 'admin' }).eq('id', userRes.data.id);
+        await supabase.from('tenant_members').insert({
+          tenant_id: tenantRes.data.id, user_id: userRes.data.id, role: 'admin',
+          status: 'active', joined_at: new Date().toISOString(),
+          notify_on_escalation: true, notify_on_new_signup: false,
+          notify_on_payment: true, notify_on_new_lead: false,
+        });
+      }
+      setShowNew(false);
+      setNewTenant({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
+      loadTenants();
+    } catch (e) {
+      setCreateError(e.message);
+      alert("Error creating tenant: " + e.message);
+    }
+    setCreateLoading(false);
+  };
   {showNew && (
   <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
     <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Onboard New Tenant</h3>
