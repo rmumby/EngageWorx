@@ -326,7 +326,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       }
       setShowNew(false);
       setNewTenant({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
-      loadTenants();
+      window.location.reload();
     } catch (e) {
       setCreateError(e.message);
       alert("Error creating tenant: " + e.message);
