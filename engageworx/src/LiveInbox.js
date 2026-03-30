@@ -803,7 +803,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               )}
               <select style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
                 <option>Reassign...</option>
-                {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                {liveAgents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
               <button onClick={() => setShowContactInfo(!showContactInfo)} style={{ background: showContactInfo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showContactInfo ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", color: showContactInfo ? C.primary : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>ℹ️ Info</button>
             </div>
