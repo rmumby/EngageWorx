@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 
-import { useState, useEffect, useCallback } from "react";
-
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
   { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬" },
