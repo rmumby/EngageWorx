@@ -8,6 +8,19 @@ var supabase = createClient(
 
 var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
+// ── SP email config from portal ───────────────────────────────────────────
+async function getSPEmailConfig() {
+  try {
+    var supabaseLocal = createClient(process.env.REACT_APP_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    var res = await supabaseLocal.from('channel_configs').select('config_encrypted').eq('tenant_id', EW_SP_TENANT_ID).eq('channel', 'email').single();
+    var cc = (res.data && res.data.config_encrypted) || {};
+    return {
+      from: cc.from_email || cc.welcome_email_from || 'hello@engwx.com',
+      fromName: cc.from_name || cc.welcome_email_from_name || 'EngageWorx',
+    };
+  } catch(e) { return { from: 'hello@engwx.com', fromName: 'EngageWorx' }; }
+}
+
 // ── AI-personalised welcome email builder ─────────────────────────────────
 // Updated buildWelcomeEmail function for stripe-webhook.js
 // Changes:
@@ -127,7 +140,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     '<table style="width:100%;border-collapse:collapse;">' +
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Portal</td><td style="padding:10px 0;font-size:13px;"><a href="https://portal.engwx.com" style="color:' + c1 + ';text-decoration:none;font-weight:700;">portal.engwx.com</a></td></tr>' +
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Email</td><td style="padding:10px 0;font-size:13px;color:#1e293b;font-weight:600;">' + email + '</td></tr>' +
-    + (demoPassword ? '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Password</td><td style="padding:10px 0;font-size:13px;font-family:monospace;font-weight:700;color:#1e293b;">' + demoPassword + '</td></tr>' : '')
+    + (demoPassword && demoPassword !== 'NaN' && demoPassword !== 'null' ? '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Password</td><td style="padding:10px 0;font-size:13px;font-family:monospace;font-weight:700;color:#1e293b;">' + demoPassword + '</td></tr>' : '')
     + '<tr><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Plan</td><td style="padding:10px 0;"><span style="background:' + c1 + '18;color:' + c1 + ';border:1px solid ' + c1 + '44;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">' + planLabel + '</span></td></tr>' +
     '</table>' +
     '<div style="margin-top:20px;text-align:center;">' +
@@ -273,11 +286,12 @@ module.exports = async function handler(req, res) {
 
           // Notify SP admins
           try {
+            var spEmailCfg = await getSPEmailConfig();
             var spEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_new_signup');
             if (spEmails.length > 0) {
               await sgMail.send({
                 to: spEmails,
-                from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                from: { email: spEmailCfg.from, name: spEmailCfg.fromName },
                 subject: '🎉 New Signup: ' + companyName + ' (' + plan + ')',
                 text: 'New signup\n\nCompany: ' + companyName + '\nEmail: ' + email + '\nPlan: ' + plan + '\nTenant ID: ' + tenant.id,
               });
@@ -372,9 +386,10 @@ module.exports = async function handler(req, res) {
             '<div style="text-align:center;margin:0 0 32px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
             '<table cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:16px;vertical-align:top;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div></td><td style="vertical-align:top;"><div style="font-weight:bold;color:#222;font-size:14px;">Rob Mumby</div><div style="color:#555;font-size:13px;">Founder &amp; CEO, EngageWorx</div><div style="margin-top:4px;font-size:12px;"><a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> | <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a></div></td></tr></table></div>';
 
+          var spRecoverCfg = await getSPEmailConfig();
           await sgMailRecover.send({
             to: expiredEmail,
-            from: { email: 'hello@engwx.com', name: 'Rob at EngageWorx' },
+            from: { email: spRecoverCfg.from, name: spRecoverCfg.fromName },
             subject: 'Did you have any questions about EngageWorx?',
             text: 'Hi ' + firstName + ',\n\nLooks like you started signing up but didn\'t quite finish.\n\nReady to jump back in? portal.engwx.com\n\nBook a quick call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx',
             html: recoverHtml,
