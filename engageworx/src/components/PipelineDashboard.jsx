@@ -648,7 +648,7 @@ export default function PipelineDashboard() {
   };
 
   return (
-    <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:"var(--bg-primary)",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"var(--text-primary)" }}>
+    <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:isDark ? "#070d1a" : "#f1f5f9",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"var(--text-primary)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *{box-sizing:border-box}
