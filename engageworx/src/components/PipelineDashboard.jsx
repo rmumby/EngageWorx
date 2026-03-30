@@ -493,10 +493,9 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
-  export default ThemeContext;        // → import ThemeContext from '../ThemeContext'
-export { ThemeContext };            // → import { ThemeContext } from '../ThemeContext'  
-const { mode } = useTheme();
-const isDark = mode !== 'light';
+  const { mode } = useTheme() || { mode: 'dark' };
+  const isDark = mode !== 'light';
+  const T = {
     bg:         isDark ? '#070d1a'                    : '#f1f5f9',
     cardBg:     isDark ? 'rgba(255,255,255,0.04)'     : '#ffffff',
     cardBorder: isDark ? 'rgba(255,255,255,0.08)'     : '#e2e8f0',
