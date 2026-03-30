@@ -453,18 +453,11 @@ export default function PipelineDashboard() {
   var weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeekEnd);
   var staleLeads  = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
 
-  var SortBtn = function(props) {
-    return (
-      <button onClick={function() { if (sortBy === props.field) setSortDir(function(d) { return d === "asc" ? "desc" : "asc"; }); else { setSortBy(props.field); setSortDir("asc"); } }}
-        style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy===props.field?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy===props.field?"#a5b4fc":"#475569" }}>
-        {props.label} {sortBy===props.field?(sortDir==="asc"?"↑":"↓"):""}
-      </button>
-    );
-  };
+
 
   return (
     <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
-      <style dangerouslySetInnerHTML={{ __html: "@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:4px} input,select,textarea{font-family:inherit} input::placeholder{color:#334155}" }} />
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:4px} input,select,textarea{font-family:inherit} input::placeholder{color:#334155}`}</style>
 
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
@@ -497,11 +490,11 @@ export default function PipelineDashboard() {
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
             <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>📋 Actions</button>
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"😴 Show Dormant":"😴 Hide Dormant"}</button>
-            <SortBtn field="company" label="A–Z" />
-            <SortBtn field="urgency" label="Urgency" />
-            <SortBtn field="stage" label="Stage" />
-            <SortBtn field="next_action_date" label="Due Date" />
-            <SortBtn field="created_at" label="Date" />
+            <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A–Z {sortBy==="company"?(sortDir==="asc"?"↑":"↓"):""}</button>
+            <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency {sortBy==="urgency"?(sortDir==="asc"?"↑":"↓"):""}</button>
+            <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage {sortBy==="stage"?(sortDir==="asc"?"↑":"↓"):""}</button>
+            <button onClick={()=>{ if(sortBy==="next_action_date") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("next_action_date");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="next_action_date"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="next_action_date"?"#a5b4fc":"#475569" }}>Due Date {sortBy==="next_action_date"?(sortDir==="asc"?"↑":"↓"):""}</button>
+            <button onClick={()=>{ if(sortBy==="created_at") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("created_at");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="created_at"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="created_at"?"#a5b4fc":"#475569" }}>Date {sortBy==="created_at"?(sortDir==="asc"?"↑":"↓"):""}</button>
           </div>
         </div>
       </div>
