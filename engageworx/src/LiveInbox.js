@@ -18,6 +18,7 @@ const AGENTS = [
   { id: "a4", name: "Alex D.", avatar: "AD", status: "offline" },
   { id: "bot", name: "AI Bot", avatar: "🤖", status: "online" },
 ];
+const AGENTS = [{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }];
 
 const CANNED_RESPONSES = [
   { id: "cr1", label: "Greeting", text: "Hi there! Thanks for reaching out. How can I help you today?" },
@@ -270,7 +271,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             : supabase.from('conversations').select('*');
           var convResult = await convQuery;
           var convos = (convResult.data || []).sort(function(a, b) { return (b.last_message_at || b.created_at || '').localeCompare(a.last_message_at || a.created_at || ''); });
-          
+
           var cIds = convos.map(function(c) { return c.contact_id; }).filter(Boolean);
           var uniqueCIds = [...new Set(cIds)];
           var cMap = {};
@@ -278,7 +279,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
             if (cResult.data) cResult.data.forEach(function(c) { cMap[c.id] = c; });
           }
-          
+
           var mMap = {};
           if (convos.length > 0) {
             var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
@@ -294,10 +295,10 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               });
             });
           }
-          
+
           var assembled = convos.map(function(conv) {
             var c = cMap[conv.contact_id];
-            var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown' : 'Unknown';
+           var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown' : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : 'Unknown');
             var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
             var msgs = mMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
             return {
@@ -307,7 +308,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               isTyping: false, priority: conv.priority || 'normal', subject: conv.subject || '', tenant_id: conv.tenant_id, contact_id: conv.contact_id,
             };
           });
-          
+
           // Also fetch calls for polling
           try {
             var pollCallQuery = currentTenantId && viewLevel === 'tenant'
@@ -317,11 +318,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             var pollCalls = (pollCallResult.data || []).map(function(call) {
               var cMsgs = [];
               if (call.transcript) cMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-              if (call.recording_url) cMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+              if (call.recording_url) cMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
               if (cMsgs.length === 0) cMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ')', time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
               return {
                 id: 'call_' + call.id, contact: { name: call.from_number || 'Unknown', phone: call.from_number || '', email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
-                channel: 'voice', messages: cMsgs, status: call.status === 'completed' ? 'resolved' : 'active',
+                channel: 'voice', messages: cMsgs, status: 'active',
                 assignedTo: null, unread: 0, lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
                 isTyping: false, priority: 'normal', subject: 'Voice call from ' + (call.from_number || 'Unknown'),
                 tenant_id: call.tenant_id, contact_id: null,
@@ -330,9 +331,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             assembled = assembled.concat(pollCalls);
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
-          
+
           setConversations(assembled);
-          
+
           // Also refresh selected conversation messages
           if (selectedConv) {
             var selMsgs = mMap[selectedConv.id];
@@ -354,7 +355,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [liveLoading, setLiveLoading] = useState(!demoMode);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
-    
+
     async function fetchAll() {
       try {
         console.log('🟡 Starting fetch...');
@@ -397,7 +398,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         // 4. Assemble
         var result = convos.map(function(conv) {
           var c = contactMap[conv.contact_id];
-          var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown' : 'Unknown';
+          var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown' : 'Unknown';
           var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
           var convMsgs = msgMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
           return {
@@ -418,7 +419,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         });
 
         console.log('🟢 Assembled', result.length, 'conversations');
-        
+
         // 5. Fetch calls and add as voice conversations
         try {
           var callQuery = currentTenantId && viewLevel === 'tenant'
@@ -427,14 +428,14 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var callResult = await callQuery;
           var callData = callResult.data || [];
           console.log('📞 Found', callData.length, 'calls');
-          
+
           var callConvos = callData.map(function(call) {
             var callMsgs = [];
             if (call.transcript) {
               callMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
             }
             if (call.recording_url) {
-              callMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Recording: ' + call.recording_url, time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+              callMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
             }
             if (callMsgs.length === 0) {
               callMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
@@ -445,7 +446,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
               channel: 'voice',
               messages: callMsgs,
-              status: call.status === 'completed' ? 'resolved' : 'active',
+              status: 'active',
               assignedTo: null,
               unread: call.status === 'completed' ? 0 : 1,
               lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
@@ -456,13 +457,13 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               contact_id: null,
             };
           });
-          
+
           result = result.concat(callConvos);
           result.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
         } catch (callErr) {
           console.warn('Calls fetch error:', callErr.message);
         }
-        
+
         console.log('🟢 Total items (conversations + calls):', result.length);
         setConversations(result);
       } catch (err) {
@@ -470,7 +471,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       }
       setLiveLoading(false);
     }
-    
+
     fetchAll();
   }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
 
@@ -590,9 +591,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Errors shown inline in the conversation list
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
-      <div style={{ width: 340, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
+      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
