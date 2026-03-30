@@ -612,7 +612,47 @@ try {
   });
   const data = await resp.json();
   if (!data.success) throw new Error(data.error || 'Failed to create demo account');
-  setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: data.tenant?.id });
+  const demoTenantId = data.tenant?.id;
+
+// Auto-create pipeline lead
+try {
+  const { supabase } = await import('./supabaseClient');
+  const existingLead = await supabase.from('leads').select('id').eq('email', demoForm.email).limit(1);
+  if (!existingLead.data || existingLead.data.length === 0) {
+    await supabase.from('leads').insert({
+      name: demoForm.companyName,
+      company: demoForm.companyName,
+      email: demoForm.email,
+      type: 'Direct Business',
+      urgency: 'Warm',
+      stage: 'demo_shared',
+      source: 'Direct',
+      notes: 'Demo account created. Plan: ' + demoForm.plan + '. Tenant ID: ' + demoTenantId,
+      last_action_at: new Date().toISOString().split('T')[0],
+      last_activity_at: new Date().toISOString(),
+    });
+  }
+} catch(e) { console.log('Pipeline lead create failed:', e.message); }
+
+// Fire welcome email via stripe-webhook
+try {
+  await fetch('/api/stripe-webhook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'checkout.session.completed',
+      data: { object: {
+        customer_email: demoForm.email,
+        customer_details: { email: demoForm.email, name: demoForm.companyName },
+        metadata: { plan: demoForm.plan, tenantName: demoForm.companyName },
+        payment_status: 'paid',
+        status: 'complete'
+      }}
+    })
+  });
+} catch(e) { console.log('Welcome email failed:', e.message); }
+
+setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: demoTenantId });
 } catch (err) { alert("Error: " + err.message); }
 setDemoCreating(false);
                     }} disabled={demoCreating || !demoForm.email || !demoForm.companyName} style={{
