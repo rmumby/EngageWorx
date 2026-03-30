@@ -489,6 +489,7 @@ export default function PipelineDashboard() {
           ))}
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
             <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>📋 Actions</button>
+           <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>📋 Actions</button>
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"😴 Show Dormant":"😴 Hide Dormant"}</button>
             <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A–Z {sortBy==="company"?(sortDir==="asc"?"↑":"↓"):""}</button>
             <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency {sortBy==="urgency"?(sortDir==="asc"?"↑":"↓"):""}</button>
@@ -551,6 +552,42 @@ export default function PipelineDashboard() {
         </div>
       )}
 
+      {showActions && (
+  <div style={{ padding:"16px 28px",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16 }}>
+      <div style={{ background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:14 }}>
+        <div style={{ fontSize:11,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>⚡ Overdue / Due Today ({todayActions.length})</div>
+        {todayActions.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>All clear 🎉</div> : todayActions.slice(0,5).map(l => (
+          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div></div>
+            <div style={{ fontSize:10,color:l.next_action_date < today?"#ef4444":"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{l.next_action_date}</div>
+          </div>
+        ))}
+        {todayActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{todayActions.length-5} more</div>}
+      </div>
+      <div style={{ background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:14 }}>
+        <div style={{ fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>📅 This Week ({weekActions.length})</div>
+        {weekActions.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>Nothing scheduled</div> : weekActions.slice(0,5).map(l => (
+          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div></div>
+            <div style={{ fontSize:10,color:"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{new Date(l.next_action_date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
+          </div>
+        ))}
+        {weekActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{weekActions.length-5} more</div>}
+      </div>
+      <div style={{ background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.15)",borderRadius:10,padding:14 }}>
+        <div style={{ fontSize:11,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>🧊 Gone Quiet ({staleLeads.length})</div>
+        {staleLeads.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>All leads active</div> : staleLeads.slice(0,5).map(l => (
+          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{(STAGES.find(s=>s.id===l.stage)||{}).label||l.stage}</div></div>
+            <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{daysSince(l.last_action_at)}d</div>
+          </div>
+        ))}
+        {staleLeads.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{staleLeads.length-5} more</div>}
+      </div>
+    </div>
+  </div>
+)}
       {loading ? (
         <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting...</div>
       ) : (
