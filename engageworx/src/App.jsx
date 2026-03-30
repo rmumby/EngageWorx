@@ -596,36 +596,25 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
                     <button onClick={async () => {
                       if (!demoForm.email || !demoForm.companyName) return;
                       setDemoCreating(true);
-                      try {
-                        const { supabase } = await import('./supabaseClient');
-                        const slug = demoForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-demo";
-                        const { data: tenant, error: tErr } = await supabase.from("tenants").insert({
-                          name: demoForm.companyName, slug, brand_primary: demoForm.brandColor,
-                          brand_name: demoForm.companyName, plan: demoForm.plan, status: "trial",
-                          channels_enabled: ["sms", "email", "whatsapp", "rcs"],
-                        }).select().single();
-                        if (tErr) throw tErr;
-                        const { data: authData, error: aErr } = await supabase.auth.admin?.createUser?.({
-                          email: demoForm.email, password: demoForm.password,
-                          email_confirm: true,
-                          user_metadata: { full_name: "Demo User", company_name: demoForm.companyName },
-                        }) || await supabase.auth.signUp({
-                          email: demoForm.email, password: demoForm.password,
-                          options: { data: { full_name: "Demo User", company_name: demoForm.companyName } },
-                        });
-                        if (aErr) throw aErr;
-                        const userId = authData?.user?.id;
-                        if (userId) {
-                          await supabase.from("user_profiles").update({
-                            tenant_id: tenant.id, role: "admin", company_name: demoForm.companyName,
-                          }).eq("id", userId);
-                          await supabase.from("tenant_members").insert({
-                            tenant_id: tenant.id, user_id: userId, role: "admin", status: "active", joined_at: new Date().toISOString(),
-                          });
-                        }
-                        setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: tenant.id });
-                      } catch (err) { alert("Error: " + err.message); }
-                      setDemoCreating(false);
+try {
+  const slug = demoForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-demo-" + Date.now().toString(36).slice(-4);
+  const resp = await fetch('/api/csp?action=create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      csp_tenant_id: 'c1bc59a8-5235-4921-9755-02514b574387',
+      email: demoForm.email,
+      password: demoForm.password,
+      full_name: 'Demo User',
+      company_name: demoForm.companyName,
+      plan: demoForm.plan,
+    })
+  });
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.error || 'Failed to create demo account');
+  setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: data.tenant?.id });
+} catch (err) { alert("Error: " + err.message); }
+setDemoCreating(false);
                     }} disabled={demoCreating || !demoForm.email || !demoForm.companyName} style={{
                       background: `linear-gradient(135deg, ${C.accent}, ${C.primary})`, border: "none", borderRadius: 8, padding: "10px 22px",
                       color: "#000", fontWeight: 700, cursor: demoCreating ? "wait" : "pointer", fontSize: 13,
