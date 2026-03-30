@@ -493,6 +493,24 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
+  const [leads, setLeads]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [selected, setSelected]         = useState(null);
+  const [filterType, setFilterType]     = useState("All");
+  const [search, setSearch]             = useState("");
+  const [sortBy, setSortBy]             = useState("created_at");
+  const [sortDir, setSortDir]           = useState("desc");
+  const [lastSync, setLastSync]         = useState(null);
+  const [liveFlash, setLiveFlash]       = useState(false);
+  const [activeView, setActiveView]     = useState("pipeline");
+  const [sequences, setSequences]       = useState([]);
+  const [sequencesLoading, setSequencesLoading] = useState(false);
+  const [showCreateSequence, setShowCreateSequence] = useState(false);
+  const [newSequence, setNewSequence]   = useState({ name: "", type: "outreach", lead_type: "all", steps: [] });
+  const [processingSeq, setProcessingSeq]   = useState(false);
+  const [hideDormant, setHideDormant]       = useState(true);
+  const [activeActionView, setActiveActionView] = useState(false);
+
   const isDark = true; // Theme hardcoded dark — ThemeContext wiring deferred
   const T = {
     bg:         isDark ? '#070d1a'                    : '#f1f5f9',
@@ -517,23 +535,6 @@ export default function PipelineDashboard() {
     panelBg:    isDark ? 'rgba(0,0,0,0.2)'            : '#f8fafc',
     staleColor: '#ef4444',
   };
-  const [leads, setLeads]               = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [selected, setSelected]         = useState(null);
-  const [filterType, setFilterType]     = useState("All");
-  const [search, setSearch]             = useState("");
-  const [sortBy, setSortBy]             = useState("created_at");
-  const [sortDir, setSortDir]           = useState("desc");
-  const [lastSync, setLastSync]         = useState(null);
-  const [liveFlash, setLiveFlash]       = useState(false);
-  const [activeView, setActiveView]     = useState("pipeline");
-  const [sequences, setSequences]       = useState([]);
-  const [sequencesLoading, setSequencesLoading] = useState(false);
-  const [showCreateSequence, setShowCreateSequence] = useState(false);
-  const [newSequence, setNewSequence]   = useState({ name: "", type: "outreach", lead_type: "all", steps: [] });
-  const [processingSeq, setProcessingSeq]   = useState(false);
-  const [hideDormant, setHideDormant]       = useState(true);
-  const [activeActionView, setActiveActionView] = useState(false);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
