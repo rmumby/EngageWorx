@@ -11,25 +11,6 @@ const CHANNELS = {
   voice: { label: "Voice", icon: "📞", color: "#FFD600" },
 };
 
-const [agents, setAgents] = useState([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }]);
-useEffect(() => {
-  if (demoMode || !supabase) return;
-  supabase.from('tenant_members')
-    .select('user_id, user_profiles(full_name, email)')
-    .eq('status', 'active')
-    .then(({ data }) => {
-      if (data && data.length > 0) {
-        const members = data.map(m => ({
-          id: m.user_id,
-          name: m.user_profiles?.full_name || m.user_profiles?.email?.split('@')[0] || 'Team Member',
-          avatar: (m.user_profiles?.full_name || 'TM').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
-          status: 'online',
-        }));
-        setAgents([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }, ...members]);
-      }
-    });
-}, [demoMode, supabase]);
-
 const CANNED_RESPONSES = [
   { id: "cr1", label: "Greeting", text: "Hi there! Thanks for reaching out. How can I help you today?" },
   { id: "cr2", label: "Hold", text: "Let me look into that for you. One moment please!" },
@@ -363,7 +344,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
   // In live mode, fetch conversations using supabase prop
   const [liveLoading, setLiveLoading] = useState(!demoMode);
-  const [agents, setAgents] = useState([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }]);
 useEffect(() => {
   if (demoMode || !supabase) return;
   supabase.from('tenant_members')
@@ -377,7 +357,6 @@ useEffect(() => {
           avatar: (m.user_profiles?.full_name || 'TM').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
           status: 'online',
         }));
-        setAgents([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }, ...members]);
       }
     });
 }, [demoMode, supabase]);
