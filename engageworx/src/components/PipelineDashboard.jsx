@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useContext } from "react";
 import { supabase } from '../supabaseClient';
-import { ThemeContext } from '../ThemeContext';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
@@ -493,7 +492,7 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
-  const { theme } = useContext(ThemeContext) || { theme: 'dark' };
+  const { theme } = { theme: 'dark' }; // TODO: wire to ThemeContext
   const isDark = theme === 'dark';
   const T = {
     bg:         isDark ? '#070d1a'                    : '#f1f5f9',
