@@ -11,7 +11,24 @@ const CHANNELS = {
   voice: { label: "Voice", icon: "📞", color: "#FFD600" },
 };
 
-const AGENTS = [{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }];
+const [agents, setAgents] = useState([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }]);
+useEffect(() => {
+  if (demoMode || !supabase) return;
+  supabase.from('tenant_members')
+    .select('user_id, user_profiles(full_name, email)')
+    .eq('status', 'active')
+    .then(({ data }) => {
+      if (data && data.length > 0) {
+        const members = data.map(m => ({
+          id: m.user_id,
+          name: m.user_profiles?.full_name || m.user_profiles?.email?.split('@')[0] || 'Team Member',
+          avatar: (m.user_profiles?.full_name || 'TM').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
+          status: 'online',
+        }));
+        setAgents([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }, ...members]);
+      }
+    });
+}, [demoMode, supabase]);
 
 const CANNED_RESPONSES = [
   { id: "cr1", label: "Greeting", text: "Hi there! Thanks for reaching out. How can I help you today?" },
@@ -766,7 +783,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{inboxTab === "messages" ? `${filtered.length} conversations` : `${calls.length} calls`}</span>
           <div style={{ display: "flex", gap: 6 }}>
-            {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
+            {agents.filter(a => a.status === "online").slice(0, 3).map(a => (
               <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
             ))}
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
@@ -796,10 +813,16 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
                   <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{selectedConv.assignedTo.name}</span>
                 </div>
               )}
-              <select style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
-                <option>Reassign...</option>
-                {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              <select onChange={async e => {
+  if (!e.target.value || !selectedConv) return;
+  const assignedAgent = agents.find(a => a.id === e.target.value);
+  if (supabase) await supabase.from('conversations').update({ assigned_to: e.target.value }).eq('id', selectedConv.id);
+  setSelectedConv(prev => prev ? { ...prev, assignedTo: assignedAgent } : prev);
+  e.target.value = '';
+}} style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
+  <option value="">Reassign...</option>
+  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+</select>
               <button onClick={() => setShowContactInfo(!showContactInfo)} style={{ background: showContactInfo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showContactInfo ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", color: showContactInfo ? C.primary : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>ℹ️ Info</button>
             </div>
           </div>
