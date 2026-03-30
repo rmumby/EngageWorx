@@ -15,7 +15,7 @@ var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 // 2. Reads welcome_email_steps from tenants table (configurable 3 steps)
 // 3. Falls back to SP defaults if not set
 
-async function buildWelcomeEmail(tenantId, email, plan, companyName) {
+async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPassword) {
   var config = {
     from: 'hello@engwx.com',
     fromName: 'Rob at EngageWorx',
@@ -127,6 +127,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName) {
     '<table style="width:100%;border-collapse:collapse;">' +
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Portal</td><td style="padding:10px 0;font-size:13px;"><a href="https://portal.engwx.com" style="color:' + c1 + ';text-decoration:none;font-weight:700;">portal.engwx.com</a></td></tr>' +
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Email</td><td style="padding:10px 0;font-size:13px;color:#1e293b;font-weight:600;">' + email + '</td></tr>' +
+    + (demoPassword ? '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Password</td><td style="padding:10px 0;font-size:13px;font-family:monospace;font-weight:700;color:#1e293b;">' + demoPassword + '</td></tr>' : '')
     '<tr><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Plan</td><td style="padding:10px 0;"><span style="background:' + c1 + '18;color:' + c1 + ';border:1px solid ' + c1 + '44;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">' + planLabel + '</span></td></tr>' +
     '</table>' +
     '<div style="margin-top:20px;text-align:center;">' +
@@ -189,6 +190,7 @@ module.exports = async function handler(req, res) {
           (session.metadata && session.metadata.email);
         var plan = (session.metadata && session.metadata.plan) || 'starter';
         var companyName = (session.metadata && session.metadata.tenantName) ||
+          var demoPassword = (session.metadata && session.metadata.demo_password) || null;
           (session.metadata && session.metadata.company_name) ||
           (session.customer_details && session.customer_details.name) ||
           'My Business';
@@ -286,7 +288,7 @@ module.exports = async function handler(req, res) {
 
         // AI-personalised welcome email — always fires
         try {
-          var welcomeConfig = await buildWelcomeEmail(newTenantId, email, plan, companyName);
+          var welcomeConfig = await buildWelcomeEmail(newTenantId, email, plan, companyName, demoPassword);
           if (welcomeConfig) {
             await sgMail.send({
               to: email,
