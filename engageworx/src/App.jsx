@@ -1871,22 +1871,6 @@ var spNavBase = [
         <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "6px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
-        <ThemeToggle style={{ marginBottom: 8 }} />
-        <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12, textAlign: "center" }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
-
-        {!sidebarCollapsed && (
-          <div style={{ padding: "14px", marginBottom: 16, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: "#000" }}>EW</div>
-              <div>
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>EngageWorx Admin</div>
-                <div style={{ color: C.muted, fontSize: 11 }}>Service Provider</div>
-              </div>
-            </div>
-          </div>
-        )}
-       
-
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
