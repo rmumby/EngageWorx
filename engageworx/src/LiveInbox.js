@@ -351,6 +351,8 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
   // In live mode, fetch conversations using supabase prop
   const [liveLoading, setLiveLoading] = useState(!demoMode);
+  const [liveAgents, setLiveAgents] = useState(AGENTS);
+useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_members').select('user_id, user_profiles(full_name, email)').eq('status', 'active').then(({ data }) => { if (data && data.length > 0) { setLiveAgents([{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }, ...data.map(m => ({ id: m.user_id, name: m.user_profiles?.full_name || m.user_profiles?.email?.split('@')[0] || 'Team Member', avatar: (m.user_profiles?.full_name || 'TM').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2), status: 'online' }))]); } }); }, [demoMode, supabase]);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
 
