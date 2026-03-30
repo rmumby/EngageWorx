@@ -350,7 +350,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
             data: { object: {
               customer_email: newTenant.email,
               customer_details: { email: newTenant.email, name: newTenant.companyName },
-              metadata: { plan: newTenant.plan, tenantName: newTenant.companyName },
+              metadata: { plan: demoForm.plan, tenantName: demoForm.companyName, demo_password: demoForm.password },
               payment_status: 'paid',
               status: 'complete'
             }}
