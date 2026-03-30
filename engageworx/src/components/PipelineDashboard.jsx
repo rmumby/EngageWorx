@@ -378,13 +378,7 @@ function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
               <select style={{ ...inputStyle, marginTop: 0, flex: 1 }} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>{"Hot,Warm,Cold".split(",").map(u=><option key={u}>{u}</option>)}</select>
               <button onClick={async () => {
                 try {
-                  const res = await fetch("/api/ai-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ max_tokens: 50, messages: [{ role: "user", content: `Based on this lead, classify urgency as Hot, Warm, or Cold. Reply with ONLY one word.
-
-Company: ${form.company}
-Stage: ${form.stage}
-Days since last action: ${daysSince(form.last_action_at) ?? "unknown"}
-Notes: ${form.notes || "none"}
-Last action: ${form.last_action_at || "never"}` }] }) });
+                  const res = await fetch("/api/ai-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ max_tokens: 50, messages: [{ role: "user", content: "Based on this lead, classify urgency as Hot, Warm, or Cold. Reply with ONLY one word.\n\nCompany: " + form.company + "\nStage: " + form.stage + "\nDays since last action: " + (daysSince(form.last_action_at) ?? "unknown") + "\nNotes: " + (form.notes || "none") + "\nLast action: " + (form.last_action_at || "never") }] }) });
                   const data = await res.json();
                   const urgency = (data.content?.find(b => b.type === "text")?.text || "").trim().replace(/[^a-zA-Z]/g, "");
                   const valid = ["Hot","Warm","Cold"].find(u => u.toLowerCase() === urgency.toLowerCase());
