@@ -128,7 +128,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Portal</td><td style="padding:10px 0;font-size:13px;"><a href="https://portal.engwx.com" style="color:' + c1 + ';text-decoration:none;font-weight:700;">portal.engwx.com</a></td></tr>' +
     '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Email</td><td style="padding:10px 0;font-size:13px;color:#1e293b;font-weight:600;">' + email + '</td></tr>' +
     + (demoPassword ? '<tr style="border-top:1px solid #f1f5f9;"><td style="padding:10px 0;color:#94a3b8;font-size:13px;width:100px;">Password</td><td style="padding:10px 0;font-size:13px;font-family:monospace;font-weight:700;color:#1e293b;">' + demoPassword + '</td></tr>' : '')
-    '<tr><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Plan</td><td style="padding:10px 0;"><span style="background:' + c1 + '18;color:' + c1 + ';border:1px solid ' + c1 + '44;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">' + planLabel + '</span></td></tr>' +
+    + '<tr><td style="padding:10px 0;color:#94a3b8;font-size:13px;">Plan</td><td style="padding:10px 0;"><span style="background:' + c1 + '18;color:' + c1 + ';border:1px solid ' + c1 + '44;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">' + planLabel + '</span></td></tr>' +
     '</table>' +
     '<div style="margin-top:20px;text-align:center;">' +
     '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,' + c1 + ',' + c2 + ');color:#000;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Log In to Your Portal →</a>' +
@@ -190,10 +190,10 @@ module.exports = async function handler(req, res) {
           (session.metadata && session.metadata.email);
         var plan = (session.metadata && session.metadata.plan) || 'starter';
         var companyName = (session.metadata && session.metadata.tenantName) ||
-          var demoPassword = (session.metadata && session.metadata.demo_password) || null;
           (session.metadata && session.metadata.company_name) ||
           (session.customer_details && session.customer_details.name) ||
           'My Business';
+        var demoPassword = (session.metadata && session.metadata.demo_password) || null;
 
         console.log('[Stripe] Checkout completed:', email, 'plan:', plan, 'company:', companyName);
         if (!email) { console.warn('[Stripe] No email in session'); break; }
