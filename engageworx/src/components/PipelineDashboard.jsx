@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
-import { useTheme } from '../ThemeContext';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
@@ -249,8 +248,7 @@ function SequencesPanel({ lead, sequences, onEnrol, onCancel }) {
 }
 
 function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
-  const themeData = useTheme();
-  const isDarkModal = !(themeData && themeData.mode === 'light');
+  const isDarkModal = true; // Theme hardcoded dark — ThemeContext wiring deferred
   const { first: initFirst, last: initLast } = splitName(lead.name);
   const [firstName, setFirstName]     = useState(initFirst);
   const [lastName, setLastName]       = useState(initLast);
@@ -495,8 +493,7 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
-  const themeData = useTheme();
-  const isDark = !(themeData && themeData.mode === 'light');
+  const isDark = true; // Theme hardcoded dark — ThemeContext wiring deferred
   const T = {
     bg:         isDark ? '#070d1a'                    : '#f1f5f9',
     cardBg:     isDark ? 'rgba(255,255,255,0.04)'     : '#ffffff',
