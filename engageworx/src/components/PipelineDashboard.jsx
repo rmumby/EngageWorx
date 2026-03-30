@@ -249,6 +249,8 @@ function SequencesPanel({ lead, sequences, onEnrol, onCancel }) {
 }
 
 function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
+  const themeData = useTheme();
+  const isDarkModal = !(themeData && themeData.mode === 'light');
   const { first: initFirst, last: initLast } = splitName(lead.name);
   const [firstName, setFirstName]     = useState(initFirst);
   const [lastName, setLastName]       = useState(initLast);
@@ -344,7 +346,7 @@ function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
+      <div style={{ background: isDarkModal ? "#0f172a" : "#ffffff", border: `1px solid ${isDarkModal ? "rgba(255,255,255,0.1)" : "#e2e8f0"}`, borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
           <div>
             <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
@@ -493,8 +495,8 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
-  const { mode } = useTheme() || { mode: 'dark' };
-  const isDark = mode !== 'light';
+  const themeData = useTheme();
+  const isDark = !(themeData && themeData.mode === 'light');
   const T = {
     bg:         isDark ? '#070d1a'                    : '#f1f5f9',
     cardBg:     isDark ? 'rgba(255,255,255,0.04)'     : '#ffffff',
@@ -648,7 +650,7 @@ export default function PipelineDashboard() {
   };
 
   return (
-    <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:isDark ? "#070d1a" : "#f1f5f9",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"var(--text-primary)" }}>
+    <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:isDark?"#070d1a":"#f1f5f9",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:isDark?"#f1f5f9":"#1e293b" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *{box-sizing:border-box}
