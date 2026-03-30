@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { supabase } from '../supabaseClient';
+import { ThemeContext } from '../ThemeContext';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
@@ -41,7 +42,7 @@ function splitName(name) {
 }
 
 const labelStyle = { fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.06em", textTransform: "uppercase" };
-const inputStyle = { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#f1f5f9", fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+const inputStyle = { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#f1f5f9", fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" }; // base - overridden by T in dynamic contexts
 
 function LeadCard({ lead, onSelect }) {
   const stage = STAGES.find((s) => s.id === lead.stage) || STAGES[0];
@@ -51,9 +52,9 @@ function LeadCard({ lead, onSelect }) {
   const nextActionOverdue = lead.next_action_date && new Date(lead.next_action_date) < new Date();
   return (
     <div onClick={() => onSelect(lead)}
-      style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${stale ? "#ef4444" : "rgba(255,255,255,0.08)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}>
+      style={{ background: "var(--bg-card)", border: `1px solid ${stale ? "#ef4444" : "var(--border-color)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card-hover)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-card)")>
       <div style={{ position: "absolute", top: 6, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
         {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
         <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
@@ -65,8 +66,8 @@ function LeadCard({ lead, onSelect }) {
           ))}
         </div>
       </div>
-      <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.company || lead.name}</div>
-      <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.name || "—"}</div>
+      <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", marginBottom: "2px", paddingRight: stale ? "52px" : 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.company || lead.name}</div>
+      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.name || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥", Warm:"⚡", Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
@@ -343,7 +344,7 @@ function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
+      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
           <div>
             <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
@@ -492,6 +493,31 @@ Last action: ${form.last_action_at || "never"}` }] }) });
 }
 
 export default function PipelineDashboard() {
+  const { theme } = useContext(ThemeContext) || { theme: 'dark' };
+  const isDark = theme === 'dark';
+  const T = {
+    bg:         isDark ? '#070d1a'                    : '#f1f5f9',
+    cardBg:     isDark ? 'rgba(255,255,255,0.04)'     : '#ffffff',
+    cardBorder: isDark ? 'rgba(255,255,255,0.08)'     : '#e2e8f0',
+    cardHover:  isDark ? 'rgba(255,255,255,0.08)'     : '#f8fafc',
+    colBg:      isDark ? 'rgba(255,255,255,0.02)'     : '#f8fafc',
+    colBorder:  isDark ? 'rgba(255,255,255,0.04)'     : '#e2e8f0',
+    text:       isDark ? '#f1f5f9'                    : '#0f172a',
+    textMuted:  isDark ? '#94a3b8'                    : '#64748b',
+    textDim:    isDark ? '#475569'                    : '#94a3b8',
+    textFaint:  isDark ? '#334155'                    : '#cbd5e1',
+    headerBg:   isDark ? 'transparent'               : '#ffffff',
+    headerBorder: isDark ? 'rgba(255,255,255,0.05)'  : '#e2e8f0',
+    inputBg:    isDark ? 'rgba(255,255,255,0.05)'     : '#ffffff',
+    inputBorder:isDark ? 'rgba(255,255,255,0.1)'      : '#cbd5e1',
+    inputText:  isDark ? '#f1f5f9'                    : '#0f172a',
+    btnBg:      isDark ? 'rgba(255,255,255,0.03)'     : '#ffffff',
+    btnBorder:  isDark ? 'rgba(255,255,255,0.08)'     : '#e2e8f0',
+    pillBg:     isDark ? 'rgba(255,255,255,0.04)'     : '#f1f5f9',
+    modalBg:    isDark ? '#0f172a'                    : '#ffffff',
+    panelBg:    isDark ? 'rgba(0,0,0,0.2)'            : '#f8fafc',
+    staleColor: '#ef4444',
+  };
   const [leads, setLeads]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [selected, setSelected]         = useState(null);
@@ -506,9 +532,9 @@ export default function PipelineDashboard() {
   const [sequencesLoading, setSequencesLoading] = useState(false);
   const [showCreateSequence, setShowCreateSequence] = useState(false);
   const [newSequence, setNewSequence]   = useState({ name: "", type: "outreach", lead_type: "all", steps: [] });
-  const [processingSeq, setProcessingSeq] = useState(false);
+  const [processingSeq, setProcessingSeq]   = useState(false);
   const [hideDormant, setHideDormant]       = useState(true);
-const [activeActionView, setActiveActionView] = useState(false);
+  const [activeActionView, setActiveActionView] = useState(false);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -622,17 +648,21 @@ const [activeActionView, setActiveActionView] = useState(false);
   };
 
   return (
-    <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
+    <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:"var(--bg-primary)",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"var(--text-primary)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
         *{box-sizing:border-box}
         ::-webkit-scrollbar{width:4px;height:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:4px}
         input,select,textarea{font-family:inherit} input::placeholder{color:#334155}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+        /* ── Light mode overrides ── */
+        .pipeline-root { --bg-primary:#070d1a; --bg-card:rgba(255,255,255,0.04); --bg-card-hover:rgba(255,255,255,0.08); --bg-column:rgba(255,255,255,0.02); --border-color:rgba(255,255,255,0.08); --border-column:rgba(255,255,255,0.04); --text-primary:#f1f5f9; --text-muted:#94a3b8; --text-dim:#475569; --text-faint:#334155; }
+        .light .pipeline-root { --bg-primary:#f1f5f9; --bg-card:#ffffff; --bg-card-hover:#f8fafc; --bg-column:#f8fafc; --border-color:#e2e8f0; --border-column:#e2e8f0; --text-primary:#1e293b; --text-muted:#64748b; --text-dim:#94a3b8; --text-faint:#cbd5e1; }
       `}</style>
 
       {/* ── HEADER ── */}
-      <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ padding:"24px 28px 0",borderBottom:"1px solid var(--border-color)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
             <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
@@ -661,12 +691,12 @@ const [activeActionView, setActiveActionView] = useState(false);
               {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},{l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"}].map(k=>(
                 <div key={k.l}>
                   <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
-                  <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
+                  <div style={{ fontSize:"10px",color:"var(--text-dim)",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
                 </div>
               ))}
             </div>
             <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
-              <input placeholder="Search company or contact..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"200px",marginTop:0,padding:"7px 11px" }} />
+              <input placeholder="Search company or contact..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"200px",marginTop:0,padding:"7px 11px",background:T.inputBg,border:`1px solid ${T.inputBorder}`,color:T.text }} />
               {["All",...TYPE_OPTIONS].map(t=>(
                 <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
               ))}
@@ -686,7 +716,7 @@ const [activeActionView, setActiveActionView] = useState(false);
 
         {activeView === "sequences" && (
           <div style={{ paddingBottom: 16 }}>
-            <div style={{ fontSize: 13, color: "#64748b" }}>Automated multi-touch outreach · {sequences.length} sequence{sequences.length !== 1 ? "s" : ""} · Runs daily at 9am UTC</div>
+            <div style={{ fontSize: 13, color: T.textMuted }}>Automated multi-touch outreach · {sequences.length} sequence{sequences.length !== 1 ? "s" : ""} · Runs daily at 9am UTC</div>
           </div>
         )}
       </div>
@@ -757,11 +787,11 @@ const [activeActionView, setActiveActionView] = useState(false);
                 <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
                   <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
                     <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
-                    <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
-                    <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
+                    <span style={{ fontSize:"11px",fontWeight:700,color:"var(--text-muted)",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
+                    <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"var(--text-faint)",background:"var(--bg-column)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
                   </div>
-                  <div style={{ background:"rgba(255,255,255,0.02)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid rgba(255,255,255,0.04)" }}>
-                    {sl.length===0 ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
+                  <div style={{ background:"var(--bg-column)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid var(--border-column)" }}>
+                    {sl.length===0 ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"var(--text-faint)" }}>Empty</div>
                       : sl.map(lead=><LeadCard key={lead.id} lead={lead} onSelect={setSelected} />)}
                   </div>
                 </div>
