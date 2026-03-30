@@ -9,6 +9,7 @@ const STAGES = [
   { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦" },
   { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀" },
   { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅" },
+  { id: "dormant",           label: "Dormant",           color: "#334155", icon: "😴" },
 ];
 
 const TYPE_OPTIONS    = ["Direct Business", "White-Label / Reseller", "Agency", "Unknown"];
@@ -53,9 +54,19 @@ function LeadCard({ lead, onSelect }) {
       style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${stale ? "#ef4444" : "rgba(255,255,255,0.08)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}>
-      {stale && <div style={{ position: "absolute", top: 8, right: 8, fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
-      <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0 }}>{lead.company || lead.name}</div>
-      <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>{lead.name || "—"}</div>
+      <div style={{ position: "absolute", top: 6, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
+        {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
+        <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
+          {["Hot","Warm","Cold"].map(u => (
+            <span key={u} onClick={async e => { e.stopPropagation(); await import('../supabaseClient').then(m => m.supabase.from("leads").update({ urgency: u }).eq("id", lead.id)); onSelect({ ...lead, urgency: u }); }}
+              style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700, background: lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u] + "33") : "rgba(255,255,255,0.04)", color: lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u]) : "rgba(255,255,255,0.2)", border: `1px solid ${lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u] + "44") : "rgba(255,255,255,0.06)"}` }}>
+              {u}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: stale ? "52px" : 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.company || lead.name}</div>
+      <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.name || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥", Warm:"⚡", Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
@@ -360,7 +371,27 @@ function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
           <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})} /></div>
           <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})} /></div>
           <div><label style={labelStyle}>Lead Type</label><select style={inputStyle} value={form.type||"Unknown"} onChange={e=>setForm({...form,type:e.target.value})}>{TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}</select></div>
-          <div><label style={labelStyle}>Urgency</label><select style={inputStyle} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>{"Hot,Warm,Cold".split(",").map(u=><option key={u}>{u}</option>)}</select></div>
+          <div>
+            <label style={labelStyle}>Urgency</label>
+            <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+              <select style={{ ...inputStyle, marginTop: 0, flex: 1 }} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>{"Hot,Warm,Cold".split(",").map(u=><option key={u}>{u}</option>)}</select>
+              <button onClick={async () => {
+                try {
+                  const res = await fetch("/api/ai-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ max_tokens: 50, messages: [{ role: "user", content: `Based on this lead, classify urgency as Hot, Warm, or Cold. Reply with ONLY one word.
+
+Company: ${form.company}
+Stage: ${form.stage}
+Days since last action: ${daysSince(form.last_action_at) ?? "unknown"}
+Notes: ${form.notes || "none"}
+Last action: ${form.last_action_at || "never"}` }] }) });
+                  const data = await res.json();
+                  const urgency = (data.content?.find(b => b.type === "text")?.text || "").trim().replace(/[^a-zA-Z]/g, "");
+                  const valid = ["Hot","Warm","Cold"].find(u => u.toLowerCase() === urgency.toLowerCase());
+                  if (valid) setForm({...form, urgency: valid});
+                } catch(e) {}
+              }} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 7, padding: "0 10px", color: "#a5b4fc", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", flexShrink: 0 }}>✨ AI</button>
+            </div>
+          </div>
           <div><label style={labelStyle}>Package</label><select style={inputStyle} value={form.package||""} onChange={e=>setForm({...form,package:e.target.value})}><option value="">Not selected</option>{PACKAGE_OPTIONS.map(p=><option key={p}>{p}</option>)}</select></div>
           <div><label style={labelStyle}>Source</label><select style={inputStyle} value={form.source||"Website"} onChange={e=>setForm({...form,source:e.target.value})}>{SOURCE_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
           <div><label style={labelStyle}>Go-Live Date</label><input type="date" style={inputStyle} value={form.go_live_date||""} onChange={e=>setForm({...form,go_live_date:e.target.value})} /></div>
@@ -558,7 +589,8 @@ export default function PipelineDashboard() {
   const filtered = sortedLeads.filter(l => {
     const mt = filterType === "All" || l.type === filterType;
     const ms = !search || l.company?.toLowerCase().includes(search.toLowerCase()) || l.name?.toLowerCase().includes(search.toLowerCase());
-    return mt && ms;
+    const md = !hideDormant || l.stage !== "dormant";
+    return mt && ms && md;
   });
 
   const pipeline  = leads.filter(l => l.stage !== "customer").length;
@@ -637,6 +669,8 @@ export default function PipelineDashboard() {
                 <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
               ))}
               <div style={{ marginLeft:"auto",display:"flex",gap:"6px",alignItems:"center" }}>
+                <button onClick={() => setActiveActionView(!activeActionView)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:activeActionView?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:activeActionView?"#a5b4fc":"#475569" }}>📋 Actions</button>
+                <button onClick={() => setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:hideDormant?"rgba(255,255,255,0.03)":"rgba(51,65,85,0.4)",color:hideDormant?"#475569":"#94a3b8" }}>{hideDormant ? "😴 Show Dormant" : "😴 Hide Dormant"}</button>
                 <span style={{ fontSize:"10px",color:"#334155",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase" }}>Sort:</span>
                 <SortBtn field="company" label="A–Z" />
                 <SortBtn field="urgency" label="Urgency" />
@@ -654,6 +688,60 @@ export default function PipelineDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── DAILY ACTIONS PANEL ── */}
+      {activeView === "pipeline" && activeActionView && (() => {
+        const today = new Date().toISOString().split("T")[0];
+        const todayActions = leads.filter(l => l.next_action_date === today || (l.next_action_date && l.next_action_date < today));
+        const thisWeek = new Date(); thisWeek.setDate(thisWeek.getDate() + 7);
+        const weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeek);
+        const staleLeads = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
+        return (
+          <div style={{ padding: "16px 28px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>⚡ Overdue / Due Today ({todayActions.length})</div>
+                {todayActions.length === 0 ? <div style={{ fontSize: 12, color: "#334155" }}>All clear 🎉</div> : todayActions.slice(0, 5).map(l => (
+                  <div key={l.id} onClick={() => setSelected(l)} style={{ padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 7, marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.company || l.name}</div>
+                      <div style={{ fontSize: 10, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.next_action || "No action set"}</div>
+                    </div>
+                    <div style={{ fontSize: 10, color: l.next_action_date < today ? "#ef4444" : "#f59e0b", fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>{l.next_action_date}</div>
+                  </div>
+                ))}
+                {todayActions.length > 5 && <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>+{todayActions.length - 5} more</div>}
+              </div>
+              <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#f59e0b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>📅 This Week ({weekActions.length})</div>
+                {weekActions.length === 0 ? <div style={{ fontSize: 12, color: "#334155" }}>Nothing scheduled</div> : weekActions.slice(0, 5).map(l => (
+                  <div key={l.id} onClick={() => setSelected(l)} style={{ padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 7, marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.company || l.name}</div>
+                      <div style={{ fontSize: 10, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.next_action || "No action set"}</div>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#f59e0b", fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>{new Date(l.next_action_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+                  </div>
+                ))}
+                {weekActions.length > 5 && <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>+{weekActions.length - 5} more</div>}
+              </div>
+              <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 10, padding: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>🧊 Gone Quiet ({staleLeads.length})</div>
+                {staleLeads.length === 0 ? <div style={{ fontSize: 12, color: "#334155" }}>All leads active</div> : staleLeads.slice(0, 5).map(l => (
+                  <div key={l.id} onClick={() => setSelected(l)} style={{ padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 7, marginBottom: 6, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f1f5f9", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.company || l.name}</div>
+                      <div style={{ fontSize: 10, color: "#64748b" }}>{STAGES.find(s => s.id === l.stage)?.label || l.stage}</div>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, flexShrink: 0, marginLeft: 6 }}>{daysSince(l.last_action_at)}d quiet</div>
+                  </div>
+                ))}
+                {staleLeads.length > 5 && <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>+{staleLeads.length - 5} more</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── PIPELINE VIEW ── */}
       {activeView === "pipeline" && (
