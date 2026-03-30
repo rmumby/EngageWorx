@@ -1,4 +1,11 @@
 import { useState, useEffect, useRef, memo } from "react";
+const AGENTS = [
+  { id: "a1", name: "Sarah M.", avatar: "SM", status: "online" },
+  { id: "a2", name: "James K.", avatar: "JK", status: "online" },
+  { id: "a3", name: "Priya R.", avatar: "PR", status: "away" },
+  { id: "a4", name: "Alex D.", avatar: "AD", status: "offline" },
+  { id: "bot", name: "AI Bot", avatar: "🤖", status: "online" },
+];
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
