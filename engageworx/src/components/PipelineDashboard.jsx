@@ -78,7 +78,7 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
       <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contactName || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
-        {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{ {Hot:"🔥",Warm:"⚡",Cold:"❄️"}[lead.urgency] } {lead.urgency}</span>}
+        {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{lead.urgency === "Hot" ? "🔥" : lead.urgency === "Warm" ? "⚡" : "❄️"} {lead.urgency}</span>}
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
         {lead.contact_count > 0 && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "2px 7px", borderRadius: "4px" }}>👤 {lead.contact_count}</span>}
       </div>
@@ -457,7 +457,7 @@ export default function PipelineDashboard() {
 
   return (
     <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:4px} input,select,textarea{font-family:inherit} input::placeholder{color:#334155}`}</style>
+
 
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
