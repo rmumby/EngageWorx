@@ -58,7 +58,7 @@ function LeadCard({ lead, onSelect }) {
         {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
         <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
           {["Hot","Warm","Cold"].map(u => (
-            <span key={u} onClick={async e => { e.stopPropagation(); await import('../supabaseClient').then(m => m.supabase.from("leads").update({ urgency: u }).eq("id", lead.id)); onSelect({ ...lead, urgency: u }); }}
+            <span key={u} onClick={async e => { e.stopPropagation(); await supabase.from("leads").update({ urgency: u }).eq("id", lead.id); onSelect({ ...lead, urgency: u }); }}
               style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700, background: lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u] + "33") : "rgba(255,255,255,0.04)", color: lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u]) : "rgba(255,255,255,0.2)", border: `1px solid ${lead.urgency === u ? ({ Hot:"#ef4444", Warm:"#f59e0b", Cold:"#64748b" }[u] + "44") : "rgba(255,255,255,0.06)"}` }}>
               {u}
             </span>
