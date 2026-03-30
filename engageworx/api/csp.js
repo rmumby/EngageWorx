@@ -156,9 +156,8 @@ module.exports = async function handler(req, res) {
       }
 
       // Create tenant with parent_tenant_id pointing to CSP
-      var slug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      var slugCheck = await supabase.from('tenants').select('id').eq('slug', slug).maybeSingle();
-      if (slugCheck.data) slug = slug + '-' + Date.now().toString(36).slice(-4);
+      var baseSlug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+var slug = baseSlug + '-' + Date.now().toString(36).slice(-6);
 
       var tenantResult = await supabase.from('tenants').insert({
         name: companyName,
