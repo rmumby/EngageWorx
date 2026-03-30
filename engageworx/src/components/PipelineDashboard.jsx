@@ -507,6 +507,8 @@ export default function PipelineDashboard() {
   const [showCreateSequence, setShowCreateSequence] = useState(false);
   const [newSequence, setNewSequence]   = useState({ name: "", type: "outreach", lead_type: "all", steps: [] });
   const [processingSeq, setProcessingSeq] = useState(false);
+  const [hideDormant, setHideDormant]       = useState(true);
+const [activeActionView, setActiveActionView] = useState(false);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
