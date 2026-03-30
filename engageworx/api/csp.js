@@ -128,9 +128,9 @@ module.exports = async function handler(req, res) {
 
     // Verify the CSP tenant exists and is a CSP
     var cspCheck = await supabase.from('tenants').select('id, name, tenant_type').eq('id', cspTenantId).maybeSingle();
-    if (!cspCheck.data || cspCheck.data.tenant_type !== 'csp') {
-      return res.status(403).json({ error: 'Not a valid CSP tenant' });
-    }
+    if (!cspCheck.data || !['csp', 'sp'].includes(cspCheck.data.tenant_type)) {
+  return res.status(403).json({ error: 'Not a valid CSP tenant' });
+}
 
     try {
       // Create auth user
