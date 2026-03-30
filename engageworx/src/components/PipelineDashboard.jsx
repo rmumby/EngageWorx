@@ -647,6 +647,12 @@ export default function PipelineDashboard() {
     } catch(e) { alert("Error: " + e.message); }
   };
 
+  const today = new Date().toISOString().split("T")[0];
+  const todayActions = leads.filter(l => l.next_action_date === today || (l.next_action_date && l.next_action_date < today));
+  const thisWeekDate = new Date(); thisWeekDate.setDate(thisWeekDate.getDate() + 7);
+  const weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeekDate);
+  const staleLeads = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
+
   return (
     <div className={`pipeline-root${isDark ? "" : " light"}`} style={{ minHeight:"100vh",background:isDark?"#070d1a":"#f1f5f9",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:isDark?"#f1f5f9":"#1e293b" }}>
       <style>{`
@@ -722,13 +728,7 @@ export default function PipelineDashboard() {
       </div>
 
       {/* ── DAILY ACTIONS PANEL ── */}
-      {activeView === "pipeline" && activeActionView && (() => {
-        const today = new Date().toISOString().split("T")[0];
-        const todayActions = leads.filter(l => l.next_action_date === today || (l.next_action_date && l.next_action_date < today));
-        const thisWeek = new Date(); thisWeek.setDate(thisWeek.getDate() + 7);
-        const weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeek);
-        const staleLeads = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
-        return (
+      {activeView === "pipeline" && activeActionView && (
           <div style={{ padding: "16px 28px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
               <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: 14 }}>
@@ -772,8 +772,7 @@ export default function PipelineDashboard() {
               </div>
             </div>
           </div>
-        );
-      })()}
+      )}
 
       {/* ── PIPELINE VIEW ── */}
       {activeView === "pipeline" && (
