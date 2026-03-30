@@ -9,7 +9,6 @@ const STAGES = [
   { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦" },
   { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀" },
   { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅" },
-  { id: "pipeline", label: "Pipeline", icon: "📈" }
 ];
 
 const TYPE_OPTIONS    = ["Direct Business", "White-Label / Reseller", "Agency", "Unknown"];
@@ -62,6 +61,7 @@ function LeadCard({ lead, onSelect }) {
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{{ Hot:"🔥", Warm:"⚡", Cold:"❄️" }[lead.urgency]} {lead.urgency}</span>}
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
         {lead.contact_count > 0 && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "2px 7px", borderRadius: "4px" }}>👤 {lead.contact_count}</span>}
+        {lead.sequence_count > 0 && <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>⚡ {lead.sequence_count}</span>}
       </div>
       {(lead.next_action || lead.next_action_date) && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
@@ -102,16 +102,10 @@ function ContactsPanel({ leadId, leadCompany }) {
     if (!form.first_name) return;
     setSaving(true);
     await supabase.from("contacts").insert({
-      first_name: form.first_name,
-      last_name: form.last_name || null,
-      email: form.email || null,
-      phone: form.phone || null,
-      title: form.title || null,
-      company_name: leadCompany || null,
-      pipeline_lead_id: leadId,
-      tenant_id: SP_TENANT_ID,
-      status: "active",
-      source: "pipeline",
+      first_name: form.first_name, last_name: form.last_name || null,
+      email: form.email || null, phone: form.phone || null, title: form.title || null,
+      company_name: leadCompany || null, pipeline_lead_id: leadId,
+      tenant_id: SP_TENANT_ID, status: "active", source: "pipeline",
     });
     setForm({ first_name: "", last_name: "", email: "", phone: "", title: "" });
     setShowAdd(false);
@@ -147,34 +141,102 @@ function ContactsPanel({ leadId, leadCompany }) {
           </button>
         </div>
       )}
-      {loading ? (
-        <div style={{ fontSize: "12px", color: "#475569" }}>Loading...</div>
-      ) : contacts.length === 0 ? (
-        <div style={{ fontSize: "12px", color: "#334155" }}>No contacts added yet.</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          {contacts.map(c => (
-            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 10px", background: "rgba(255,255,255,0.03)", borderRadius: "7px", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg, #10b981, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                {(c.first_name?.[0] || "?")}
+      {loading ? <div style={{ fontSize: "12px", color: "#475569" }}>Loading...</div>
+        : contacts.length === 0 ? <div style={{ fontSize: "12px", color: "#334155" }}>No contacts added yet.</div>
+        : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {contacts.map(c => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 10px", background: "rgba(255,255,255,0.03)", borderRadius: "7px", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg, #10b981, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{(c.first_name?.[0] || "?")}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "13px", fontWeight: 600, color: "#f1f5f9" }}>{c.first_name} {c.last_name || ""}</div>
+                  <div style={{ fontSize: "11px", color: "#475569" }}>{[c.title, c.email].filter(Boolean).join(" · ")}</div>
+                </div>
+                <div style={{ display: "flex", gap: "4px" }}>
+                  {c.email && <a href={`mailto:${c.email}`} style={{ padding: "3px 7px", borderRadius: "4px", fontSize: "10px", background: "rgba(99,102,241,0.1)", color: "#a5b4fc", textDecoration: "none" }}>✉</a>}
+                  <button onClick={() => handleDelete(c.id)} style={{ padding: "3px 7px", borderRadius: "4px", fontSize: "10px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "none", cursor: "pointer" }}>✕</button>
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#f1f5f9" }}>{c.first_name} {c.last_name || ""}</div>
-                <div style={{ fontSize: "11px", color: "#475569" }}>{[c.title, c.email].filter(Boolean).join(" · ")}</div>
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+function SequencesPanel({ lead, sequences, onEnrol, onCancel }) {
+  const [enrolments, setEnrolments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchEnrolments = useCallback(async () => {
+    setLoading(true);
+    try {
+      var res = await fetch('/api/sequences?action=status&lead_id=' + lead.id);
+      var data = await res.json();
+      setEnrolments(data.enrolments || []);
+    } catch(e) { console.error('fetchEnrolments error:', e); }
+    setLoading(false);
+  }, [lead.id]);
+
+  useEffect(() => { fetchEnrolments(); }, [fetchEnrolments]);
+
+  const handleEnrol = async (seqId) => {
+    await onEnrol(lead.id, seqId);
+    fetchEnrolments();
+  };
+
+  const handleCancel = async (enrolmentId) => {
+    await onCancel(enrolmentId);
+    fetchEnrolments();
+  };
+
+  const activeEnrolments = enrolments.filter(e => e.status === 'active');
+  const pastEnrolments = enrolments.filter(e => e.status !== 'active');
+  const enrolledIds = activeEnrolments.map(e => e.sequence_id);
+  const availableSequences = sequences.filter(s => !enrolledIds.includes(s.id));
+
+  return (
+    <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
+      <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.05em", marginBottom: "12px" }}>⚡ SEQUENCES</div>
+      {loading ? <div style={{ fontSize: "12px", color: "#475569" }}>Loading...</div> : (
+        <>
+          {activeEnrolments.length === 0 && availableSequences.length === 0 && (
+            <div style={{ fontSize: "12px", color: "#475569", marginBottom: 10 }}>No sequences available. Create one in the Sequences view.</div>
+          )}
+          {activeEnrolments.map(e => (
+            <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: "8px 12px", marginBottom: 6 }}>
+              <div>
+                <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{e.sequences?.name || "Sequence"}</div>
+                <div style={{ color: "#64748b", fontSize: 11, marginTop: 2 }}>
+                  Step {e.current_step} · Active
+                  {e.next_step_at && <span> · Next: {new Date(e.next_step_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                </div>
               </div>
-              <div style={{ display: "flex", gap: "4px" }}>
-                {c.email && <a href={`mailto:${c.email}`} style={{ padding: "3px 7px", borderRadius: "4px", fontSize: "10px", background: "rgba(99,102,241,0.1)", color: "#a5b4fc", textDecoration: "none" }}>✉</a>}
-                <button onClick={() => handleDelete(c.id)} style={{ padding: "3px 7px", borderRadius: "4px", fontSize: "10px", background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "none", cursor: "pointer" }}>✕</button>
-              </div>
+              <button onClick={() => handleCancel(e.id)} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "4px 10px", color: "#ef4444", cursor: "pointer", fontSize: 11, fontFamily: "inherit" }}>Cancel</button>
             </div>
           ))}
-        </div>
+          {pastEnrolments.map(e => (
+            <div key={e.id} style={{ background: "rgba(0,0,0,0.1)", borderRadius: 8, padding: "7px 12px", marginBottom: 4, opacity: 0.5 }}>
+              <div style={{ color: "#64748b", fontSize: 12 }}>{e.sequences?.name || "Sequence"} — {e.status}</div>
+            </div>
+          ))}
+          {availableSequences.length > 0 && (
+            <div style={{ marginTop: activeEnrolments.length > 0 || pastEnrolments.length > 0 ? 10 : 0 }}>
+              <div style={{ fontSize: "10px", color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Enrol in sequence</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {availableSequences.map(seq => (
+                  <button key={seq.id} onClick={() => handleEnrol(seq.id)} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "6px 12px", color: "#a5b4fc", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "inherit" }}>+ {seq.name}</button>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function Modal({ lead, onClose, onSave }) {
+function Modal({ lead, onClose, onSave, sequences, onEnrol, onCancel }) {
   const { first: initFirst, last: initLast } = splitName(lead.name);
   const [firstName, setFirstName]     = useState(initFirst);
   const [lastName, setLastName]       = useState(initLast);
@@ -207,28 +269,19 @@ function Modal({ lead, onClose, onSave }) {
   };
 
   const handleSave = async () => {
-    setSaveError("");
-    setSaving(true);
+    setSaveError(""); setSaving(true);
     const payload = {
-      ...form,
-      name: fullName(firstName, lastName) || form.company,
+      ...form, name: fullName(firstName, lastName) || form.company,
       ai_next_action: aiText || form.ai_next_action,
-      go_live_date: form.go_live_date || null,
-      last_action_at: form.last_action_at || null,
-      next_action: form.next_action || null,
-      next_action_date: form.next_action_date || null,
+      go_live_date: form.go_live_date || null, last_action_at: form.last_action_at || null,
+      next_action: form.next_action || null, next_action_date: form.next_action_date || null,
       last_activity_at: new Date().toISOString(),
     };
     delete payload.id;
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     try {
-      if (!isNew) {
-        const { error } = await supabase.from("leads").update(payload).eq("id", lead.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("leads").insert(payload);
-        if (error) throw error;
-      }
+      if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
+      else { const { error } = await supabase.from("leads").insert(payload); if (error) throw error; }
       onSave();
     } catch (err) { setSaveError(err.message || "Save failed."); }
     setSaving(false);
@@ -240,24 +293,18 @@ function Modal({ lead, onClose, onSave }) {
     try {
       const slug = form.company.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-sandbox";
       const { data: tenant, error: tErr } = await supabase.from("tenants").insert({
-        name: form.company,
-        slug,
-        brand_primary: "#00C9FF",
-        brand_name: form.company,
+        name: form.company, slug, brand_primary: "#00C9FF", brand_name: form.company,
         plan: form.package?.includes("Enterprise") ? "enterprise" : form.package?.includes("Pro") ? "pro" : form.package?.includes("Growth") ? "growth" : "starter",
-        status: "trial",
-        channels_enabled: ["sms", "email", "whatsapp"],
+        status: "trial", channels_enabled: ["sms", "email", "whatsapp"],
       }).select().single();
       if (tErr) throw tErr;
       await supabase.from("contacts").update({ tenant_id: tenant.id }).eq("pipeline_lead_id", lead.id);
       await supabase.from("leads").update({
-        stage: "sandbox_shared",
-        last_action_at: new Date().toISOString().split("T")[0],
+        stage: "sandbox_shared", last_action_at: new Date().toISOString().split("T")[0],
         last_activity_at: new Date().toISOString(),
         notes: (form.notes ? form.notes + "\n" : "") + `→ Sandbox created — tenant ID: ${tenant.id}`,
       }).eq("id", lead.id);
-      setConvertDone(true);
-      setForm({ ...form, stage: "sandbox_shared" });
+      setConvertDone(true); setForm({ ...form, stage: "sandbox_shared" });
     } catch (err) { setSaveError("Conversion failed: " + err.message); }
     setConverting(false);
   };
@@ -265,23 +312,12 @@ function Modal({ lead, onClose, onSave }) {
   const handleReplicateToSPContacts = async () => {
     setReplicating(true);
     try {
-      const { data: existing } = await supabase.from("contacts")
-        .select("id").eq("pipeline_lead_id", lead.id).eq("tenant_id", SP_TENANT_ID).limit(1);
-      if (existing && existing.length > 0) {
-        alert("Contacts from this lead are already in SP Contacts.");
-        setReplicating(false);
-        return;
-      }
+      const { data: existing } = await supabase.from("contacts").select("id").eq("pipeline_lead_id", lead.id).eq("tenant_id", SP_TENANT_ID).limit(1);
+      if (existing && existing.length > 0) { alert("Contacts from this lead are already in SP Contacts."); setReplicating(false); return; }
       await supabase.from("contacts").insert({
-        first_name: firstName || form.company,
-        last_name: lastName || null,
-        email: form.email || null,
-        phone: form.phone || null,
-        company_name: form.company || null,
-        pipeline_lead_id: lead.id,
-        tenant_id: SP_TENANT_ID,
-        status: "active",
-        source: "pipeline",
+        first_name: firstName || form.company, last_name: lastName || null,
+        email: form.email || null, phone: form.phone || null, company_name: form.company || null,
+        pipeline_lead_id: lead.id, tenant_id: SP_TENANT_ID, status: "active", source: "pipeline",
       });
       alert(`✅ ${form.company || fullName(firstName, lastName)} added to SP Contacts.`);
     } catch (err) { alert("Failed: " + err.message); }
@@ -305,7 +341,6 @@ function Modal({ lead, onClose, onSave }) {
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "22px", cursor: "pointer" }}>✕</button>
         </div>
 
-        {/* Stage */}
         <div style={{ marginBottom: "18px" }}>
           <label style={labelStyle}>Stage</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
@@ -318,7 +353,6 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Fields */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
           <div style={{ gridColumn: "1 / -1" }}><label style={labelStyle}>Company *</label><input style={inputStyle} value={form.company||""} onChange={e=>setForm({...form,company:e.target.value})} placeholder="Acme Corp" /></div>
           <div><label style={labelStyle}>First Name</label><input style={inputStyle} value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" /></div>
@@ -338,7 +372,6 @@ function Modal({ lead, onClose, onSave }) {
           <textarea style={{ ...inputStyle, minHeight: "70px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
         </div>
 
-        {/* Next Action */}
         <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", letterSpacing: "0.05em", marginBottom: "10px" }}>⚡ NEXT ACTION</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
@@ -356,18 +389,11 @@ function Modal({ lead, onClose, onSave }) {
           )}
         </div>
 
-        {/* Quick actions */}
         <div style={{ marginBottom: "16px" }}>
           <label style={labelStyle}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
             {(NEXT_ACTIONS[form.stage]||[]).map(a=>(
-              <button key={a} onClick={()=>setForm({
-                ...form,
-                next_action: a,
-                next_action_date: new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0],
-                notes:(form.notes?form.notes+"\n":"")+`→ ${a}`,
-                last_action_at:new Date().toISOString().split("T")[0]
-              })}
+              <button key={a} onClick={()=>setForm({ ...form, next_action: a, next_action_date: new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0], notes:(form.notes?form.notes+"\n":"")+`→ ${a}`, last_action_at:new Date().toISOString().split("T")[0] })}
                 style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",cursor:"pointer",background:"rgba(99,102,241,0.1)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)" }}>
                 + {a}
               </button>
@@ -379,10 +405,9 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Contacts panel */}
         {!isNew && <ContactsPanel leadId={lead.id} leadCompany={form.company} />}
+        {!isNew && <SequencesPanel lead={lead} sequences={sequences} onEnrol={onEnrol} onCancel={onCancel} />}
 
-        {/* Replicate to SP Contacts */}
         {!isNew && (
           <div style={{ marginBottom: "16px" }}>
             <button onClick={handleReplicateToSPContacts} disabled={replicating}
@@ -392,7 +417,6 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         )}
 
-        {/* Convert to Sandbox */}
         {!isNew && (
           <div style={{ background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
             <div style={{ fontSize:"12px",fontWeight:700,color:"#10b981",letterSpacing:"0.05em",marginBottom:"8px" }}>🧪 CONVERT TO TENANT</div>
@@ -411,7 +435,6 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         )}
 
-        {/* AI Advisor */}
         <div style={{ background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px" }}>
             <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc",letterSpacing:"0.05em" }}>🤖 AI SALES ADVISOR</span>
@@ -419,8 +442,7 @@ function Modal({ lead, onClose, onSave }) {
               {aiLoading?"Thinking...":"Get Next Actions"}
             </button>
           </div>
-          {aiText
-            ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
+          {aiText ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
             : <div style={{ fontSize:"12px",color:"#475569" }}>Click to get AI-powered next actions for this lead.</div>}
         </div>
 
@@ -439,38 +461,79 @@ function Modal({ lead, onClose, onSave }) {
 }
 
 export default function PipelineDashboard() {
-  const [leads, setLeads]           = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [selected, setSelected]     = useState(null);
-  const [filterType, setFilterType] = useState("All");
-  const [search, setSearch]         = useState("");
-  const [sortBy, setSortBy]         = useState("created_at");
-  const [sortDir, setSortDir]       = useState("desc");
-  const [lastSync, setLastSync]     = useState(null);
-  const [liveFlash, setLiveFlash]   = useState(false);
+  const [leads, setLeads]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [selected, setSelected]         = useState(null);
+  const [filterType, setFilterType]     = useState("All");
+  const [search, setSearch]             = useState("");
+  const [sortBy, setSortBy]             = useState("created_at");
+  const [sortDir, setSortDir]           = useState("desc");
+  const [lastSync, setLastSync]         = useState(null);
+  const [liveFlash, setLiveFlash]       = useState(false);
+  const [activeView, setActiveView]     = useState("pipeline");
+  const [sequences, setSequences]       = useState([]);
+  const [sequencesLoading, setSequencesLoading] = useState(false);
+  const [showCreateSequence, setShowCreateSequence] = useState(false);
+  const [newSequence, setNewSequence]   = useState({ name: "", type: "outreach", lead_type: "all", steps: [] });
+  const [processingSeq, setProcessingSeq] = useState(false);
 
   const fetchLeads = async () => {
     const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
     if (error) console.error("Fetch error:", error);
     const ids = (data || []).map(l => l.id);
-    let countMap = {};
+    let countMap = {}; let seqCountMap = {};
     if (ids.length > 0) {
       const { data: contactCounts } = await supabase.from("contacts").select("pipeline_lead_id").in("pipeline_lead_id", ids);
       (contactCounts || []).forEach(c => { countMap[c.pipeline_lead_id] = (countMap[c.pipeline_lead_id] || 0) + 1; });
+      try {
+        const { data: seqCounts } = await supabase.from("lead_sequences").select("lead_id").eq("status", "active").in("lead_id", ids);
+        (seqCounts || []).forEach(s => { seqCountMap[s.lead_id] = (seqCountMap[s.lead_id] || 0) + 1; });
+      } catch(e) {}
     }
-    setLeads((data || []).map(l => ({ ...l, contact_count: countMap[l.id] || 0 })));
-    setLastSync(new Date());
-    setLoading(false);
+    setLeads((data || []).map(l => ({ ...l, contact_count: countMap[l.id] || 0, sequence_count: seqCountMap[l.id] || 0 })));
+    setLastSync(new Date()); setLoading(false);
+  };
+
+  const fetchSequences = async () => {
+    setSequencesLoading(true);
+    try {
+      var res = await fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID);
+      var data = await res.json();
+      setSequences(data.sequences || []);
+    } catch(e) {}
+    setSequencesLoading(false);
+  };
+
+  const enrolLead = async (leadId, sequenceId) => {
+    try {
+      var res = await fetch('/api/sequences?action=enrol', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: leadId, sequence_id: sequenceId, tenant_id: SP_TENANT_ID })
+      });
+      var data = await res.json();
+      if (!data.success) alert('Failed to enrol: ' + data.error);
+      else fetchLeads();
+    } catch(e) { alert('Failed to enrol: ' + e.message); }
+  };
+
+  const cancelEnrolment = async (enrolmentId) => {
+    if (!window.confirm('Cancel this sequence for this lead?')) return;
+    try {
+      await fetch('/api/sequences?action=cancel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enrolment_id: enrolmentId })
+      });
+      fetchLeads();
+    } catch(e) {}
   };
 
   useEffect(() => {
-    fetchLeads();
+    fetchLeads(); fetchSequences();
     const channel = supabase.channel("leads-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, (payload) => {
-        setLiveFlash(true);
-        setTimeout(() => setLiveFlash(false), 2000);
-        if (payload.eventType === "INSERT")      setLeads(p => [{ ...payload.new, contact_count: 0 }, ...p]);
-        else if (payload.eventType === "UPDATE") setLeads(p => p.map(l => l.id === payload.new.id ? { ...payload.new, contact_count: l.contact_count || 0 } : l));
+        setLiveFlash(true); setTimeout(() => setLiveFlash(false), 2000);
+        if (payload.eventType === "INSERT")      setLeads(p => [{ ...payload.new, contact_count: 0, sequence_count: 0 }, ...p]);
+        else if (payload.eventType === "UPDATE") setLeads(p => p.map(l => l.id === payload.new.id ? { ...payload.new, contact_count: l.contact_count || 0, sequence_count: l.sequence_count || 0 } : l));
         else if (payload.eventType === "DELETE") setLeads(p => p.filter(l => l.id !== payload.old.id));
         setLastSync(new Date());
       }).subscribe();
@@ -511,6 +574,19 @@ export default function PipelineDashboard() {
     </button>
   );
 
+  const createSequence = async () => {
+    if (!newSequence.name || newSequence.steps.length === 0) return alert("Name and at least one step required");
+    try {
+      var res = await fetch('/api/sequences?action=create', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newSequence, tenant_id: SP_TENANT_ID })
+      });
+      var data = await res.json();
+      if (data.success) { setShowCreateSequence(false); setNewSequence({ name: "", type: "outreach", lead_type: "all", steps: [] }); fetchSequences(); }
+      else alert("Error: " + data.error);
+    } catch(e) { alert("Error: " + e.message); }
+  };
+
   return (
     <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
       <style>{`
@@ -521,76 +597,208 @@ export default function PipelineDashboard() {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
       `}</style>
 
+      {/* ── HEADER ── */}
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
             <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
             <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>EngageWorx</span>
-            <span style={{ fontSize:"11px",color:"#475569",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
+            <span style={{ fontSize:"11px",color:"#475569",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>
+              {activeView === "pipeline" ? "PIPELINE" : "SEQUENCES"}
+            </span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",animation:liveFlash?"pulse 0.8s infinite":"none",transition:"background 0.3s" }} />
               <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"● LIVE UPDATE":lastSync?`synced ${lastSync.toLocaleTimeString()}`:"connecting..."}</span>
             </div>
           </div>
-          <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>
-        </div>
-
-        <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
-          {[
-            {l:"Pipeline",v:pipeline,c:"#6366f1"},
-            {l:"Customers",v:customers,c:"#10b981"},
-            {l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},
-            {l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},
-            {l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"},
-          ].map(k=>(
-            <div key={k.l}>
-              <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
-              <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
-          <input placeholder="Search company or contact..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"200px",marginTop:0,padding:"7px 11px" }} />
-          {["All",...TYPE_OPTIONS].map(t=>(
-            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
-          ))}
-          <div style={{ marginLeft:"auto",display:"flex",gap:"6px",alignItems:"center" }}>
-            <span style={{ fontSize:"10px",color:"#334155",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase" }}>Sort:</span>
-            <SortBtn field="company" label="A–Z" />
-            <SortBtn field="urgency" label="Urgency" />
-            <SortBtn field="stage" label="Stage" />
-            <SortBtn field="next_action_date" label="Due Date" />
-            <SortBtn field="created_at" label="Date" />
+          <div style={{ display:"flex",gap:8 }}>
+            <button onClick={() => { const next = activeView === "pipeline" ? "sequences" : "pipeline"; setActiveView(next); if (next === "sequences") fetchSequences(); }}
+              style={{ padding:"9px 18px",background:"rgba(99,102,241,0.15)",border:"1px solid rgba(99,102,241,0.3)",borderRadius:"8px",color:"#a5b4fc",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>
+              {activeView === "pipeline" ? "⚡ Sequences" : "📈 Pipeline"}
+            </button>
+            {activeView === "pipeline" && <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>}
+            {activeView === "sequences" && <button onClick={() => setShowCreateSequence(!showCreateSequence)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ New Sequence</button>}
           </div>
         </div>
+
+        {activeView === "pipeline" && (
+          <>
+            <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
+              {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},{l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"}].map(k=>(
+                <div key={k.l}>
+                  <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
+                  <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
+              <input placeholder="Search company or contact..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"200px",marginTop:0,padding:"7px 11px" }} />
+              {["All",...TYPE_OPTIONS].map(t=>(
+                <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
+              ))}
+              <div style={{ marginLeft:"auto",display:"flex",gap:"6px",alignItems:"center" }}>
+                <span style={{ fontSize:"10px",color:"#334155",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase" }}>Sort:</span>
+                <SortBtn field="company" label="A–Z" />
+                <SortBtn field="urgency" label="Urgency" />
+                <SortBtn field="stage" label="Stage" />
+                <SortBtn field="next_action_date" label="Due Date" />
+                <SortBtn field="created_at" label="Date" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeView === "sequences" && (
+          <div style={{ paddingBottom: 16 }}>
+            <div style={{ fontSize: 13, color: "#64748b" }}>Automated multi-touch outreach · {sequences.length} sequence{sequences.length !== 1 ? "s" : ""} · Runs daily at 9am UTC</div>
+          </div>
+        )}
       </div>
 
-      {loading ? (
-        <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting to Supabase...</div>
-      ) : (
-        <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 250px)" }}>
-          {STAGES.map(stage => {
-            const sl = filtered.filter(l => l.stage === stage.id);
-            return (
-              <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
-                  <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
-                  <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
-                  <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
+      {/* ── PIPELINE VIEW ── */}
+      {activeView === "pipeline" && (
+        loading ? (
+          <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting to Supabase...</div>
+        ) : (
+          <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 280px)" }}>
+            {STAGES.map(stage => {
+              const sl = filtered.filter(l => l.stage === stage.id);
+              return (
+                <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
+                    <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
+                    <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
+                    <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
+                  </div>
+                  <div style={{ background:"rgba(255,255,255,0.02)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid rgba(255,255,255,0.04)" }}>
+                    {sl.length===0 ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
+                      : sl.map(lead=><LeadCard key={lead.id} lead={lead} onSelect={setSelected} />)}
+                  </div>
                 </div>
-                <div style={{ background:"rgba(255,255,255,0.02)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid rgba(255,255,255,0.04)" }}>
-                  {sl.length===0
-                    ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
-                    : sl.map(lead=><LeadCard key={lead.id} lead={lead} onSelect={setSelected} />)}
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {/* ── SEQUENCES VIEW ── */}
+      {activeView === "sequences" && (
+        <div style={{ padding: "24px 28px" }}>
+          {showCreateSequence && (
+            <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.2)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Create Sequence</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+                <div><label style={labelStyle}>Sequence Name</label><input value={newSequence.name} onChange={e => setNewSequence({...newSequence, name: e.target.value})} placeholder="e.g. CPExpo Follow-up" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Type</label>
+                  <select value={newSequence.type} onChange={e => setNewSequence({...newSequence, type: e.target.value})} style={{ ...inputStyle, colorScheme: "dark" }}>
+                    <option value="outreach">Outreach</option><option value="follow_up">Follow-up</option><option value="post_demo">Post-Demo</option><option value="onboarding">Onboarding</option>
+                  </select>
+                </div>
+                <div><label style={labelStyle}>Lead Type</label>
+                  <select value={newSequence.lead_type} onChange={e => setNewSequence({...newSequence, lead_type: e.target.value})} style={{ ...inputStyle, colorScheme: "dark" }}>
+                    <option value="all">All</option><option value="csp">CSP / Reseller</option><option value="direct">Direct Business</option><option value="agent">Agent</option>
+                  </select>
                 </div>
               </div>
-            );
-          })}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <label style={labelStyle}>Steps — use [FirstName], [Company], [Platform]</label>
+                  <button onClick={() => setNewSequence({...newSequence, steps: [...newSequence.steps, { delay_days: 0, channel: "email", subject: "", body_template: "", ai_personalise: true }]})}
+                    style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "4px 12px", color: "#a5b4fc", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>+ Add Step</button>
+                </div>
+                {newSequence.steps.length === 0 && <div style={{ color: "#475569", fontSize: 13, textAlign: "center", padding: "20px 0" }}>No steps yet — add your first step above</div>}
+                {newSequence.steps.map((step, i) => (
+                  <div key={i} style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: 16, marginBottom: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "80px 140px 1fr 60px", gap: 10, marginBottom: 10, alignItems: "end" }}>
+                      <div>
+                        <label style={{ ...labelStyle, fontSize: "10px" }}>Day</label>
+                        <input type="number" value={step.delay_days} onChange={e => { var s = [...newSequence.steps]; s[i] = {...s[i], delay_days: parseInt(e.target.value)||0}; setNewSequence({...newSequence, steps: s}); }} style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} />
+                      </div>
+                      <div>
+                        <label style={{ ...labelStyle, fontSize: "10px" }}>Channel</label>
+                        <select value={step.channel} onChange={e => { var s = [...newSequence.steps]; s[i] = {...s[i], channel: e.target.value}; setNewSequence({...newSequence, steps: s}); }} style={{ ...inputStyle, padding: "8px 10px", fontSize: 13, colorScheme: "dark" }}>
+                          <option value="email">📧 Email</option><option value="sms">💬 SMS</option>
+                        </select>
+                      </div>
+                      {step.channel === "email" ? (
+                        <div><label style={{ ...labelStyle, fontSize: "10px" }}>Subject</label><input value={step.subject} onChange={e => { var s = [...newSequence.steps]; s[i] = {...s[i], subject: e.target.value}; setNewSequence({...newSequence, steps: s}); }} placeholder="Email subject line" style={{ ...inputStyle, padding: "8px 10px", fontSize: 13 }} /></div>
+                      ) : <div />}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", color: "#94a3b8", fontSize: 11 }}>
+                          <input type="checkbox" checked={step.ai_personalise} onChange={e => { var s = [...newSequence.steps]; s[i] = {...s[i], ai_personalise: e.target.checked}; setNewSequence({...newSequence, steps: s}); }} /> AI
+                        </label>
+                        <button onClick={() => { var s = newSequence.steps.filter((_, j) => j !== i); setNewSequence({...newSequence, steps: s}); }} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 6, padding: "5px 8px", color: "#ef4444", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>✕</button>
+                      </div>
+                    </div>
+                    <textarea value={step.body_template} onChange={e => { var s = [...newSequence.steps]; s[i] = {...s[i], body_template: e.target.value}; setNewSequence({...newSequence, steps: s}); }}
+                      rows={4} placeholder="Hi [FirstName], ..." style={{ ...inputStyle, resize: "vertical", marginTop: 0 }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={createSequence} style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)", border: "none", borderRadius: 8, padding: "10px 22px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Create Sequence</button>
+                <button onClick={() => setShowCreateSequence(false)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 22px", color: "#94a3b8", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+            <button onClick={async () => {
+              if (!window.confirm('Process all due sequence steps now? This will send emails and SMS messages.')) return;
+              setProcessingSeq(true);
+              try {
+                var res = await fetch('/api/sequences?action=process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                var data = await res.json();
+                alert('✅ Processed ' + (data.processed || 0) + ' step' + ((data.processed || 0) !== 1 ? 's' : '') + (data.errors > 0 ? '. Errors: ' + data.errors : '.'));
+              } catch(e) { alert('Error: ' + e.message); }
+              setProcessingSeq(false);
+            }} disabled={processingSeq} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 8, padding: "8px 18px", color: "#a5b4fc", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "inherit", opacity: processingSeq ? 0.6 : 1 }}>
+              {processingSeq ? "Processing..." : "▶ Run Due Steps Now"}
+            </button>
+          </div>
+
+          {sequencesLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: "#64748b" }}>Loading sequences...</div>
+          ) : sequences.length === 0 ? (
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 40, textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>⚡</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No sequences yet</div>
+              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>Create your first sequence above.</div>
+              <button onClick={() => setShowCreateSequence(true)} style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", border: "none", borderRadius: 8, padding: "10px 22px", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}>+ Create First Sequence</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              {sequences.map(seq => (
+                <div key={seq.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 20 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                    <div>
+                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{seq.name}</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <span style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", borderRadius: 4, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>{seq.type}</span>
+                        <span style={{ background: "rgba(255,255,255,0.06)", color: "#64748b", borderRadius: 4, padding: "2px 8px", fontSize: 11 }}>{seq.lead_type === "all" ? "All lead types" : seq.lead_type}</span>
+                        <span style={{ background: "rgba(255,255,255,0.06)", color: "#64748b", borderRadius: 4, padding: "2px 8px", fontSize: 11 }}>{(seq.sequence_steps || []).length} steps</span>
+                      </div>
+                    </div>
+                    <span style={{ background: "#10b98122", color: "#10b981", border: "1px solid #10b98144", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>● Active</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {(seq.sequence_steps || []).sort((a, b) => a.step_number - b.step_number).map((step, i) => (
+                      <div key={i} style={{ background: step.channel === "email" ? "rgba(255,107,53,0.1)" : "rgba(0,201,255,0.1)", border: `1px solid ${step.channel === "email" ? "rgba(255,107,53,0.3)" : "rgba(0,201,255,0.3)"}`, borderRadius: 6, padding: "5px 12px", fontSize: 11, color: step.channel === "email" ? "#FF6B35" : "#00C9FF" }}>
+                        {step.channel === "email" ? "📧" : "💬"} Day {step.delay_days}{step.subject ? ` — ${step.subject.substring(0, 28)}${step.subject.length > 28 ? "..." : ""}` : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {selected && <Modal lead={selected} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} />}
+      {selected && (
+        <Modal lead={selected} onClose={() => setSelected(null)} onSave={() => { setSelected(null); fetchLeads(); }}
+          sequences={sequences} onEnrol={enrolLead} onCancel={cancelEnrolment} />
+      )}
     </div>
   );
 }
