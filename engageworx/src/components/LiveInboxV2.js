@@ -780,7 +780,7 @@ useEffect(() => {
         <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{inboxTab === "messages" ? `${filtered.length} conversations` : `${calls.length} calls`}</span>
           <div style={{ display: "flex", gap: 6 }}>
-            {agents.filter(a => a.status === "online").slice(0, 3).map(a => (
+            {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
               <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
             ))}
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
