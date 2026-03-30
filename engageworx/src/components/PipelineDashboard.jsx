@@ -54,7 +54,7 @@ function LeadCard({ lead, onSelect }) {
     <div onClick={() => onSelect(lead)}
       style={{ background: "var(--bg-card)", border: `1px solid ${stale ? "#ef4444" : "var(--border-color)"}`, borderLeft: `3px solid ${stage.color}`, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card-hover)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-card)")>
+      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-card)" }}>
       <div style={{ position: "absolute", top: 6, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
         {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d stale</div>}
         <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
