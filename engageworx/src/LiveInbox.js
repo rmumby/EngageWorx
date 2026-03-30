@@ -11,15 +11,6 @@ const CHANNELS = {
   voice: { label: "Voice", icon: "📞", color: "#FFD600" },
 };
 
-const AGENTS = [
-  { id: "a1", name: "Sarah M.", avatar: "SM", status: "online" },
-  { id: "a2", name: "James K.", avatar: "JK", status: "online" },
-  { id: "a3", name: "Priya R.", avatar: "PR", status: "away" },
-  { id: "a4", name: "Alex D.", avatar: "AD", status: "offline" },
-  { id: "bot", name: "AI Bot", avatar: "🤖", status: "online" },
-];
-const AGENTS = [{ id: "bot", name: "AI Bot", avatar: "🤖", status: "online" }];
-
 const CANNED_RESPONSES = [
   { id: "cr1", label: "Greeting", text: "Hi there! Thanks for reaching out. How can I help you today?" },
   { id: "cr2", label: "Hold", text: "Let me look into that for you. One moment please!" },
