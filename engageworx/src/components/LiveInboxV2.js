@@ -831,19 +831,7 @@ useEffect(() => {
                   <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{selectedConv.assignedTo.name}</span>
                 </div>
               )}
-              <select onChange={async e => {
-  if (!e.target.value || !selectedConv) return;
-  const assignedAgent = agents.find(a => a.id === e.target.value);
-  if (supabase) await supabase.from('conversations').update({ assigned_to: e.target.value }).eq('id', selectedConv.id);
-  setSelectedConv(prev => prev ? { ...prev, assignedTo: assignedAgent } : prev);
-  e.target.value = '';
-<select onChange={async e => {
-  if (!e.target.value || !selectedConv) return;
-  const assignedAgent = agents.find(a => a.id === e.target.value);
-  if (supabase) await supabase.from('conversations').update({ assigned_to: e.target.value }).eq('id', selectedConv.id);
-  setSelectedConv(prev => prev ? { ...prev, assignedTo: assignedAgent } : prev);
-  e.target.value = '';
-}} style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
+             <select style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
   <option value="">Reassign...</option>
   {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
 </select>
