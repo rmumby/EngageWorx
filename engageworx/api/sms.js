@@ -433,6 +433,8 @@ module.exports = async function handler(req, res) {
 
       // 3. Find or create contact
       const contactId = await findOrCreateContact(supabase, tenantId, From);
+      const now = new Date().toISOString();
+const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
 
       // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
       if (tenantId) {
@@ -497,7 +499,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
 });
 
       // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
-      if (messageType === 'inbound' && process.env.ANTHROPIC_API_KEY) {
+      if (messageType === 'inbound' && (process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY)) {
         try {
           let aiAllowed = true;
 
