@@ -5,8 +5,20 @@
     },
     "api/billing.js": {
       "maxDuration": 30
+    },
+    "api/sequences.js": {
+      "maxDuration": 60
+    },
+    "api/cron-sequences.js": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron-sequences",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
