@@ -1852,22 +1852,6 @@ var spNavBase = [
           <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{ width: "100%", padding: "8px 0", borderRadius: 9, marginBottom: 6, border: "none", background: demoMode ? `${C.accent}22` : "transparent", color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>🎮</button>
         )}
 
-        <ThemeToggle style={{ marginBottom: 6 }} />
-
-        <button onClick={handleLogout} title="Sign Out" style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 8, textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "↩" : "← Sign Out"}</button>
-
-        {!sidebarCollapsed && (
-          <div style={{ padding: "10px 12px", marginBottom: 8, background: C.bg, borderRadius: 10, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: "#000", flexShrink: 0 }}>EW</div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ color: C.text, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>EngageWorx Admin</div>
-                <div style={{ color: C.muted, fontSize: 10 }}>Service Provider</div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "6px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
 
