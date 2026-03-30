@@ -644,7 +644,7 @@ try {
       data: { object: {
         customer_email: demoForm.email,
         customer_details: { email: demoForm.email, name: demoForm.companyName },
-        metadata: { plan: demoForm.plan, tenantName: demoForm.companyName },
+        metadata: { plan: demoForm.plan, tenantName: demoForm.companyName, demo_password: demoForm.password },
         payment_status: 'paid',
         status: 'complete'
       }}
