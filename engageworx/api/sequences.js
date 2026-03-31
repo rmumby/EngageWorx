@@ -256,11 +256,22 @@ module.exports = async function handler(req, res) {
     if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
     var { data, error } = await supabase
       .from('lead_sequences')
-      .select('*, leads(id, name, company, email, phone, lead_data), sequences(name, id)')
+      .select('*, sequences(name, id)')
       .eq('sequence_id', seqId)
       .order('enrolled_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
-    return res.status(200).json({ enrolments: data || [] });
+    var leadIds = (data || []).map(function(e) { return e.lead_id; }).filter(Boolean);
+    var leadsMap = {};
+    if (leadIds.length > 0) {
+      var leadsRes = await supabase.from('leads').select('id, name, company, email, phone').in('id', leadIds);
+      if (leadsRes.data) {
+        leadsRes.data.forEach(function(l) { leadsMap[l.id] = l; });
+      }
+    }
+    var enriched = (data || []).map(function(e) {
+      return Object.assign({}, e, { leads: leadsMap[e.lead_id] || e.lead_data || {} });
+    });
+    return res.status(200).json({ enrolments: enriched });
   }
 
   var body = req.body || {};
