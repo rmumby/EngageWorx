@@ -181,13 +181,13 @@ function Modal({ lead, onClose, onSave }) {
   const [replicating, setReplicating] = useState(false);
   const [sequences, setSequences] = useState([]);
   const [enrolStatus, setEnrolStatus] = useState("");
-  useEffect(() => {
-    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
+  useEffect(function() {
+    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(function(r){ return r.json(); }).then(function(d){ setSequences(d.sequences||[]); }).catch(function(){});
     if (lead.id && !String(lead.id).startsWith('new_')) {
-      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(d=>{
-        var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; }).map(function(e){ return e.sequence_id; });
-        setEnrolStatus(active.length > 0 ? '✅ Enrolled in ' + active.length + ' sequence(s)' : '');
-      }).catch(()=>{});
+      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(function(r){ return r.json(); }).then(function(d){
+        var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; });
+        if (active.length > 0) setEnrolStatus("Active in " + active.length + " sequence(s)");
+      }).catch(function(){});
     }
   }, [lead.id]);
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
@@ -201,7 +201,7 @@ function Modal({ lead, onClose, onSave }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           max_tokens: 1000,
-          messages: [{ role: "user", content: "You are a sharp B2B sales advisor for EngageWorx. Company: " + (form.company || "unknown") + " | Stage: " + stage.label + " | Urgency: " + form.urgency + " | Days stale: " + (daysSince(form.last_action_at) || "unknown") + " | Notes: " + (form.notes || "none") + "\n\nGive 3 specific punchy next actions, each starting with →. Then one sentence on key risk or opportunity. No fluff." }],
+          messages: [{ role: "user", content: "You are a sharp B2B sales advisor for EngageWorx. Company: " + (form.company || "unknown") + " | Stage: " + stage.label + " | Urgency: " + form.urgency + " | Days stale: " + (daysSince(form.last_action_at) || "unknown") + " | Notes: " + (form.notes || "none") + "\n\nGive 3 specific punchy next actions, each starting with. Then one sentence on key risk or opportunity. No fluff." }],
         }),
       });
       const data = await res.json();
@@ -232,7 +232,7 @@ function Modal({ lead, onClose, onSave }) {
       const { data: tenant, error: tErr } = await supabase.from("tenants").insert({ name: form.company, slug, brand_primary: "#00C9FF", brand_name: form.company, plan: form.package?.includes("Enterprise") ? "enterprise" : form.package?.includes("Pro") ? "pro" : form.package?.includes("Growth") ? "growth" : "starter", status: "trial", channels_enabled: ["sms", "email", "whatsapp"] }).select().single();
       if (tErr) throw tErr;
       await supabase.from("contacts").update({ tenant_id: tenant.id }).eq("pipeline_lead_id", lead.id);
-      await supabase.from("leads").update({ stage: "sandbox_shared", last_action_at: new Date().toISOString().split("T")[0], last_activity_at: new Date().toISOString(), notes: (form.notes ? form.notes + "\n" : "") + "→ Sandbox created — tenant ID: " + tenant.id }).eq("id", lead.id);
+      await supabase.from("leads").update({ stage: "sandbox_shared", last_action_at: new Date().toISOString().split("T")[0], last_activity_at: new Date().toISOString(), notes: (form.notes ? form.notes + "\n" : "") + "Sandbox created, tenant ID: " + tenant.id }).eq("id", lead.id);
       setConvertDone(true); setForm({ ...form, stage: "sandbox_shared" });
     } catch (err) { setSaveError("Conversion failed: " + err.message); }
     setConverting(false);
@@ -244,7 +244,7 @@ function Modal({ lead, onClose, onSave }) {
       const { data: existing } = await supabase.from("contacts").select("id").eq("pipeline_lead_id", lead.id).eq("tenant_id", SP_TENANT_ID).limit(1);
       if (existing && existing.length > 0) { alert("Already in SP Contacts."); setReplicating(false); return; }
       await supabase.from("contacts").insert({ first_name: firstName || form.company, last_name: lastName || null, email: form.email || null, phone: form.phone || null, company_name: form.company || null, pipeline_lead_id: lead.id, tenant_id: SP_TENANT_ID, status: "active", source: "pipeline" });
-      alert("✅ " + (form.company || fullName(firstName, lastName)) + " added to SP Contacts.");
+      alert(form.company + " added to SP Contacts.");
     } catch (err) { alert("Failed: " + err.message); }
     setReplicating(false);
   };
@@ -263,7 +263,7 @@ function Modal({ lead, onClose, onSave }) {
             <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
             <div style={{ fontSize: "13px", color: "#64748b" }}>{fullName(firstName, lastName) || "No contact name"}</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "22px", cursor: "pointer" }}>✕</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "22px", cursor: "pointer" }}>X</button>
         </div>
 
         <div style={{ marginBottom: "18px" }}>
@@ -303,13 +303,13 @@ function Modal({ lead, onClose, onSave }) {
         </div>
 
         <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", marginBottom: "10px" }}>⚡ NEXT ACTION</div>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", marginBottom: "10px" }}>NEXT ACTION</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
             <div><label style={labelStyle}>Action</label><input style={inputStyle} value={form.next_action||""} onChange={e=>setForm({...form,next_action:e.target.value})} placeholder="e.g. Send proposal, Follow up call..." /></div>
             <div><label style={labelStyle}>Due Date</label><input type="date" style={{ ...inputStyle, width: "160px" }} value={form.next_action_date||""} onChange={e=>setForm({...form,next_action_date:e.target.value})} /></div>
           </div>
           {form.next_action_date && new Date(form.next_action_date) < new Date() && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444", fontWeight: 700 }}>⚠ Overdue — {daysSince(form.next_action_date)} days past due</div>
+            <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444", fontWeight: 700 }}>Overdue: {daysSince(form.next_action_date)} days past due</div>
           )}
         </div>
 
@@ -317,14 +317,14 @@ function Modal({ lead, onClose, onSave }) {
           <label style={labelStyle}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
             {(NEXT_ACTIONS[form.stage]||[]).map(a=>(
-              <button key={a} onClick={()=>setForm({ ...form, next_action: a, next_action_date: new Date(Date.now() + 2*86400000).toISOString().split("T")[0], notes: (form.notes?form.notes+"\n":"")+"→ "+a, last_action_at: new Date().toISOString().split("T")[0] })}
+              <button key={a} onClick={()=>setForm({ ...form, next_action: a, next_action_date: new Date(Date.now() + 2*86400000).toISOString().split("T")[0], notes: (form.notes?form.notes+"\n":"")+"-> "+a, last_action_at: new Date().toISOString().split("T")[0] })}
                 style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",cursor:"pointer",background:"rgba(99,102,241,0.1)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)" }}>
                 + {a}
               </button>
             ))}
             <a href={CALENDLY + "?name=" + encodeURIComponent(fullName(firstName,lastName)) + "&email=" + encodeURIComponent(form.email||"")} target="_blank" rel="noopener noreferrer"
               style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",background:"rgba(168,85,247,0.1)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.2)",textDecoration:"none" }}>
-              📅 Send Calendly
+              Send Calendly
             </a>
           </div>
         </div>
@@ -335,66 +335,57 @@ function Modal({ lead, onClose, onSave }) {
           <div style={{ marginBottom: "16px" }}>
             <button onClick={handleReplicateToSPContacts} disabled={replicating}
               style={{ width:"100%",padding:"9px",borderRadius:"7px",background:"rgba(99,102,241,0.1)",color:"#a5b4fc",border:"1px solid rgba(99,102,241,0.2)",fontWeight:600,fontSize:"12px",cursor:"pointer" }}>
-              {replicating ? "Adding..." : "📋 Replicate Lead to SP Contacts"}
+              {replicating ? "Adding..." : "Replicate Lead to SP Contacts"}
             </button>
           </div>
         )}
 
         {!isNew && (
-  <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
-    <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
-    <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
-      {sequences.length === 0 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div> : sequences.map(s=>(
-        <button key={s.id} onClick={async ()=>{
-          setEnrolStatus("Enrolling...");
-          try {
-            const r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
-            const d = await r.json();
-            setEnrolStatus(d.success ? "✅ Enrolled in: " + s.name : "❌ " + (d.error||"Failed"));
-          } catch(e) { setEnrolStatus("❌ Error: " + e.message); }
-        }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
-          + {s.name}
-        </button>
-      ))}
-    </div>
-    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:"#10b981" }}>{enrolStatus}</div>}
-  </div>
-)}
-    <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
-    <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
-     useEffect(() => {
-    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(function(){});
-    if (lead.id && !String(lead.id).startsWith('new_')) {
-      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(function(d){
-        var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; });
-        if (active.length > 0) setEnrolStatus("Enrolled in " + active.length + " sequence(s)");
-      }).catch(function(){});
-    }
-  }, [lead.id]);
-    </div>
-    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
-  </div>
-)}
+          <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
+            <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>SEQUENCES</div>
+            {enrolStatus && <div style={{ marginBottom:8,fontSize:12,color:"#10b981",fontWeight:600 }}>{enrolStatus}</div>}
+            <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
+              {sequences.length === 0
+                ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div>
+                : sequences.map(function(s) {
+                  return (
+                    <button key={s.id} onClick={async function(){
+                      setEnrolStatus("Enrolling...");
+                      try {
+                        var r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
+                        var d = await r.json();
+                        setEnrolStatus(d.success ? "Enrolled in: " + s.name : "Error: " + (d.error||"Failed"));
+                      } catch(e) { setEnrolStatus("Error: " + e.message); }
+                    }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
+                      + {s.name}
+                    </button>
+                  );
+                })
+              }
+            </div>
+          </div>
+        )}
+
         {!isNew && (
           <div style={{ background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
-            <div style={{ fontSize:"12px",fontWeight:700,color:"#10b981",marginBottom:"8px" }}>🧪 CONVERT TO TENANT</div>
+            <div style={{ fontSize:"12px",fontWeight:700,color:"#10b981",marginBottom:"8px" }}>CONVERT TO TENANT</div>
             {convertDone ? (
-              <div style={{ fontSize:"13px",color:"#10b981" }}>✅ Tenant created — stage updated to Sandbox Shared.</div>
+              <div style={{ fontSize:"13px",color:"#10b981" }}>Tenant created, stage updated to Sandbox Shared.</div>
             ) : (
-              <>
+              <div>
                 <div style={{ fontSize:"12px",color:"#475569",marginBottom:"10px" }}>Creates a trial tenant, migrates contacts, moves stage to Sandbox Shared.</div>
                 <button onClick={handleConvertToSandbox} disabled={converting||!form.company}
                   style={{ padding:"8px 16px",borderRadius:"7px",background:"rgba(16,185,129,0.2)",color:"#10b981",border:"1px solid rgba(16,185,129,0.3)",fontWeight:700,fontSize:"12px",cursor:"pointer" }}>
-                  {converting ? "Converting..." : "Convert to Sandbox →"}
+                  {converting ? "Converting..." : "Convert to Sandbox"}
                 </button>
-              </>
+              </div>
             )}
           </div>
         )}
 
         <div style={{ background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px" }}>
-            <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc" }}>🤖 AI SALES ADVISOR</span>
+            <span style={{ fontSize:"12px",fontWeight:700,color:"#a5b4fc" }}>AI SALES ADVISOR</span>
             <button onClick={handleAI} disabled={aiLoading} style={{ padding:"6px 14px",borderRadius:"6px",fontSize:"12px",fontWeight:700,cursor:"pointer",background:aiLoading?"rgba(99,102,241,0.3)":"#6366f1",color:"#fff",border:"none" }}>
               {aiLoading?"Thinking...":"Get Next Actions"}
             </button>
@@ -500,12 +491,8 @@ export default function PipelineDashboard() {
   var weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeekEnd);
   var staleLeads  = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
 
-
-
   return (
     <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
-
-
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
@@ -514,7 +501,7 @@ export default function PipelineDashboard() {
             <span style={{ fontSize:"11px",color:"#475569",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",transition:"background 0.3s" }} />
-              <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"● LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
+              <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
             </div>
           </div>
           <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>
@@ -535,14 +522,13 @@ export default function PipelineDashboard() {
             <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
           ))}
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
-            
-           <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>📋 Actions</button>
-            <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"😴 Show Dormant":"😴 Hide Dormant"}</button>
-            <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A–Z {sortBy==="company"?(sortDir==="asc"?"↑":"↓"):""}</button>
-            <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency {sortBy==="urgency"?(sortDir==="asc"?"↑":"↓"):""}</button>
-            <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage {sortBy==="stage"?(sortDir==="asc"?"↑":"↓"):""}</button>
-            <button onClick={()=>{ if(sortBy==="next_action_date") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("next_action_date");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="next_action_date"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="next_action_date"?"#a5b4fc":"#475569" }}>Due Date {sortBy==="next_action_date"?(sortDir==="asc"?"↑":"↓"):""}</button>
-            <button onClick={()=>{ if(sortBy==="created_at") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("created_at");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="created_at"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="created_at"?"#a5b4fc":"#475569" }}>Date {sortBy==="created_at"?(sortDir==="asc"?"↑":"↓"):""}</button>
+            <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>Actions</button>
+            <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
+            <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
+            <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency</button>
+            <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage</button>
+            <button onClick={()=>{ if(sortBy==="next_action_date") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("next_action_date");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="next_action_date"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="next_action_date"?"#a5b4fc":"#475569" }}>Due Date</button>
+            <button onClick={()=>{ if(sortBy==="created_at") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("created_at");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="created_at"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="created_at"?"#a5b4fc":"#475569" }}>Date</button>
           </div>
         </div>
       </div>
@@ -551,22 +537,22 @@ export default function PipelineDashboard() {
         <div style={{ padding:"16px 28px",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16 }}>
             <div style={{ background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:14 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>⚡ Overdue / Due Today ({todayActions.length})</div>
+              <div style={{ fontSize:11,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Overdue / Due Today ({todayActions.length})</div>
               {todayActions.length === 0
-                ? <div style={{ fontSize:12,color:"#334155" }}>All clear 🎉</div>
+                ? <div style={{ fontSize:12,color:"#334155" }}>All clear</div>
                 : todayActions.slice(0,5).map(l => (
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
                       <div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div>
                     </div>
-                    <div style={{ fontSize:10,color:l.next_action_date < today?"#ef4444":"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{l.next_action_date}</div>
+                    <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{l.next_action_date}</div>
                   </div>
                 ))}
               {todayActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{todayActions.length-5} more</div>}
             </div>
             <div style={{ background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:14 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>📅 This Week ({weekActions.length})</div>
+              <div style={{ fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>This Week ({weekActions.length})</div>
               {weekActions.length === 0
                 ? <div style={{ fontSize:12,color:"#334155" }}>Nothing scheduled</div>
                 : weekActions.slice(0,5).map(l => (
@@ -581,7 +567,7 @@ export default function PipelineDashboard() {
               {weekActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{weekActions.length-5} more</div>}
             </div>
             <div style={{ background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.15)",borderRadius:10,padding:14 }}>
-              <div style={{ fontSize:11,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>🧊 Gone Quiet ({staleLeads.length})</div>
+              <div style={{ fontSize:11,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Gone Quiet ({staleLeads.length})</div>
               {staleLeads.length === 0
                 ? <div style={{ fontSize:12,color:"#334155" }}>All leads active</div>
                 : staleLeads.slice(0,5).map(l => (
@@ -599,42 +585,6 @@ export default function PipelineDashboard() {
         </div>
       )}
 
-      {showActions && (
-  <div style={{ padding:"16px 28px",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16 }}>
-      <div style={{ background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:14 }}>
-        <div style={{ fontSize:11,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>⚡ Overdue / Due Today ({todayActions.length})</div>
-        {todayActions.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>All clear 🎉</div> : todayActions.slice(0,5).map(l => (
-          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div></div>
-            <div style={{ fontSize:10,color:l.next_action_date < today?"#ef4444":"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{l.next_action_date}</div>
-          </div>
-        ))}
-        {todayActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{todayActions.length-5} more</div>}
-      </div>
-      <div style={{ background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:14 }}>
-        <div style={{ fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>📅 This Week ({weekActions.length})</div>
-        {weekActions.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>Nothing scheduled</div> : weekActions.slice(0,5).map(l => (
-          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div></div>
-            <div style={{ fontSize:10,color:"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{new Date(l.next_action_date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
-          </div>
-        ))}
-        {weekActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{weekActions.length-5} more</div>}
-      </div>
-      <div style={{ background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.15)",borderRadius:10,padding:14 }}>
-        <div style={{ fontSize:11,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>🧊 Gone Quiet ({staleLeads.length})</div>
-        {staleLeads.length === 0 ? <div style={{ fontSize:12,color:"#334155" }}>All leads active</div> : staleLeads.slice(0,5).map(l => (
-          <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-            <div><div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div><div style={{ fontSize:10,color:"#64748b" }}>{(STAGES.find(s=>s.id===l.stage)||{}).label||l.stage}</div></div>
-            <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{daysSince(l.last_action_at)}d</div>
-          </div>
-        ))}
-        {staleLeads.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{staleLeads.length-5} more</div>}
-      </div>
-    </div>
-  </div>
-)}
       {loading ? (
         <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting...</div>
       ) : (
