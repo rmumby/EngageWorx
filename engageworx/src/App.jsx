@@ -798,7 +798,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select value={configForm.plan || c.plan || "growth"} onChange={e => setConfigForm(f => ({...f, plan: e.target.value}))} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
+                        <select value={configForm.plan || c.plan || "growth"} onChange={function(e){ setConfigForm(function(f){ return Object.assign({}, f, {plan: e.target.value}); }); }} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
@@ -829,15 +829,15 @@ setDemoCreating(false);
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
-                        <input type="number" value={configForm.message_limit || c.message_limit || 10000} onChange={e => setConfigForm(f => ({...f, message_limit: e.target.value}))} data-field={"message_limit_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.message_limit || c.message_limit || 10000} onChange={function(e){ setConfigForm(function(f){ return Object.assign({}, f, {message_limit: e.target.value}); }); }} data-field={"message_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Contact Limit</div>
-                        <input type="number" value={configForm.contact_limit || c.contact_limit || 50000} onChange={e => setConfigForm(f => ({...f, contact_limit: e.target.value}))} data-field={"contact_limit_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.contact_limit || c.contact_limit || 50000} onChange={function(e){ setConfigForm(function(f){ return Object.assign({}, f, {contact_limit: e.target.value}); }); }} data-field={"contact_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>User Seats</div>
-                        <input type="number" value={configForm.user_seats || c.user_seats || 10} onChange={e => setConfigForm(f => ({...f, user_seats: e.target.value}))} data-field={"user_seats_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.user_seats || c.user_seats || 10} onChange={function(e){ setConfigForm(function(f){ return Object.assign({}, f, {user_seats: e.target.value}); }); }} data-field={"user_seats_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>API Rate Limit</div>
