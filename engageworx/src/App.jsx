@@ -856,7 +856,7 @@ setDemoCreating(false);
   await supabase.from('tenants').update({ plan: planVal, message_limit: msgVal, contact_limit: conVal, user_seats: seatsVal }).eq('id', c.id);
   setConfiguringTenant(null);
 }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
-                      <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎨 Edit Branding</button>
+                      <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
                       <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
                   </div>
