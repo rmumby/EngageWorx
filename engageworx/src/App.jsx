@@ -296,7 +296,19 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [newTenant, setNewTenant] = useState({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
-
+  async function handleSaveTenantConfig(tenant) {
+    var planEl = document.querySelector('[data-field="plan_' + tenant.id + '"]');
+    var msgEl = document.querySelector('[data-field="message_limit_' + tenant.id + '"]');
+    var conEl = document.querySelector('[data-field="contact_limit_' + tenant.id + '"]');
+    var seatsEl = document.querySelector('[data-field="user_seats_' + tenant.id + '"]');
+    await supabase.from('tenants').update({
+      plan: planEl ? planEl.value : tenant.plan,
+      message_limit: parseInt(msgEl ? msgEl.value : tenant.message_limit),
+      contact_limit: parseInt(conEl ? conEl.value : tenant.contact_limit),
+      user_seats: parseInt(seatsEl ? seatsEl.value : tenant.user_seats || 10),
+    }).eq('id', tenant.id);
+    setConfiguringTenant(null);
+  }
   const handleCreateTenant = async () => {
     if (!newTenant.companyName || !newTenant.email) return alert("Company name and email are required");
     setCreateLoading(true);
