@@ -297,11 +297,29 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [configForm, setConfigForm] = useState({});
-  async function handleSaveTenantConfig(tenant) {
-    var planEl = document.querySelector('[data-field="plan_' + tenant.id + '"]');
-    var msgEl = document.querySelector('[data-field="message_limit_' + tenant.id + '"]');
-    var conEl = document.querySelector('[data-field="contact_limit_' + tenant.id + '"]');
-    var seatsEl = document.querySelector('[data-field="user_seats_' + tenant.id + '"]');
+ async function handleSaveTenantConfig(tenant) {
+    var planDefaults = {
+      starter:    { message_limit: 5000,   contact_limit: 10000,   user_seats: 3 },
+      growth:     { message_limit: 25000,  contact_limit: 50000,   user_seats: 10 },
+      pro:        { message_limit: 50000,  contact_limit: 100000,  user_seats: 25 },
+      enterprise: { message_limit: 250000, contact_limit: 500000,  user_seats: 100 },
+      silver:     { message_limit: 10000,  contact_limit: 50000,   user_seats: 10 },
+      gold:       { message_limit: 50000,  contact_limit: 200000,  user_seats: 50 },
+      platinum:   { message_limit: 200000, contact_limit: 500000,  user_seats: 200 },
+      diamond:    { message_limit: 500000, contact_limit: 1000000, user_seats: 500 },
+    };
+    var planVal = configForm.plan || tenant.plan;
+    var defaults = planDefaults[planVal] || {};
+    var result = await supabase.from('tenants').update({
+      plan: planVal,
+      message_limit: defaults.message_limit || tenant.message_limit,
+      contact_limit: defaults.contact_limit || tenant.contact_limit,
+      user_seats: defaults.user_seats || tenant.user_seats || 10,
+    }).eq('id', tenant.id);
+    console.log('[SaveTenant]', planVal, defaults);
+    setConfiguringTenant(null);
+    window.location.reload();
+  }
    var planVal = planEl ? planEl.value : tenant.plan;
     var planDefaults = {
       starter: { message_limit: 5000, contact_limit: 10000, user_seats: 3 },
