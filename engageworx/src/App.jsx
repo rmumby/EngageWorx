@@ -302,12 +302,13 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
     var msgEl = document.querySelector('[data-field="message_limit_' + tenant.id + '"]');
     var conEl = document.querySelector('[data-field="contact_limit_' + tenant.id + '"]');
     var seatsEl = document.querySelector('[data-field="user_seats_' + tenant.id + '"]');
-    await supabase.from('tenants').update({
+    var result = await supabase.from('tenants').update({
       plan: planEl ? planEl.value : tenant.plan,
       message_limit: parseInt(msgEl ? msgEl.value : tenant.message_limit),
       contact_limit: parseInt(conEl ? conEl.value : tenant.contact_limit),
       user_seats: parseInt(seatsEl ? seatsEl.value : tenant.user_seats || 10),
-   }).eq('id', tenant.id);
+    }).eq('id', tenant.id);
+    console.log('[SaveTenant] Result:', result);
     setConfiguringTenant(null);
     window.location.reload();
   }
