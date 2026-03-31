@@ -249,9 +249,32 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ enrolments: data || [] });
   }
 
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  // ── ROSTER — get all enrolments for a sequence ────────────────────────────
+  // ── ROSTER — get all enrolments for a sequence
   if (action === 'roster' && req.method === 'GET') {
+    var seqId = req.query.sequence_id;
+    if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
+    var { data, error } = await supabase
+      .from('lead_sequences')
+      .select('*, sequences(name, id)')
+      .eq('sequence_id', seqId)
+      .order('enrolled_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    var leadIds = (data || []).map(function(e) { return e.lead_id; }).filter(Boolean);
+    var leadsMap = {};
+    if (leadIds.length > 0) {
+      var leadsRes = await supabase.from('leads').select('id, name, company, email, phone').in('id', leadIds);
+      if (leadsRes.data) {
+        leadsRes.data.forEach(function(l) { leadsMap[l.id] = l; });
+      }
+    }
+    var enriched = (data || []).map(function(e) {
+      return Object.assign({}, e, { leads: leadsMap[e.lead_id] || e.lead_data || {} });
+    });
+    return res.status(200).json({ enrolments: enriched });
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  var body = req.body || {};
     var seqId = req.query.sequence_id;
     if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
     var { data, error } = await supabase
