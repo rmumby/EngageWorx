@@ -179,6 +179,11 @@ function Modal({ lead, onClose, onSave }) {
   const [converting, setConverting]   = useState(false);
   const [convertDone, setConvertDone] = useState(false);
   const [replicating, setReplicating] = useState(false);
+  const [sequences, setSequences] = useState([]);
+  const [enrolStatus, setEnrolStatus] = useState("");
+  useEffect(() => {
+    fetch('/api/sequences?action=list').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
+  }, []);
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
   const isNew = !lead.id || String(lead.id).startsWith("new_");
 
@@ -328,6 +333,27 @@ function Modal({ lead, onClose, onSave }) {
           </div>
         )}
 
+        {!isNew && (
+  <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
+    <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
+    <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
+      {sequences.length === 0 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div> : sequences.map(s=>(
+        <button key={s.id} onClick={async ()=>{
+          setEnrolStatus("Enrolling...");
+          try {
+            const r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
+            const d = await r.json();
+            setEnrolStatus(d.success ? "✅ Enrolled in: " + s.name : "❌ " + (d.error||"Failed"));
+          } catch(e) { setEnrolStatus("❌ Error: " + e.message); }
+          setTimeout(()=>setEnrolStatus(""),4000);
+        }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
+          + {s.name}
+        </button>
+      ))}
+    </div>
+    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
+  </div>
+)}
         {!isNew && (
           <div style={{ background:"rgba(16,185,129,0.06)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:"10px",padding:"16px",marginBottom:"16px" }}>
             <div style={{ fontSize:"12px",fontWeight:700,color:"#10b981",marginBottom:"8px" }}>🧪 CONVERT TO TENANT</div>
