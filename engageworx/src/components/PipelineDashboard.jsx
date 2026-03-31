@@ -186,7 +186,10 @@ function Modal({ lead, onClose, onSave }) {
     if (lead.id && !String(lead.id).startsWith('new_')) {
       fetch('/api/sequences?action=status&lead_id=' + lead.id).then(function(r){ return r.json(); }).then(function(d){
         var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; });
-        if (active.length > 0) setEnrolStatus("Active in " + active.length + " sequence(s)");
+        if (active.length > 0) {
+          var names = active.map(function(e){ return e.sequences ? e.sequences.name : ''; }).filter(Boolean).join(', ');
+          setEnrolStatus("Enrolled: " + (names || active.length + " sequence(s)"));
+        }
       }).catch(function(){});
     }
   }, [lead.id]);
@@ -356,7 +359,7 @@ function Modal({ lead, onClose, onSave }) {
                         var d = await r.json();
                         setEnrolStatus(d.success ? "Enrolled in: " + s.name : "Error: " + (d.error||"Failed"));
                       } catch(e) { setEnrolStatus("Error: " + e.message); }
-                    }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
+                    }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:isEnrolled?"rgba(16,185,129,0.15)":"rgba(168,85,247,0.15)",color:isEnrolled?"#10b981":"#c084fc",border:"1px solid "+(isEnrolled?"rgba(16,185,129,0.3)":"rgba(168,85,247,0.3)") }}>
                       + {s.name}
                     </button>
                   );
