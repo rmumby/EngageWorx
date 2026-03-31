@@ -56,7 +56,7 @@ export default function SequenceRoster({ C }) {
     if (filter !== 'all' && e.status !== filter) return false;
     if (search) {
       var q = search.toLowerCase();
-      var lead = e.leads || {};
+      var lead = e.leads || e.lead_data || {};
       return (lead.company || '').toLowerCase().includes(q) ||
              (lead.name || '').toLowerCase().includes(q) ||
              (lead.email || '').toLowerCase().includes(q);
@@ -152,7 +152,7 @@ export default function SequenceRoster({ C }) {
                       </thead>
                       <tbody>
                         {filtered.map(function(e) {
-                          var lead = e.leads || {};
+                          var lead = e.leads || e.lead_data || {};
                           var stepProgress = stepCount > 0 ? 'Step ' + e.current_step + ' / ' + stepCount : 'Step ' + e.current_step;
                           var pct = stepCount > 0 ? Math.round((e.current_step / stepCount) * 100) : 0;
                           var daysIn = daysSince(e.enrolled_at);
