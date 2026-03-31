@@ -320,27 +320,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
     setConfiguringTenant(null);
     window.location.reload();
   }
-   var planVal = planEl ? planEl.value : tenant.plan;
-    var planDefaults = {
-      starter: { message_limit: 5000, contact_limit: 10000, user_seats: 3 },
-      growth: { message_limit: 25000, contact_limit: 50000, user_seats: 10 },
-      pro: { message_limit: 50000, contact_limit: 100000, user_seats: 25 },
-      enterprise: { message_limit: 250000, contact_limit: 500000, user_seats: 100 },
-      silver: { message_limit: 10000, contact_limit: 50000, user_seats: 10 },
-      gold: { message_limit: 50000, contact_limit: 200000, user_seats: 50 },
-      platinum: { message_limit: 200000, contact_limit: 500000, user_seats: 200 },
-      diamond: { message_limit: 500000, contact_limit: 1000000, user_seats: 500 },
-    };
-    var defaults = planDefaults[planVal] || {};
-    await supabase.from('tenants').update({
-      plan: planVal,
-      message_limit: defaults.message_limit,
-      contact_limit: defaults.contact_limit,
-      user_seats: defaults.user_seats,
-    }).eq('id', tenant.id);
-    setConfiguringTenant(null);
-    window.location.reload();
-  }
+
   const handleCreateTenant = async () => {
     if (!newTenant.companyName || !newTenant.email) return alert("Company name and email are required");
     setCreateLoading(true);
