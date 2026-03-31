@@ -1154,6 +1154,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
+    { id: "seq-builder", label: "Sequence Builder", icon: "🤖" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "support", label: "Support", icon: "🎫" },
     { id: "registration", label: "Registration", icon: "📋" },
