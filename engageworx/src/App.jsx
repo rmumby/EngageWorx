@@ -845,29 +845,7 @@ setDemoCreating(false);
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={async () => {
-  await supabase.from('tenants').update({
-    plan: c.plan,
-    message_limit: parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit),
-    contact_limit: parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit),
-  }).eq('id', c.id);
-  setConfiguringTenant(null);
-}} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
-                      <button onClick={async () => {
-                        await supabase.from('tenants').update({
-                          message_limit: parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit),
-                          contact_limit: parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit),
-                          user_seats: parseInt(document.querySelector('[data-field="user_seats_' + c.id + '"]')?.value || c.user_seats || 10),
-                        }).eq('id', c.id);
-                        setConfiguringTenant(null);
-                     <button onClick={async () => {
-  var planVal = document.querySelector('[data-field="plan_' + c.id + '"]')?.value || c.plan;
-  var msgVal = parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit);
-  var conVal = parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit);
-  var seatsVal = parseInt(document.querySelector('[data-field="user_seats_' + c.id + '"]')?.value || c.user_seats || 10);
-  await supabase.from('tenants').update({ plan: planVal, message_limit: msgVal, contact_limit: conVal, user_seats: seatsVal }).eq('id', c.id);
-  setConfiguringTenant(null);
-}} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                      <button onClick={() => handleSaveTenantConfig(c)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                       <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: "rgba(124,77,255,0.13)", border: "1px solid rgba(124,77,255,0.27)", borderRadius: 8, padding: "8px 18px", color: "#7C4DFF", fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
                       <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
@@ -875,20 +853,6 @@ setDemoCreating(false);
                 )}
               </div>
               );
-  await supabase.from('tenants').update({ plan: planVal, message_limit: msgVal, contact_limit: conVal, user_seats: seatsVal }).eq('id', c.id);
-  setConfiguringTenant(null);
-}} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
-                      <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
-                      <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {activeTab === "branding" && (
         <div>
