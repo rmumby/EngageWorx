@@ -296,6 +296,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
   const [newTenant, setNewTenant] = useState({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
+  const [configForm, setConfigForm] = useState({});
   async function handleSaveTenantConfig(tenant) {
     var planEl = document.querySelector('[data-field="plan_' + tenant.id + '"]');
     var msgEl = document.querySelector('[data-field="message_limit_' + tenant.id + '"]');
