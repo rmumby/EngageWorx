@@ -351,18 +351,9 @@ function Modal({ lead, onClose, onSave }) {
               {sequences.length === 0
                 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div>
                 : sequences.map(function(s) {
+                  var isEnrolled = enrolStatus.indexOf(s.name) !== -1;
                   return (
-                    <button key={s.id} onClick={async function(){
-                      setEnrolStatus("Enrolling...");
-                      try {
-                        var r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
-                        var d = await r.json();
-                        setEnrolStatus(d.success ? "Enrolled in: " + s.name : "Error: " + (d.error||"Failed"));
-                      } catch(e) { setEnrolStatus("Error: " + e.message); }
-                    }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:isEnrolled?"rgba(16,185,129,0.15)":"rgba(168,85,247,0.15)",color:isEnrolled?"#10b981":"#c084fc",border:"1px solid "+(isEnrolled?"rgba(16,185,129,0.3)":"rgba(168,85,247,0.3)") }}>
-                      + {s.name}
-                    </button>
-                  );
+                    <button key={s.id}
                 })
               }
             </div>
