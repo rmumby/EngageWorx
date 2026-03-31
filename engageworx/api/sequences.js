@@ -305,6 +305,53 @@ module.exports = async function handler(req, res) {
     if (error) return res.status(500).json({ error: error.message });
     console.log('[Sequences] Lead enrolled:', lead_id, 'in sequence:', sequence_id);
     return res.status(200).json({ success: true, enrolment: data });
+    }
+
+  // ── BULK ENROL multiple leads ─────────────────────────────────────────────
+  if (action === 'bulk-enrol') {
+    var { sequence_id, leads: leadList, tenant_id } = req.body;
+    if (!sequence_id || !leadList || !leadList.length) return res.status(400).json({ error: 'Missing sequence_id or leads' });
+    var results = { enrolled: 0, skipped: 0, errors: [] };
+    for (var lead of leadList) {
+      try {
+        // Create lead if no id (new contact from CSV)
+        var leadId = lead.id;
+        if (!leadId) {
+          var { data: newLead, error: leadErr } = await supabase.from('leads').insert({
+            name: ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim() || lead.email || 'Unknown',
+            company: lead.company || '',
+            email: lead.email || null,
+            phone: lead.phone || null,
+            type: 'Unknown',
+            urgency: 'Warm',
+            stage: 'inquiry',
+            source: lead.source || 'CSV Import',
+            notes: lead.notes || '',
+            last_action_at: new Date().toISOString().split('T')[0],
+            last_activity_at: new Date().toISOString(),
+          }).select('id').single();
+          if (leadErr) { results.errors.push(lead.email + ': ' + leadErr.message); continue; }
+          leadId = newLead.id;
+        }
+        // Get first step delay
+        var { data: firstStep } = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sequence_id).eq('step_number', 1).single();
+        var startDate = new Date();
+        if (firstStep && firstStep.delay_days > 0) startDate.setDate(startDate.getDate() + firstStep.delay_days);
+        var { error: enrolErr } = await supabase.from('lead_sequences').upsert({
+          tenant_id: tenant_id || EW_SP_TENANT_ID,
+          lead_id: leadId,
+          sequence_id: sequence_id,
+          current_step: 0,
+          status: 'active',
+          enrolled_at: new Date().toISOString(),
+          next_step_at: startDate.toISOString(),
+        }, { onConflict: 'lead_id,sequence_id' });
+        if (enrolErr) { results.errors.push(leadId + ': ' + enrolErr.message); continue; }
+        results.enrolled++;
+      } catch(e) { results.errors.push((lead.email || 'unknown') + ': ' + e.message); }
+    }
+    return res.status(200).json({ success: true, ...results });
+  }
   }
 
   // ── PAUSE sequence ──────────────────────────────────────────────────────────
