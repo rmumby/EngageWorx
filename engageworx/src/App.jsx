@@ -817,15 +817,15 @@ setDemoCreating(false);
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
-                        <input type="number" defaultValue={c.message_limit || 10000} style={inputStyleTM} />
+                        <input type="number" defaultValue={c.message_limit || 10000} data-field={"message_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Contact Limit</div>
-                        <input type="number" defaultValue={c.contact_limit || 50000} style={inputStyleTM} />
+                        <input type="number" defaultValue={c.contact_limit || 50000} data-field={"contact_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>User Seats</div>
-                        <input type="number" defaultValue={10} style={inputStyleTM} />
+                        <input type="number" defaultValue={c.user_seats || 10} data-field={"user_seats_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>API Rate Limit</div>
@@ -833,7 +833,22 @@ setDemoCreating(false);
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => setConfiguringTenant(null)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                      <button onClick={async () => {
+  await supabase.from('tenants').update({
+    plan: c.plan,
+    message_limit: parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit),
+    contact_limit: parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit),
+  }).eq('id', c.id);
+  setConfiguringTenant(null);
+}} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                      <button onClick={async () => {
+                        await supabase.from('tenants').update({
+                          message_limit: parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit),
+                          contact_limit: parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit),
+                          user_seats: parseInt(document.querySelector('[data-field="user_seats_' + c.id + '"]')?.value || c.user_seats || 10),
+                        }).eq('id', c.id);
+                        setConfiguringTenant(null);
+                      }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                       <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎨 Edit Branding</button>
                       <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
