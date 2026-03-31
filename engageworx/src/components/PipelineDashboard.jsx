@@ -183,7 +183,13 @@ function Modal({ lead, onClose, onSave }) {
   const [enrolStatus, setEnrolStatus] = useState("");
   useEffect(() => {
     fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
-  }, []);
+    if (lead.id && !String(lead.id).startsWith('new_')) {
+      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(d=>{
+        var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; }).map(function(e){ return e.sequence_id; });
+        setEnrolStatus(active.length > 0 ? '✅ Enrolled in ' + active.length + ' sequence(s)' : '');
+      }).catch(()=>{});
+    }
+  }, [lead.id]);
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
   const isNew = !lead.id || String(lead.id).startsWith("new_");
 
@@ -338,19 +344,15 @@ function Modal({ lead, onClose, onSave }) {
   <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
     <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
     <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
-      {sequences.length === 0 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div> : sequences.map(s=>(
-        <button key={s.id} onClick={async ()=>{
-          setEnrolStatus("Enrolling...");
-          try {
-            const r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
-            const d = await r.json();
-            setEnrolStatus(d.success ? "✅ Enrolled in: " + s.name : "❌ " + (d.error||"Failed"));
-          } catch(e) { setEnrolStatus("❌ Error: " + e.message); }
-          setTimeout(()=>setEnrolStatus(""),4000);
-        }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
-          + {s.name}
-        </button>
-      ))}
+     useEffect(() => {
+    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
+    if (lead.id && !String(lead.id).startsWith('new_')) {
+      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(d=>{
+        var names = (d.enrolments||[]).filter(function(e){return e.status==='active';}).map(function(e){return e.sequences&&e.sequences.name?e.sequences.name:'';}).filter(Boolean);
+        if (names.length > 0) setEnrolStatus("✅ Active: " + names.join(', '));
+      }).catch(()=>{});
+    }
+  }, [lead.id]);
     </div>
     {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
   </div>
