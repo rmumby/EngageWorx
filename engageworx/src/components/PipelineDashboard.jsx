@@ -363,12 +363,12 @@ function Modal({ lead, onClose, onSave }) {
     <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
     <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
      useEffect(() => {
-    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
+    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(function(){});
     if (lead.id && !String(lead.id).startsWith('new_')) {
-      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(d=>{
-        var names = (d.enrolments||[]).filter(function(e){return e.status==='active';}).map(function(e){return e.sequences&&e.sequences.name?e.sequences.name:'';}).filter(Boolean);
-        if (names.length > 0) setEnrolStatus("✅ Active: " + names.join(', '));
-      }).catch(()=>{});
+      fetch('/api/sequences?action=status&lead_id=' + lead.id).then(r=>r.json()).then(function(d){
+        var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; });
+        if (active.length > 0) setEnrolStatus("Enrolled in " + active.length + " sequence(s)");
+      }).catch(function(){});
     }
   }, [lead.id]);
     </div>
