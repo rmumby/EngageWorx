@@ -19,6 +19,7 @@ import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
+import SequenceRoster from './SequenceRoster';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
@@ -1448,6 +1449,7 @@ var spNavBase = [
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
   { id: "import", label: "Import Leads", icon: "📥" },
+  { id: "sequences", label: "Sequence Roster", icon: "📋" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
@@ -1896,6 +1898,7 @@ var spNavBase = [
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
         {spPage === "import" && <ImportLeads C={C} />}
+        {spPage === "sequences" && <SequenceRoster C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
