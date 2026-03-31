@@ -256,7 +256,7 @@ module.exports = async function handler(req, res) {
     if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
     var { data, error } = await supabase
       .from('lead_sequences')
-      .select('*, leads(id, name, company, email, phone), sequences(name, id)')
+      .select('*, leads(id, name, company, email, phone, lead_data), sequences(name, id)')
       .eq('sequence_id', seqId)
       .order('enrolled_at', { ascending: false });
     if (error) return res.status(500).json({ error: error.message });
