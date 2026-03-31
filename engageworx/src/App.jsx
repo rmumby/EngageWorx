@@ -700,6 +700,11 @@ setDemoCreating(false);
     <option value="growth">Growth $249/mo</option>
     <option value="pro">Pro $499/mo</option>
     <option value="enterprise">Enterprise</option>
+    <option disabled>── CSP Partners ──</option>
+<option value="silver">Silver $499/mo</option>
+<option value="gold">Gold $1,499/mo</option>
+<option value="platinum">Platinum $3,999/mo</option>
+<option value="diamond">Diamond $7,999/mo</option>
   </select>
 </div>
 <div>
@@ -781,7 +786,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select defaultValue="growth" style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="enterprise">Enterprise (Custom)</option></select>
+                        <select defaultValue="growth" style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
