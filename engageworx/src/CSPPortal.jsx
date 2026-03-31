@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { useTheme, ThemeToggle } from './ThemeContext';
+import { ThemeToggle } from './ThemeContext';
 import ContactsModule from './ContactsModule';
 import LiveInbox from './components/LiveInboxV2';
 
@@ -10,8 +10,7 @@ function getCSPColors(themeObj) {
 }
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
-  var themeCtx = useTheme();
-  var C = getCSPColors(themeCtx.theme);
+  var C = getCSPColors(null);
   var pageState = useState('dashboard');
   var page = pageState[0];
   var setPage = pageState[1];
