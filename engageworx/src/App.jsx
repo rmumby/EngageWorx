@@ -11,6 +11,7 @@ import ContactsModule from './ContactsModule';
 import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
 import BlogAdmin from './BlogAdmin';
+import ImportLeads from './ImportLeads';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import AgentPortal from './AgentPortal';
@@ -1412,6 +1413,7 @@ var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
+  { id: "import", label: "Import Leads", icon: "📥" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
@@ -1859,6 +1861,7 @@ var spNavBase = [
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
+        {spPage === "import" && <ImportLeads C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
