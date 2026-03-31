@@ -391,9 +391,14 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
         <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
         <select value={newTenant.plan} onChange={e => setNewTenant({...newTenant, plan: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }}>
           <option value="starter">Starter $99/mo</option>
-          <option value="growth">Growth $249/mo</option>
-          <option value="pro">Pro $499/mo</option>
-          <option value="enterprise">Enterprise</option>
+<option value="growth">Growth $249/mo</option>
+<option value="pro">Pro $499/mo</option>
+<option value="enterprise">Enterprise</option>
+<option disabled>── CSP Partners ──</option>
+<option value="silver">Silver $499/mo</option>
+<option value="gold">Gold $1,499/mo</option>
+<option value="platinum">Platinum $3,999/mo</option>
+<option value="diamond">Diamond $7,999/mo</option>
         </select>
       </div>
       <div>
