@@ -5,6 +5,7 @@
 // POST /api/sequences?action=cancel    → Cancel a lead's sequence
 // GET  /api/sequences?action=list      → List sequences for a tenant
 // GET  /api/sequences?action=status    → Get lead's sequence status
+// POST /api/sequences?action=bulk-enrol → Enrol multiple leads at once
 
 var { createClient } = require('@supabase/supabase-js');
 var sgMail = require('@sendgrid/mail');
@@ -17,6 +18,7 @@ function getSupabase() {
 }
 
 var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+// POST /api/sequences?action=bulk-enrol → Enrol multiple leads at once
 
 // ── AI-personalise a message template ────────────────────────────────────────
 async function personaliseMessage(template, lead, tenantName) {
@@ -252,6 +254,27 @@ module.exports = async function handler(req, res) {
   var body = req.body || {};
 
   // ── ENROL lead in sequence ──────────────────────────────────────────────────
+  {!isNew && (
+  <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
+    <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
+    <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
+      {sequences.length === 0 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div> : sequences.map(s=>(
+        <button key={s.id} onClick={async ()=>{
+          setEnrolStatus("Enrolling...");
+          try {
+            const r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
+            const d = await r.json();
+            setEnrolStatus(d.success ? "✅ Enrolled in: " + s.name : "❌ " + (d.error||"Failed"));
+          } catch(e) { setEnrolStatus("❌ Error: " + e.message); }
+          setTimeout(()=>setEnrolStatus(""),4000);
+        }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
+          + {s.name}
+        </button>
+      ))}
+    </div>
+    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
+  </div>
+)}
   if (action === 'enrol') {
     var { lead_id, sequence_id, tenant_id } = body;
     if (!lead_id || !sequence_id) return res.status(400).json({ error: 'lead_id and sequence_id required' });
