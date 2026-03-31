@@ -772,7 +772,7 @@ setDemoCreating(false);
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
-                  <button onClick={() => setConfiguringTenant(isConfiguring ? null : c.id)} style={{ background: isConfiguring ? C.primary : `${c.brand.primary}22`, border: `1px solid ${isConfiguring ? C.primary : c.brand.primary + "55"}`, borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
+                  <button onClick={() => { setConfiguringTenant(isConfiguring ? null : c.id); if (!isConfiguring) setConfigForm({ plan: c.plan || 'growth', message_limit: c.message_limit || 10000, contact_limit: c.contact_limit || 50000, user_seats: c.user_seats || 10 }); }}
                   {confirmSuspend === c.id ? (
                     <div style={{ display: "flex", gap: 4 }}>
                       <button onClick={() => { setSuspendedTenants(prev => ({ ...prev, [c.id]: !isSuspended })); setConfirmSuspend(null); }} style={{ background: isSuspended ? "#00E67622" : "#FF3B3022", border: `1px solid ${isSuspended ? "#00E67644" : "#FF3B3044"}`, borderRadius: 7, padding: "7px 10px", color: isSuspended ? "#00E676" : "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Confirm"}</button>
@@ -798,7 +798,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select defaultValue={c.plan || "growth"} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
+                        <select value={configForm.plan || c.plan || "growth"} onChange={e => setConfigForm(f => ({...f, plan: e.target.value}))} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
@@ -829,15 +829,15 @@ setDemoCreating(false);
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
-                        <input type="number" defaultValue={c.message_limit || 10000} data-field={"message_limit_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.message_limit || c.message_limit || 10000} onChange={e => setConfigForm(f => ({...f, message_limit: e.target.value}))} data-field={"message_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Contact Limit</div>
-                        <input type="number" defaultValue={c.contact_limit || 50000} data-field={"contact_limit_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.contact_limit || c.contact_limit || 50000} onChange={e => setConfigForm(f => ({...f, contact_limit: e.target.value}))} data-field={"contact_limit_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>User Seats</div>
-                        <input type="number" defaultValue={c.user_seats || 10} data-field={"user_seats_" + c.id} style={inputStyleTM} />
+                        <input type="number" value={configForm.user_seats || c.user_seats || 10} onChange={e => setConfigForm(f => ({...f, user_seats: e.target.value}))} data-field={"user_seats_" + c.id} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>API Rate Limit</div>
