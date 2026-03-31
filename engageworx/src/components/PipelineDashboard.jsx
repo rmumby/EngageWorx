@@ -182,7 +182,7 @@ function Modal({ lead, onClose, onSave }) {
   const [sequences, setSequences] = useState([]);
   const [enrolStatus, setEnrolStatus] = useState("");
   useEffect(() => {
-    fetch('/api/sequences?action=list').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
+    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(r=>r.json()).then(d=>setSequences(d.sequences||[])).catch(()=>{});
   }, []);
   const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
   const isNew = !lead.id || String(lead.id).startsWith("new_");
@@ -208,6 +208,7 @@ function Modal({ lead, onClose, onSave }) {
     setSaveError(""); setSaving(true);
     const payload = { ...form, name: fullName(firstName, lastName) || form.company, ai_next_action: aiText || form.ai_next_action, go_live_date: form.go_live_date || null, last_action_at: form.last_action_at || null, next_action: form.next_action || null, next_action_date: form.next_action_date || null, last_activity_at: new Date().toISOString() };
     delete payload.id;
+    delete payload.contact_count;
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     try {
       if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
