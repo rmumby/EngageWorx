@@ -10,6 +10,24 @@ var PRICE_IDS = {
   growth: 'price_1T4OefPEs1sluBAUuZVAaBJ3',
   pro: 'price_1T4Of6PEs1sluBAURFjaViRv',
 };
+var CSP_PRICE_IDS = {
+  silver: 'price_1TH2NHPEs1sluBAUNIR1PA9c',
+  gold: 'price_1TH2SdPEs1sluBAU8q5eR3aT',
+  platinum: 'price_1TH2cNPEs1sluBAUqbAYGQEO',
+  diamond: 'price_1TH2ekPEs1sluBAUCnNXN3SX',
+};
+var TOPUP_PRICE_IDS = {
+  topup_10k: 'price_1TH2mKPEs1sluBAU6aHkXzYN',
+  topup_50k: 'price_1TH2mvPEs1sluBAU3Aezd3xi',
+  topup_100k: 'price_1TH2oFPEs1sluBAUVlLO9oG5',
+  topup_250k: 'price_1TH2otPEs1sluBAUCDd2k8Wl',
+  topup_500k: 'price_1TH2qWPEs1sluBAUuHjUmToO',
+};
+var TENANT_TOPUP_PRICE_IDS = {
+  topup_500: 'price_1T4OfbPEs1sluBAUCYOGvoDQ',
+  topup_2k: 'price_1T4OfvPEs1sluBAUlLDJppyQ',
+  topup_5k: 'price_1T4OgUPEs1sluBAUZ24cjbfP',
+};
 
 async function stripeRequest(endpoint, method, body) {
   var secretKey = process.env.STRIPE_SECRET_KEY;
@@ -76,10 +94,10 @@ module.exports = async function handler(req, res) {
 
       // Create Stripe checkout session
       var selectedPlan = (plan || 'starter').toLowerCase();
-      var priceId = PRICE_IDS[selectedPlan];
-      if (!priceId) {
-        return res.status(400).json({ error: `Invalid plan: ${selectedPlan}` });
-      }
+     var priceId = PRICE_IDS[selectedPlan] || CSP_PRICE_IDS[selectedPlan];
+if (!priceId) {
+  return res.status(400).json({ error: 'Invalid plan: ' + selectedPlan });
+}
 
       var successUrl = 'https://portal.engwx.com?checkout=success&email=' + encodeURIComponent(email);
       var cancelUrl = 'https://portal.engwx.com?checkout=cancelled';
@@ -154,10 +172,10 @@ module.exports = async function handler(req, res) {
       if (!plan || !email) {
         return res.status(400).json({ error: 'Missing required fields: plan and email, or priceId' });
       }
-      priceId = PRICE_IDS[plan.toLowerCase()];
-      if (!priceId) {
-        return res.status(400).json({ error: `Invalid plan: ${plan}. Use starter, growth, or pro` });
-      }
+      priceId = PRICE_IDS[plan.toLowerCase()] || CSP_PRICE_IDS[plan.toLowerCase()] || TOPUP_PRICE_IDS[plan.toLowerCase()] || TENANT_TOPUP_PRICE_IDS[plan.toLowerCase()];
+if (!priceId) {
+  return res.status(400).json({ error: 'Invalid plan: ' + plan });
+}
     }
 
     var successUrl = customSuccessUrl || `https://portal.engwx.com?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
