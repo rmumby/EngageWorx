@@ -250,6 +250,18 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // ── ROSTER — get all enrolments for a sequence ────────────────────────────
+  if (action === 'roster' && req.method === 'GET') {
+    var seqId = req.query.sequence_id;
+    if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
+    var { data, error } = await supabase
+      .from('lead_sequences')
+      .select('*, leads(id, name, company, email, phone), sequences(name, id)')
+      .eq('sequence_id', seqId)
+      .order('enrolled_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ enrolments: data || [] });
+  }
 
   var body = req.body || {};
 
