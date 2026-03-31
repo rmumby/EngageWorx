@@ -254,27 +254,6 @@ module.exports = async function handler(req, res) {
   var body = req.body || {};
 
   // ── ENROL lead in sequence ──────────────────────────────────────────────────
-  {!isNew && (
-  <div style={{ background:"rgba(168,85,247,0.06)",border:"1px solid rgba(168,85,247,0.2)",borderRadius:"10px",padding:"14px",marginBottom:"14px" }}>
-    <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
-    <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
-      {sequences.length === 0 ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div> : sequences.map(s=>(
-        <button key={s.id} onClick={async ()=>{
-          setEnrolStatus("Enrolling...");
-          try {
-            const r = await fetch('/api/sequences?action=enrol', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lead_id:lead.id,sequence_id:s.id})});
-            const d = await r.json();
-            setEnrolStatus(d.success ? "✅ Enrolled in: " + s.name : "❌ " + (d.error||"Failed"));
-          } catch(e) { setEnrolStatus("❌ Error: " + e.message); }
-          setTimeout(()=>setEnrolStatus(""),4000);
-        }} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>
-          + {s.name}
-        </button>
-      ))}
-    </div>
-    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
-  </div>
-)}
   if (action === 'enrol') {
     var { lead_id, sequence_id, tenant_id } = body;
     if (!lead_id || !sequence_id) return res.status(400).json({ error: 'lead_id and sequence_id required' });
