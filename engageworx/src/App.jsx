@@ -306,16 +306,11 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       message_limit: parseInt(msgEl ? msgEl.value : tenant.message_limit),
       contact_limit: parseInt(conEl ? conEl.value : tenant.contact_limit),
       user_seats: parseInt(seatsEl ? seatsEl.value : tenant.user_seats || 10),
-    }).eq('id', tenant.id);
-    <div style={{ display: "flex", gap: 10 }}>
-                      <button onClick={() => handleSaveTenantConfig(c)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
-                      <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: "rgba(124,77,255,0.13)", border: "1px solid rgba(124,77,255,0.27)", borderRadius: 8, padding: "8px 18px", color: "#7C4DFF", fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
-                      <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-              );
+   }).eq('id', tenant.id);
+    setConfiguringTenant(null);
+  }
+  const handleCreateTenant = async () => {
+    if (!newTenant.companyName || !newTenant.email) return alert("Company name and email are required");
     setCreateLoading(true);
     setCreateError(null);
     try {
@@ -858,6 +853,10 @@ setDemoCreating(false);
                 )}
               </div>
               );
+            })}
+          </div>
+        </div>
+      )}
 
       {activeTab === "branding" && (
         <div>
