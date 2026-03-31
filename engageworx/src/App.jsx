@@ -14,6 +14,7 @@ import BlogAdmin from './BlogAdmin';
 import ImportLeads from './ImportLeads';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
+import SequenceBuilder from './SequenceBuilder';
 import AgentPortal from './AgentPortal';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
@@ -1456,6 +1457,7 @@ var spNavBase = [
     { id: "helpdesk", label: "Help Desk", icon: "🎫" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
+  { id: "sequence-builder", label: "Sequence Builder", icon: "⚡" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
@@ -1899,6 +1901,7 @@ var spNavBase = [
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
         {spPage === "import" && <ImportLeads C={C} />}
         {spPage === "sequences" && <SequenceRoster C={C} />}
+        {spPage === "sequence-builder" && <SequenceBuilder C={C} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
