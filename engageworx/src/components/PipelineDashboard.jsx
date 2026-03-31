@@ -513,7 +513,7 @@ export default function PipelineDashboard() {
         <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
           <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"180px",marginTop:0,padding:"7px 11px" }} />
           {["All",...TYPE_OPTIONS].map(t=>(
-            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"12px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:filterType===t?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:filterType===t?"#a5b4fc":"#475569" }}>{t}</button>
+            <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>{t}</button>
           ))}
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
             <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>Actions</button>
