@@ -132,7 +132,8 @@ export default function SequenceBuilder({ C }) {
         jsonStr = jsonStr.split('\n').filter(function(l){ return l.indexOf(fence) !== 0; }).join('\n').trim();
       }
 
-      setSteps(aiSteps.map(function(s, i) {
+      var aiSteps = JSON.parse(jsonMatch[0]);
+setSteps(aiSteps.map(function(s, i) {
         return {
           id: null,
           sequence_id: selectedSeq ? selectedSeq.id : null,
