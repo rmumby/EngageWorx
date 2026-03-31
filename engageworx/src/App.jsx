@@ -309,6 +309,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       user_seats: parseInt(seatsEl ? seatsEl.value : tenant.user_seats || 10),
    }).eq('id', tenant.id);
     setConfiguringTenant(null);
+    window.location.reload();
   }
   const handleCreateTenant = async () => {
     if (!newTenant.companyName || !newTenant.email) return alert("Company name and email are required");
