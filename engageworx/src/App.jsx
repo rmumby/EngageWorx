@@ -786,7 +786,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select defaultValue="growth" style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
+                        <select defaultValue={c.plan || "growth"} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
@@ -848,7 +848,14 @@ setDemoCreating(false);
                           user_seats: parseInt(document.querySelector('[data-field="user_seats_' + c.id + '"]')?.value || c.user_seats || 10),
                         }).eq('id', c.id);
                         setConfiguringTenant(null);
-                      }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                     <button onClick={async () => {
+  var planVal = document.querySelector('[data-field="plan_' + c.id + '"]')?.value || c.plan;
+  var msgVal = parseInt(document.querySelector('[data-field="message_limit_' + c.id + '"]')?.value || c.message_limit);
+  var conVal = parseInt(document.querySelector('[data-field="contact_limit_' + c.id + '"]')?.value || c.contact_limit);
+  var seatsVal = parseInt(document.querySelector('[data-field="user_seats_' + c.id + '"]')?.value || c.user_seats || 10);
+  await supabase.from('tenants').update({ plan: planVal, message_limit: msgVal, contact_limit: conVal, user_seats: seatsVal }).eq('id', c.id);
+  setConfiguringTenant(null);
+}} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                       <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}44`, borderRadius: 8, padding: "8px 18px", color: c.brand.primary, fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎨 Edit Branding</button>
                       <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
