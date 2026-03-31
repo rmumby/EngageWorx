@@ -357,7 +357,7 @@ function Modal({ lead, onClose, onSave }) {
         </button>
       ))}
     </div>
-    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.startsWith("✅")?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
+    {enrolStatus && <div style={{ marginTop:8,fontSize:12,color:enrolStatus.indexOf("✅")===0?"#10b981":"#ef4444" }}>{enrolStatus}</div>}
   </div>
 )}
     <div style={{ fontSize:"12px",fontWeight:700,color:"#c084fc",marginBottom:"10px" }}>⚡ SEQUENCES</div>
