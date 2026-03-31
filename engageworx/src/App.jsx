@@ -302,11 +302,26 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
     var msgEl = document.querySelector('[data-field="message_limit_' + tenant.id + '"]');
     var conEl = document.querySelector('[data-field="contact_limit_' + tenant.id + '"]');
     var seatsEl = document.querySelector('[data-field="user_seats_' + tenant.id + '"]');
+   var planVal = planEl ? planEl.value : tenant.plan;
+    var planDefaults = {
+      starter: { message_limit: 5000, contact_limit: 10000, user_seats: 3 },
+      growth: { message_limit: 25000, contact_limit: 50000, user_seats: 10 },
+      pro: { message_limit: 50000, contact_limit: 100000, user_seats: 25 },
+      enterprise: { message_limit: 250000, contact_limit: 500000, user_seats: 100 },
+      silver: { message_limit: 10000, contact_limit: 50000, user_seats: 10 },
+      gold: { message_limit: 50000, contact_limit: 200000, user_seats: 50 },
+      platinum: { message_limit: 200000, contact_limit: 500000, user_seats: 200 },
+      diamond: { message_limit: 500000, contact_limit: 1000000, user_seats: 500 },
+    };
+    var defaults = planDefaults[planVal] || {};
+    var msgVal = msgEl && msgEl.value ? parseInt(msgEl.value) : (defaults.message_limit || tenant.message_limit);
+    var conVal = conEl && conEl.value ? parseInt(conEl.value) : (defaults.contact_limit || tenant.contact_limit);
+    var seatsVal = seatsEl && seatsEl.value ? parseInt(seatsEl.value) : (defaults.user_seats || tenant.user_seats || 10);
     var result = await supabase.from('tenants').update({
-      plan: planEl ? planEl.value : tenant.plan,
-      message_limit: parseInt(msgEl ? msgEl.value : tenant.message_limit),
-      contact_limit: parseInt(conEl ? conEl.value : tenant.contact_limit),
-      user_seats: parseInt(seatsEl ? seatsEl.value : tenant.user_seats || 10),
+      plan: planVal,
+      message_limit: msgVal,
+      contact_limit: conVal,
+      user_seats: seatsVal,
     }).eq('id', tenant.id);
     console.log('[SaveTenant] Result:', result);
     setConfiguringTenant(null);
