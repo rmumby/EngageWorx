@@ -332,16 +332,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       diamond: { message_limit: 500000, contact_limit: 1000000, user_seats: 500 },
     };
     var defaults = planDefaults[planVal] || {};
-    var msgVal = msgEl && msgEl.value ? parseInt(msgEl.value) : (defaults.message_limit || tenant.message_limit);
-    var conVal = conEl && conEl.value ? parseInt(conEl.value) : (defaults.contact_limit || tenant.contact_limit);
-    var seatsVal = seatsEl && seatsEl.value ? parseInt(seatsEl.value) : (defaults.user_seats || tenant.user_seats || 10);
-    var result = await supabase.from('tenants').update({
+    await supabase.from('tenants').update({
       plan: planVal,
-      message_limit: msgVal,
-      contact_limit: conVal,
-      user_seats: seatsVal,
+      message_limit: defaults.message_limit,
+      contact_limit: defaults.contact_limit,
+      user_seats: defaults.user_seats,
     }).eq('id', tenant.id);
-    console.log('[SaveTenant] Result:', result);
     setConfiguringTenant(null);
     window.location.reload();
   }
