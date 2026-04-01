@@ -256,10 +256,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-          {brandColors.logoUrl ? (
-            <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)' }} />
-          ) : (
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
+          {brandColors.logoUrl
+            ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+            : <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>{cspInfo ? (cspInfo.brand_name || cspInfo.name || 'CP').substring(0, 2).toUpperCase() : 'CP'}</div>
+          }
           {!sidebarCollapsed && (
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
