@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { ThemeToggle } from './ThemeContext';
+import AIChatbot from './AIChatbot';
 import ContactsModule from './ContactsModule';
+import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 
 function getCSPColors(themeObj) {
@@ -154,6 +156,45 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   });
 
+  if (page === 'ai-studio') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🤖 AI Studio</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
+        </div>
+      </div>
+    );
+  }
+  
+  if (page === 'sequences') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>📧 Sequences</span>
+          </div>
+          <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <SequenceBuilder C={C} />
+        </div>
+      </div>
+    );
+  }
   // Full-screen inbox — bypass sidebar entirely, show slim top bar instead
   if (page === 'inbox') {
     return (
@@ -381,7 +422,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
         {/* ═══ OTHER PAGES (placeholder) ═══ */}
-        {(page === 'campaigns' || page === 'analytics' || page === 'settings' || page === 'ai-studio' || page === 'sequences') && (
+        {(page === 'campaigns' || page === 'analytics' || page === 'settings') && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{navItems.find(function(n) { return n.id === page; }).label}</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon. For now, manage individual tenants from the Dashboard or Tenant Management.</p>
