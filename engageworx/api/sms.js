@@ -164,40 +164,6 @@ async function notifyInbound(supabase, tenantId, from, body) {
       return m.notify_email || (profile && profile.email) || null;
     }).filter(Boolean);
 
-    if (emailsToNotify.length === 0) return;
-
-    var sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-    var html =
-      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 20px;">' +
-      '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);border-radius:10px;padding:20px;text-align:center;margin-bottom:24px;">' +
-      '<span style="color:#fff;font-weight:900;font-size:18px;">EngageWorx</span>' +
-      '<div style="color:rgba(255,255,255,0.85);font-size:13px;margin-top:4px;">New Inbound SMS</div>' +
-      '</div>' +
-      '<table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">' +
-      '<tr><td style="padding:10px 12px;font-weight:bold;color:#374151;width:80px;">From</td><td style="padding:10px 12px;color:#111;">' + from + '</td></tr>' +
-      '<tr style="background:#F9FAFB;"><td style="padding:10px 12px;font-weight:bold;color:#374151;">Message</td><td style="padding:10px 12px;color:#111;">' + (body || '') + '</td></tr>' +
-      '</table>' +
-      '<div style="margin-top:20px;text-align:center;">' +
-      '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:800;font-size:14px;">Open Live Inbox →</a>' +
-      '</div></div>';
-
-    for (var i = 0; i < emailsToNotify.length; i++) {
-      await sgMail.send({
-        to: emailsToNotify[i],
-        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
-        subject: 'New inbound SMS from ' + from,
-        text: 'New inbound SMS from ' + from + ':\n\n' + body + '\n\nOpen Live Inbox: https://portal.engwx.com',
-        html: html,
-      });
-      console.log('[Notify] Inbound SMS notification sent to:', emailsToNotify[i]);
-    }
-  } catch (err) {
-    console.error('[Notify] notifyInbound error:', err.message);
-  }
-}
-
     if (emailsToNotify.length === 0) {
       const adminEmail = process.env.PLATFORM_ADMIN_EMAIL;
       if (adminEmail) emailsToNotify = [adminEmail];
