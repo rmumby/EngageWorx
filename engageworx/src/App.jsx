@@ -1012,7 +1012,7 @@ setDemoCreating(false);
               </div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => setEditingBrand(null)} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
+                <button onClick={async function() { var res = await supabase.from('tenants').update({ brand_primary: brandForm.primary, brand_secondary: brandForm.secondary, brand_name: brandForm.name, brand_logo_url: brandForm.logo && !brandForm.logo.startsWith('data:') ? brandForm.logo : undefined }).eq('id', editingBrand); if (res.error) { alert('Save failed: ' + res.error.message); } else { setEditingBrand(null); window.location.reload(); } }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
                 <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
               </div>
             </div>
