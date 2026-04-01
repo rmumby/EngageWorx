@@ -29,9 +29,16 @@ export default function LeadScan({ C }) {
   var [saving, setSaving] = useState(false);
   var [saved, setSaved] = useState(null);
   var [error, setError] = useState('');
-  var [enrolSeq, setEnrolSeq] = useState(true);
+  var [sequences, setSequences] = useState([]);
+  var [selectedSeqId, setSelectedSeqId] = useState(CPEXPO_SEQ_ID);
   var [scanning, setScanning] = useState(false);
   var [aiReading, setAiReading] = useState(false);
+  useEffect(function() {
+    fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
+      .then(function(r) { return r.json(); })
+      .then(function(d) { setSequences(d.sequences || []); })
+      .catch(function() {});
+  }, []);
   var fileRef = useRef();
   var videoRef = useRef();
   var streamRef = useRef();
@@ -84,8 +91,8 @@ export default function LeadScan({ C }) {
         });
       }
 
-      if (enrolSeq) {
-        var firstStepRes = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', CPEXPO_SEQ_ID).eq('step_number', 1).single();
+     if (selectedSeqId) {
+        var firstStepRes = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', selectedSeqId).eq('step_number', 1).single();
         var startDate = new Date();
         if (firstStepRes.data && firstStepRes.data.delay_days > 0) {
           startDate.setDate(startDate.getDate() + firstStepRes.data.delay_days);
@@ -93,7 +100,7 @@ export default function LeadScan({ C }) {
         await supabase.from('lead_sequences').upsert({
           tenant_id: SP_TENANT_ID,
           lead_id: leadId,
-          sequence_id: CPEXPO_SEQ_ID,
+          sequence_id: selectedSeqId,
           current_step: 0,
           status: 'active',
           enrolled_at: new Date().toISOString(),
@@ -101,7 +108,8 @@ export default function LeadScan({ C }) {
         }, { onConflict: 'lead_id,sequence_id' });
       }
 
-      setSaved({ name: form.name || form.company, leadId: leadId });
+      var seqName = sequences.find(function(s) { return s.id === selectedSeqId; });
+      setSaved({ name: form.name || form.company, leadId: leadId, seq: seqName ? seqName.name : null });
       resetForm();
       setMode('home');
     } catch(e) {
@@ -213,7 +221,7 @@ export default function LeadScan({ C }) {
             <span style={{ fontSize: 20 }}>✅</span>
             <div>
               <div style={{ color: '#10b981', fontWeight: 700, fontSize: 14 }}>{saved.name} saved</div>
-              <div style={{ color: '#64748b', fontSize: 12 }}>Added to Pipeline{enrolSeq ? ' + CPExpo sequence' : ''}</div>
+              <div style={{ color: '#64748b', fontSize: 12 }}>Added to Pipeline{saved.seq ? ' + ' + saved.seq : ''}</div>
             </div>
           </div>
         )}
@@ -253,13 +261,11 @@ export default function LeadScan({ C }) {
         </div>
 
         <div style={{ marginTop: 28, width: '100%', maxWidth: 400 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '14px 16px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <input type="checkbox" checked={enrolSeq} onChange={function(e) { setEnrolSeq(e.target.checked); }} style={{ width: 18, height: 18, accentColor: colors.primary, cursor: 'pointer' }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>Auto-enrol in CPExpo sequence</div>
-              <div style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>Starts follow-up emails automatically</div>
-            </div>
-          </label>
+          <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Auto-Enrol in Sequence</div>
+          <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
+            <option value="">None — don't enrol</option>
+            {sequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+          </select>
         </div>
 
         {error && <div style={{ marginTop: 16, width: '100%', maxWidth: 400, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#ef4444', fontSize: 13 }}>{error}</div>}
@@ -331,10 +337,13 @@ export default function LeadScan({ C }) {
             <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical', lineHeight: 1.5 }} value={form.notes} onChange={function(e) { updateForm('notes', e.target.value); }} placeholder="What did you talk about?" />
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px 14px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
-            <input type="checkbox" checked={enrolSeq} onChange={function(e) { setEnrolSeq(e.target.checked); }} style={{ width: 18, height: 18, accentColor: colors.primary, cursor: 'pointer' }} />
-            <div style={{ fontSize: 13, color: '#f1f5f9' }}>Enrol in CPExpo follow-up sequence</div>
-          </label>
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'block' }}>Auto-Enrol in Sequence</label>
+            <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
+              <option value="">None — don't enrol</option>
+              {sequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+            </select>
+          </div>
 
           {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px', color: '#ef4444', fontSize: 13 }}>{error}</div>}
 
