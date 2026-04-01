@@ -128,6 +128,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'campaigns', label: 'Campaigns', icon: '🚀' },
     { id: 'contacts', label: 'Contacts', icon: '👥' },
     { id: 'inbox', label: 'Live Inbox', icon: '💬' },
+    { id: 'ai-studio', label: 'AI Studio', icon: '🤖' },
+    { id: 'sequences', label: 'Sequences', icon: '📧' },
     { id: 'analytics', label: 'Analytics', icon: '📊' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
@@ -379,7 +381,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
         {/* ═══ OTHER PAGES (placeholder) ═══ */}
-        {(page === 'campaigns' || page === 'analytics' || page === 'settings') && (
+        {(page === 'campaigns' || page === 'analytics' || page === 'settings' || page === 'ai-studio' || page === 'sequences') && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{navItems.find(function(n) { return n.id === page; }).label}</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon. For now, manage individual tenants from the Dashboard or Tenant Management.</p>
