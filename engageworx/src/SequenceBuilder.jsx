@@ -127,12 +127,14 @@ export default function SequenceBuilder({ C }) {
       if (!text) throw new Error('No response from AI');
 
       var jsonStr = text.text.trim();
-      var fence = String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96);
-      if (jsonStr.indexOf(fence) === 0) {
-        jsonStr = jsonStr.split('\n').filter(function(l){ return l.indexOf(fence) !== 0; }).join('\n').trim();
-      }
+var fence = String.fromCharCode(96) + String.fromCharCode(96) + String.fromCharCode(96);
+if (jsonStr.indexOf(fence) === 0) {
+  jsonStr = jsonStr.split('\n').filter(function(l){ return l.indexOf(fence) !== 0; }).join('\n').trim();
+}
+var jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+if (!jsonMatch) throw new Error('Could not parse AI response');
+var aiSteps = JSON.parse(jsonMatch[0]);
 
-      var aiSteps = JSON.parse(jsonMatch[0]);
 setSteps(aiSteps.map(function(s, i) {
         return {
           id: null,
