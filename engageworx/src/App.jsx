@@ -517,6 +517,17 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
     setBrandForm({ name: tenant.brand.name, primary: tenant.brand.primary, secondary: tenant.brand.secondary, logo: "" });
   };
 
+  const handleSaveBrand = async () => {
+    var res = await supabase.from('tenants').update({
+      brand_primary: brandForm.primary,
+      brand_secondary: brandForm.secondary,
+      brand_name: brandForm.name,
+      brand_logo_url: brandForm.logo || null,
+    }).eq('id', editingBrand);
+    if (res.error) { alert('Save failed: ' + res.error.message); }
+    else { setEditingBrand(null); window.location.reload(); }
+  };
+
   return (
     <div style={{ padding: "32px 40px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
@@ -968,7 +979,7 @@ setDemoCreating(false);
               </div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={async function() { var res = await supabase.from('tenants').update({ brand_primary: brandForm.primary, brand_secondary: brandForm.secondary, brand_name: brandForm.name, brand_logo_url: brandForm.logo && !brandForm.logo.startsWith('data:') ? brandForm.logo : undefined }).eq('id', editingBrand); if (res.error) { alert('Save failed: ' + res.error.message); } else { setEditingBrand(null); window.location.reload(); } }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
+                <button onClick={handleSaveBrand} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>💾 Save Branding</button>
                 <button onClick={() => setEditingBrand(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
               </div>
             </div>
