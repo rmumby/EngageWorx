@@ -699,7 +699,11 @@ useEffect(() => {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
                       <span style={{ color: "#fff", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.contact.name}</span>
-                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{timeAgo(conv.lastActivity)}</span>
+                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#00E676" }} />
+            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Live</span>
+          </div>
                     </div>
                     <div style={{ color: conv.unread > 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {conv.isTyping ? <span style={{ color: C.primary, fontStyle: "italic" }}>typing...</span> : (lastMsg.from === "contact" ? "" : `${lastMsg.agent?.name || "You"}: `)}
