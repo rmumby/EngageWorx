@@ -503,6 +503,49 @@ if (!priceId) {
                 role: 'admin',
               });
 
+              // ── Notify SP + create Pipeline lead ──
+            try {
+              var sgMailNotify = require('@sendgrid/mail');
+              sgMailNotify.setApiKey(process.env.SENDGRID_API_KEY);
+              await sgMailNotify.send({
+                to: 'rob@engwx.com',
+                from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                subject: '⚡ New Sign-Up: ' + name + ' [' + plan + ']',
+                html: '<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#070d1a;color:#f1f5f9;border-radius:12px;">' +
+                  '<h2 style="color:#00C9FF;margin:0 0 16px;">⚡ New Sign-Up</h2>' +
+                  '<p><b>Company:</b> ' + name + '</p>' +
+                  '<p><b>Email:</b> ' + email + '</p>' +
+                  '<p><b>Plan:</b> ' + plan + '</p>' +
+                  '<p><b>Tenant ID:</b> ' + tenant.id + '</p>' +
+                  '<p style="margin-top:20px;"><a href="https://portal.engwx.com" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;">View in Pipeline →</a></p>' +
+                  '</div>',
+              });
+              console.log('[Billing] SP notification sent for:', email);
+            } catch (notifyErr) { console.log('[Billing] Notify failed (non-fatal):', notifyErr.message); }
+
+            // ── Create Pipeline lead ──
+            try {
+              await supabase.from('leads').insert({
+                name: userMeta.full_name || name,
+                company: name,
+                email: email,
+                type: 'Direct Business',
+                urgency: 'Hot',
+                stage: 'customer',
+                source: 'Signup',
+                notes: 'Auto-created from signup. Plan: ' + plan,
+                ai_summary: 'New paying customer signed up for ' + plan + ' plan.',
+                ai_next_action: 'Welcome call within 24 hours.',
+                last_action_at: new Date().toISOString().split('T')[0],
+                last_activity_at: new Date().toISOString(),
+              });
+              console.log('[Billing] Pipeline lead created for:', email);
+            } catch (leadErr) { console.log('[Billing] Lead create failed (non-fatal):', leadErr.message); }
+```
+
+**Fix 3 — Javier's inbound SMS.** In Twilio console, go to Phone Numbers → find (787) 952-3266 → under Messaging configuration, set "A MESSAGE COMES IN" webhook to:
+```
+https://portal.engwx.com/api/sms?action=webhook
               // Handle team invites from signup metadata
               var teamEmails = userMeta.team_emails;
               if (teamEmails) {
