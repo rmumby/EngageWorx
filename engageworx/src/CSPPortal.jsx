@@ -20,6 +20,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         var updates = {};
         if (res.data.brand_primary) updates.primary = res.data.brand_primary;
         if (res.data.brand_secondary) updates.accent = res.data.brand_secondary;
+        if (res.data.brand_name) updates.brandName = res.data.brand_name;
+        if (res.data.brand_logo_url) updates.logoUrl = res.data.brand_logo_url;
         if (Object.keys(updates).length > 0) setBrandColors(updates);
       }
     });
@@ -254,6 +256,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+          {brandColors.logoUrl ? (
+            <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)' }} />
+          ) : (
           <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
           {!sidebarCollapsed && (
             <div>
