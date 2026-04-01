@@ -939,7 +939,7 @@ setDemoCreating(false);
                   <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL</div>
                   <input value={brandForm.logo || ''} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://yourdomain.com/logo.png" style={{ ...inputStyleTM, fontSize: 12 }} />
                 </div>
-
+                </div>
               {/* Live Preview */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Live Preview</div>
