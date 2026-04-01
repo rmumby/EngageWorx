@@ -926,53 +926,9 @@ setDemoCreating(false);
                   </div>
                 </div>
                 <div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo</div>
-                  {brandForm.logo ? (
-                    <div style={{ position: "relative", width: 44, height: 44 }}>
-                      <img src={brandForm.logo} alt="Logo" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: "2px solid rgba(255,255,255,0.15)" }} />
-                      <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#FF3B30", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                    </div>
-                  ) : (
-                    <label style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 44, background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 8, cursor: "pointer", transition: "all 0.15s" }}
-                      onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}10`; }}
-                      onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                      onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
-                    >
-                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
-                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>📁 Upload</span>
-                    </label>
-                  )}
-                </div>
-              </div>
-
-              {/* Logo Upload Area (expanded) */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Logo Upload</div>
-                <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                  <label style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 16px", background: "rgba(255,255,255,0.03)", border: "2px dashed rgba(255,255,255,0.12)", borderRadius: 12, cursor: "pointer", transition: "all 0.2s", textAlign: "center" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary + "66"; e.currentTarget.style.background = `${C.primary}08`; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                    onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = `${C.primary}15`; }}
-                    onDragLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; const file = e.dataTransfer.files[0]; if (file && file.type.startsWith("image/")) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}}
-                  >
-                    <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: "none" }} onChange={e => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = ev => setBrandForm(prev => ({ ...prev, logo: ev.target.result })); reader.readAsDataURL(file); }}} />
-                    <div style={{ fontSize: 28, marginBottom: 6 }}>📁</div>
-                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13, marginBottom: 2 }}>Drop logo here or click to upload</div>
-                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>PNG, JPG, SVG, or WebP · Max 2MB · Recommended 224×224px</div>
-                  </label>
-                  {brandForm.logo && (
-                    <div style={{ textAlign: "center" }}>
-                      <img src={brandForm.logo} alt="Logo preview" style={{ width: 80, height: 80, borderRadius: 12, objectFit: "contain", background: "rgba(255,255,255,0.06)", border: `2px solid ${brandForm.primary}44`, padding: 8 }} />
-                      <div style={{ marginTop: 6 }}>
-                        <button onClick={() => setBrandForm(prev => ({ ...prev, logo: "" }))} style={{ background: "#FF3B3022", border: "1px solid #FF3B3044", borderRadius: 6, padding: "3px 10px", color: "#FF3B30", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginBottom: 4 }}>Or paste a URL:</div>
-                  <input value={brandForm.logo && !brandForm.logo.startsWith("data:") ? brandForm.logo : ""} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://your-domain.com/logo.png" style={{ ...inputStyleTM, fontSize: 12 }} />
+                  <div>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL</div>
+                  <input value={brandForm.logo || ''} onChange={e => setBrandForm(prev => ({ ...prev, logo: e.target.value }))} placeholder="https://yourdomain.com/logo.png" style={{ ...inputStyleTM, fontSize: 12 }} />
                 </div>
               </div>
 
