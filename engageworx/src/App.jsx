@@ -20,6 +20,7 @@ import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
+import LeadScan from './LeadScan';
 import SequenceRoster from './SequenceRoster';
 import Registration from './Registration';
 import LandingPage from './components/LandingPage';
@@ -1459,6 +1460,7 @@ var spNavBase = [
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
   { id: "sequence-builder", label: "Sequence Builder", icon: "⚡" },
+  { id: "lead-scan", label: "Lead Scan", icon: "📲" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
@@ -1909,6 +1911,7 @@ var spNavBase = [
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "lead-scan" && <LeadScan C={C} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
