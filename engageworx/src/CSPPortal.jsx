@@ -41,8 +41,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var loadingState = useState(true);
   var loading = loadingState[0];
   var setLoading = loadingState[1];
-
-  var [agentBrand, setAgentBrand] = useState({});
   
   var drillDownState = useState(null);
   var drillDown = drillDownState[0];
@@ -453,10 +451,47 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         {page === 'settings' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your agent account details and branding</p>
-            <div style={Object.assign({}, card, { marginBottom: 20 })}>
-              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, fontSize: 14 }}>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your partner portal branding</p>
+            <div style={Object.assign({}, card, { maxWidth: 560 })}>
+              <h3 style={{ color: '#fff', margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div>
+                  <label style={labelStyle}>Brand Name</label>
+                  <input value={brandColors.brandName || (cspInfo ? cspInfo.brand_name || cspInfo.name : '')} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { brandName: e.target.value }); }); }} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Primary Color</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="color" value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+                    <input value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Secondary Color</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="color" value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+                    <input value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Logo URL (optional)</label>
+                  <input value={brandColors.logoUrl || ''} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { logoUrl: e.target.value }); }); }} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Square image recommended. Displays in your portal sidebar.</div>
+                </div>
+                <button onClick={async function() {
+                  var res = await supabase.from('tenants').update({
+                    brand_name: brandColors.brandName || (cspInfo ? cspInfo.name : ''),
+                    brand_primary: brandColors.primary || '#00C9FF',
+                    brand_secondary: brandColors.accent || '#E040FB',
+                    brand_logo_url: brandColors.logoUrl || null,
+                  }).eq('id', cspTenantId);
+                  if (res.error) { alert('Save failed: ' + res.error.message); }
+                  else { alert('Branding saved!'); }
+                }} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14 })}>💾 Save Branding</button>
+              </div>
+            </div>
+          </div>
+        )}
                 <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
                 <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
                 <span style={{ color: C.muted, fontWeight: 600 }}>Direct Rate:</span><span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span>
