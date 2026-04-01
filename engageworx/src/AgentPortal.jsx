@@ -24,7 +24,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
   var [directTenants, setDirectTenants] = useState([]);
   var [subAgents, setSubAgents] = useState([]);
   var [subAgentTenants, setSubAgentTenants] = useState({});
-  var [loading, setLoading] = useState(true);
+  var [agentBrand, setAgentBrand] = useState({});
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   var [expandedAgent, setExpandedAgent] = useState(null);
 
@@ -338,9 +338,56 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
         {page === 'settings' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your agent account details</p>
-            <div style={card}>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your agent account details and branding</p>
+            <div style={Object.assign({}, card, { marginBottom: 20 })}>
               <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, fontSize: 14 }}>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Direct Rate:</span><span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Override Rate:</span><span style={{ color: C.primary, fontWeight: 700 }}>5% on sub-agent MRR</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Payment:</span><span style={{ color: '#fff' }}>24th of each month</span>
+              </div>
+            </div>
+            <div style={Object.assign({}, card, { maxWidth: 560 })}>
+              <h3 style={{ color: '#fff', margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
+              <div style={{ display: 'grid', gap: 16 }}>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Brand Name</div>
+                  <input value={agentBrand.name || (agentInfo ? agentInfo.name : '')} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { name: e.target.value }); }); }} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Primary Color</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="color" value={agentBrand.primary || '#FFD600'} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+                    <input value={agentBrand.primary || '#FFD600'} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Secondary Color</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input type="color" value={agentBrand.accent || '#FF6B35'} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+                    <input value={agentBrand.accent || '#FF6B35'} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none' }} />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Logo URL (optional)</div>
+                  <input value={agentBrand.logoUrl || ''} onChange={function(e) { setAgentBrand(function(b) { return Object.assign({}, b, { logoUrl: e.target.value }); }); }} placeholder="https://yourdomain.com/logo.png" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                </div>
+                <button onClick={async function() {
+                  var res = await supabase.from('tenants').update({
+                    brand_name: agentBrand.name || (agentInfo ? agentInfo.name : ''),
+                    brand_primary: agentBrand.primary || '#FFD600',
+                    brand_secondary: agentBrand.accent || '#FF6B35',
+                    brand_logo_url: agentBrand.logoUrl || null,
+                  }).eq('id', agentTenantId);
+                  if (res.error) { alert('Save failed: ' + res.error.message); }
+                  else { alert('Branding saved!'); }
+                }} style={{ background: 'linear-gradient(135deg, #FFD600, #FF6B35)', border: 'none', borderRadius: 10, padding: '14px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%' }}>💾 Save Branding</button>
+              </div>
+            </div>
+          </div>
+        )}
                 <span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span>
                 <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
                 <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
