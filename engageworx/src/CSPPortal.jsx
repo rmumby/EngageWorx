@@ -12,7 +12,18 @@ function getCSPColors(themeObj) {
 }
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
-  var C = getCSPColors(null);
+  var [brandColors, setBrandColors] = useState({});
+  var C = Object.assign({}, getCSPColors(null), brandColors);
+  useEffect(function() {
+    supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url').eq('id', cspTenantId).single().then(function(res) {
+      if (res.data) {
+        var updates = {};
+        if (res.data.brand_primary) updates.primary = res.data.brand_primary;
+        if (res.data.brand_secondary) updates.accent = res.data.brand_secondary;
+        if (Object.keys(updates).length > 0) setBrandColors(updates);
+      }
+    });
+  }, [cspTenantId]);
   var pageState = useState('dashboard');
   var page = pageState[0];
   var setPage = pageState[1];
@@ -243,7 +254,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
           {!sidebarCollapsed && (
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
