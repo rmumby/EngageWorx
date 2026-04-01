@@ -388,21 +388,6 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
             </div>
           </div>
         )}
-                <span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Tenant ID:</span><span style={{ color: C.muted, fontFamily: 'monospace', fontSize: 11 }}>{agentTenantId}</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Direct Rate:</span><span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Override Rate:</span><span style={{ color: C.primary, fontWeight: 700 }}>5% on sub-agent MRR</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Payment:</span><span style={{ color: '#fff' }}>24th of each month</span>
-              </div>
-            </div>
-            <div style={Object.assign({}, card, { marginTop: 16 })}>
-              <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Payment Information</h3>
-              <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Commission payments are processed on the 24th of each month for the previous month's collected invoices. Contact <a href="mailto:rob@engwx.com" style={{ color: C.primary }}>rob@engwx.com</a> to update your payment method or banking details.</p>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
