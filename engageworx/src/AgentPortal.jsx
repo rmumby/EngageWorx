@@ -1,20 +1,32 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { useTheme, ThemeToggle } from './ThemeContext';
 
-function getAgentColors(themeObj) {
-  if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
-  return { bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6', primary: '#B8860B', accent: '#CC5500', text: '#111827', muted: '#4B5563' };
+var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
+var MASTER_RATE = 0.20;
+var SUB_RATE = 0.15;
+var OVERRIDE_RATE = 0.05;
+
+function calcCommission(tenants, rate) {
+  return tenants.reduce(function(sum, t) {
+    var mrr = PLAN_MRR[t.plan] || 0;
+    return sum + (t.status === 'active' ? mrr * rate : 0);
+  }, 0);
+}
+
+function getColors() {
+  return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
 }
 
 export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }) {
-  var themeCtx = useTheme();
-  var C = getAgentColors(themeCtx.theme);
+  var C = getColors();
   var [page, setPage] = useState('dashboard');
   var [agentInfo, setAgentInfo] = useState(null);
-  var [referrals, setReferrals] = useState([]);
+  var [directTenants, setDirectTenants] = useState([]);
+  var [subAgents, setSubAgents] = useState([]);
+  var [subAgentTenants, setSubAgentTenants] = useState({});
   var [loading, setLoading] = useState(true);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  var [expandedAgent, setExpandedAgent] = useState(null);
 
   useEffect(function() { loadAgentData(); }, [agentTenantId]);
 
@@ -23,15 +35,36 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
     try {
       var a = await supabase.from('tenants').select('*').eq('id', agentTenantId).maybeSingle();
       if (a.data) setAgentInfo(a.data);
-      var r = await supabase.from('tenants').select('*').eq('parent_tenant_id', agentTenantId).order('created_at', { ascending: false });
-      if (r.data) setReferrals(r.data);
+
+      var d = await supabase.from('tenants').select('*').eq('parent_tenant_id', agentTenantId).eq('tenant_type', 'business').order('created_at', { ascending: false });
+      setDirectTenants(d.data || []);
+
+      var sa = await supabase.from('tenants').select('*').eq('parent_tenant_id', agentTenantId).eq('tenant_type', 'agent').order('created_at', { ascending: false });
+      var agents = sa.data || [];
+      setSubAgents(agents);
+
+      var tenantsMap = {};
+      for (var i = 0; i < agents.length; i++) {
+        var st = await supabase.from('tenants').select('*').eq('parent_tenant_id', agents[i].id).order('created_at', { ascending: false });
+        tenantsMap[agents[i].id] = st.data || [];
+      }
+      setSubAgentTenants(tenantsMap);
     } catch (e) { console.error('Agent load error:', e); }
     setLoading(false);
   }
 
+  var allSubTenants = Object.values(subAgentTenants).reduce(function(a, b) { return a.concat(b); }, []);
+  var directCommission = calcCommission(directTenants, MASTER_RATE);
+  var overrideCommission = calcCommission(allSubTenants, OVERRIDE_RATE);
+  var totalMonthly = directCommission + overrideCommission;
+  var activeDirect = directTenants.filter(function(t) { return t.status === 'active'; }).length;
+  var totalSubTenants = allSubTenants.length;
+  var activeSubTenants = allSubTenants.filter(function(t) { return t.status === 'active'; }).length;
+
   var navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
-    { id: 'referrals', label: 'Referrals', icon: '🤝' },
+    { id: 'tenants', label: 'My Clients', icon: '🏢' },
+    { id: 'subagents', label: 'Sub-Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'resources', label: 'Resources', icon: '📚' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -39,84 +72,290 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
   var btnPrimary = { background: 'linear-gradient(135deg, #FFD600, #FF6B35)', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  var activeReferrals = referrals.filter(function(r) { return r.status === 'active' || r.status === 'trial'; }).length;
-  var commissionRate = 50;
-  var monthlyCommission = activeReferrals * commissionRate;
-  var totalEarned = referrals.length * commissionRate * 3;
 
-  function copyLink() { navigator.clipboard.writeText('https://engwx.com/ref/' + (agentInfo ? agentInfo.slug : '')); }
-  function doLogout() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }
+  function planBadge(plan) {
+    var colors = { starter: '#6366f1', growth: '#00C9FF', pro: '#E040FB', enterprise: '#FF6B35', silver: '#94a3b8', gold: '#FFD600', platinum: '#e2e8f0', diamond: '#67e8f9' };
+    return <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: (colors[plan] || '#6366f1') + '22', color: colors[plan] || '#6366f1', border: '1px solid ' + (colors[plan] || '#6366f1') + '44', textTransform: 'capitalize' }}>{plan}</span>;
+  }
+
+  function statusDot(status) {
+    var color = status === 'active' ? '#00E676' : status === 'trial' ? '#FFD600' : '#64748b';
+    return <span style={{ color: color, fontWeight: 700, fontSize: 12 }}>{status === 'active' ? '● Active' : status === 'trial' ? '◐ Trial' : '○ ' + status}</span>;
+  }
+
+  function doLogout() {
+    supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; });
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText('https://engwx.com/ref/' + (agentInfo ? agentInfo.slug : ''));
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
+      {/* Sidebar */}
       <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 100, transition: 'all 0.25s ease', overflow: 'hidden' }}>
         {onBack && <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span>←</span>{!sidebarCollapsed && <span>Back to Platform</span>}</div>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #FFD600, #FF6B35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>EW</div>
-          {!sidebarCollapsed && <div><div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{agentInfo ? agentInfo.name : 'Agent Portal'}</div><div style={{ fontSize: 10, color: C.primary, fontWeight: 600, letterSpacing: 0.5 }}>AGENT PARTNER</div></div>}
+          {!sidebarCollapsed && <div><div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{agentInfo ? agentInfo.name : 'Agent Portal'}</div><div style={{ fontSize: 10, color: C.primary, fontWeight: 600, letterSpacing: 0.5 }}>MASTER AGENT</div></div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-          {navItems.map(function(item) { var active = page === item.id; return <div key={item.id} onClick={function() { setPage(item.id); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? C.primary + '15' : 'transparent', color: active ? C.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span style={{ fontSize: 18 }}>{item.icon}</span>{!sidebarCollapsed && <span>{item.label}</span>}</div>; })}
+          {navItems.map(function(item) {
+            var active = page === item.id;
+            return <div key={item.id} onClick={function() { setPage(item.id); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? C.primary + '15' : 'transparent', color: active ? C.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span style={{ fontSize: 18 }}>{item.icon}</span>{!sidebarCollapsed && <span>{item.label}</span>}</div>;
+          })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {!sidebarCollapsed && <ThemeToggle />}
           <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}><span>{sidebarCollapsed ? '»' : '«'}</span>{!sidebarCollapsed && <span>Collapse</span>}</div>
           <div onClick={doLogout} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, cursor: 'pointer', color: '#FF5252', fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start', background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.15)' }}><span>⏻</span>{!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}</div>
         </div>
       </div>
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>{onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}<span onClick={doLogout} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span></div>
 
-        {page === 'dashboard' && <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 4px' }}>Welcome back{agentInfo ? ', ' + agentInfo.name : ''}</h1>
-          <p style={{ color: C.muted, marginTop: 0, marginBottom: 28, fontSize: 14 }}>Your agent dashboard — track referrals and commissions</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-            {[{ label: 'Active Referrals', value: activeReferrals, icon: '🤝', color: '#00E676' }, { label: 'Total Referrals', value: referrals.length, icon: '📊', color: C.primary }, { label: 'Monthly Commission', value: '$' + monthlyCommission.toLocaleString(), icon: '💰', color: '#00E676' }, { label: 'Total Earned', value: '$' + totalEarned.toLocaleString(), icon: '🏆', color: C.accent }].map(function(s, i) { return <div key={i} style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div><div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{s.label}</div></div>; })}
-          </div>
-          <div style={Object.assign({}, card, { marginBottom: 28, background: 'linear-gradient(135deg, rgba(255,214,0,0.05), rgba(255,107,53,0.05))' })}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div><div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Your Referral Link</div><div style={{ color: C.primary, fontSize: 14, fontFamily: 'monospace' }}>https://engwx.com/ref/{agentInfo ? agentInfo.slug : 'your-code'}</div></div>
-              <button onClick={copyLink} style={btnPrimary}>Copy Link</button>
+      {/* Main */}
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
+          {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
+          <span onClick={doLogout} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
+        </div>
+
+        {/* DASHBOARD */}
+        {page === 'dashboard' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 4px' }}>Welcome back{agentInfo ? ', ' + agentInfo.name : ''}</h1>
+            <p style={{ color: C.muted, marginTop: 0, marginBottom: 28, fontSize: 14 }}>Master Agent Dashboard — track your clients, sub-agents, and commissions</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
+              {[
+                { label: 'Direct Clients', value: directTenants.length, sub: activeDirect + ' active', icon: '🏢', color: '#00C9FF' },
+                { label: 'Sub-Agents', value: subAgents.length, sub: totalSubTenants + ' their clients', icon: '🤝', color: '#E040FB' },
+                { label: 'Direct Commission', value: '$' + directCommission.toFixed(0), sub: '20% of MRR', icon: '💰', color: '#00E676' },
+                { label: 'Override Commission', value: '$' + overrideCommission.toFixed(0), sub: '5% on sub-agent MRR', icon: '⚡', color: C.primary },
+              ].map(function(s, i) {
+                return <div key={i} style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div><div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{s.label}</div><div style={{ fontSize: 10, color: s.color, marginTop: 4, fontWeight: 600 }}>{s.sub}</div></div>;
+              })}
+            </div>
+
+            <div style={Object.assign({}, card, { marginBottom: 20, background: 'linear-gradient(135deg, rgba(255,214,0,0.06), rgba(255,107,53,0.06))', borderColor: 'rgba(255,214,0,0.2)' })}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Total Monthly Commission</div>
+                  <div style={{ color: C.primary, fontSize: 32, fontWeight: 900 }}>${totalMonthly.toFixed(0)}<span style={{ fontSize: 14, color: C.muted, fontWeight: 400 }}>/mo</span></div>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>${directCommission.toFixed(0)} direct + ${overrideCommission.toFixed(0)} override</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: C.muted, fontSize: 11, marginBottom: 4 }}>Your Referral Link</div>
+                  <div style={{ color: C.primary, fontSize: 13, fontFamily: 'monospace', marginBottom: 8 }}>engwx.com/ref/{agentInfo ? agentInfo.slug : '...'}</div>
+                  <button onClick={copyLink} style={btnPrimary}>Copy Link</button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div style={card}>
+                <h2 style={{ color: '#fff', margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>Recent Clients</h2>
+                {directTenants.length === 0 ? <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: 20 }}>No clients yet</div> : directTenants.slice(0, 5).map(function(t) {
+                  var mrr = PLAN_MRR[t.plan] || 0;
+                  var comm = t.status === 'active' ? mrr * MASTER_RATE : 0;
+                  return <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div><div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{t.name}</div><div style={{ display: 'flex', gap: 6, marginTop: 3 }}>{planBadge(t.plan)}{statusDot(t.status)}</div></div>
+                    <div style={{ textAlign: 'right' }}><div style={{ color: '#00E676', fontWeight: 700, fontSize: 14 }}>${comm.toFixed(0)}/mo</div><div style={{ color: C.muted, fontSize: 10 }}>${mrr} MRR × 20%</div></div>
+                  </div>;
+                })}
+              </div>
+              <div style={card}>
+                <h2 style={{ color: '#fff', margin: '0 0 14px', fontSize: 16, fontWeight: 700 }}>Sub-Agents</h2>
+                {subAgents.length === 0 ? <div style={{ color: C.muted, fontSize: 13, textAlign: 'center', padding: 20 }}>No sub-agents yet</div> : subAgents.slice(0, 5).map(function(sa) {
+                  var saTenants = subAgentTenants[sa.id] || [];
+                  var saOverride = calcCommission(saTenants, OVERRIDE_RATE);
+                  return <div key={sa.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div><div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{sa.name}</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{saTenants.length} clients · {saTenants.filter(function(t) { return t.status === 'active'; }).length} active</div></div>
+                    <div style={{ textAlign: 'right' }}><div style={{ color: C.primary, fontWeight: 700, fontSize: 14 }}>${saOverride.toFixed(0)}/mo</div><div style={{ color: C.muted, fontSize: 10 }}>5% override</div></div>
+                  </div>;
+                })}
+              </div>
             </div>
           </div>
-          <div style={card}>
-            <h2 style={{ color: '#fff', margin: '0 0 16px', fontSize: 18, fontWeight: 700 }}>Recent Referrals</h2>
-            {referrals.length === 0 ? <div style={{ textAlign: 'center', padding: 40 }}><div style={{ fontSize: 40, marginBottom: 12 }}>🤝</div><div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No referrals yet</div><div style={{ color: C.muted, fontSize: 13 }}>Share your referral link to start earning commissions.</div></div> : <div style={{ display: 'grid', gap: 8 }}>{referrals.slice(0, 5).map(function(ref) { return <div key={ref.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 120px', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}><div><div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{ref.name}</div><div style={{ color: C.muted, fontSize: 11 }}>Referred {new Date(ref.created_at).toLocaleDateString()}</div></div><div style={{ textAlign: 'center' }}><div style={{ color: C.primary, fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{ref.plan}</div></div><div style={{ textAlign: 'center' }}><div style={{ color: ref.status === 'active' ? '#00E676' : '#FFD600', fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{ref.status}</div></div><div style={{ textAlign: 'right' }}><div style={{ color: '#00E676', fontWeight: 700, fontSize: 14 }}>${commissionRate}/mo</div></div></div>; })}</div>}
+        )}
+
+        {/* MY CLIENTS */}
+        {page === 'tenants' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>My Clients</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{directTenants.length} clients · {activeDirect} active · ${directCommission.toFixed(0)}/mo commission</p>
+            {directTenants.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No clients yet</div>
+                <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>Share your referral link to start earning commissions.</div>
+                <button onClick={copyLink} style={btnPrimary}>Copy Referral Link</button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {directTenants.map(function(t) {
+                  var mrr = PLAN_MRR[t.plan] || 0;
+                  var comm = t.status === 'active' ? mrr * MASTER_RATE : 0;
+                  return <div key={t.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px 140px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (t.status === 'active' ? '#00E676' : '#FFD600') })}>
+                    <div><div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{t.name}</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Since {new Date(t.created_at).toLocaleDateString()}</div></div>
+                    <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>Plan</div>{planBadge(t.plan)}</div>
+                    <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>Status</div>{statusDot(t.status)}</div>
+                    <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>MRR</div><div style={{ color: '#fff', fontWeight: 700 }}>${mrr}</div></div>
+                    <div style={{ textAlign: 'right' }}><div style={{ color: '#00E676', fontWeight: 800, fontSize: 16 }}>${comm.toFixed(0)}/mo</div><div style={{ color: C.muted, fontSize: 10 }}>20% commission</div></div>
+                  </div>;
+                })}
+              </div>
+            )}
           </div>
-        </div>}
+        )}
 
-        {page === 'referrals' && <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Referrals</h1>
-          <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{referrals.length} total · {activeReferrals} active</p>
-          {referrals.length === 0 ? <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}><div style={{ fontSize: 48, marginBottom: 16 }}>🤝</div><div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Start Referring</div><div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>Share your referral link with businesses who need AI-powered communications.</div><button onClick={copyLink} style={btnPrimary}>Copy Your Referral Link</button></div> : <div style={{ display: 'grid', gap: 12 }}>{referrals.map(function(ref) { return <div key={ref.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 120px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (ref.status === 'active' ? '#00E676' : '#FFD600') })}><div><div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{ref.name}</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Referred {new Date(ref.created_at).toLocaleDateString()}</div></div><div style={{ textAlign: 'center' }}><div style={{ fontSize: 11, color: C.muted }}>Plan</div><div style={{ color: C.primary, fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{ref.plan}</div></div><div style={{ textAlign: 'center' }}><div style={{ fontSize: 11, color: C.muted }}>Status</div><div style={{ color: ref.status === 'active' ? '#00E676' : '#FFD600', fontWeight: 700, fontSize: 13, textTransform: 'capitalize' }}>{ref.status}</div></div><div style={{ textAlign: 'center' }}><div style={{ fontSize: 11, color: C.muted }}>Months</div><div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>3</div></div><div style={{ textAlign: 'right' }}><div style={{ color: '#00E676', fontWeight: 700, fontSize: 16 }}>${commissionRate}/mo</div></div></div>; })}</div>}
-        </div>}
+        {/* SUB-AGENTS */}
+        {page === 'subagents' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Sub-Agents</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{subAgents.length} sub-agents · {totalSubTenants} their clients · ${overrideCommission.toFixed(0)}/mo override commission</p>
 
-        {page === 'commissions' && <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Commissions</h1>
-          <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Track your earnings from referrals</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-            <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>This Month</div><div style={{ color: '#00E676', fontSize: 32, fontWeight: 800 }}>${monthlyCommission.toLocaleString()}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeReferrals} active × ${commissionRate}/mo</div></div>
-            <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Total Earned</div><div style={{ color: C.primary, fontSize: 32, fontWeight: 800 }}>${totalEarned.toLocaleString()}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Lifetime earnings</div></div>
-            <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Commission Rate</div><div style={{ color: C.accent, fontSize: 32, fontWeight: 800 }}>${commissionRate}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Per active referral / month</div></div>
+            <div style={{ background: 'rgba(255,214,0,0.06)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: 12, padding: '14px 20px', marginBottom: 24, fontSize: 13, color: C.muted }}>
+              You earn a <span style={{ color: C.primary, fontWeight: 700 }}>5% override</span> on all MRR generated by your sub-agents' clients, on top of their <span style={{ color: '#E040FB', fontWeight: 700 }}>15% direct commission</span>.
+            </div>
+
+            {subAgents.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🤝</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No sub-agents yet</div>
+                <div style={{ color: C.muted, fontSize: 14 }}>Recruit agents to build your downline and earn override commissions.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {subAgents.map(function(sa) {
+                  var saTenants = subAgentTenants[sa.id] || [];
+                  var saActive = saTenants.filter(function(t) { return t.status === 'active'; }).length;
+                  var saDirectComm = calcCommission(saTenants, SUB_RATE);
+                  var myOverride = calcCommission(saTenants, OVERRIDE_RATE);
+                  var isExpanded = expandedAgent === sa.id;
+                  return (
+                    <div key={sa.id} style={card}>
+                      <div onClick={function() { setExpandedAgent(isExpanded ? null : sa.id); }} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 140px 140px 40px', alignItems: 'center', gap: 16, cursor: 'pointer' }}>
+                        <div><div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{sa.name}</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Since {new Date(sa.created_at).toLocaleDateString()}</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>CLIENTS</div><div style={{ color: '#fff', fontWeight: 700 }}>{saTenants.length}</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>ACTIVE</div><div style={{ color: '#00E676', fontWeight: 700 }}>{saActive}</div></div>
+                        <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>THEIR COMM</div><div style={{ color: '#E040FB', fontWeight: 700 }}>${saDirectComm.toFixed(0)}/mo</div><div style={{ fontSize: 9, color: C.muted }}>15% direct</div></div>
+                        <div style={{ textAlign: 'right' }}><div style={{ color: C.primary, fontWeight: 800, fontSize: 16 }}>${myOverride.toFixed(0)}/mo</div><div style={{ fontSize: 10, color: C.muted }}>your 5% override</div></div>
+                        <div style={{ textAlign: 'center', color: C.muted, fontSize: 16 }}>{isExpanded ? '▲' : '▼'}</div>
+                      </div>
+
+                      {isExpanded && saTenants.length > 0 && (
+                        <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                          <div style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>{sa.name}'s Clients</div>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            {saTenants.map(function(t) {
+                              var mrr = PLAN_MRR[t.plan] || 0;
+                              var override = t.status === 'active' ? mrr * OVERRIDE_RATE : 0;
+                              return <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 120px', alignItems: 'center', gap: 12, padding: '8px 14px', background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+                                <div style={{ color: '#f1f5f9', fontSize: 13 }}>{t.name}</div>
+                                <div style={{ textAlign: 'center' }}>{planBadge(t.plan)}</div>
+                                <div style={{ textAlign: 'center' }}>{statusDot(t.status)}</div>
+                                <div style={{ textAlign: 'center', color: C.muted, fontSize: 12 }}>${mrr} MRR</div>
+                                <div style={{ textAlign: 'right', color: C.primary, fontWeight: 700, fontSize: 13 }}>${override.toFixed(0)}/mo</div>
+                              </div>;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {isExpanded && saTenants.length === 0 && (
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', color: C.muted, fontSize: 13, textAlign: 'center' }}>No clients yet under this sub-agent</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div style={card}><h2 style={{ color: '#fff', margin: '0 0 12px', fontSize: 18, fontWeight: 700 }}>How Commissions Work</h2><div style={{ color: C.muted, fontSize: 14, lineHeight: 1.7 }}><p style={{ margin: '0 0 12px' }}>You earn <span style={{ color: C.primary, fontWeight: 700 }}>${commissionRate}/month</span> for every active referral on a paid plan. Commissions are calculated monthly and paid on the 15th.</p><p style={{ margin: '0 0 12px' }}>A referral is <span style={{ color: '#00E676', fontWeight: 700 }}>active</span> when the business has a paid subscription. Trials don't count until they convert.</p><p style={{ margin: 0 }}>No cap on referrals. The more businesses you bring in, the more you earn — every month, for as long as they're active.</p></div></div>
-        </div>}
+        )}
 
-        {page === 'resources' && <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Resources</h1>
-          <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Everything you need to refer businesses</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-            {[{ title: 'Platform Demo', desc: 'Interactive AI-guided demo', icon: '🎯', link: 'https://engwx.com/demo' }, { title: 'Pricing', desc: 'Current plans and pricing', icon: '💲', link: 'https://engwx.com/pricing' }, { title: 'API Docs', desc: 'Technical reference', icon: '🔌', link: 'https://engwx.com/api-docs' }, { title: 'Blog', desc: 'Use cases and articles', icon: '📝', link: 'https://engwx.com/blog' }].map(function(r, i) { return <div key={i} style={Object.assign({}, card, { cursor: 'pointer' })} onClick={function() { window.open(r.link, '_blank'); }}><div style={{ fontSize: 32, marginBottom: 12 }}>{r.icon}</div><div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{r.title}</div><div style={{ color: C.muted, fontSize: 13 }}>{r.desc}</div><div style={{ color: C.primary, fontSize: 12, fontWeight: 600, marginTop: 8 }}>Open →</div></div>; })}
+        {/* COMMISSIONS */}
+        {page === 'commissions' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Commissions</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your earnings breakdown</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
+              <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Direct Commission</div><div style={{ color: '#00E676', fontSize: 32, fontWeight: 800 }}>${directCommission.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeDirect} clients × 20% MRR</div></div>
+              <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Override Commission</div><div style={{ color: C.primary, fontSize: 32, fontWeight: 800 }}>${overrideCommission.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeSubTenants} sub-agent clients × 5%</div></div>
+              <div style={Object.assign({}, card, { textAlign: 'center', background: 'rgba(255,214,0,0.06)', borderColor: 'rgba(255,214,0,0.3)' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Total Monthly</div><div style={{ color: C.primary, fontSize: 32, fontWeight: 900 }}>${totalMonthly.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Paid on the 24th</div></div>
+            </div>
+
+            <div style={Object.assign({}, card, { marginBottom: 20 })}>
+              <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>Commission Rate Schedule</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                {Object.entries(PLAN_MRR).map(function(entry) {
+                  var plan = entry[0]; var mrr = entry[1];
+                  return <div key={plan} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ textTransform: 'capitalize', color: '#fff', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{plan}</div>
+                    <div style={{ color: C.muted, fontSize: 11 }}>MRR: <span style={{ color: '#fff' }}>${mrr}</span></div>
+                    <div style={{ color: '#00E676', fontSize: 11, marginTop: 2 }}>Direct: <span style={{ fontWeight: 700 }}>${(mrr * MASTER_RATE).toFixed(0)}/mo</span></div>
+                    <div style={{ color: C.primary, fontSize: 11, marginTop: 1 }}>Override: <span style={{ fontWeight: 700 }}>${(mrr * OVERRIDE_RATE).toFixed(0)}/mo</span></div>
+                  </div>;
+                })}
+              </div>
+            </div>
+
+            <div style={card}>
+              <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16 }}>How It Works</h3>
+              <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.8 }}>
+                <div style={{ marginBottom: 8 }}>🏢 <span style={{ color: '#fff', fontWeight: 600 }}>Direct clients</span> — earn <span style={{ color: '#00E676', fontWeight: 700 }}>20%</span> of their monthly plan MRR for as long as they're active.</div>
+                <div style={{ marginBottom: 8 }}>🤝 <span style={{ color: '#fff', fontWeight: 600 }}>Sub-agent clients</span> — earn a <span style={{ color: C.primary, fontWeight: 700 }}>5% override</span> on all MRR from tenants your sub-agents bring in.</div>
+                <div>💳 <span style={{ color: '#fff', fontWeight: 600 }}>Payment</span> — commissions are paid on the 24th of each month for the previous month's collected invoices.</div>
+              </div>
+            </div>
           </div>
-          <div style={Object.assign({}, card, { marginTop: 24 })}><h2 style={{ color: '#fff', margin: '0 0 12px', fontSize: 18, fontWeight: 700 }}>Your Referral Link</h2><div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', color: C.primary, fontFamily: 'monospace', fontSize: 14 }}>https://engwx.com/ref/{agentInfo ? agentInfo.slug : 'your-code'}</div><button onClick={copyLink} style={btnPrimary}>Copy</button></div></div>
-        </div>}
+        )}
 
-        {page === 'settings' && <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
-          <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Manage your agent account</p>
-          <div style={card}><div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: 12, fontSize: 14 }}><span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span><span style={{ color: C.muted, fontWeight: 600 }}>Type:</span><span style={{ color: C.primary }}>Agent / Referral Partner</span><span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span><span style={{ color: C.muted, fontWeight: 600 }}>Slug:</span><span style={{ color: '#fff', fontFamily: 'monospace' }}>{agentInfo ? agentInfo.slug : '—'}</span><span style={{ color: C.muted, fontWeight: 600 }}>Commission:</span><span style={{ color: '#fff' }}>${commissionRate}/mo per active referral</span></div></div>
-          <div style={Object.assign({}, card, { marginTop: 16 })}><h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Payment Information</h3><p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Commission payments are processed on the 15th of each month. Contact hello@engwx.com to update your payment method.</p></div>
-        </div>}
+        {/* RESOURCES */}
+        {page === 'resources' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Resources</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Everything you need to close deals</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
+              {[{ title: 'Platform Demo', desc: 'Live interactive demo to share with prospects', icon: '🎯', link: 'https://engwx.com/demo' }, { title: 'Pricing', desc: 'Current plans and pricing sheets', icon: '💲', link: 'https://engwx.com/pricing' }, { title: 'API Docs', desc: 'Technical documentation for clients', icon: '🔌', link: 'https://docs.engwx.com' }, { title: 'Support', desc: 'Contact the EngageWorx team', icon: '📞', link: 'mailto:rob@engwx.com' }].map(function(r, i) {
+                return <div key={i} style={Object.assign({}, card, { cursor: 'pointer' })} onClick={function() { window.open(r.link, '_blank'); }}>
+                  <div style={{ fontSize: 32, marginBottom: 10 }}>{r.icon}</div>
+                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{r.title}</div>
+                  <div style={{ color: C.muted, fontSize: 13 }}>{r.desc}</div>
+                  <div style={{ color: C.primary, fontSize: 12, fontWeight: 600, marginTop: 10 }}>Open →</div>
+                </div>;
+              })}
+            </div>
+            <div style={card}>
+              <h2 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Your Referral Link</h2>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 16px', color: C.primary, fontFamily: 'monospace', fontSize: 14 }}>https://engwx.com/ref/{agentInfo ? agentInfo.slug : '...'}</div>
+                <button onClick={copyLink} style={btnPrimary}>Copy</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {page === 'settings' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your agent account details</p>
+            <div style={card}>
+              <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, fontSize: 14 }}>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Company:</span><span style={{ color: '#fff' }}>{agentInfo ? agentInfo.name : '—'}</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Tenant ID:</span><span style={{ color: C.muted, fontFamily: 'monospace', fontSize: 11 }}>{agentTenantId}</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Direct Rate:</span><span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Override Rate:</span><span style={{ color: C.primary, fontWeight: 700 }}>5% on sub-agent MRR</span>
+                <span style={{ color: C.muted, fontWeight: 600 }}>Payment:</span><span style={{ color: '#fff' }}>24th of each month</span>
+              </div>
+            </div>
+            <div style={Object.assign({}, card, { marginTop: 16 })}>
+              <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16, fontWeight: 700 }}>Payment Information</h3>
+              <p style={{ color: C.muted, fontSize: 13, margin: 0 }}>Commission payments are processed on the 24th of each month for the previous month's collected invoices. Contact <a href="mailto:rob@engwx.com" style={{ color: C.primary }}>rob@engwx.com</a> to update your payment method or banking details.</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
