@@ -1260,7 +1260,46 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
 
         {page === "settings" && (
-          <Settings C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
+          <div style={{ padding: "32px 36px" }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, maxWidth: 560 }}>
+              <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
+              <div style={{ display: "grid", gap: 16 }}>
+                <div>
+                  <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 }}>Brand Name</label>
+                  <input defaultValue={tenant.brand.name} id="t-brand-name" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <div>
+                  <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 }}>Primary Color</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input type="color" defaultValue={tenant.brand.primary} id="t-primary-color" style={{ width: 44, height: 44, borderRadius: 8, border: "2px solid rgba(255,255,255,0.2)", cursor: "pointer", padding: 2, background: "transparent" }} />
+                    <input defaultValue={tenant.brand.primary} id="t-primary-hex" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "monospace", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 }}>Secondary Color</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input type="color" defaultValue={tenant.brand.secondary} id="t-secondary-color" style={{ width: 44, height: 44, borderRadius: 8, border: "2px solid rgba(255,255,255,0.2)", cursor: "pointer", padding: 2, background: "transparent" }} />
+                    <input defaultValue={tenant.brand.secondary} id="t-secondary-hex" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "monospace", boxSizing: "border-box", outline: "none" }} />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 }}>Logo URL (optional)</label>
+                  <input defaultValue={tenant.brand.logoUrl || ""} id="t-logo-url" placeholder="https://yourdomain.com/logo.png" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" }} />
+                </div>
+                <button onClick={async function() {
+                  var name = document.getElementById("t-brand-name").value;
+                  var primary = document.getElementById("t-primary-hex").value;
+                  var secondary = document.getElementById("t-secondary-hex").value;
+                  var logo = document.getElementById("t-logo-url").value;
+                  var res = await supabase.from("tenants").update({ brand_name: name, brand_primary: primary, brand_secondary: secondary, brand_logo_url: logo || null }).eq("id", tenantId);
+                  if (res.error) { alert("Save failed: " + res.error.message); }
+                  else { alert("Branding saved! Refresh to see changes."); }
+                }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + C.accent + ")", border: "none", borderRadius: 10, padding: "14px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: "100%" }}>💾 Save Branding</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {page === "registration" && (
