@@ -622,8 +622,9 @@ useEffect(() => {
           {/* Tab Switcher: Messages | Calls */}
           <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
             {[
-              { id: "messages", label: "💬 Messages" },
-              { id: "calls", label: `📞 Calls${!demoMode && calls.length > 0 ? ` (${calls.length})` : ""}` },
+              { id: "all", label: "💬 All" },
+              { id: "messages", label: "Messages" },
+              { id: "calls", label: "📞 Calls" },
             ].map(t => (
               <button key={t.id} onClick={() => setInboxTab(t.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === t.id ? `${C.primary}22` : "transparent", color: inboxTab === t.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{t.label}</button>
             ))}
@@ -669,7 +670,7 @@ useEffect(() => {
         </div>
 
         {/* Conversation List (Messages tab) */}
-        {inboxTab === "messages" && (<div style={{ flex: 1, overflowY: "auto" }}>
+        {(inboxTab === "messages" || inboxTab === "all") && (<div style={{ flex: 1, overflowY: "auto" }}>
           {filtered.map(conv => {
             const msgs = conv.messages || [];
             const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : { from: 'system', text: conv.subject || 'New conversation', agent: null };
@@ -677,8 +678,8 @@ useEffect(() => {
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={() => setSelectedConv(conv)} style={{
-                padding: "12px 16px", cursor: "pointer", transition: "background 0.15s",
+              <div key={conv.id} onClick={() => { setSelectedConv(conv); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
+                padding: "16px 16px", cursor: "pointer", transition: "background 0.15s",
                 background: isSelected ? `${C.primary}15` : "transparent",
                 borderLeft: isSelected ? `3px solid ${C.primary}` : "3px solid transparent",
                 borderBottom: "1px solid rgba(255,255,255,0.03)",
@@ -689,7 +690,7 @@ useEffect(() => {
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   {/* Avatar */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
+                    <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
                     <div title={ch.label} style={{ position: "absolute", bottom: -1, right: -1, fontSize: 12 }}>{ch.icon}</div>
                     {conv.unread > 0 && <div style={{ position: "absolute", top: -4, right: -4, width: 16, height: 16, borderRadius: "50%", background: "#FF3B30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fff" }}>{conv.unread}</div>}
                   </div>
@@ -786,7 +787,7 @@ useEffect(() => {
 
         {/* Bottom Stats */}
         <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{inboxTab === "messages" ? `${filtered.length} conversations` : `${calls.length} calls`}</span>
+          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
           <div style={{ display: "flex", gap: 6 }}>
             {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
               <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
