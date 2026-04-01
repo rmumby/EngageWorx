@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { ThemeToggle } from './ThemeContext';
 import AIChatbot from './AIChatbot';
 import ContactsModule from './ContactsModule';
 import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 
-function getCSPColors(themeObj) {
-  if (!themeObj || themeObj.mode === 'dark') return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
-  return { bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6', primary: '#0077B6', accent: '#7C3AED', text: '#111827', muted: '#4B5563' };
+function getCSPColors() {
+  return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
 }
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
-  var C = Object.assign({}, getCSPColors(null), brandColors);
+  var C = Object.assign({}, getCSPColors(), brandColors);
+
   useEffect(function() {
     supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url').eq('id', cspTenantId).single().then(function(res) {
       if (res.data) {
@@ -26,81 +25,40 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       }
     });
   }, [cspTenantId]);
-  var pageState = useState('dashboard');
-  var page = pageState[0];
-  var setPage = pageState[1];
 
-  var cspInfoState = useState(null);
-  var cspInfo = cspInfoState[0];
-  var setCspInfo = cspInfoState[1];
+  var [page, setPage] = useState('dashboard');
+  var [cspInfo, setCspInfo] = useState(null);
+  var [tenants, setTenants] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [drillDown, setDrillDown] = useState(null);
+  var [showCreate, setShowCreate] = useState(false);
+  var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' });
+  var [createLoading, setCreateLoading] = useState(false);
+  var [createResult, setCreateResult] = useState(null);
+  var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  var tenantsState = useState([]);
-  var tenants = tenantsState[0];
-  var setTenants = tenantsState[1];
-
-  var loadingState = useState(true);
-  var loading = loadingState[0];
-  var setLoading = loadingState[1];
-  
-  var drillDownState = useState(null);
-  var drillDown = drillDownState[0];
-  var setDrillDown = drillDownState[1];
-
-  var showCreateState = useState(false);
-  var showCreate = showCreateState[0];
-  var setShowCreate = showCreateState[1];
-
-  var createFormState = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' });
-  var createForm = createFormState[0];
-  var setCreateForm = createFormState[1];
-
-  var createLoadingState = useState(false);
-  var createLoading = createLoadingState[0];
-  var setCreateLoading = createLoadingState[1];
-
-  var createResultState = useState(null);
-  var createResult = createResultState[0];
-  var setCreateResult = createResultState[1];
-
-  var sidebarCollapsedState = useState(false);
-  var sidebarCollapsed = sidebarCollapsedState[0];
-  var setSidebarCollapsed = sidebarCollapsedState[1];
-
-  // Load CSP data
-  useEffect(function() {
-    loadCSPData();
-  }, [cspTenantId]);
+  useEffect(function() { loadCSPData(); }, [cspTenantId]);
 
   async function loadCSPData() {
     setLoading(true);
     try {
-      // Get CSP info
       var cspResult = await supabase.from('tenants').select('*').eq('id', cspTenantId).maybeSingle();
       if (cspResult.data) setCspInfo(cspResult.data);
-
-      // Get sub-tenants
       var tenantsResult = await supabase.from('tenants').select('*').eq('parent_tenant_id', cspTenantId).order('name');
       if (tenantsResult.data) setTenants(tenantsResult.data);
-
-      // Try to get usage data for each tenant
       try {
         var periodStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
         var usageResult = await supabase.from('usage_metering').select('*').in('tenant_id', (tenantsResult.data || []).map(function(t) { return t.id; })).eq('period_start', periodStart);
         if (usageResult.data) {
           var usageMap = {};
           usageResult.data.forEach(function(u) { usageMap[u.tenant_id] = u; });
-          setTenants((tenantsResult.data || []).map(function(t) {
-            return Object.assign({}, t, { usage: usageMap[t.id] || null });
-          }));
+          setTenants((tenantsResult.data || []).map(function(t) { return Object.assign({}, t, { usage: usageMap[t.id] || null }); }));
         }
       } catch (ue) {}
-    } catch (err) {
-      console.error('CSP data load error:', err);
-    }
+    } catch (err) { console.error('CSP data load error:', err); }
     setLoading(false);
   }
 
-  // Create sub-tenant
   async function handleCreateTenant() {
     if (!createForm.email || !createForm.companyName || !createForm.password) return;
     setCreateLoading(true);
@@ -119,15 +77,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         }),
       });
       var data = await resp.json();
-      if (data.success) {
-        setCreateResult(data);
-        loadCSPData();
-      } else {
-        setCreateResult({ error: data.error || 'Failed to create tenant' });
-      }
-    } catch (e) {
-      setCreateResult({ error: e.message });
-    }
+      if (data.success) { setCreateResult(data); loadCSPData(); }
+      else { setCreateResult({ error: data.error || 'Failed to create tenant' }); }
+    } catch (e) { setCreateResult({ error: e.message }); }
     setCreateLoading(false);
   }
 
@@ -151,15 +103,11 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
   var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
-  var btnPrimary = { background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  var btnPrimary = { background: 'linear-gradient(135deg, ' + (brandColors.primary || '#00C9FF') + ', ' + (brandColors.accent || '#E040FB') + ')', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   var btnSec = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   var labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
 
-  // Calculate stats
-  var totalMessages = 0;
-  var totalSms = 0;
-  var totalWhatsapp = 0;
-  var totalEmail = 0;
+  var totalMessages = 0; var totalSms = 0; var totalWhatsapp = 0; var totalEmail = 0;
   tenants.forEach(function(t) {
     if (t.usage) {
       totalMessages += t.usage.total_messages || 0;
@@ -169,19 +117,21 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   });
 
+  var logoEl = brandColors.logoUrl
+    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+    : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
+
   if (page === 'ai-studio') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            {logoEl}
             <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🤖 AI Studio</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
-          </div>
+          <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
         </div>
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
@@ -189,18 +139,18 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
     );
   }
-  
+
   if (page === 'sequences') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            {logoEl}
             <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>📧 Sequences</span>
           </div>
-          <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+          <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
         </div>
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <SequenceBuilder C={C} />
@@ -208,36 +158,25 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
     );
   }
-  // Full-screen inbox — bypass sidebar entirely, show slim top bar instead
+
   if (page === 'inbox') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        {/* Slim top bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
-          {/* Left: logo + name + back */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 11, color: '#000', flexShrink: 0 }}>EW</div>
+            {logoEl}
             <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>💬 Live Inbox</span>
           </div>
-          {/* Right: back to portal + sign out */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span onClick={function() { setPage('dashboard'); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.3)', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+            <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>⏻ Sign Out</span>
           </div>
         </div>
-        {/* Inbox fills remaining height */}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <LiveInbox
-            C={C}
-            tenants={[]}
-            viewLevel="tenant"
-            currentTenantId={cspTenantId}
-            demoMode={false}
-            supabase={supabase}
-          />
+          <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} supabase={supabase} />
         </div>
       </div>
     );
@@ -245,20 +184,17 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-      {/* Sidebar */}
       <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
-        {/* Back to SP (when drilled down from Super Admin) */}
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
             <span>←</span>
             {!sidebarCollapsed && <span>Back to Platform</span>}
           </div>
         )}
-        {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
           {brandColors.logoUrl
             ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
-            : <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 14, color: '#000', flexShrink: 0 }}>{cspInfo ? (cspInfo.brand_name || cspInfo.name || 'CP').substring(0, 2).toUpperCase() : 'CP'}</div>
+            : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
           }
           {!sidebarCollapsed && (
             <div>
@@ -267,8 +203,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           )}
         </div>
-
-      {/* Nav */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
           {navItems.map(function(item) {
             var active = page === item.id;
@@ -281,29 +215,28 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             );
           })}
         </div>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+            <span>{sidebarCollapsed ? '»' : '«'}</span>
+            {!sidebarCollapsed && <span>Collapse</span>}
+          </div>
+          <div onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', color: '#FF5252', fontSize: 13, background: 'rgba(255,82,82,0.06)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+            <span>⏻</span>
+            {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
+          </div>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', height: page === 'inbox' ? '100vh' : 'auto', overflow: page === 'inbox' ? 'hidden' : 'visible', transition: 'margin-left 0.25s ease' }}>
-        {/* Top bar — hidden on inbox to give full height */}
-        {page !== 'inbox' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
-            {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
-            <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
-          </div>
-        )}
-        {/* ═══ CONTACTS ═══ */}
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
+          {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
+          <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
+        </div>
+
         {page === 'contacts' && (
-          <ContactsModule
-            C={C}
-            tenants={[]}
-            viewLevel="tenant"
-            currentTenantId={cspTenantId}
-            demoMode={false}
-          />
+          <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
         )}
 
-        {/* ═══ DASHBOARD ═══ */}
         {page === 'dashboard' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
@@ -312,8 +245,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage your tenants and monitor usage</p>
               </div>
             </div>
-
-            {/* Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
               {[
                 { label: 'Active Tenants', value: tenants.length, icon: '🏢', color: C.primary },
@@ -330,14 +261,11 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 );
               })}
             </div>
-
-            {/* Tenant List */}
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
                 <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnPrimary}>+ Add Tenant</button>
               </div>
-
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading...</div>
               ) : tenants.length === 0 ? (
@@ -370,7 +298,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                             <span style={{ color: pct > 80 ? '#FF6B35' : '#fff', fontSize: 10, fontWeight: 600 }}>{pct}%</span>
                           </div>
                           <div style={{ height: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
-                            <div style={{ height: '100%', width: Math.min(pct, 100) + '%', background: pct > 90 ? '#FF3B30' : pct > 80 ? '#FF6B35' : C.primary, borderRadius: 2, transition: 'width 0.3s' }} />
+                            <div style={{ height: '100%', width: Math.min(pct, 100) + '%', background: pct > 90 ? '#FF3B30' : pct > 80 ? '#FF6B35' : C.primary, borderRadius: 2 }} />
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
@@ -385,7 +313,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
         )}
 
-        {/* ═══ TENANT MANAGEMENT ═══ */}
         {page === 'tenants' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
@@ -395,19 +322,17 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               </div>
               <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnPrimary}>+ Add Tenant</button>
             </div>
-
             {tenants.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No tenants yet</div>
-                <div style={{ color: C.muted, fontSize: 14, marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>Add your first client to start providing them with AI-powered communications under your brand.</div>
+                <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>Add your first client to start providing them with AI-powered communications.</div>
                 <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
               </div>
             ) : (
               <div style={{ display: 'grid', gap: 12 }}>
                 {tenants.map(function(tenant) {
-                  var usage = tenant.usage;
-                  var msgs = usage ? usage.total_messages : 0;
+                  var msgs = tenant.usage ? tenant.usage.total_messages : 0;
                   return (
                     <div key={tenant.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 80px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (tenant.status === 'active' ? '#00E676' : '#FFD600') })}>
                       <div>
@@ -437,17 +362,17 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
         )}
 
-        {/* ═══ OTHER PAGES (placeholder) ═══ */}
         {(page === 'campaigns' || page === 'analytics') && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{navItems.find(function(n) { return n.id === page; }).label}</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon. For now, manage individual tenants from the Dashboard or Tenant Management.</p>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon.</p>
             <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>{navItems.find(function(n) { return n.id === page; }).icon}</div>
               <div style={{ color: C.muted, fontSize: 14 }}>This feature will aggregate data across all your tenants.</div>
             </div>
           </div>
         )}
+
         {page === 'settings' && (
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
@@ -492,91 +417,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           </div>
         )}
-                <div>
-                  <label style={labelStyle}>Brand Name</label>
-                  <input value={brandColors.brandName || (cspInfo ? cspInfo.brand_name || cspInfo.name : '')} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { brandName: e.target.value }); }); }} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Primary Color</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input type="color" value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
-                    <input value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Secondary Color</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input type="color" value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
-                    <input value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Logo URL (optional)</label>
-                  <input value={brandColors.logoUrl || ''} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { logoUrl: e.target.value }); }); }} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Square image recommended. Displays in your portal sidebar.</div>
-                </div>
-                <button onClick={async function() {
-                  var res = await supabase.from('tenants').update({
-                    brand_name: brandColors.brandName || (cspInfo ? cspInfo.name : ''),
-                    brand_primary: brandColors.primary || '#00C9FF',
-                    brand_secondary: brandColors.accent || '#E040FB',
-                    brand_logo_url: brandColors.logoUrl || null,
-                  }).eq('id', cspTenantId);
-                  if (res.error) { alert('Save failed: ' + res.error.message); }
-                  else { alert('Branding saved!'); }
-                }} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14 })}>💾 Save Branding</button>
-              </div>
-            </div>
-          </div>
-        )}
-                <span style={{ color: C.muted, fontWeight: 600 }}>Partner Type:</span><span style={{ color: C.primary, fontWeight: 700 }}>Master Agent</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Status:</span><span style={{ color: '#00E676' }}>{agentInfo ? agentInfo.status : '—'}</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Direct Rate:</span><span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Override Rate:</span><span style={{ color: C.primary, fontWeight: 700 }}>5% on sub-agent MRR</span>
-                <span style={{ color: C.muted, fontWeight: 600 }}>Payment:</span><span style={{ color: '#fff' }}>24th of each month</span>
-              </div>
-            </div>
-            <div style={Object.assign({}, card, { maxWidth: 560 })}>
-              <h3 style={{ color: '#fff', margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
-              <div style={{ display: 'grid', gap: 16 }}>
-                <div>
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Brand Name</div>
-                  <input value={brandColors.brandName || (cspInfo ? cspInfo.brand_name || cspInfo.name : '')} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { brandName: e.target.value }); }); }} style={inputStyle} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Primary Color</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input type="color" value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
-                    <input value={brandColors.primary || '#00C9FF'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { primary: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Secondary Color</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input type="color" value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
-                    <input value={brandColors.accent || '#E040FB'} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { accent: e.target.value }); }); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-                  </div>
-                </div>
-                <div>
-                  <label style={labelStyle}>Logo URL (optional)</label>
-                  <input value={brandColors.logoUrl || ''} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { logoUrl: e.target.value }); }); }} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
-                </div>
-                <button onClick={async function() {
-                  var res = await supabase.from('tenants').update({
-                    brand_name: brandColors.brandName || (cspInfo ? cspInfo.name : ''),
-                    brand_primary: brandColors.primary || '#00C9FF',
-                    brand_secondary: brandColors.accent || '#E040FB',
-                    brand_logo_url: brandColors.logoUrl || null,
-                  }).eq('id', agentTenantId);
-                  if (res.error) { alert('Save failed: ' + res.error.message); }
-                  else { alert('Branding saved!'); }
-                }} style={{ background: 'linear-gradient(135deg, #FFD600, #FF6B35)', border: 'none', borderRadius: 10, padding: '14px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%' }}>💾 Save Branding</button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* ═══ TENANT DETAIL (drill-down) ═══ */}
         {page === 'tenant_detail' && drillDown && (
           <div>
             {function() {
@@ -591,13 +432,12 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                   <button onClick={function() { setPage('tenants'); setDrillDown(null); }} style={Object.assign({}, btnSec, { marginBottom: 20, padding: '8px 16px' })}>← Back to Tenants</button>
                   <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{tenant.name}</h1>
                   <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{tenant.plan} plan · {tenant.status} · ID: {tenant.id}</p>
-
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
                     {[
                       { label: 'Total Messages', value: msgs.toLocaleString(), color: C.primary },
                       { label: 'Plan Limit', value: limit.toLocaleString(), color: '#FFD600' },
                       { label: 'Usage', value: pct + '%', color: pct > 80 ? '#FF6B35' : '#00E676' },
-                      { label: 'SMS / WhatsApp / Email', value: (usage ? usage.sms_sent : 0) + ' / ' + (usage ? usage.whatsapp_sent : 0) + ' / ' + (usage ? usage.email_sent : 0), color: '#fff' },
+                      { label: 'SMS / WA / Email', value: (usage ? usage.sms_sent : 0) + ' / ' + (usage ? usage.whatsapp_sent : 0) + ' / ' + (usage ? usage.email_sent : 0), color: '#fff' },
                     ].map(function(stat, i) {
                       return (
                         <div key={i} style={card}>
@@ -607,15 +447,13 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                       );
                     })}
                   </div>
-
-                  {/* Usage bar */}
                   <div style={card}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ color: C.muted, fontSize: 13 }}>Message Usage</span>
                       <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{msgs.toLocaleString()} / {limit.toLocaleString()}</span>
                     </div>
                     <div style={{ height: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 4 }}>
-                      <div style={{ height: '100%', width: Math.min(pct, 100) + '%', background: pct > 90 ? '#FF3B30' : pct > 80 ? '#FF6B35' : 'linear-gradient(90deg, #00C9FF, #E040FB)', borderRadius: 4, transition: 'width 0.5s' }} />
+                      <div style={{ height: '100%', width: Math.min(pct, 100) + '%', background: pct > 90 ? '#FF3B30' : pct > 80 ? '#FF6B35' : 'linear-gradient(90deg, ' + C.primary + ', ' + C.accent + ')', borderRadius: 4 }} />
                     </div>
                   </div>
                 </div>
@@ -624,7 +462,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
         )}
 
-        {/* ═══ CREATE TENANT MODAL ═══ */}
         {showCreate && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowCreate(false); }}>
             <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 500, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
@@ -632,7 +469,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>Add New Tenant</h2>
                 <span onClick={function() { setShowCreate(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
               </div>
-
               {createResult && createResult.success ? (
                 <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
                   <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Tenant Created</div>
@@ -643,16 +479,13 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() {
-                      var text = 'Portal: portal.engwx.com\nEmail: ' + createResult.email + '\nPassword: ' + createForm.password;
-                      navigator.clipboard.writeText(text);
-                    }} style={btnPrimary}>Copy Credentials</button>
+                    <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + createResult.email + '\nPassword: ' + createForm.password); }} style={btnPrimary}>Copy Credentials</button>
                     <button onClick={function() { setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnSec}>Add Another</button>
                     <button onClick={function() { setShowCreate(false); }} style={btnSec}>Close</button>
                   </div>
                 </div>
               ) : (
-                <>
+                <div>
                   {createResult && createResult.error && (
                     <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#FF3B30', fontSize: 13 }}>{createResult.error}</div>
                   )}
@@ -693,7 +526,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                       {createLoading ? 'Creating...' : 'Create Tenant'}
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
