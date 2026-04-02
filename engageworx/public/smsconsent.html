@@ -1,436 +1,82 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SMS Consent | EngageWorx</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --primary: #00C9FF;
-    --accent: #E040FB;
-    --bg: #050810;
-    --surface: #0d1220;
-    --border: #1a2540;
-    --text: #E8F4FD;
-    --muted: #6B8BAE;
-    --success: #00E676;
-    --error: #FF3B30;
-  }
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-  }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: radial-gradient(ellipse at 20% 20%, rgba(0,201,255,0.06) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 80%, rgba(224,64,251,0.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
-  .container {
-    width: 100%;
-    max-width: 480px;
-    position: relative;
-    z-index: 1;
-  }
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 32px;
-    justify-content: center;
-  }
-  .logo-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 14px;
-    color: #000;
-  }
-  .logo-name {
-    font-size: 20px;
-    font-weight: 800;
-    color: var(--text);
-    letter-spacing: -0.5px;
-  }
-  .logo-name span { color: var(--primary); }
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
-  }
-  .card-header {
-    margin-bottom: 28px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--border);
-  }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0,230,118,0.1);
-    border: 1px solid rgba(0,230,118,0.25);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--success);
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    margin-bottom: 14px;
-  }
-  .badge::before { content: '●'; font-size: 8px; }
-  h1 {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--text);
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-  }
-  .subtitle {
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-  .field {
-    margin-bottom: 20px;
-  }
-  label {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 8px;
-  }
-  input[type="text"],
-  input[type="tel"] {
-    width: 100%;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    color: var(--text);
-    font-size: 15px;
-    font-family: 'DM Sans', sans-serif;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  input[type="text"]:focus,
-  input[type="tel"]:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0,201,255,0.1);
-  }
-  input[type="text"]::placeholder,
-  input[type="tel"]::placeholder {
-    color: rgba(107,139,174,0.5);
-  }
-  .consent-box {
-    background: rgba(0,201,255,0.04);
-    border: 1px solid rgba(0,201,255,0.15);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 24px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
-  }
-  .consent-box:hover {
-    background: rgba(0,201,255,0.07);
-    border-color: rgba(0,201,255,0.3);
-  }
-  .consent-box.checked {
-    background: rgba(0,230,118,0.06);
-    border-color: rgba(0,230,118,0.25);
-  }
-  .checkbox-wrap {
-    flex-shrink: 0;
-    width: 20px;
-    height: 20px;
-    position: relative;
-    margin-top: 1px;
-  }
-  input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
-    z-index: 2;
-    margin: 0;
-  }
-  .checkbox-custom {
-    position: absolute;
-    inset: 0;
-    border: 2px solid var(--border);
-    border-radius: 5px;
-    background: rgba(0,0,0,0.3);
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  input[type="checkbox"]:checked + .checkbox-custom {
-    background: var(--success);
-    border-color: var(--success);
-  }
-  .checkbox-custom::after {
-    content: '';
-    width: 5px;
-    height: 9px;
-    border: 2px solid #000;
-    border-top: none;
-    border-left: none;
-    transform: rotate(45deg) translateY(-1px);
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-  input[type="checkbox"]:checked + .checkbox-custom::after {
-    opacity: 1;
-  }
-  .consent-text {
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-  .consent-text a {
-    color: var(--primary);
-    text-decoration: none;
-  }
-  .consent-text a:hover { text-decoration: underline; }
-  .not-prechecked {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--muted);
-    margin-bottom: 20px;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.06);
-  }
-  .not-prechecked::before {
-    content: 'ℹ';
-    font-size: 13px;
-    color: var(--primary);
-  }
-  .btn {
-    width: 100%;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
-    border: none;
-    border-radius: 12px;
-    padding: 15px;
-    color: #000;
-    font-size: 15px;
-    font-weight: 700;
-    font-family: 'DM Sans', sans-serif;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    letter-spacing: 0.2px;
-  }
-  .btn:hover { opacity: 0.9; }
-  .btn:active { transform: scale(0.99); }
-  .btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-  .error-msg {
-    background: rgba(255,59,48,0.1);
-    border: 1px solid rgba(255,59,48,0.3);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: var(--error);
-    font-size: 13px;
-    margin-bottom: 16px;
-    display: none;
-  }
-  .success-screen {
-    text-align: center;
-    padding: 20px 0;
-    display: none;
-  }
-  .success-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    background: rgba(0,230,118,0.1);
-    border: 2px solid rgba(0,230,118,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    margin: 0 auto 20px;
-  }
-  .success-screen h2 {
-    font-size: 22px;
-    font-weight: 800;
-    color: var(--text);
-    margin-bottom: 10px;
-  }
-  .success-screen p {
-    font-size: 14px;
-    color: var(--muted);
-    line-height: 1.6;
-    margin-bottom: 16px;
-  }
-  .sms-preview {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--text);
-    text-align: left;
-    margin-top: 16px;
-    line-height: 1.5;
-  }
-  .sms-label {
-    font-size: 10px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .footer-note {
-    margin-top: 24px;
-    text-align: center;
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.6;
-  }
-  .footer-note a { color: var(--primary); text-decoration: none; }
-</style>
-</head>
-<body>
-<div class="container">
-  <div class="logo">
-    <div class="logo-mark">EW</div>
-    <div class="logo-name">Engage<span>Worx</span></div>
-  </div>
+const twilio = require('twilio');
+const { createClient } = require('@supabase/supabase-js');
 
-  <div class="card">
-    <div id="form-view">
-      <div class="card-header">
-        <div class="badge">SMS Consent</div>
-        <h1>Subscribe to SMS Updates</h1>
-        <p class="subtitle">Enter your details below to receive SMS messages from EngageWorx. You can opt out at any time by replying STOP.</p>
-      </div>
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-      <div id="error-msg" class="error-msg"></div>
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
-      <div class="field">
-        <label for="name">Full Name</label>
-        <input type="text" id="name" name="name" placeholder="John Smith" autocomplete="name" />
-      </div>
+const FROM_NUMBER = process.env.TWILIO_PHONE_NUMBER || '+17869827800';
 
-      <div class="field">
-        <label for="phone">Phone Number</label>
-        <input type="tel" id="phone" name="phone" placeholder="+1 (555) 123-4567" autocomplete="tel" />
-      </div>
+const OPT_IN_MESSAGE = 'EngageWorx: You are now opted in to receive messages. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out.';
 
-      <div class="not-prechecked">
-        This checkbox is NOT pre-checked. You must actively select it to opt in.
-      </div>
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-      <div class="consent-box" id="consent-box" onclick="toggleConsent()">
-        <div class="checkbox-wrap">
-          <input type="checkbox" id="consent" name="consent" />
-          <div class="checkbox-custom"></div>
-        </div>
-        <p class="consent-text">
-          I agree to receive SMS messages from EngageWorx. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/privacy" onclick="event.stopPropagation()">Privacy Policy</a> and <a href="/terms" onclick="event.stopPropagation()">Terms of Service</a>.
-        </p>
-      </div>
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-      <button class="btn" id="submit-btn" onclick="handleSubmit()">Subscribe to SMS Updates</button>
+  var name = (req.body.name || '').trim();
+  var phone = (req.body.phone || '').trim();
+  var consent = req.body.consent;
 
-      <div class="footer-note">
-        By subscribing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.<br>
-        Reply STOP to unsubscribe · HELP for assistance · Msg &amp; data rates may apply.
-      </div>
-    </div>
-
-    <div id="success-view" class="success-screen">
-      <div class="success-icon">✓</div>
-      <h2>You're subscribed!</h2>
-      <p>Thank you. You'll receive a confirmation SMS shortly. Reply STOP at any time to unsubscribe.</p>
-      <div class="sms-preview">
-        <div class="sms-label">Confirmation SMS you will receive:</div>
-        EngageWorx: You are now opted in to receive messages. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help or STOP to opt out.
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  function toggleConsent() {
-    var cb = document.getElementById('consent');
-    cb.checked = !cb.checked;
-    var box = document.getElementById('consent-box');
-    box.classList.toggle('checked', cb.checked);
+  if (!name || !phone) {
+    return res.status(400).json({ error: 'Name and phone are required' });
   }
 
-  document.getElementById('consent').addEventListener('click', function(e) {
-    e.stopPropagation();
-    var box = document.getElementById('consent-box');
-    box.classList.toggle('checked', this.checked);
-  });
-
-  function showError(msg) {
-    var el = document.getElementById('error-msg');
-    el.textContent = msg;
-    el.style.display = 'block';
+  if (!consent) {
+    return res.status(400).json({ error: 'Consent is required' });
   }
 
-  function hideError() {
-    document.getElementById('error-msg').style.display = 'none';
+  // Normalize phone number
+  var normalizedPhone = phone.replace(/[^0-9+]/g, '');
+  if (!normalizedPhone.startsWith('+')) {
+    normalizedPhone = '+1' + normalizedPhone.replace(/^1/, '');
   }
 
-  function handleSubmit() {
-    hideError();
-    var name = document.getElementById('name').value.trim();
-    var phone = document.getElementById('phone').value.trim();
-    var consent = document.getElementById('consent').checked;
+  try {
+    // Save opt-in to Supabase
+    var { error: dbError } = await supabase.from('sms_optins').insert({
+      name: name,
+      phone: normalizedPhone,
+      source: 'web_form',
+      consent_text: 'I agree to receive SMS messages from EngageWorx. Message frequency varies. Msg & data rates may apply. Reply STOP to unsubscribe.',
+      opted_in_at: new Date().toISOString(),
+      ip_address: req.headers['x-forwarded-for'] || req.socket.remoteAddress || null,
+    });
 
-    if (!name) { showError('Please enter your full name.'); return; }
-    if (!phone) { showError('Please enter your phone number.'); return; }
-    if (!consent) { showError('You must check the consent checkbox to subscribe.'); return; }
+    if (dbError) {
+      console.error('[smsconsent] DB error:', dbError.message);
+      // Non-fatal — still try to send the SMS
+    }
 
-    var btn = document.getElementById('submit-btn');
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
+    // Send confirmation SMS via Twilio
+    var message = await twilioClient.messages.create({
+      body: OPT_IN_MESSAGE,
+      from: FROM_NUMBER,
+      to: normalizedPhone,
+    });
 
-    // Simulate submission — replace with real API call if needed
-    setTimeout(function() {
-      document.getElementById('form-view').style.display = 'none';
-      document.getElementById('success-view').style.display = 'block';
-    }, 800);
+    console.log('[smsconsent] SMS sent:', message.sid, 'to', normalizedPhone);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Opted in successfully',
+      sid: message.sid,
+    });
+
+  } catch (err) {
+    console.error('[smsconsent] Error:', err.message);
+    return res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
-</script>
-</body>
-</html>
+};
