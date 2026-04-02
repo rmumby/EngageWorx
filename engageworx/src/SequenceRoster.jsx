@@ -16,7 +16,7 @@ function statusColor(status) {
   return '#64748b';
 }
 
-export default function SequenceRoster({ C }) {
+export default function SequenceRoster({ C, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [sequences, setSequences] = useState([]);
@@ -28,7 +28,7 @@ export default function SequenceRoster({ C }) {
   var [search, setSearch] = useState('');
 
   useEffect(function() {
-    fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
+    fetch('/api/sequences?action=list&tenant_id=' + (currentTenantId || SP_TENANT_ID))
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setSequences(d.sequences || []);
