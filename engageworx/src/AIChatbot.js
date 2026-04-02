@@ -124,7 +124,10 @@ const kbFileRef = useRef(null);
 
   // Save AI config to all channel_configs
 async function saveAIConfig() {
-  if (!currentTenantId) return;
+  if (!currentTenantId) {
+    setConfigError("No tenant selected — please log in to save.");
+    return;
+  }
   setConfigSaved(false);
   setConfigError(null);
   try {
