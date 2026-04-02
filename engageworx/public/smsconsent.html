@@ -425,7 +425,7 @@
     btn.disabled = true;
     btn.textContent = 'Submitting...';
 
-    fetch('/api/smsconsent', {
+    fetch('/api/sms-optin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: name, phone: phone, consent: true }),
