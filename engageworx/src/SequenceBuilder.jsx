@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient';
 const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 const CHANNELS = ['email', 'sms', 'whatsapp'];
 
-export default function SequenceBuilder({ C }) {
+export default function SequenceBuilder({ C, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [sequences, setSequences] = useState([]);
@@ -23,7 +23,7 @@ export default function SequenceBuilder({ C }) {
 
   function loadSequences() {
     setLoading(true);
-    fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
+    fetch('/api/sequences?action=list&tenant_id=' + (currentTenantId || SP_TENANT_ID))
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setSequences(d.sequences || []);
@@ -161,7 +161,7 @@ setSteps(aiSteps.map(function(s, i) {
     setSaving(true);
     try {
       var res = await supabase.from('sequences').insert({
-        tenant_id: SP_TENANT_ID,
+  tenant_id: currentTenantId || SP_TENANT_ID,
         name: newName.trim(),
         type: 'outreach',
         status: 'active',
