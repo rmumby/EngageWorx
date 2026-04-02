@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import WelcomeEmailSettings from './WelcomeEmailSettings';
 
 const ROLES = ["Admin", "Campaign Manager", "Analyst", "Support Agent", "Read Only"];
 
@@ -747,6 +748,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
           { id: "team", label: "Team", icon: "👥" },
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
+{ id: "welcome-email", label: "Welcome Email", icon: "📧" },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)",
@@ -1294,6 +1296,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             </div>
           </div>
         </div>
+      {/* ═══════════ WELCOME EMAIL TAB ═══════════ */}
+      {activeTab === "welcome-email" && (
+        <WelcomeEmailSettings C={C} tenantId={currentTenantId || "c1bc59a8-5235-4921-9755-02514b574387"} />
       )}
     </div>
   );
