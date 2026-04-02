@@ -10,17 +10,6 @@ const PERSONALITIES = [
   { id: "technical", name: "Technical", icon: "🔧", desc: "Detailed, precise, documentation-style", temp: 0.2, greeting: "Hello. I'm your technical support assistant. Please describe your issue and I'll help troubleshoot." },
 ];
 
-const KNOWLEDGE_SOURCES = [
-  { id: "kb1", name: "Product Documentation", type: "docs", entries: 847, lastUpdated: "2 hours ago", status: "synced", size: "12.4 MB", icon: "📄" },
-  { id: "kb2", name: "FAQ Database", type: "faq", entries: 234, lastUpdated: "1 day ago", status: "synced", size: "2.1 MB", icon: "❓" },
-  { id: "kb3", name: "Pricing & Plans", type: "docs", entries: 45, lastUpdated: "3 days ago", status: "synced", size: "890 KB", icon: "💰" },
-  { id: "kb4", name: "API Reference", type: "api", entries: 312, lastUpdated: "5 hours ago", status: "synced", size: "8.7 MB", icon: "🔌" },
-  { id: "kb5", name: "Troubleshooting Guides", type: "docs", entries: 156, lastUpdated: "12 hours ago", status: "synced", size: "4.2 MB", icon: "🔧" },
-  { id: "kb6", name: "Company Policies", type: "docs", entries: 28, lastUpdated: "1 week ago", status: "outdated", size: "1.3 MB", icon: "📋" },
-  { id: "kb7", name: "Training Transcripts", type: "training", entries: 1240, lastUpdated: "6 hours ago", status: "synced", size: "34.8 MB", icon: "🎓" },
-  { id: "kb8", name: "Customer Feedback", type: "feedback", entries: 3400, lastUpdated: "Real-time", status: "live", size: "18.2 MB", icon: "💬" },
-];
-
 const ESCALATION_RULES = [
   { id: "er1", name: "Negative Sentiment", trigger: "sentiment_score < -0.6", action: "Transfer to live agent", priority: "high", channel: "Any", enabled: true, icon: "😠" },
   { id: "er2", name: "Billing Issues", trigger: "intent = billing_dispute", action: "Transfer to billing team", priority: "high", channel: "Any", enabled: true, icon: "💳" },
@@ -205,7 +194,7 @@ async function handleKbFileUpload(e) {
       var newInfo = currentInfo + separator + "Source: " + file.name + "\n" + text.trim();
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
-      setKbUploadMsg("Content from " + file.name + " added. Click Save Configuration to apply.");
+      setKbUploadMsg("Content from " + file.name + " added to Agent Settings → Business Knowledge. Go to Agent Settings tab and click Save Configuration.");
     } catch (err) {
       setKbUploadState("error");
       setKbUploadMsg(err.message || "Failed to extract text.");
@@ -240,7 +229,7 @@ async function handleKbFileUpload(e) {
       var newInfo = currentInfo + separator + "Source: " + kbUrlInput.trim() + "\n" + extracted;
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
-      setKbUploadMsg("Content from " + (brand.name || kbUrlInput) + " added. Click Save Configuration to apply.");
+      setKbUploadMsg("Content from " + (brand.name || kbUrlInput) + " added. Go to Agent Settings tab and click Save Configuration.");
       setShowKbUrl(false);
       setKbUrlInput("");
     } catch (err) {
@@ -566,17 +555,13 @@ async function handleKbFileUpload(e) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
                   <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Knowledge Base</h2>
-                  <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{KNOWLEDGE_SOURCES.reduce((s, k) => s + k.entries, 0).toLocaleString()} total entries across {KNOWLEDGE_SOURCES.length} sources</p>
+                  <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Upload documents or connect your website URL to build your AI knowledge base</p>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
   <button style={btnSecondary}>🔄 Sync All</button>
 </div>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
-                {KNOWLEDGE_SOURCES.map(kb => (
-                  <div key={kb.id} style={{
-                    ...card, display: "grid", gridTemplateColumns: "50px 1fr 100px 100px 100px 120px",
                     alignItems: "center", gap: 16,
                     borderLeft: `4px solid ${kb.status === "synced" ? "#00E676" : kb.status === "live" ? C.primary : "#FF9800"}`,
                   }}>
