@@ -157,9 +157,97 @@ async function saveAIConfig() {
   }
 }
 
-// ← PASTE handleKbFileUpload HERE (new function, right after saveAIConfig closes)
+async function handleKbFileUpload(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    setKbUploadState("uploading");
+    setKbUploadMsg("");
+    try {
+      var text = "";
+      if (file.type === "text/plain" || file.name.endsWith(".md") || file.name.endsWith(".csv")) {
+        text = await new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(ev) { resolve(ev.target.result); };
+          reader.onerror = function() { reject(new Error("Failed to read file")); };
+          reader.readAsText(file);
+        });
+      } else if (file.name.endsWith(".pdf")) {
+        text = await new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            var raw = ev.target.result;
+            var extracted = "";
+            var btMatches = raw.match(/BT[\s\S]*?ET/g) || [];
+            btMatches.forEach(function(block) {
+              var textMatches = block.match(/\(([^)]+)\)/g) || [];
+              textMatches.forEach(function(t) { extracted += t.slice(1, -1) + " "; });
+            });
+            if (extracted.trim().length < 50) {
+              extracted = raw.replace(/[^\x20-\x7E\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
+            }
+            resolve(extracted.trim().slice(0, 8000));
+          };
+          reader.onerror = function() { reject(new Error("Failed to read PDF")); };
+          reader.readAsBinaryString(file);
+        });
+      } else {
+        text = await new Promise(function(resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function(ev) { resolve(ev.target.result || ""); };
+          reader.onerror = function() { reject(new Error("Failed to read file")); };
+          reader.readAsBinaryString(file);
+        });
+        text = text.replace(/[^\x20-\x7E\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 8000);
+      }
+      if (!text || text.trim().length < 10) throw new Error("Could not extract text. Try a .txt or .md file.");
+      var currentInfo = aiConfig.businessInfo || "";
+      var separator = currentInfo.trim() ? "\n\n---\n" : "";
+      var newInfo = currentInfo + separator + "Source: " + file.name + "\n" + text.trim();
+      setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
+      setKbUploadState("done");
+      setKbUploadMsg("Content from " + file.name + " added. Click Save Configuration to apply.");
+    } catch (err) {
+      setKbUploadState("error");
+      setKbUploadMsg(err.message || "Failed to extract text.");
+    }
+    if (kbFileRef.current) kbFileRef.current.value = "";
+  }
 
-// ← PASTE handleKbUrlFetch HERE (new function, right after handleKbFileUpload closes)
+  async function handleKbUrlFetch() {
+    if (!kbUrlInput.trim()) return;
+    setKbUploadState("fetching");
+    setKbUploadMsg("");
+    try {
+      var res = await fetch("/api/detect-brand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: kbUrlInput.trim() }),
+      });
+      var data = await res.json();
+      if (!data.success || !data.brand) throw new Error(data.error || "Failed to fetch website");
+      var brand = data.brand;
+      var content = [];
+      if (brand.name) content.push("Business Name: " + brand.name);
+      if (brand.description) content.push("\n" + brand.description);
+      if (brand.vertical) content.push("\nIndustry: " + brand.vertical);
+      if (brand.phone) content.push("Phone: " + brand.phone);
+      if (brand.email) content.push("Email: " + brand.email);
+      if (brand.address) content.push("Address: " + brand.address);
+      if (brand.tagline) content.push("Tagline: " + brand.tagline);
+      var extracted = content.join("\n").trim();
+      var currentInfo = aiConfig.businessInfo || "";
+      var separator = currentInfo.trim() ? "\n\n---\n" : "";
+      var newInfo = currentInfo + separator + "Source: " + kbUrlInput.trim() + "\n" + extracted;
+      setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
+      setKbUploadState("done");
+      setKbUploadMsg("Content from " + (brand.name || kbUrlInput) + " added. Click Save Configuration to apply.");
+      setShowKbUrl(false);
+      setKbUrlInput("");
+    } catch (err) {
+      setKbUploadState("error");
+      setKbUploadMsg(err.message || "Could not fetch website. Please try again.");
+    }
+  }
 
   // Preview simulator
   const [previewMessages, setPreviewMessages] = useState([]);
