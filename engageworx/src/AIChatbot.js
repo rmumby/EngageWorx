@@ -162,6 +162,7 @@ async function handleKbFileUpload(e) {
           reader.readAsText(file);
         });
       } else if (file.name.endsWith(".pdf")) {
+  throw new Error("PDF extraction is limited — for best results, copy your content into a .txt file and upload that instead.");
         text = await new Promise(function(resolve, reject) {
           var reader = new FileReader();
           reader.onload = function(ev) {
@@ -591,6 +592,13 @@ async function handleKbFileUpload(e) {
                   <button style={btnSecondary} onClick={function() { alert("🔌 API import coming soon."); }}>🔌 API Import</button>
                 </div>
                 <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 10 }}>Supported: PDF, Word, TXT, Markdown, CSV</div>
+  {kbUploadState === "done" && (
+    <div style={{ marginTop: 16, textAlign: "center" }}>
+      <button onClick={saveAIConfig} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "12px 28px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>💾 Save to AI Knowledge Base</button>
+      {configSaved && <div style={{ color: "#00E676", fontSize: 13, fontWeight: 600, marginTop: 8 }}>✓ Saved — your AI agent has been updated</div>}
+      {configError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 8 }}>{configError}</div>}
+    </div>
+  )}
               </div>
             </div>
           )}
