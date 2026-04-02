@@ -551,15 +551,6 @@ async function saveAIConfig() {
   </div>
   <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 10 }}>Supported: PDF, Word, TXT, Markdown, CSV</div>
 </div>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
-                <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
-                <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Upload documents, connect URLs, or import from APIs</div>
-                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-  <button style={btnSecondary} onClick={() => alert("📄 File upload coming soon — use the Business Knowledge text field in Agent Settings to add your content for now.")}>📄 Upload Files</button>
-  <button style={btnSecondary} onClick={() => alert("🔗 URL connector coming soon — paste your website content into the Business Knowledge field in Agent Settings.")}>🔗 Connect URL</button>
-  <button style={btnSecondary} onClick={() => alert("🔌 API import coming soon.")}>🔌 API Import</button>
-</div>
-              </div>
             </div>
           )}
 
