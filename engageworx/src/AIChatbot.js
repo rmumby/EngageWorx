@@ -122,7 +122,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     if (previewEndRef.current) previewEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [previewMessages, isTyping]);
 
-  async function saveAIConfig() {
+  async function saveAIConfig(overrideKbSources) {
     if (!currentTenantId) { setConfigError("No tenant selected — please log in to save."); return; }
     setConfigSaved(false);
     setConfigError(null);
@@ -131,7 +131,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       var channelList = ['sms', 'whatsapp', 'email', 'voice'];
       for (var i = 0; i < channelList.length; i++) {
         var ch = channelList[i];
-        var configData = { ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], ai_agent_name: aiConfig.agentName, ai_business_info: aiConfig.businessInfo };
+        var configData = { ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], ai_agent_name: aiConfig.agentName, ai_business_info: aiConfig.businessInfo, kb_sources: overrideKbSources || kbSources };
         var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
         if (existing.data) {
           await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
@@ -177,7 +177,9 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
       setKbUploadMsg("Content from " + file.name + " added. Click Save below to update your AI agent.");
-      setKbSources(function(prev) { return prev.concat([{ type: "file", name: file.name, addedAt: new Date().toLocaleTimeString() }]); });
+      var newSources = kbSources.concat([{ type: "file", name: file.name, addedAt: new Date().toLocaleTimeString() }]);
+setKbSources(newSources);
+saveAIConfig(newSources);
     } catch (err) {
       setKbUploadState("error");
       setKbUploadMsg(err.message || "Failed to extract text.");
@@ -213,8 +215,9 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
       setKbUploadMsg("Content from " + (brand.name || kbUrlInput) + " added. Click Save below to update your AI agent.");
-      setKbSources(function(prev) { return prev.concat([{ type: "url", name: brand.name || kbUrlInput, url: kbUrlInput, addedAt: new Date().toLocaleTimeString() }]); });
-      setShowKbUrl(false);
+      var newSources = kbSources.concat([{ type: "url", name: brand.name || kbUrlInput, url: kbUrlInput, addedAt: new Date().toLocaleTimeString() }]);
+setKbSources(newSources);
+saveAIConfig(newSources);
       setKbUrlInput("");
     } catch (err) {
       setKbUploadState("error");
@@ -537,13 +540,11 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                 </div>
                 <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 10 }}>Supported: TXT, Markdown, CSV (use Connect URL for websites)</div>
 
-                {kbUploadState === "done" && (
-                  <div style={{ marginTop: 20, textAlign: "center" }}>
-                    <button onClick={saveAIConfig} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "12px 28px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>💾 Save to AI Knowledge Base</button>
-                    {configSaved && <div style={{ color: "#00E676", fontSize: 13, fontWeight: 600, marginTop: 8 }}>✓ Saved — your AI agent has been updated</div>}
-                    {configError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 8 }}>{configError}</div>}
-                  </div>
-                )}
+                <div style={{ marginTop: 20, textAlign: "center" }}>
+  <button onClick={saveAIConfig} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "12px 28px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>💾 Save to AI Knowledge Base</button>
+  {configSaved && <div style={{ color: "#00E676", fontSize: 13, fontWeight: 600, marginTop: 8 }}>✓ Saved — your AI agent has been updated</div>}
+  {configError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 8 }}>{configError}</div>}
+</div>
               </div>
             </div>
           )}
