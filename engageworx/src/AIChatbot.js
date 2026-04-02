@@ -473,9 +473,8 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{KNOWLEDGE_SOURCES.reduce((s, k) => s + k.entries, 0).toLocaleString()} total entries across {KNOWLEDGE_SOURCES.length} sources</p>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button style={btnSecondary}>🔄 Sync All</button>
-                  <button style={btnPrimary}>+ Add Source</button>
-                </div>
+  <button style={btnSecondary}>🔄 Sync All</button>
+</div>
               </div>
 
               <div style={{ display: "grid", gap: 12 }}>
