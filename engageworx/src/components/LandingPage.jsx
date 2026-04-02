@@ -29,6 +29,7 @@ const LandingPage = () => {
       setLegalPage('accessibility');
     } else if (path === '/demo') {
       setPage('demo');
+    }
   }, []);
 
   useEffect(() => {
