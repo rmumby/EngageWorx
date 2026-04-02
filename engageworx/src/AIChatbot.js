@@ -947,7 +947,7 @@ async function handleKbFileUpload(e) {
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
             <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Temp: {temperature}</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>KB: {KNOWLEDGE_SOURCES.length} sources</span>
+            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>KB: Agent Settings</span>
           </div>
         </div>
       </div>
