@@ -1122,7 +1122,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "seq-builder", label: "Sequence Builder", icon: "🤖" },
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "support", label: "Support", icon: "🎫" },
     { id: "registration", label: "Registration", icon: "📋" },
@@ -1910,7 +1909,7 @@ var spNavBase = [
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
         {spPage === "import" && <ImportLeads C={C} />}
-        {spPage === "sequences" && <SequenceRoster C={C} />}
+        {spPage === "sequences" && <SequenceRoster C={C} currentTenantId={currentTenantId} />}
         {spPage === "sequence-builder" && <SequenceBuilder C={C} currentTenantId={currentTenantId} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
