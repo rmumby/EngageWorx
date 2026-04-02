@@ -89,12 +89,11 @@ export default function WelcomeEmailSettings({ C, tenantId }) {
     setTestSending(true);
     setTestMsg('');
     try {
-      var res = await fetch('/api/csp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'test_welcome_email',
-          csp_tenant_id: tenantId,
+      var res = await fetch('/api/csp?action=test_welcome_email', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    csp_tenant_id: tenantId,
           email: testEmail.trim(),
           company_name: 'Test Company',
           plan: 'starter',
