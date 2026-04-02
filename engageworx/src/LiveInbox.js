@@ -321,7 +321,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               return {
                 id: 'call_' + call.id, contact: { name: call.from_number || 'Unknown', phone: call.from_number || '', email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
                 channel: 'voice', messages: cMsgs, status: 'active',
-                assignedTo: null, unread: 0, lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+                assignedTo: null,  lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
                 isTyping: false, priority: 'normal', subject: 'Voice call from ' + (call.from_number || 'Unknown'),
                 tenant_id: call.tenant_id, contact_id: null,
               };
@@ -448,7 +448,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               messages: callMsgs,
               status: 'active',
               assignedTo: null,
-              unread: call.status === 'completed' ? 0 : 1,
+              unread: 0,
               lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
               isTyping: false,
               priority: 'normal',
@@ -937,7 +937,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               {[
                 { label: "Active", value: activeCount, color: C.primary },
                 { label: "Waiting", value: waitingCount, color: "#FFD600" },
-                { label: "Unread", value: totalUnread, color: "#FF3B30" },
+                { label: "Unread", value: totalUnread || 0, color: totalUnread > 0 ? "#FF3B30" : "#6B8BAE" },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
