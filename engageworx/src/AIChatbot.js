@@ -94,6 +94,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
 const [kbUploadMsg, setKbUploadMsg] = useState("");
 const [kbUrlInput, setKbUrlInput] = useState("");
 const [showKbUrl, setShowKbUrl] = useState(false);
+  const [kbSources, setKbSources] = useState([]);
 const kbFileRef = useRef(null);
 
   // Load live config from channel_configs
@@ -201,8 +202,10 @@ async function handleKbFileUpload(e) {
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
       setKbUploadMsg("Content from " + file.name + " added. Click Save below to update your AI agent.");
+      setKbSources(function(prev) { return prev.concat([{ type: "file", name: file.name, addedAt: new Date().toLocaleTimeString() }]); });
     } catch (err) {
       setKbUploadState("error");
+      setKbSources(function(prev) { return prev.concat([{ type: "url", name: brand.name || kbUrlInput, url: kbUrlInput, addedAt: new Date().toLocaleTimeString() }]); });
       setKbUploadMsg(err.message || "Failed to extract text.");
     }
     if (kbFileRef.current) kbFileRef.current.value = "";
@@ -236,6 +239,7 @@ async function handleKbFileUpload(e) {
       setAiConfig(Object.assign({}, aiConfig, { businessInfo: newInfo.slice(0, 10000) }));
       setKbUploadState("done");
       setKbUploadMsg("Content from " + (brand.name || kbUrlInput) + " added. Click Save below to update your AI agent.");
+      setKbSources(function(prev) { return prev.concat([{ type: "url", name: brand.name || kbUrlInput, url: kbUrlInput, addedAt: new Date().toLocaleTimeString() }]); });
       setShowKbUrl(false);
       setKbUrlInput("");
     } catch (err) {
@@ -564,7 +568,23 @@ async function handleKbFileUpload(e) {
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Upload documents or connect your website to build your AI knowledge base</p>
                 </div>
               </div>
-              <div style={{ ...card, border: "2px dashed rgba(255,255,255,0.1)", padding: 28 }}>
+              {kbSources.length > 0 && (
+                <div style={{ ...card, marginBottom: 16 }}>
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12, fontWeight: 700 }}>Added This Session</div>
+                  {kbSources.map(function(src, i) {
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < kbSources.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                        <span style={{ fontSize: 16 }}>{src.type === "file" ? "📄" : "🔗"}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{src.name}</div>
+                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{src.type === "file" ? "File upload" : src.url} · {src.addedAt}</div>
+                        </div>
+                        <span style={{ color: "#00E676", fontSize: 11, fontWeight: 700 }}>✓ Added</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
                   <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
