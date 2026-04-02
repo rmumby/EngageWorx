@@ -345,13 +345,27 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
       if (tenantRes.error) throw new Error(tenantRes.error.message);
       var userRes = await supabase.from('user_profiles').select('id').eq('email', newTenant.email).single();
       if (userRes.data) {
-        await supabase.from('user_profiles').update({ tenant_id: tenantRes.data.id, role: 'admin' }).eq('id', userRes.data.id);
-        await supabase.from('tenant_members').insert({
-          tenant_id: tenantRes.data.id, user_id: userRes.data.id, role: 'admin',
-          status: 'active', joined_at: new Date().toISOString(),
-          notify_on_escalation: true, notify_on_new_signup: false,
-          notify_on_payment: true, notify_on_new_lead: false,
-        });
+  await supabase.from('user_profiles').update({ tenant_id: tenantRes.data.id, role: 'admin' }).eq('id', userRes.data.id);
+  await supabase.from('tenant_members').insert({
+    tenant_id: tenantRes.data.id, user_id: userRes.data.id, role: 'admin',
+    status: 'active', joined_at: new Date().toISOString(),
+    notify_on_escalation: true, notify_on_new_signup: false,
+    notify_on_payment: true, notify_on_new_lead: false,
+  });
+
+  // Send welcome email
+  try {
+    await fetch('/api/csp?action=test_welcome_email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        csp_tenant_id: 'c1bc59a8-5235-4921-9755-02514b574387',
+        email: newTenant.email,
+        company_name: newTenant.companyName,
+        plan: newTenant.plan,
+      }),
+    });
+  } catch (we) { console.log('[SP] Welcome email failed:', we.message); }
       }
       // SP admin notification
       var notifyPayload = {
