@@ -100,16 +100,18 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         const { supabase } = await import('./supabaseClient');
         const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
         if (!error && data && data.length > 0) {
-          var merged = { agentName: "Eva", businessInfo: "", aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
+          var merged = { agentName: "Eva", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
           data.forEach(function(cfg) {
             var c = cfg.config_encrypted || {};
             if (c.ai_agent_name) merged.agentName = c.ai_agent_name;
             if (c.ai_business_info && c.ai_business_info.length > (merged.businessInfo || '').length) merged.businessInfo = c.ai_business_info;
+            if (c.kb_sources) merged.kbSources = c.kb_sources;
             if (c.ai_enabled !== undefined) merged.aiEnabled = c.ai_enabled;
             if (cfg.channel && cfg.enabled) merged.channels[cfg.channel] = true;
           });
           setAiConfig(merged);
           setBotName(merged.agentName);
+          if (merged.kbSources && merged.kbSources.length > 0) setKbSources(merged.kbSources);
         }
       } catch (err) { console.error('AI config load error:', err); }
       setConfigLoading(false);
