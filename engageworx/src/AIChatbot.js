@@ -141,7 +141,8 @@ async function saveAIConfig() {
       }
     }
     setConfigSaved(true);
-    setTimeout(function() { setConfigSaved(false); }, 3000);
+setKbUploadState("idle");
+setTimeout(function() { setConfigSaved(false); }, 3000);
   } catch (err) {
     setConfigError(err.message);
   }
@@ -426,7 +427,7 @@ async function handleKbFileUpload(e) {
 
                   {/* Save Button */}
                   <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <button onClick={saveAIConfig} style={btnPrimary}>Save Configuration</button>
+                    <button onClick={function() { if (!currentTenantId) { alert("Please log in to save your configuration."); return; } saveAIConfig(); }} style={btnPrimary}>Save Configuration</button>
                     {configSaved && <span style={{ color: "#00E676", fontSize: 13, fontWeight: 600 }}>✓ Saved successfully — your AI agent is updated across all channels</span>}
                     {configError && <span style={{ color: "#FF3B30", fontSize: 13 }}>{configError}</span>}
                     {demoMode && <span style={{ color: C.muted, fontSize: 12 }}>Demo mode — changes won't be saved</span>}
