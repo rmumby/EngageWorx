@@ -1296,6 +1296,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
             </div>
           </div>
         </div>
+      )}
+
       {/* ═══════════ WELCOME EMAIL TAB ═══════════ */}
       {activeTab === "welcome-email" && (
         <WelcomeEmailSettings C={C} tenantId={currentTenantId || "c1bc59a8-5235-4921-9755-02514b574387"} />
