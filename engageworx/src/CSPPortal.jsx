@@ -153,7 +153,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
         </div>
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <SequenceBuilder C={C} />
+          <SequenceBuilder C={C} currentTenantId={cspTenantId} />
         </div>
       </div>
     );
