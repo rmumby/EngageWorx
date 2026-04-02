@@ -123,7 +123,8 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   }, [previewMessages, isTyping]);
 
   async function saveAIConfig(overrideKbSources) {
-    if (!currentTenantId) { setConfigError("No tenant selected — please log in to save."); return; }
+  if (overrideKbSources && !Array.isArray(overrideKbSources)) overrideKbSources = undefined;
+  if (!currentTenantId) { setConfigError("No tenant selected — please log in to save."); return; }
     setConfigSaved(false);
     setConfigError(null);
     try {
