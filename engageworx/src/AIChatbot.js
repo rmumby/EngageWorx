@@ -498,7 +498,14 @@ saveAIConfig(newSources);
                           <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{src.name}</div>
                           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{src.type === "file" ? "File upload" : src.url} · {src.addedAt}</div>
                         </div>
-                        <span style={{ color: "#00E676", fontSize: 11, fontWeight: 700 }}>✓ Added</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <span style={{ color: "#00E676", fontSize: 11, fontWeight: 700 }}>✓ Saved</span>
+  <button onClick={function() {
+    var newSources = kbSources.filter(function(_, j) { return j !== i; });
+    setKbSources(newSources);
+    saveAIConfig(newSources);
+  }} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 6, padding: "2px 8px", color: "#FF3B30", fontSize: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
+</div>
                       </div>
                     );
                   })}
