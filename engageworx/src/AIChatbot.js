@@ -205,7 +205,6 @@ async function handleKbFileUpload(e) {
       setKbSources(function(prev) { return prev.concat([{ type: "file", name: file.name, addedAt: new Date().toLocaleTimeString() }]); });
     } catch (err) {
       setKbUploadState("error");
-      setKbSources(function(prev) { return prev.concat([{ type: "url", name: brand.name || kbUrlInput, url: kbUrlInput, addedAt: new Date().toLocaleTimeString() }]); });
       setKbUploadMsg(err.message || "Failed to extract text.");
     }
     if (kbFileRef.current) kbFileRef.current.value = "";
@@ -585,6 +584,48 @@ async function handleKbFileUpload(e) {
                   })}
                 </div>
               )}
+              <div style={{ ...card, border: "2px dashed rgba(255,255,255,0.1)", padding: 28 }}>
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
+                  <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
+                  <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Upload a document or connect your website to auto-fill your AI's knowledge base</div>
+                </div>
+                {kbUploadState !== "idle" && (
+                  <div style={{ background: kbUploadState === "error" ? "rgba(255,59,48,0.1)" : kbUploadState === "done" ? "rgba(0,230,118,0.1)" : "rgba(0,201,255,0.08)", border: `1px solid ${kbUploadState === "error" ? "rgba(255,59,48,0.3)" : kbUploadState === "done" ? "rgba(0,230,118,0.3)" : "rgba(0,201,255,0.2)"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: kbUploadState === "error" ? "#FF3B30" : kbUploadState === "done" ? "#00E676" : C.primary, fontSize: 13, textAlign: "center" }}>
+                    {kbUploadState === "uploading" && "⏳ Extracting text from document..."}
+                    {kbUploadState === "fetching" && "⏳ Fetching website content..."}
+                    {kbUploadState === "done" && "✓ " + kbUploadMsg}
+                    {kbUploadState === "error" && "✕ " + kbUploadMsg}
+                  </div>
+                )}
+                {showKbUrl && (
+                  <div style={{ marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: 16 }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Website URL</div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={kbUrlInput} onChange={function(e) { setKbUrlInput(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") handleKbUrlFetch(); }} placeholder="https://yourwebsite.com" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                      <button onClick={handleKbUrlFetch} disabled={!kbUrlInput.trim() || kbUploadState === "fetching"} style={{ background: kbUrlInput.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "10px 16px", color: kbUrlInput.trim() ? "#000" : "rgba(255,255,255,0.2)", fontWeight: 700, cursor: kbUrlInput.trim() ? "pointer" : "not-allowed", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{kbUploadState === "fetching" ? "..." : "Fetch"}</button>
+                      <button onClick={function() { setShowKbUrl(false); setKbUrlInput(""); setKbUploadState("idle"); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 12px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
+                    </div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 6 }}>Claude will fetch your website and extract business info into the knowledge base</div>
+                  </div>
+                )}
+                <input ref={kbFileRef} type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv" style={{ display: "none" }} onChange={handleKbFileUpload} />
+                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                  <button style={btnSecondary} onClick={function() { if (kbFileRef.current) kbFileRef.current.click(); }}>📄 Upload Files</button>
+                  <button style={{ ...btnSecondary, background: showKbUrl ? `${C.primary}22` : undefined, borderColor: showKbUrl ? `${C.primary}44` : undefined, color: showKbUrl ? C.primary : undefined }} onClick={function() { setShowKbUrl(!showKbUrl); setKbUploadState("idle"); }}>🔗 Connect URL</button>
+                  <button style={btnSecondary} onClick={function() { alert("🔌 API import coming soon."); }}>🔌 API Import</button>
+                </div>
+                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 10 }}>Supported: TXT, Markdown, CSV (use Connect URL for websites)</div>
+                {kbUploadState === "done" && (
+                  <div style={{ marginTop: 16, textAlign: "center" }}>
+                    <button onClick={saveAIConfig} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "12px 28px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>💾 Save to AI Knowledge Base</button>
+                    {configSaved && <div style={{ color: "#00E676", fontSize: 13, fontWeight: 600, marginTop: 8 }}>✓ Saved — your AI agent has been updated</div>}
+                    {configError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 8 }}>{configError}</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
                   <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
