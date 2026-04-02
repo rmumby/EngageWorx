@@ -1911,7 +1911,7 @@ var spNavBase = [
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
         {spPage === "import" && <ImportLeads C={C} />}
         {spPage === "sequences" && <SequenceRoster C={C} />}
-        {spPage === "sequence-builder" && <SequenceBuilder C={C} />}
+        {spPage === "sequence-builder" && <SequenceBuilder C={C} currentTenantId={currentTenantId} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
