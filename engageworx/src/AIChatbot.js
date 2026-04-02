@@ -46,6 +46,7 @@ const DEMO_CONVERSATIONS = [
   ]},
 ];
 
+const KNOWLEDGE_SOURCES = [];
 const BOT_ANALYTICS = {
   totalConversations: 12847,
   avgResolutionTime: "1.8 min",
