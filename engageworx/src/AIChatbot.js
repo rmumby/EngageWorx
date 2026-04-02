@@ -562,34 +562,6 @@ async function handleKbFileUpload(e) {
 </div>
               </div>
 
-                    alignItems: "center", gap: 16,
-                    borderLeft: `4px solid ${kb.status === "synced" ? "#00E676" : kb.status === "live" ? C.primary : "#FF9800"}`,
-                  }}>
-                    <div style={{ width: 42, height: 42, borderRadius: 10, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{kb.icon}</div>
-                    <div>
-                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{kb.name}</div>
-                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Updated {kb.lastUpdated}</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{kb.entries.toLocaleString()}</div>
-                      <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>entries</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{kb.size}</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <span style={badge(kb.status === "synced" ? "#00E676" : kb.status === "live" ? C.primary : "#FF9800")}>
-                        {kb.status === "synced" ? "● Synced" : kb.status === "live" ? "◉ Live" : "⚠ Outdated"}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Edit</button>
-                      <button style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>🔄</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
               {/* Upload New */}
 <div style={{ ...card, marginTop: 16, border: "2px dashed rgba(255,255,255,0.1)", padding: 28 }}>
   <div style={{ textAlign: "center", marginBottom: 20 }}>
