@@ -32,7 +32,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [loading, setLoading] = useState(true);
   var [drillDown, setDrillDown] = useState(null);
   var [showCreate, setShowCreate] = useState(false);
-  var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' });
+  var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false });
   var [createLoading, setCreateLoading] = useState(false);
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -68,13 +68,17 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          csp_tenant_id: cspTenantId,
-          email: createForm.email.trim(),
-          password: createForm.password,
-          full_name: createForm.fullName.trim(),
-          company_name: createForm.companyName.trim(),
-          plan: createForm.plan,
-        }),
+  csp_tenant_id: cspTenantId,
+  email: createForm.email.trim(),
+  password: createForm.password,
+  full_name: createForm.fullName.trim(),
+  company_name: createForm.companyName.trim(),
+  plan: createForm.plan,
+  website_url: createForm.websiteUrl || null,
+  brand_primary: createForm.detectedBrand ? createForm.detectedBrand.primaryColor : null,
+  brand_secondary: createForm.detectedBrand ? createForm.detectedBrand.secondaryColor : null,
+  brand_logo_url: createForm.detectedBrand ? createForm.detectedBrand.logoUrl : null,
+}),
       });
       var data = await resp.json();
       if (data.success) { setCreateResult(data); loadCSPData(); }
@@ -87,6 +91,35 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     var base = company.replace(/[^a-zA-Z]/g, '');
     if (base.length < 3) base = 'Tenant';
     return base.charAt(0).toUpperCase() + base.slice(1, 6) + '2026!';
+  }
+
+  async function detectBrand() {
+    if (!createForm.websiteUrl) return;
+    setCreateForm(function(f) { return Object.assign({}, f, { detecting: true }); });
+    try {
+      var res = await fetch('/api/detect-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: createForm.websiteUrl })
+      });
+      var data = await res.json();
+      setCreateForm(function(f) {
+        return Object.assign({}, f, {
+          detecting: false,
+          companyName: data.name || f.companyName,
+          password: data.name ? generatePassword(data.name) : f.password,
+          detectedBrand: data.name ? {
+            name: data.name,
+            primaryColor: data.primaryColor,
+            secondaryColor: data.secondaryColor,
+            logoUrl: data.logoUrl,
+            description: data.description,
+          } : null,
+        });
+      });
+    } catch (e) {
+      setCreateForm(function(f) { return Object.assign({}, f, { detecting: false }); });
+    }
   }
 
   var navItems = [
@@ -264,7 +297,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
-                <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnPrimary}>+ Add Tenant</button>
+                <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ Add Tenant</button>
               </div>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading...</div>
@@ -490,6 +523,44 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#FF3B30', fontSize: 13 }}>{createResult.error}</div>
                   )}
                   <div style={{ display: 'grid', gap: 16 }}>
+                    <div>
+                      <label style={labelStyle}>Website URL</label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input
+                          value={createForm.websiteUrl}
+                          onChange={function(e) { setCreateForm(Object.assign({}, createForm, { websiteUrl: e.target.value })); }}
+                          placeholder="https://clientbusiness.com"
+                          style={Object.assign({}, inputStyle, { flex: 1 })}
+                        />
+                        <button
+                          onClick={detectBrand}
+                          disabled={!createForm.websiteUrl || createForm.detecting}
+                          style={{
+                            background: createForm.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)',
+                            border: 'none', borderRadius: 10, padding: '10px 14px', color: createForm.detecting ? '#6B8BAE' : '#000',
+                            fontWeight: 700, cursor: createForm.websiteUrl && !createForm.detecting ? 'pointer' : 'not-allowed',
+                            fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif",
+                            opacity: !createForm.websiteUrl ? 0.5 : 1,
+                          }}
+                        >
+                          {createForm.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
+                        </button>
+                      </div>
+                      {createForm.detectedBrand && (
+                        <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {createForm.detectedBrand.logoUrl && (
+                            <img src={createForm.detectedBrand.logoUrl} alt="logo" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'contain', background: 'rgba(255,255,255,0.06)' }} />
+                          )}
+                          <span style={{ color: '#00E676', fontSize: 12, fontWeight: 600 }}>✅ {createForm.detectedBrand.name}</span>
+                          {createForm.detectedBrand.primaryColor && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 12, height: 12, borderRadius: 3, background: createForm.detectedBrand.primaryColor, display: 'inline-block' }} />
+                              <span style={{ color: '#6B8BAE', fontSize: 11 }}>{createForm.detectedBrand.primaryColor}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={labelStyle}>Contact Name</label>
