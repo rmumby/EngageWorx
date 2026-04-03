@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EngageWorx — See It In Action</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan: #00C9FF;
+  --purple: #A855F7;
+  --pink: #EC4899;
+  --dark: #060A14;
+  --surface: #0D1525;
+  --border: rgba(255,255,255,0.08);
+  --muted: #6B8BAE;
+  --text: #E8F4FD;
+  --font: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  background: var(--dark);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(6,10,20,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+/* EW mark — exact match to marketing website */
+.ew-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #00C9FF, #E040FB);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-weight: 900;
+  font-size: 16px;
+  color: #000;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+
+.ew-wordmark {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: 20px;
+  color: #E8F4FD;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.ew-wordmark .worx {
+  color: #00C9FF;
+}
+
+.nav-btn {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color: #000;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 9px 20px;
+  border-radius: 9px;
+  text-decoration: none;
+  white-space: nowrap;
+  display: inline-block;
+  line-height: 1;
+}
+
+/* ── GRID BG ── */
+.grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  overflow: hidden;
+}
+
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 50% at 15% 50%, rgba(0,201,255,0.1) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 55% at 85% 25%, rgba(168,85,247,0.09) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 35% at 50% 95%, rgba(236,72,153,0.06) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 760px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,201,255,0.08);
+  border: 1px solid rgba(0,201,255,0.2);
+  border-radius: 100px;
+  padding: 7px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cyan);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 36px;
+  line-height: 1;
+}
+
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: pulse 2s infinite;
+}
+
+h1 {
+  font-family: var(--font);
+  font-size: clamp(44px, 7.5vw, 84px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -2.5px;
+  margin-bottom: 28px;
+  /* Extra bottom padding to prevent descender clip on gradient text */
+  padding-bottom: 8px;
+}
+
+/* Gradient text — use span wrapper with overflow visible */
+.grad {
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 50%, var(--pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  padding-bottom: 6px;
+  line-height: 1.1;
+}
+
+.hero-sub {
+  font-size: 18px;
+  color: var(--muted);
+  line-height: 1.75;
+  max-width: 540px;
+  margin: 0 auto 44px;
+  font-weight: 400;
+}
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 56px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  color: #000;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 14px 28px;
+  border-radius: 12px;
+  text-decoration: none;
+  line-height: 1;
+  display: inline-block;
+  box-shadow: 0 0 32px rgba(0,201,255,0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 48px rgba(0,201,255,0.35);
+}
+
+.btn-outline {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text);
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 14px 28px;
+  border-radius: 12px;
+  text-decoration: none;
+  line-height: 1;
+  display: inline-block;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-outline:hover {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(255,255,255,0.2);
+}
+
+.channel-pills {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* ── DIVIDER ── */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+}
+
+/* ── SECTIONS ── */
+.section {
+  position: relative;
+  padding: 96px 24px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 14px;
+  display: block;
+  line-height: 1;
+}
+
+.section-title {
+  font-family: var(--font);
+  font-size: clamp(28px, 4vw, 46px);
+  font-weight: 800;
+  letter-spacing: -1.2px;
+  line-height: 1.08;
+  margin-bottom: 18px;
+  /* Padding to prevent descender clipping */
+  padding-bottom: 4px;
+}
+
+.section-body {
+  font-size: 16px;
+  color: var(--muted);
+  line-height: 1.75;
+  max-width: 540px;
+  margin-bottom: 56px;
+}
+
+/* ── STEPS ── */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.step-card {
+  background: var(--surface);
+  padding: 36px 28px 40px;
+  transition: background 0.25s;
+}
+
+.step-card:hover { background: rgba(0,201,255,0.03); }
+
+.step-num {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  opacity: 0.55;
+  margin-bottom: 18px;
+  line-height: 1;
+  display: block;
+}
+
+.step-icon {
+  width: 50px; height: 50px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+.step-card h3 {
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.step-card p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+/* ── TWO COL ── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+
+/* ── FEATURES ── */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px;
+}
+
+.feat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 28px 32px;
+  transition: border-color 0.25s, transform 0.25s;
+  position: relative;
+}
+
+.feat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 18px 18px 0 0;
+  background: linear-gradient(90deg, var(--cyan), var(--purple));
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.feat-card:hover { border-color: rgba(0,201,255,0.25); transform: translateY(-3px); }
+.feat-card:hover::after { opacity: 1; }
+
+.feat-icon {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 18px;
+}
+
+.feat-card h3 {
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 8px;
+  line-height: 1.3;
+}
+
+.feat-card p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+/* ── CHECK LIST ── */
+.checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.checklist li {
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.checklist li::before {
+  content: '✓';
+  color: var(--cyan);
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  line-height: 1.6;
+}
+
+/* ── CHAT WIDGET ── */
+.chat-widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.chat-bar {
+  background: rgba(255,255,255,0.025);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.chat-dot { width: 9px; height: 9px; border-radius: 50%; }
+.chat-title {
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.chat-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.msg { display: flex; gap: 9px; align-items: flex-end; }
+.msg.user { flex-direction: row-reverse; }
+
+.msg-av {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.msg-bub {
+  max-width: 78%;
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.msg.bot .msg-bub {
+  background: rgba(0,201,255,0.09);
+  border: 1px solid rgba(0,201,255,0.18);
+  border-radius: 13px 13px 13px 3px;
+  color: var(--text);
+}
+
+.msg.user .msg-bub {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: 13px 13px 3px 13px;
+  color: var(--text);
+}
+
+.typing-bub {
+  background: rgba(0,201,255,0.06);
+  border: 1px solid rgba(0,201,255,0.14);
+  border-radius: 13px 13px 13px 3px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: fit-content;
+}
+
+.typing-bub span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  opacity: 0.5;
+  animation: blink 1.4s infinite;
+}
+
+.typing-bub span:nth-child(2) { animation-delay: 0.2s; }
+.typing-bub span:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── MODEL DIAGRAM ── */
+.model-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 48px 40px;
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr 48px 1fr;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.model-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.model-node { text-align: center; position: relative; z-index: 1; }
+
+.model-icon {
+  width: 68px; height: 68px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 14px;
+  border: 1px solid var(--border);
+}
+
+.model-node h4 {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+
+.model-node p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.model-arrow {
+  text-align: center;
+  font-size: 20px;
+  color: rgba(255,255,255,0.12);
+  line-height: 1;
+}
+
+/* ── QUOTE ── */
+.quote-wrap {
+  background: linear-gradient(135deg, rgba(0,201,255,0.05), rgba(168,85,247,0.05));
+  border: 1px solid rgba(0,201,255,0.14);
+  border-radius: 22px;
+  padding: 56px 48px;
+  text-align: center;
+  position: relative;
+  overflow: visible;
+}
+
+.quote-mark {
+  position: absolute;
+  top: -16px; left: 32px;
+  font-size: 160px;
+  font-family: Georgia, serif;
+  color: rgba(0,201,255,0.05);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+.quote-text {
+  font-family: var(--font);
+  font-size: clamp(18px, 2.5vw, 26px);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.4px;
+  margin-bottom: 32px;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 4px;
+}
+
+.quote-attr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.quote-av {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan), var(--purple));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #000;
+  flex-shrink: 0;
+}
+
+.quote-name { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.quote-role { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* ── CTA SECTION ── */
+.cta-wrap {
+  text-align: center;
+  padding: 120px 24px;
+  position: relative;
+}
+
+.cta-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0,201,255,0.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.cta-wrap h2 {
+  font-family: var(--font);
+  font-size: clamp(34px, 5.5vw, 60px);
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1.06;
+  margin-bottom: 18px;
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.cta-wrap p {
+  font-size: 16px;
+  color: var(--muted);
+  margin-bottom: 40px;
+  line-height: 1.7;
+  position: relative;
+}
+
+.cta-fine {
+  margin-top: 20px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.18);
+  line-height: 1;
+  position: relative;
+}
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 36px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+footer p { font-size: 13px; color: var(--muted); line-height: 1; }
+footer a { color: var(--cyan); text-decoration: none; }
+
+.footer-dots { display: flex; align-items: center; gap: 4px; }
+.footer-dots span { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+.footer-dots em { font-size: 11px; color: var(--muted); font-style: normal; margin-left: 4px; }
+
+/* ── SCROLL REVEAL ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+.reveal.on { opacity: 1; transform: translateY(0); }
+
+/* ── ANIMATIONS ── */
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes blink {
+  0%,60%,100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hero-inner > * {
+  animation: fadeUp 0.75s ease both;
+}
+.hero-inner > *:nth-child(1) { animation-delay: 0s; }
+.hero-inner > *:nth-child(2) { animation-delay: 0.1s; }
+.hero-inner > *:nth-child(3) { animation-delay: 0.2s; }
+.hero-inner > *:nth-child(4) { animation-delay: 0.3s; }
+.hero-inner > *:nth-child(5) { animation-delay: 0.4s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; gap: 40px; }
+  .model-wrap { grid-template-columns: 1fr; gap: 20px; padding: 32px 24px; }
+  .model-arrow { transform: rotate(90deg); }
+  .steps-grid { grid-template-columns: 1fr; }
+  footer { flex-direction: column; align-items: flex-start; }
+  .quote-wrap { padding: 40px 28px; }
+  nav { padding: 0 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="ew-mark">EW</div>
+    <span class="ew-wordmark">Engage<span class="worx">Worx</span></span>
+  </a>
+  <a href="https://calendly.com/rob-engwx/cpexpo-the-venetian" target="_blank" class="nav-btn">Book a Demo →</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="grid-bg"></div>
+  <div class="hero-inner">
+    <div class="eyebrow">
+      <div class="eyebrow-dot"></div>
+      AI-Powered Customer Engagement
+    </div>
+    <h1>Talk to every customer.<br><span class="grad">On every channel.</span></h1>
+    <p class="hero-sub">EngageWorx is the all-in-one platform for SMS, WhatsApp, Email, Voice and RCS — with an AI agent that responds 24/7 so you never miss a conversation.</p>
+    <div class="btn-row">
+      <a href="https://portal.engwx.com" target="_blank" class="btn-primary">Try the Portal →</a>
+      <a href="https://calendly.com/rob-engwx/cpexpo-the-venetian" target="_blank" class="btn-outline">Book a Walkthrough</a>
+    </div>
+    <div class="channel-pills">
+      <div class="pill">💬 SMS</div>
+      <div class="pill">📱 WhatsApp</div>
+      <div class="pill">📧 Email</div>
+      <div class="pill">📞 Voice</div>
+      <div class="pill">✨ RCS</div>
+      <div class="pill">🤖 AI Chatbot</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- HOW IT WORKS -->
+<div class="section reveal">
+  <span class="section-label">How It Works</span>
+  <h2 class="section-title">Live in minutes,<br>not months.</h2>
+  <p class="section-body">No technical setup. No developer needed. Your team is sending and receiving messages in the time it takes to make a coffee.</p>
+
+  <div class="steps-grid">
+    <div class="step-card">
+      <span class="step-num">Step 01</span>
+      <div class="step-icon" style="background:rgba(0,201,255,0.1);border:1px solid rgba(0,201,255,0.2);">🏢</div>
+      <h3>Create Your Account</h3>
+      <p>Sign up and get instant access to your branded portal. Your workspace is ready immediately — no waiting, no IT tickets.</p>
+    </div>
+    <div class="step-card">
+      <span class="step-num">Step 02</span>
+      <div class="step-icon" style="background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);">🤖</div>
+      <h3>Set Up Your AI Agent</h3>
+      <p>Tell the AI about your business — services, hours, pricing, and policies. It learns your brand and responds like a team member.</p>
+    </div>
+    <div class="step-card">
+      <span class="step-num">Step 03</span>
+      <div class="step-icon" style="background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.2);">👥</div>
+      <h3>Import Your Contacts</h3>
+      <p>Upload your customer list in seconds. CSV, spreadsheet, or connect your CRM. Every contact organised and ready to reach.</p>
+    </div>
+    <div class="step-card">
+      <span class="step-num">Step 04</span>
+      <div class="step-icon" style="background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.2);">🚀</div>
+      <h3>Send Your First Message</h3>
+      <p>Launch an SMS blast, a WhatsApp campaign, or an email sequence. Watch replies come in live — your AI handles them automatically.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- AI CHATBOT -->
+<div class="section">
+  <div class="two-col">
+    <div class="reveal">
+      <span class="section-label">AI Chatbot</span>
+      <h2 class="section-title">Your AI agent.<br>Always on.</h2>
+      <p class="section-body" style="margin-bottom:28px;">The AI learns from your own documents, website, and notes. It answers questions, takes bookings, and hands off to a human when needed — across every channel, simultaneously.</p>
+      <ul class="checklist">
+        <li>Responds in under 2 seconds on WhatsApp, SMS, Email and Voice</li>
+        <li>Upload documents or paste your website URL — AI learns your business instantly</li>
+        <li>Escalates to a live agent when the conversation needs a human touch</li>
+        <li>Personalises every reply with the customer's name and history</li>
+      </ul>
+    </div>
+    <div class="reveal">
+      <div class="chat-widget">
+        <div class="chat-bar">
+          <div class="chat-dot" style="background:#FF5F57"></div>
+          <div class="chat-dot" style="background:#FFBD2E"></div>
+          <div class="chat-dot" style="background:#28C840"></div>
+          <div class="chat-title">💬 Live Inbox — WhatsApp</div>
+        </div>
+        <div class="chat-body">
+          <div class="msg user">
+            <div class="msg-av" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);">👤</div>
+            <div class="msg-bub">Hi! What are your hours and do you accept walk-ins?</div>
+          </div>
+          <div class="msg bot">
+            <div class="msg-av" style="background:rgba(0,201,255,0.14);border:1px solid rgba(0,201,255,0.2);">🤖</div>
+            <div class="msg-bub">Hi there! 👋 We're open Mon–Fri 9am–6pm and Sat 10am–4pm. We do accept walk-ins but appointments get priority — want me to book one for you right now?</div>
+          </div>
+          <div class="msg user">
+            <div class="msg-av" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);">👤</div>
+            <div class="msg-bub">Yes please! Tomorrow afternoon works</div>
+          </div>
+          <div class="msg bot" id="last-msg">
+            <div class="msg-av" style="background:rgba(0,201,255,0.14);border:1px solid rgba(0,201,255,0.2);">🤖</div>
+            <div class="typing-bub"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;line-height:1.4;">Real AI responses · Powered by Claude · Responds in under 2 seconds</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- FEATURES -->
+<div class="section reveal">
+  <span class="section-label">Everything Included</span>
+  <h2 class="section-title">One platform.<br>Every tool you need.</h2>
+  <p class="section-body">No Zapier. No duct tape. No six-tool stack. Everything your team needs to reach, engage, and convert customers is built in.</p>
+
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(0,201,255,0.1);">💬</div>
+      <h3>Live Inbox</h3>
+      <p>Every channel in one place. SMS, WhatsApp, Email — all conversations in real time. Reply and assign to team members from one screen.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(168,85,247,0.1);">🚀</div>
+      <h3>Campaigns</h3>
+      <p>Send bulk messages to your full contact list or a targeted segment. Schedule, track opens and replies, and see results in real time.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(236,72,153,0.1);">⚡</div>
+      <h3>Flow Builder</h3>
+      <p>Build automated sequences that trigger on actions — new signup, purchase, or appointment booked. No code required.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(255,215,0,0.1);">📊</div>
+      <h3>Analytics</h3>
+      <p>Delivery rates, open rates, reply rates, and revenue per campaign. Know exactly what's working and scale it with confidence.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(0,230,118,0.1);">👥</div>
+      <h3>Contacts</h3>
+      <p>Import, segment, and tag your contacts. Build smart lists based on behaviour, location, or custom fields. Every contact, organised.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(0,201,255,0.1);">🔑</div>
+      <h3>API and Webhooks</h3>
+      <p>Connect to your existing tools via REST API and webhooks. CRM, POS, Zapier — everything talks to EngageWorx.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- CSP MODEL -->
+<div class="section reveal">
+  <span class="section-label">For Channel Partners</span>
+  <h2 class="section-title">White-label it.<br>Resell it. Own it.</h2>
+  <p class="section-body">Built for MSPs, UCaaS providers, and telecom resellers. Your brand, your pricing, your clients — powered by EngageWorx under the hood.</p>
+
+  <div class="model-wrap">
+    <div class="model-node">
+      <div class="model-icon" style="background:rgba(0,201,255,0.07);">🏢</div>
+      <h4>EngageWorx</h4>
+      <p>Platform and infrastructure</p>
+    </div>
+    <div class="model-arrow">→</div>
+    <div class="model-node">
+      <div class="model-icon" style="background:rgba(168,85,247,0.07);border-color:rgba(168,85,247,0.18);">🤝</div>
+      <h4>Your Brand</h4>
+      <p>White-labeled portal — your logo, colors, and domain</p>
+    </div>
+    <div class="model-arrow">→</div>
+    <div class="model-node">
+      <div class="model-icon" style="background:rgba(0,230,118,0.07);border-color:rgba(0,230,118,0.18);">👥</div>
+      <h4>Your Clients</h4>
+      <p>Each client gets their own isolated workspace</p>
+    </div>
+  </div>
+
+  <div class="features-grid" style="margin-top:20px;">
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(168,85,247,0.1);">🎨</div>
+      <h3>Full White-Label</h3>
+      <p>Your logo, your colors, your domain. Clients never see EngageWorx. It is 100% your product.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(0,201,255,0.1);">💰</div>
+      <h3>You Set the Pricing</h3>
+      <p>Buy wholesale from us, sell retail to your clients. The margin is yours. No revenue sharing, no per-seat fees to us.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon" style="background:rgba(0,230,118,0.1);">⚡</div>
+      <h3>Instant Provisioning</h3>
+      <p>Create a new client account in under 5 minutes. They get a branded welcome email with login details automatically.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- QUOTE -->
+<div class="section reveal">
+  <div class="quote-wrap">
+    <div class="quote-mark">"</div>
+    <p class="quote-text">"We wanted to give our clients SMS and WhatsApp campaigns without building it ourselves. EngageWorx was live under our brand in a week."</p>
+    <div class="quote-attr">
+      <div class="quote-av">CC</div>
+      <div>
+        <div class="quote-name">Javier Rubert</div>
+        <div class="quote-role">CEO, Conecta Cloud</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap reveal">
+  <h2>Ready to see it <span class="grad">live?</span></h2>
+  <p>Book a 30-minute walkthrough. No slides. No prep. Just a live demo built around your use case.</p>
+  <div class="btn-row" style="position:relative;">
+    <a href="https://calendly.com/rob-engwx/cpexpo-the-venetian" target="_blank" class="btn-primary">Book a Demo Call →</a>
+    <a href="https://portal.engwx.com" target="_blank" class="btn-outline">Explore the Portal</a>
+  </div>
+  <p class="cta-fine">No credit card required · Setup in minutes · Cancel anytime</p>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="nav-logo">
+    <div class="ew-mark" style="width:28px;height:28px;border-radius:8px;font-size:12px;">EW</div>
+    <span class="ew-wordmark" style="font-size:16px;">Engage<span class="worx">Worx</span></span>
+  </div>
+  <p>+1 (786) 982-7800 · <a href="mailto:hello@engwx.com">hello@engwx.com</a> · <a href="https://engwx.com">engwx.com</a></p>
+  <div class="footer-dots">
+    <span style="background:var(--cyan)"></span>
+    <span style="background:var(--purple)"></span>
+    <span style="background:var(--pink)"></span>
+    <em>SMS · WhatsApp · Email · Voice · RCS</em>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal
+var els = document.querySelectorAll('.reveal');
+var io = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('on'); });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+els.forEach(function(el) { io.observe(el); });
+
+// Animate chat
+setTimeout(function() {
+  var lastMsg = document.getElementById('last-msg');
+  if (!lastMsg) return;
+  var bubble = lastMsg.querySelector('.typing-bub');
+  if (!bubble) return;
+  setTimeout(function() {
+    bubble.outerHTML = '<div class="msg-bub">Perfect! Booked you in for tomorrow at 2:30 PM. You\'ll get a confirmation shortly. See you then! 😊</div>';
+  }, 2800);
+}, 1200);
+</script>
+</body>
+</html>
