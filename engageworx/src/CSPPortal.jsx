@@ -474,7 +474,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         <div>
           <label style={labelStyle}>Logo URL (optional)</label>
           <input value={brandColors.logoUrl || ''} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { logoUrl: e.target.value }); }); }} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Square image recommended. Displays in your portal sidebar.</div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+  Paste a direct image URL (PNG or SVG recommended). Square format, min 100×100px. 
+  Tip: right-click your logo on your website → "Copy image address".
+</div>
         </div>
         <button onClick={async function() {
           var res = await supabase.from('tenants').update({
