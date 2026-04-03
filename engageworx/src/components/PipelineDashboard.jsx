@@ -286,7 +286,99 @@ function Modal({ lead, onClose, onSave }) {
           <div><label style={labelStyle}>First Name</label><input style={inputStyle} value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="Jane" /></div>
           <div><label style={labelStyle}>Last Name</label><input style={inputStyle} value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Smith" /></div>
           <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})} /></div>
-          <div><label style={labelStyle}>Phone</label><div style={{ display: 'flex', gap: 4 }}><option value="+1">🇺🇸 +1</option><option value="+44">🇬🇧 +44</option><option value="+61">🇦🇺 +61</option><option value="+64">🇳🇿 +64</option><option value="+353">🇮🇪 +353</option><option value="+49">🇩🇪 +49</option><option value="+33">🇫🇷 +33</option><option value="+34">🇪🇸 +34</option><option value="+39">🇮🇹 +39</option><option value="+31">🇳🇱 +31</option><option value="+32">🇧🇪 +32</option><option value="+41">🇨🇭 +41</option><option value="+43">🇦🇹 +43</option><option value="+46">🇸🇪 +46</option><option value="+47">🇳🇴 +47</option><option value="+45">🇩🇰 +45</option><option value="+358">🇫🇮 +358</option><option value="+351">🇵🇹 +351</option><option value="+30">🇬🇷 +30</option><option value="+48">🇵🇱 +48</option><option value="+420">🇨🇿 +420</option><option value="+36">🇭🇺 +36</option><option value="+40">🇷🇴 +40</option><option value="+380">🇺🇦 +380</option><option value="+7">🇷🇺 +7</option><option value="+90">🇹🇷 +90</option><option value="+972">🇮🇱 +972</option><option value="+971">🇦🇪 +971</option><option value="+966">🇸🇦 +966</option><option value="+974">🇶🇦 +974</option><option value="+965">🇰🇼 +965</option><option value="+973">🇧🇭 +973</option><option value="+968">🇴🇲 +968</option><option value="+91">🇮🇳 +91</option><option value="+92">🇵🇰 +92</option><option value="+880">🇧🇩 +880</option><option value="+94">🇱🇰 +94</option><option value="+65">🇸🇬 +65</option><option value="+60">🇲🇾 +60</option><option value="+63">🇵🇭 +63</option><option value="+66">🇹🇭 +66</option><option value="+62">🇮🇩 +62</option><option value="+84">🇻🇳 +84</option><option value="+82">🇰🇷 +82</option><option value="+81">🇯🇵 +81</option><option value="+86">🇨🇳 +86</option><option value="+852">🇭🇰 +852</option><option value="+886">🇹🇼 +886</option><option value="+55">🇧🇷 +55</option><option value="+52">🇲🇽 +52</option><option value="+54">🇦🇷 +54</option><option value="+56">🇨🇱 +56</option><option value="+57">🇨🇴 +57</option><option value="+51">🇵🇪 +51</option><option value="+58">🇻🇪 +58</option><option value="+593">🇪🇨 +593</option><option value="+598">🇺🇾 +598</option><option value="+595">🇵🇾 +595</option><option value="+591">🇧🇴 +591</option><option value="+27">🇿🇦 +27</option><option value="+234">🇳🇬 +234</option><option value="+254">🇰🇪 +254</option><option value="+233">🇬🇭 +233</option><option value="+255">🇹🇿 +255</option><option value="+256">🇺🇬 +256</option><option value="+251">🇪🇹 +251</option><option value="+212">🇲🇦 +212</option><option value="+216">🇹🇳 +216</option><option value="+213">🇩🇿 +213</option><option value="+20">🇪🇬 +20</option><input style={{ ...inputStyle, flex: 1 }} value={(form.phone||'').replace(/^\+\d+\s?/,'')} onChange={e => { var cc = (form.phone||'').startsWith('+') ? (form.phone||'').split(' ')[0] : '+1'; setForm({...form, phone: cc + ' ' + e.target.value}); }} placeholder="(555) 000-0000" /></div></div>
+          <div>
+  <label style={labelStyle}>Phone</label>
+  <div style={{ display: 'flex', gap: 4 }}>
+    <select
+      style={{ ...inputStyle, width: 'auto', paddingRight: 8 }}
+      value={(form.phone||'').startsWith('+') ? (form.phone||'').split(' ')[0] : '+1'}
+      onChange={e => {
+        const num = (form.phone||'').replace(/^\+\d+\s?/, '');
+        setForm({...form, phone: e.target.value + ' ' + num});
+      }}
+    >
+      <option value="+1">🇺🇸 +1</option>
+      <option value="+44">🇬🇧 +44</option>
+      <option value="+61">🇦🇺 +61</option>
+      <option value="+64">🇳🇿 +64</option>
+      <option value="+353">🇮🇪 +353</option>
+      <option value="+49">🇩🇪 +49</option>
+      <option value="+33">🇫🇷 +33</option>
+      <option value="+34">🇪🇸 +34</option>
+      <option value="+39">🇮🇹 +39</option>
+      <option value="+31">🇳🇱 +31</option>
+      <option value="+32">🇧🇪 +32</option>
+      <option value="+41">🇨🇭 +41</option>
+      <option value="+43">🇦🇹 +43</option>
+      <option value="+46">🇸🇪 +46</option>
+      <option value="+47">🇳🇴 +47</option>
+      <option value="+45">🇩🇰 +45</option>
+      <option value="+358">🇫🇮 +358</option>
+      <option value="+351">🇵🇹 +351</option>
+      <option value="+30">🇬🇷 +30</option>
+      <option value="+48">🇵🇱 +48</option>
+      <option value="+420">🇨🇿 +420</option>
+      <option value="+36">🇭🇺 +36</option>
+      <option value="+40">🇷🇴 +40</option>
+      <option value="+380">🇺🇦 +380</option>
+      <option value="+7">🇷🇺 +7</option>
+      <option value="+90">🇹🇷 +90</option>
+      <option value="+972">🇮🇱 +972</option>
+      <option value="+971">🇦🇪 +971</option>
+      <option value="+966">🇸🇦 +966</option>
+      <option value="+974">🇶🇦 +974</option>
+      <option value="+965">🇰🇼 +965</option>
+      <option value="+973">🇧🇭 +973</option>
+      <option value="+968">🇴🇲 +968</option>
+      <option value="+91">🇮🇳 +91</option>
+      <option value="+92">🇵🇰 +92</option>
+      <option value="+880">🇧🇩 +880</option>
+      <option value="+94">🇱🇰 +94</option>
+      <option value="+65">🇸🇬 +65</option>
+      <option value="+60">🇲🇾 +60</option>
+      <option value="+63">🇵🇭 +63</option>
+      <option value="+66">🇹🇭 +66</option>
+      <option value="+62">🇮🇩 +62</option>
+      <option value="+84">🇻🇳 +84</option>
+      <option value="+82">🇰🇷 +82</option>
+      <option value="+81">🇯🇵 +81</option>
+      <option value="+86">🇨🇳 +86</option>
+      <option value="+852">🇭🇰 +852</option>
+      <option value="+886">🇹🇼 +886</option>
+      <option value="+55">🇧🇷 +55</option>
+      <option value="+52">🇲🇽 +52</option>
+      <option value="+54">🇦🇷 +54</option>
+      <option value="+56">🇨🇱 +56</option>
+      <option value="+57">🇨🇴 +57</option>
+      <option value="+51">🇵🇪 +51</option>
+      <option value="+58">🇻🇪 +58</option>
+      <option value="+593">🇪🇨 +593</option>
+      <option value="+598">🇺🇾 +598</option>
+      <option value="+595">🇵🇾 +595</option>
+      <option value="+591">🇧🇴 +591</option>
+      <option value="+27">🇿🇦 +27</option>
+      <option value="+234">🇳🇬 +234</option>
+      <option value="+254">🇰🇪 +254</option>
+      <option value="+233">🇬🇭 +233</option>
+      <option value="+255">🇹🇿 +255</option>
+      <option value="+256">🇺🇬 +256</option>
+      <option value="+251">🇪🇹 +251</option>
+      <option value="+212">🇲🇦 +212</option>
+      <option value="+216">🇹🇳 +216</option>
+      <option value="+213">🇩🇿 +213</option>
+      <option value="+20">🇪🇬 +20</option>
+    </select>
+    <input
+      style={{ ...inputStyle, flex: 1 }}
+      value={(form.phone||'').replace(/^\+\d+\s?/, '')}
+      onChange={e => {
+        const cc = (form.phone||'').startsWith('+') ? (form.phone||'').split(' ')[0] : '+1';
+        setForm({...form, phone: cc + ' ' + e.target.value});
+      }}
+      placeholder="(555) 000-0000"
+    />
+  </div>
+</div>
           <div><label style={labelStyle}>Lead Type</label><select style={inputStyle} value={form.type||"Unknown"} onChange={e=>setForm({...form,type:e.target.value})}>{TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}</select></div>
           <div>
             <label style={labelStyle}>Urgency</label>
