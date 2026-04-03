@@ -1214,172 +1214,107 @@ function TenantBrandSettings({ tenantId, tenant, C }) {
   );
 }
 
-// ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
-function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
-  const [cpSidebarOpen, setCpSidebarOpen] = useState(false);
-  const [cpIsMobile, setCpIsMobile] = useState(window.innerWidth < 768);
-  const [cpSidebarCollapsed, setCpSidebarCollapsed] = useState(false);
-  useEffect(() => { const h = () => setCpIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
-  const demoTenant = TENANTS[tenantId];
-  const liveTenant = liveTenants?.find(t => t.id === tenantId);
-  const tenant = demoTenant || liveTenant || {
-    id: tenantId,
-    name: "My Business",
-    logo: "MB",
-    role: "customer",
-    brand: { primary: "#00C9FF", secondary: "#E040FB", name: "My Business" },
-    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
-    stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
-    channels: ["SMS", "Email"],
-  };
-  const cpTheme = useTheme();
-  const C = getThemedColors(tenant.colors, cpTheme.theme);
-  const [page, setPage] = useState("dashboard");
+// ─── TENANT BRAND SETTINGS COMPONENT ─────────────────────────────────────────
+function TenantBrandSettings({ tenantId, tenant, C }) {
+  const [brand, setBrand] = useState({
+    name: tenant.brand.name || '',
+    primary: tenant.brand.primary || '#00C9FF',
+    secondary: tenant.brand.secondary || '#E040FB',
+    logoUrl: tenant.brand.logoUrl || '',
+    websiteUrl: '',
+    detecting: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "⊞" },
-    { id: "campaigns", label: "Campaigns", icon: "🚀" },
-    { id: "flows", label: "Flow Builder", icon: "⚡" },
-    { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "inbox", label: "Live Inbox", icon: "💬" },
-    { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "contacts", label: "Contacts", icon: "👥" },
-    { id: "support", label: "Support", icon: "🎫" },
-    { id: "registration", label: "Registration", icon: "📋" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
-  ];
+  const inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+  const labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
+
+  async function detectBrand() {
+    if (!brand.websiteUrl) return;
+    setBrand(b => ({ ...b, detecting: true }));
+    try {
+      const res = await fetch('/api/detect-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: brand.websiteUrl })
+      });
+      const data = await res.json();
+      setBrand(b => ({
+        ...b,
+        detecting: false,
+        ...(data.brand?.name && { name: data.brand.name }),
+        ...(data.brand?.primary && { primary: data.brand.primary }),
+        ...(data.brand?.secondary && { secondary: data.brand.secondary }),
+        ...(data.brand?.logoUrl && { logoUrl: data.brand.logoUrl }),
+      }));
+    } catch(e) {
+      setBrand(b => ({ ...b, detecting: false }));
+    }
+  }
+
+  async function saveBranding() {
+    setSaving(true);
+    const res = await supabase.from('tenants').update({
+      brand_name: brand.name,
+      brand_primary: brand.primary,
+      brand_secondary: brand.secondary,
+      brand_logo_url: brand.logoUrl || null,
+      website_url: brand.websiteUrl || null,
+    }).eq('id', tenantId);
+    setSaving(false);
+    if (res.error) { alert('Save failed: ' + res.error.message); }
+    else { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+  }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-      {cpIsMobile && !cpSidebarOpen && (
-        <button onClick={() => setCpSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>
-          ☰
-        </button>
-      )}
-      {cpIsMobile && cpSidebarOpen && (
-        <div onClick={() => setCpSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
-      )}
-      <div style={{ width: cpSidebarCollapsed ? 64 : 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: cpSidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
-        {/* Back button (when drilled down from SP) */}
-        {onBack && (
-          <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + "10", border: "1px solid " + C.primary + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
-            <span>←</span>
-            {!cpSidebarCollapsed && <span>Back to Platform</span>}
-          </div>
-        )}
-        <div style={{ marginBottom: 28, paddingLeft: cpSidebarCollapsed ? 0 : 8, textAlign: cpSidebarCollapsed ? "center" : "left" }}>
-          {cpSidebarCollapsed ? (
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{(tenant.brand.name || "").substring(0, 2)}</div>
-          ) : (
-            <>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
-            </>
-          )}
-        </div>
-
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          {navItems.map(item => (
-            <button key={item.id} onClick={() => { setPage(item.id); if(cpIsMobile) setCpSidebarOpen(false); }} title={cpSidebarCollapsed ? item.label : undefined} style={{
-              width: "100%", display: "flex", alignItems: "center", gap: cpSidebarCollapsed ? 0 : 10,
-              justifyContent: cpSidebarCollapsed ? "center" : "flex-start",
-              padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none",
-              background: page === item.id ? `${C.primary}22` : "transparent",
-              color: page === item.id ? C.primary : C.muted,
-              cursor: "pointer", fontSize: 13, fontWeight: page === item.id ? 700 : 400,
-              marginBottom: 3, textAlign: "left",
-              borderLeft: page === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
-            }}>
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              {!cpSidebarCollapsed && item.label}
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 24, maxWidth: 560 }}>
+      <h3 style={{ color: C.text, margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
+      <div style={{ display: 'grid', gap: 16 }}>
+        <div>
+          <label style={labelStyle}>Website URL</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={brand.websiteUrl} onChange={e => setBrand(b => ({ ...b, websiteUrl: e.target.value }))} placeholder="https://yourdomain.com" style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={detectBrand} disabled={!brand.websiteUrl || brand.detecting} style={{ background: brand.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 8, padding: '10px 14px', color: brand.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: brand.websiteUrl && !brand.detecting ? 'pointer' : 'not-allowed', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif", opacity: !brand.websiteUrl ? 0.5 : 1 }}>
+              {brand.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
             </button>
-          ))}
-        </nav>
-
-        {/* Collapse + Logout */}
-        <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-          <button onClick={() => setCpSidebarCollapsed(!cpSidebarCollapsed)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
-            <span>{cpSidebarCollapsed ? "»" : "«"}</span>
-            {!cpSidebarCollapsed && <span>Collapse</span>}
-          </button>
-          {onLogout && <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "rgba(255,82,82,0.06)", color: "#FF5252", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-            <span>⏻</span>
-            {!cpSidebarCollapsed && <span>Sign Out</span>}
-          </button>}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Auto-fills brand name, colors and logo from your website.</div>
         </div>
-
-        {onBack && (
-          <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
-            ← Back to Provider
-          </button>
-        )}
-        {onLogout && (
-          <button onClick={onLogout} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.muted, cursor: "pointer", fontSize: 12, marginBottom: 12 }}>
-            Sign Out
-          </button>
-        )}
-
-        <div style={{ padding: "14px", background: C.bg, borderRadius: 10, border: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#000" }}>{tenant.logo}</div>
-            <div>
-              <div style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{tenant.name}</div>
-              <div style={{ color: C.muted, fontSize: 10 }}>Tenant Admin</div>
-            </div>
+        <div>
+          <label style={labelStyle}>Brand Name</label>
+          <input value={brand.name} onChange={e => setBrand(b => ({ ...b, name: e.target.value }))} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Primary Color</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="color" value={brand.primary} onChange={e => setBrand(b => ({ ...b, primary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+            <input value={brand.primary} onChange={e => setBrand(b => ({ ...b, primary: e.target.value }))} style={{ ...inputStyle, fontFamily: 'monospace' }} />
           </div>
         </div>
+        <div>
+          <label style={labelStyle}>Secondary Color</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="color" value={brand.secondary} onChange={e => setBrand(b => ({ ...b, secondary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+            <input value={brand.secondary} onChange={e => setBrand(b => ({ ...b, secondary: e.target.value }))} style={{ ...inputStyle, fontFamily: 'monospace' }} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Logo URL (optional)</label>
+          <input value={brand.logoUrl} onChange={e => setBrand(b => ({ ...b, logoUrl: e.target.value }))} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Right-click your logo → Copy image address.</div>
+        </div>
+        {saved && <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', borderRadius: 8, padding: '10px 14px', color: '#00E676', fontSize: 13, fontWeight: 600 }}>✅ Branding saved!</div>}
+        <button onClick={saveBranding} disabled={saving} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 10, padding: '14px', color: '#000', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving...' : '💾 Save Branding'}
+        </button>
       </div>
+    </div>
+  );
+}
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0 }}>
-        {page === "dashboard" && (
-          <div style={{ padding: "32px 36px" }}>
-            <div style={{ marginBottom: 28 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
-              <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Welcome back, {tenant.name} team</p>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, marginBottom: 28 }}>
-              <StatCard label="Messages Sent" value={tenant.stats.messages.toLocaleString()} sub={`Delivery: ${tenant.stats.deliveryRate}%`} color={C.primary} icon="📨" />
-              <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
-              <StatCard label="Open Rate" value={`${tenant.stats.openRate}%`} sub="Industry avg: 38%" color={C.accent} icon="👁️" />
-            </div>
-            <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: 24 }}>
-              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
-              <div style={{ display: "flex", gap: 12 }}>
-                {tenant.channels.map(ch => (
-                  <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>
-                    ● {ch}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {page === "campaigns" && (
-          <CampaignsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
-        )}
-
-        {page === "analytics" && (
-          <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
-        )}
-
-        {page === "contacts" && (
-          <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
-        )}
-
-          {page === "inbox" && (
-            <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />
-          )}
-
-        {page === "chatbot" && (
-          <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
-        )}
-
-        {page === "flows" && (
-          <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />
-        )}
-
-        {page === "settings" && (
+// ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
+{page === "settings" && (
   <div style={{ padding: "32px 36px" }}>
     <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
     <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
