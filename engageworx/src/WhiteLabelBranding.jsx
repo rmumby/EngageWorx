@@ -555,8 +555,8 @@ export default function WhiteLabelBranding({ tenantId, onSaved }) {
 ...(data.brand?.secondary && { secondaryColor: data.brand.secondary }),
 ...(data.brand?.logoUrl && { logoUrl: data.brand.logoUrl }),
                             }));
-                            if (data.name || data.primaryColor) showToast("Brand detected — review and save!");
-                            else showToast("Couldn't detect brand — fill in manually", "error");
+                            if (data.brand?.name || data.brand?.primary) showToast("Brand detected — review and save!");
+else showToast("Couldn't detect brand — fill in manually", "error");
                           } catch(e) {
                             update("detecting", false);
                             showToast("Detection failed", "error");
