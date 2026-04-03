@@ -550,10 +550,10 @@ export default function WhiteLabelBranding({ tenantId, onSaved }) {
                             setBrand(prev => ({
                               ...prev,
                               detecting: false,
-                              ...(data.name && { companyName: data.name }),
-                              ...(data.primaryColor && { primaryColor: data.primaryColor }),
-                              ...(data.secondaryColor && { secondaryColor: data.secondaryColor }),
-                              ...(data.logoUrl && { logoUrl: data.logoUrl }),
+                              ...(data.brand?.name && { companyName: data.brand.name }),
+...(data.brand?.primary && { primaryColor: data.brand.primary }),
+...(data.brand?.secondary && { secondaryColor: data.brand.secondary }),
+...(data.brand?.logoUrl && { logoUrl: data.brand.logoUrl }),
                             }));
                             if (data.name || data.primaryColor) showToast("Brand detected — review and save!");
                             else showToast("Couldn't detect brand — fill in manually", "error");
