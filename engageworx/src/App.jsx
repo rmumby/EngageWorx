@@ -813,6 +813,27 @@ setDemoCreating(false);
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
+                  {c.status !== 'active' && (
+  <button onClick={async function() {
+    if (!window.confirm('Convert ' + c.name + ' to paid active account?')) return;
+    var { error } = await supabase.from('tenants').update({
+      status: 'active',
+      plan: c.plan || 'starter',
+    }).eq('id', c.id);
+    if (error) { alert('Failed: ' + error.message); }
+    else { alert(c.name + ' converted to paid!'); window.location.reload(); }
+  }} style={{ background: "rgba(0,230,118,0.15)", border: "1px solid rgba(0,230,118,0.3)", borderRadius: 7, padding: "7px 14px", color: "#00E676", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+    💳 Convert to Paid
+  </button>
+)}
+<button onClick={async function() {
+  if (!window.confirm('Permanently delete ' + c.name + '? This cannot be undone.')) return;
+  var { error } = await supabase.from('tenants').delete().eq('id', c.id);
+  if (error) { alert('Failed: ' + error.message); }
+  else { window.location.reload(); }
+}} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 7, padding: "7px 14px", color: "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+  🗑 Delete
+</button>
                   <button onClick={() => { setConfiguringTenant(isConfiguring ? null : c.id); if (!isConfiguring) setConfigForm({ plan: c.plan || 'growth', message_limit: c.message_limit || 10000, contact_limit: c.contact_limit || 50000, user_seats: c.user_seats || 10 }); }} style={{ background: isConfiguring ? C.primary : c.brand.primary + "22", border: "1px solid " + (isConfiguring ? C.primary : c.brand.primary + "55"), borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
                   {confirmSuspend === c.id ? (
                     <div style={{ display: "flex", gap: 4 }}>
