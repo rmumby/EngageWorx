@@ -526,6 +526,57 @@ export default function WhiteLabelBranding({ tenantId, onSaved }) {
                 }}>
                   <div style={{ color: C.text, fontSize: 15, fontWeight: 800, marginBottom: 14 }}>🏢 Company Info</div>
 
+                  {/* Website URL + Auto-detect */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 6 }}>Website URL</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        style={{ ...inputStyle, flex: 1 }}
+                        value={brand.websiteUrl || ""}
+                        onChange={e => update("websiteUrl", e.target.value)}
+                        placeholder="https://yourdomain.com"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!brand.websiteUrl) return;
+                          update("detecting", true);
+                          try {
+                            const res = await fetch("/api/detect-brand", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ url: brand.websiteUrl })
+                            });
+                            const data = await res.json();
+                            setBrand(prev => ({
+                              ...prev,
+                              detecting: false,
+                              ...(data.name && { companyName: data.name }),
+                              ...(data.primaryColor && { primaryColor: data.primaryColor }),
+                              ...(data.secondaryColor && { secondaryColor: data.secondaryColor }),
+                              ...(data.logoUrl && { logoUrl: data.logoUrl }),
+                            }));
+                            if (data.name || data.primaryColor) showToast("Brand detected — review and save!");
+                            else showToast("Couldn't detect brand — fill in manually", "error");
+                          } catch(e) {
+                            update("detecting", false);
+                            showToast("Detection failed", "error");
+                          }
+                        }}
+                        disabled={!brand.websiteUrl || brand.detecting}
+                        style={{
+                          background: brand.detecting ? C.border : `linear-gradient(135deg, #00C9FF, #7C4DFF)`,
+                          border: "none", borderRadius: 8, padding: "10px 16px",
+                          color: brand.detecting ? C.muted : "#000",
+                          fontWeight: 700, cursor: brand.websiteUrl && !brand.detecting ? "pointer" : "not-allowed",
+                          fontSize: 13, whiteSpace: "nowrap", opacity: !brand.websiteUrl ? 0.5 : 1,
+                        }}
+                      >
+                        {brand.detecting ? "⏳ Detecting…" : "✨ Auto-detect"}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 10, color: C.dim, marginTop: 4 }}>Auto-fills company name, colors and logo from your website.</div>
+                  </div>
+
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 6 }}>Company Name</label>
                     <input style={inputStyle} value={brand.companyName} onChange={e => update("companyName", e.target.value)} placeholder="Your Company Name" />
