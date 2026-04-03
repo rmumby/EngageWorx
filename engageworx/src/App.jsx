@@ -383,23 +383,6 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
         console.log('[CreateTenant] notify-admin response:', spNotifyData);
       } catch(e) { console.error('[CreateTenant] notify-admin failed:', e.message); }
 
-      // AI welcome email to customer
-      try {
-        await fetch('/api/stripe-webhook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'checkout.session.completed',
-            data: { object: {
-              customer_email: newTenant.email,
-              customer_details: { email: newTenant.email, name: newTenant.companyName },
-              metadata: { plan: demoForm.plan, tenantName: demoForm.companyName, demo_password: demoForm.password },
-              payment_status: 'paid',
-              status: 'complete'
-            }}
-          })
-        });
-      } catch(e) { /* non-fatal */ }
       setShowNew(false);
       setNewTenant({ companyName: "", brandName: "", email: "", domain: "", color: "#00C9FF", plan: "starter", type: "direct" });
       window.location.reload();
@@ -692,24 +675,6 @@ try {
     });
   }
 } catch(e) { console.log('Pipeline lead create failed:', e.message); }
-
-// Fire welcome email via stripe-webhook
-try {
-  await fetch('/api/stripe-webhook', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'checkout.session.completed',
-      data: { object: {
-        customer_email: demoForm.email,
-        customer_details: { email: demoForm.email, name: demoForm.companyName },
-        metadata: { plan: demoForm.plan, tenantName: demoForm.companyName, demo_password: demoForm.password },
-        payment_status: 'paid',
-        status: 'complete'
-      }}
-    })
-  });
-} catch(e) { console.log('Welcome email failed:', e.message); }
 
 setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: demoTenantId });
 } catch (err) { alert("Error: " + err.message); }
