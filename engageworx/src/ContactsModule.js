@@ -562,7 +562,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                         { code: "+213", flag: "🇩🇿", label: "DZ" },
                         { code: "+20",  flag: "🇪🇬", label: "EG" },
                       ].map(c => <option key={c.code} value={c.code}>{c.flag} {c.code} {c.label}</option>)}
-                      ].map(c => <option key={c.code} value={c.code}>{c.flag} {c.code} {c.label}</option>)}
                     </select>
                     <input value={newContact.phoneNumber || ""} onChange={e => setNewContact(p => ({ ...p, phoneNumber: e.target.value, phone: (p.countryCode || "+1") + e.target.value.replace(/\D/g, "") }))}
                       placeholder="555 123 4567" style={{ ...inputStyle, flex: 1 }} />
