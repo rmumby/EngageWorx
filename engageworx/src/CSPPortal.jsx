@@ -437,9 +437,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                   setBrandColors(function(b) { return Object.assign({}, b, {
                     detecting: false,
                     brandName: data.name || b.brandName,
-                    primary: data.primaryColor || b.primary,
-                    accent: data.secondaryColor || b.accent,
-                    logoUrl: data.logoUrl || b.logoUrl,
+                    primary: data.brand?.primary || data.primaryColor || b.primary,
+accent: data.brand?.secondary || data.secondaryColor || b.accent,
+logoUrl: data.brand?.logoUrl || data.logoUrl || b.logoUrl,
+brandName: data.brand?.name || data.name || b.brandName,
                   }); });
                 } catch(e) {
                   setBrandColors(function(b) { return Object.assign({}, b, { detecting: false }); });
