@@ -1273,9 +1273,12 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
 
         {page === "settings" && (
-          <div style={{ padding: "32px 36px" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
+  <div style={{ padding: "32px 36px" }}>
+    <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
+    <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
+    <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
+  </div>
+)}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, maxWidth: 560 }}>
               <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
               <div style={{ display: "grid", gap: 16 }}>
