@@ -14,13 +14,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var C = Object.assign({}, getCSPColors(), brandColors);
 
   useEffect(function() {
-    supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url').eq('id', cspTenantId).single().then(function(res) {
+    supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url, website_url').eq('id', cspTenantId).single().then(function(res) {
       if (res.data) {
         var updates = {};
         if (res.data.brand_primary) updates.primary = res.data.brand_primary;
         if (res.data.brand_secondary) updates.accent = res.data.brand_secondary;
         if (res.data.brand_name) updates.brandName = res.data.brand_name;
         if (res.data.brand_logo_url) updates.logoUrl = res.data.brand_logo_url;
+        if (res.data.website_url) updates.websiteUrl = res.data.website_url;
         if (Object.keys(updates).length > 0) setBrandColors(updates);
       }
     });
@@ -410,9 +411,45 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Settings</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your partner portal branding</p>
-            <div style={Object.assign({}, card, { maxWidth: 560 })}>
-              <h3 style={{ color: '#fff', margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
-              <div style={{ display: 'grid', gap: 16 }}>
+            <div>
+    <label style={labelStyle}>Website URL</label>
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input
+        value={brandColors.websiteUrl || ''}
+        onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { websiteUrl: e.target.value }); }); }}
+        placeholder="https://yourdomain.com"
+        style={Object.assign({}, inputStyle, { flex: 1 })}
+      />
+      <button
+        onClick={async function() {
+          if (!brandColors.websiteUrl) return;
+          setBrandColors(function(b) { return Object.assign({}, b, { detecting: true }); });
+          try {
+            var res = await fetch('/api/detect-brand', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: brandColors.websiteUrl })
+            });
+            var data = await res.json();
+            setBrandColors(function(b) { return Object.assign({}, b, {
+              detecting: false,
+              brandName: data.name || b.brandName,
+              primary: data.primaryColor || b.primary,
+              accent: data.secondaryColor || b.accent,
+              logoUrl: data.logoUrl || b.logoUrl,
+            }); });
+          } catch(e) {
+            setBrandColors(function(b) { return Object.assign({}, b, { detecting: false }); });
+          }
+        }}
+        disabled={!brandColors.websiteUrl || brandColors.detecting}
+        style={{ background: brandColors.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 10, padding: '10px 14px', color: brandColors.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif" }}
+      >
+        {brandColors.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
+      </button>
+    </div>
+    <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Auto-fills brand name, colors and logo from your website.</div>
+  </div>
                 <div>
                   <label style={labelStyle}>Brand Name</label>
                   <input value={brandColors.brandName || (cspInfo ? cspInfo.brand_name || cspInfo.name : '')} onChange={function(e) { setBrandColors(function(b) { return Object.assign({}, b, { brandName: e.target.value }); }); }} style={inputStyle} />
@@ -438,11 +475,12 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 </div>
                 <button onClick={async function() {
                   var res = await supabase.from('tenants').update({
-                    brand_name: brandColors.brandName || (cspInfo ? cspInfo.name : ''),
-                    brand_primary: brandColors.primary || '#00C9FF',
-                    brand_secondary: brandColors.accent || '#E040FB',
-                    brand_logo_url: brandColors.logoUrl || null,
-                  }).eq('id', cspTenantId);
+  brand_name: brandColors.brandName || (cspInfo ? cspInfo.name : ''),
+  brand_primary: brandColors.primary || '#00C9FF',
+  brand_secondary: brandColors.accent || '#E040FB',
+  brand_logo_url: brandColors.logoUrl || null,
+  website_url: brandColors.websiteUrl || null,   // ← ADD THIS
+}).eq('id', cspTenantId);
                   if (res.error) { alert('Save failed: ' + res.error.message); }
                   else { alert('Branding saved!'); }
                 }} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14 })}>💾 Save Branding</button>
