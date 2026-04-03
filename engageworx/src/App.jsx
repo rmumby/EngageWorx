@@ -1107,6 +1107,113 @@ setDemoCreating(false);
   );
 }
 
+function TenantBrandSettings({ tenantId, tenant, C }) {
+  const [brand, setBrand] = useState({
+    name: tenant.brand.name || '',
+    primary: tenant.brand.primary || '#00C9FF',
+    secondary: tenant.brand.secondary || '#E040FB',
+    logoUrl: tenant.brand.logoUrl || '',
+    websiteUrl: '',
+    detecting: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+  const labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
+
+  async function detectBrand() {
+    if (!brand.websiteUrl) return;
+    setBrand(b => ({ ...b, detecting: true }));
+    try {
+      const res = await fetch('/api/detect-brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: brand.websiteUrl })
+      });
+      const data = await res.json();
+      setBrand(b => ({
+        ...b,
+        detecting: false,
+        ...(data.brand?.name && { name: data.brand.name }),
+        ...(data.brand?.primary && { primary: data.brand.primary }),
+        ...(data.brand?.secondary && { secondary: data.brand.secondary }),
+        ...(data.brand?.logoUrl && { logoUrl: data.brand.logoUrl }),
+      }));
+    } catch(e) {
+      setBrand(b => ({ ...b, detecting: false }));
+    }
+  }
+
+  async function saveBranding() {
+    setSaving(true);
+    const res = await supabase.from('tenants').update({
+      brand_name: brand.name,
+      brand_primary: brand.primary,
+      brand_secondary: brand.secondary,
+      brand_logo_url: brand.logoUrl || null,
+      website_url: brand.websiteUrl || null,
+    }).eq('id', tenantId);
+    setSaving(false);
+    if (res.error) { alert('Save failed: ' + res.error.message); }
+    else { setSaved(true); setTimeout(() => setSaved(false), 3000); }
+  }
+
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 24, maxWidth: 560 }}>
+      <h3 style={{ color: C.text, margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🎨 Brand Settings</h3>
+      <div style={{ display: 'grid', gap: 16 }}>
+        <div>
+          <label style={labelStyle}>Website URL</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={brand.websiteUrl}
+              onChange={e => setBrand(b => ({ ...b, websiteUrl: e.target.value }))}
+              placeholder="https://yourdomain.com"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <button
+              onClick={detectBrand}
+              disabled={!brand.websiteUrl || brand.detecting}
+              style={{ background: brand.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 8, padding: '10px 14px', color: brand.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: brand.websiteUrl && !brand.detecting ? 'pointer' : 'not-allowed', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif", opacity: !brand.websiteUrl ? 0.5 : 1 }}
+            >
+              {brand.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Auto-fills brand name, colors and logo from your website.</div>
+        </div>
+        <div>
+          <label style={labelStyle}>Brand Name</label>
+          <input value={brand.name} onChange={e => setBrand(b => ({ ...b, name: e.target.value }))} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Primary Color</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="color" value={brand.primary} onChange={e => setBrand(b => ({ ...b, primary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+            <input value={brand.primary} onChange={e => setBrand(b => ({ ...b, primary: e.target.value }))} style={{ ...inputStyle, fontFamily: 'monospace' }} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Secondary Color</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="color" value={brand.secondary} onChange={e => setBrand(b => ({ ...b, secondary: e.target.value }))} style={{ width: 44, height: 44, borderRadius: 8, border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer', padding: 2, background: 'transparent' }} />
+            <input value={brand.secondary} onChange={e => setBrand(b => ({ ...b, secondary: e.target.value }))} style={{ ...inputStyle, fontFamily: 'monospace' }} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>Logo URL (optional)</label>
+          <input value={brand.logoUrl} onChange={e => setBrand(b => ({ ...b, logoUrl: e.target.value }))} placeholder="https://yourdomain.com/logo.png" style={inputStyle} />
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Right-click your logo on your website → Copy image address.</div>
+        </div>
+        {saved && <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', borderRadius: 8, padding: '10px 14px', color: '#00E676', fontSize: 13, fontWeight: 600 }}>✅ Branding saved!</div>}
+        <button onClick={saveBranding} disabled={saving} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 10, padding: '14px', color: '#000', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving...' : '💾 Save Branding'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
 function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [cpSidebarOpen, setCpSidebarOpen] = useState(false);
