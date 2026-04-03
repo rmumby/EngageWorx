@@ -491,7 +491,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     <select value={newContact.countryCode || "+1"} onChange={e => setNewContact(p => ({ ...p, countryCode: e.target.value }))}
                       style={{ ...inputStyle, width: "110px", flexShrink: 0 }}>
                       {[
-                        {[
                         { code: "+1",   flag: "🇺🇸", label: "US/CA" },
                         { code: "+44",  flag: "🇬🇧", label: "UK" },
                         { code: "+61",  flag: "🇦🇺", label: "AU" },
