@@ -94,10 +94,23 @@ export default function SequenceRoster({ C, currentTenantId }) {
             {sequences.map(function(s) {
               var isSelected = selectedSeq === s.id;
               return (
-                <button key={s.id} onClick={function() { setSelectedSeq(s.id); setFilter('all'); setSearch(''); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 9, border: '1px solid ' + (isSelected ? colors.primary + '44' : 'rgba(255,255,255,0.07)'), background: isSelected ? colors.primary + '15' : 'rgba(255,255,255,0.03)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', marginBottom: 6, display: 'block' }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
-                  <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{s.sequence_steps ? s.sequence_steps.length : 0} steps</div>
-                </button>
+                <div key={s.id} style={{ position: 'relative', marginBottom: 6 }}>
+                  <button onClick={function() { setSelectedSeq(s.id); setFilter('all'); setSearch(''); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', paddingRight: 36, borderRadius: 9, border: '1px solid ' + (isSelected ? colors.primary + '44' : 'rgba(255,255,255,0.07)'), background: isSelected ? colors.primary + '15' : 'rgba(255,255,255,0.03)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', display: 'block', boxSizing: 'border-box' }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{s.sequence_steps ? s.sequence_steps.length : 0} steps</div>
+                  </button>
+                  <button onClick={async function(e) {
+                    e.stopPropagation();
+                    if (!window.confirm('Delete sequence "' + s.name + '"? This cannot be undone.')) return;
+                    try {
+                      await supabase.from('lead_sequences').delete().eq('sequence_id', s.id);
+                      await supabase.from('sequence_steps').delete().eq('sequence_id', s.id);
+                      await supabase.from('sequences').delete().eq('id', s.id);
+                      if (selectedSeq === s.id) setSelectedSeq(null);
+                      setSequences(function(prev) { return prev.filter(function(seq) { return seq.id !== s.id; }); });
+                    } catch(err) { alert('Delete failed: ' + err.message); }
+                  }} style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '4px 7px', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', lineHeight: 1 }}>✕</button>
+                </div>
               );
             })}
           </div>
