@@ -11,6 +11,9 @@
     },
     "api/cron-sequences.js": {
       "maxDuration": 60
+    },  
+      "api/read-card.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
