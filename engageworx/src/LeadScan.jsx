@@ -178,30 +178,62 @@ export default function LeadScan({ C }) {
     setScanning(true);
     setMode('manual');
     try {
-      if ('BarcodeDetector' in window) {
-        var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-        var bitmap = await createImageBitmap(file);
-        var barcodes = await detector.detect(bitmap);
-        if (barcodes.length > 0) {
-          var raw = barcodes[0].rawValue;
-          if (raw.startsWith('BEGIN:VCARD')) {
-            var parsed = parseVCard(raw);
-            setForm(function(prev) { return Object.assign({}, prev, parsed); });
-          } else if (raw.includes('@')) {
-            setForm(function(prev) { return Object.assign({}, prev, { email: raw.trim() }); });
-          } else {
-            updateForm('notes', raw);
-          }
-        } else {
-          setError('No QR code found in image');
+      var processImage = function(imgElement) {
+        var canvas = document.createElement('canvas');
+        canvas.width = imgElement.width;
+        canvas.height = imgElement.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0);
+        return ctx.getImageData(0, 0, canvas.width, canvas.height);
+      };
+
+      var readQR = async function(imageData) {
+        // Try BarcodeDetector first (Chrome Android / desktop)
+        if ('BarcodeDetector' in window) {
+          try {
+            var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+            var bitmap = await createImageBitmap(file);
+            var barcodes = await detector.detect(bitmap);
+            if (barcodes.length > 0) return barcodes[0].rawValue;
+          } catch(e2) {}
         }
-      } else {
-        setError('QR scanning not supported on this browser — use manual entry');
-      }
+        // Fallback: jsQR (works on iOS Chrome + Safari)
+        var jsQR = (await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js')).default;
+        var result = jsQR(imageData.data, imageData.width, imageData.height);
+        return result ? result.data : null;
+      };
+
+      var img = new window.Image();
+      img.onload = async function() {
+        try {
+          var imageData = processImage(img);
+          var raw = await readQR(imageData);
+          if (raw) {
+            if (raw.startsWith('BEGIN:VCARD')) {
+              var parsed = parseVCard(raw);
+              setForm(function(prev) { return Object.assign({}, prev, parsed); });
+            } else if (raw.includes('@')) {
+              setForm(function(prev) { return Object.assign({}, prev, { email: raw.trim() }); });
+            } else {
+              updateForm('notes', raw);
+            }
+          } else {
+            setError('No QR code found — try manual entry or business card scan');
+          }
+        } catch(err) {
+          setError('QR scan failed: ' + err.message);
+        }
+        setScanning(false);
+      };
+      img.onerror = function() {
+        setError('Could not load image');
+        setScanning(false);
+      };
+      img.src = URL.createObjectURL(file);
     } catch(e) {
       setError('QR scan failed: ' + e.message);
+      setScanning(false);
     }
-    setScanning(false);
   }
 
   var inputStyle = {
