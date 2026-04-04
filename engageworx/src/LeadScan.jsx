@@ -149,21 +149,17 @@ export default function LeadScan({ C }) {
           })
         });
         var data = await resp.json();
-        var text = (data.content || []).find(function(b) { return b.type === 'text'; });
-        if (text) {
-          var jsonMatch = text.text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            var parsed = JSON.parse(jsonMatch[0]);
-            setForm(function(prev) {
-              return Object.assign({}, prev, {
-                name: parsed.name || prev.name,
-                company: parsed.company || prev.company,
-                email: parsed.email || prev.email,
-                phone: parsed.phone || prev.phone,
-                title: parsed.title || prev.title,
-              });
+        if (data.success && data.contact) {
+          var parsed = data.contact;
+          setForm(function(prev) {
+            return Object.assign({}, prev, {
+              name: parsed.name || prev.name,
+              company: parsed.company || prev.company,
+              email: parsed.email || prev.email,
+              phone: parsed.phone || prev.phone,
+              title: parsed.title || prev.title,
             });
-          }
+          });
         }
         setAiReading(false);
       };
@@ -317,7 +313,7 @@ export default function LeadScan({ C }) {
               {[['Hot','🔥','#ef4444'],['Warm','⚡','#f59e0b'],['Cold','❄️','#64748b']].map(function(u) {
                 var isActive = form.urgency === u[0];
                 return (
-                  <button key={u[0]} onClick={function() { updateForm('urgency', u[0]); }} style={{ flex: 1, padding: '14px 8px', borderRadius: 12, border: '2px solid ' + (isActive ? u[2] : 'rgba(255,255,255,0.1)'), background: isActive ? u[2] + '22' : 'rgba(255,255,255,0.03)', color: isActive ? u[2] : '#64748b', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button key={u[0]} onClick={function() { updateForm('urgency', u[0]); }} onTouchEnd={function(e) { e.preventDefault(); updateForm('urgency', u[0]); }} style={{ flex: 1, padding: '14px 8px', borderRadius: 12, border: '2px solid ' + (isActive ? u[2] : 'rgba(255,255,255,0.1)'), background: isActive ? u[2] + '22' : 'rgba(255,255,255,0.03)', color: isActive ? u[2] : '#64748b', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
                     {u[1]} {u[0]}
                   </button>
                 );
@@ -361,7 +357,7 @@ export default function LeadScan({ C }) {
           )}
 
           {/* Save — big thumb button */}
-          <button onClick={handleSave} disabled={saving || aiReading} style={{ width: '100%', padding: '20px', borderRadius: 16, border: 'none', background: saving || aiReading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 20, cursor: saving || aiReading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: saving || aiReading ? 'none' : '0 8px 24px rgba(99,102,241,0.4)', marginTop: 8 }}>
+          <button onClick={handleSave} onTouchEnd={function(e) { if (!saving && !aiReading) { e.preventDefault(); handleSave(); } }} disabled={saving || aiReading} style={{ width: '100%', padding: '20px', borderRadius: 16, border: 'none', background: saving || aiReading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 20, cursor: saving || aiReading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: saving || aiReading ? 'none' : '0 8px 24px rgba(99,102,241,0.4)', marginTop: 8 }}>
             {saving ? 'Saving...' : '⚡ Save Lead'}
           </button>
 
