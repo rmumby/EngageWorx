@@ -113,10 +113,33 @@ function ContactsPanel({ leadId, leadCompany }) {
   const handleAdd = async () => {
     if (!form.first_name) return;
     setSaving(true);
-    await supabase.from("contacts").insert({ first_name: form.first_name, last_name: form.last_name || null, email: form.email || null, phone: form.phone || null, title: form.title || null, company_name: leadCompany || null, pipeline_lead_id: leadId, tenant_id: SP_TENANT_ID, status: "active", source: "pipeline" });
-    setForm({ first_name: "", last_name: "", email: "", phone: "", title: "" });
-    setShowAdd(false);
-    fetchContacts();
+    try {
+      // Check for existing contact by email or phone to avoid duplicates
+      var deupKey = form.email || form.phone;
+      var existingId = null;
+      if (deupKey) {
+        var dupCheck = form.email
+          ? await supabase.from("contacts").select("id").eq("email", form.email).eq("tenant_id", SP_TENANT_ID).single()
+          : await supabase.from("contacts").select("id").eq("phone", form.phone).eq("tenant_id", SP_TENANT_ID).single();
+        if (dupCheck.data) existingId = dupCheck.data.id;
+      }
+      var contactPayload = {
+        first_name: form.first_name, last_name: form.last_name || null,
+        email: form.email || null, phone: form.phone || null,
+        title: form.title || null, company_name: leadCompany || null,
+        pipeline_lead_id: leadId, tenant_id: SP_TENANT_ID,
+        status: "active", source: "pipeline",
+      };
+      if (existingId) {
+        // Update existing — no duplicate
+        await supabase.from("contacts").update(contactPayload).eq("id", existingId);
+      } else {
+        await supabase.from("contacts").insert(contactPayload);
+      }
+      setForm({ first_name: "", last_name: "", email: "", phone: "", title: "" });
+      setShowAdd(false);
+      fetchContacts();
+    } catch(e) { console.error("Add contact error:", e); }
     setSaving(false);
   };
 
@@ -232,11 +255,42 @@ function Modal({ lead, onClose, onSave }) {
     setConverting(true);
     try {
       const slug = form.company.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-sandbox";
-      const { data: tenant, error: tErr } = await supabase.from("tenants").insert({ name: form.company, slug, brand_primary: "#00C9FF", brand_name: form.company, plan: form.package?.includes("Enterprise") ? "enterprise" : form.package?.includes("Pro") ? "pro" : form.package?.includes("Growth") ? "growth" : "starter", status: "trial", channels_enabled: ["sms", "email", "whatsapp"] }).select().single();
+      const { data: tenant, error: tErr } = await supabase.from("tenants").insert({
+        name: form.company, slug, brand_primary: "#00C9FF", brand_name: form.company,
+        plan: form.package?.includes("Enterprise") ? "enterprise" : form.package?.includes("Pro") ? "pro" : form.package?.includes("Growth") ? "growth" : "starter",
+        status: "trial", channels_enabled: ["sms", "email", "whatsapp"]
+      }).select().single();
       if (tErr) throw tErr;
-      await supabase.from("contacts").update({ tenant_id: tenant.id }).eq("pipeline_lead_id", lead.id);
-      await supabase.from("leads").update({ stage: "sandbox_shared", last_action_at: new Date().toISOString().split("T")[0], last_activity_at: new Date().toISOString(), notes: (form.notes ? form.notes + "\n" : "") + "Sandbox created, tenant ID: " + tenant.id }).eq("id", lead.id);
-      setConvertDone(true); setForm({ ...form, stage: "sandbox_shared" });
+
+      // Migrate all pipeline contacts to the new tenant — no duplicates
+      var { data: pipelineContacts } = await supabase.from("contacts").select("*").eq("pipeline_lead_id", lead.id);
+      for (var pc of (pipelineContacts || [])) {
+        // Check if contact already exists in tenant by email or phone
+        var existing = null;
+        if (pc.email) {
+          var ec = await supabase.from("contacts").select("id").eq("email", pc.email).eq("tenant_id", tenant.id).single();
+          if (ec.data) existing = ec.data.id;
+        }
+        if (!existing && pc.phone) {
+          var pc2 = await supabase.from("contacts").select("id").eq("phone", pc.phone).eq("tenant_id", tenant.id).single();
+          if (pc2.data) existing = pc2.data.id;
+        }
+        if (existing) {
+          await supabase.from("contacts").update({ tenant_id: tenant.id, pipeline_lead_id: lead.id }).eq("id", existing);
+        } else {
+          await supabase.from("contacts").update({ tenant_id: tenant.id }).eq("id", pc.id);
+        }
+      }
+
+      await supabase.from("leads").update({
+        stage: "sandbox_shared",
+        last_action_at: new Date().toISOString().split("T")[0],
+        last_activity_at: new Date().toISOString(),
+        notes: (form.notes ? form.notes + "\n" : "") + "Sandbox created, tenant ID: " + tenant.id
+      }).eq("id", lead.id);
+
+      setConvertDone(true);
+      setForm({ ...form, stage: "sandbox_shared" });
     } catch (err) { setSaveError("Conversion failed: " + err.message); }
     setConverting(false);
   };
