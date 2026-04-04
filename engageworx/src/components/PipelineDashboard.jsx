@@ -79,6 +79,9 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{lead.urgency === "Hot" ? "🔥" : lead.urgency === "Warm" ? "⚡" : "❄️"} {lead.urgency}</span>}
+        {lead.billing_status === 'abandoned' && <span style={{ fontSize: "10px", background: "rgba(239,68,68,0.15)", color: "#ef4444", padding: "2px 7px", borderRadius: "4px", fontWeight: 700 }}>💳 No Payment</span>}
+        {lead.billing_status === 'trial' && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#f59e0b", padding: "2px 7px", borderRadius: "4px", fontWeight: 700 }}>🔄 Trial</span>}
+        {lead.billing_status === 'paid' && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#10b981", padding: "2px 7px", borderRadius: "4px", fontWeight: 700 }}>✅ Paid</span>}
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
         {lead.contact_count > 0 && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "2px 7px", borderRadius: "4px" }}>👤 {lead.contact_count}</span>}
       </div>
