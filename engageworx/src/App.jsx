@@ -227,7 +227,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
               <Badge color={c.status === 'suspended' ? '#FF3B30' : c.status === 'trial' ? '#F59E0B' : '#00E676'}>● {(c.status || 'active').charAt(0).toUpperCase() + (c.status || 'active').slice(1)}</Badge>
               <button onClick={() => onDrillDown(c.id)} style={{
                 background: `${c.brand.primary}22`, border: `1px solid ${c.brand.primary}66`,
-                borderRadius: 7, padding: "7px 14px", color: c.brand.primary,
+                borderRadius: 7, padding: "7px 10px", color: c.brand.primary,
                 fontWeight: 700, cursor: "pointer", fontSize: 12,
               }}>Drill Down →</button>
             </div>
@@ -751,7 +751,7 @@ setDemoCreating(false);
               const isConfiguring = configuringTenant === c.id;
               return (
               <div key={c.id}>
-                <div style={{ background: isConfiguring ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${isConfiguring ? C.primary + "44" : "rgba(255,255,255,0.07)"}`, borderLeft: `4px solid ${isSuspended ? "#FF3B30" : c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 240px", alignItems: "center", gap: 20, opacity: isSuspended ? 0.6 : 1, transition: "all 0.2s" }}>
+                <div style={{ background: isConfiguring ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.03)", border: `1px solid ${isConfiguring ? C.primary + "44" : "rgba(255,255,255,0.07)"}`, borderLeft: `4px solid ${isSuspended ? "#FF3B30" : c.brand.primary}`, borderRadius: 12, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 280px", alignItems: "center", gap: 20, opacity: isSuspended ? 0.6 : 1, transition: "all 0.2s" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ width: 40, height: 40, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000" }}>{c.logo}</div>
                   <div>
@@ -776,8 +776,8 @@ setDemoCreating(false);
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
                   <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 14px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+  {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 10px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
                   {c.status !== 'active' && (
   <button onClick={async function() {
     if (!window.confirm('Convert ' + c.name + ' to paid active account?')) return;
@@ -787,7 +787,7 @@ setDemoCreating(false);
     }).eq('id', c.id);
     if (error) { alert('Failed: ' + error.message); }
     else { alert(c.name + ' converted to paid!'); window.location.reload(); }
-  }} style={{ background: "rgba(0,230,118,0.15)", border: "1px solid rgba(0,230,118,0.3)", borderRadius: 7, padding: "7px 14px", color: "#00E676", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+  }} style={{ background: "rgba(0,230,118,0.15)", border: "1px solid rgba(0,230,118,0.3)", borderRadius: 7, padding: "7px 10px", color: "#00E676", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
     💳 Convert to Paid
   </button>
 )}
@@ -796,17 +796,17 @@ setDemoCreating(false);
   var { error } = await supabase.from('tenants').delete().eq('id', c.id);
   if (error) { alert('Failed: ' + error.message); }
   else { window.location.reload(); }
-}} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 7, padding: "7px 14px", color: "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+}} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 7, padding: "7px 10px", color: "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
   🗑 Delete
 </button>
-                  <button onClick={() => { setConfiguringTenant(isConfiguring ? null : c.id); if (!isConfiguring) setConfigForm({ plan: c.plan || 'growth', message_limit: c.message_limit || 10000, contact_limit: c.contact_limit || 50000, user_seats: c.user_seats || 10 }); }} style={{ background: isConfiguring ? C.primary : c.brand.primary + "22", border: "1px solid " + (isConfiguring ? C.primary : c.brand.primary + "55"), borderRadius: 7, padding: "7px 14px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
+                  <button onClick={() => { setConfiguringTenant(isConfiguring ? null : c.id); if (!isConfiguring) setConfigForm({ plan: c.plan || 'growth', message_limit: c.message_limit || 10000, contact_limit: c.contact_limit || 50000, user_seats: c.user_seats || 10 }); }} style={{ background: isConfiguring ? C.primary : c.brand.primary + "22", border: "1px solid " + (isConfiguring ? C.primary : c.brand.primary + "55"), borderRadius: 7, padding: "7px 10px", color: isConfiguring ? "#000" : c.brand.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isConfiguring ? "Close" : "Configure"}</button>
                   {confirmSuspend === c.id ? (
                     <div style={{ display: "flex", gap: 4 }}>
                       <button onClick={() => { setSuspendedTenants(prev => ({ ...prev, [c.id]: !isSuspended })); setConfirmSuspend(null); }} style={{ background: isSuspended ? "#00E67622" : "#FF3B3022", border: `1px solid ${isSuspended ? "#00E67644" : "#FF3B3044"}`, borderRadius: 7, padding: "7px 10px", color: isSuspended ? "#00E676" : "#FF3B30", fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Confirm"}</button>
                       <button onClick={() => setConfirmSuspend(null)} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 7, padding: "7px 8px", color: C.muted, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
                     </div>
                   ) : (
-                    <button onClick={() => setConfirmSuspend(c.id)} style={{ background: "transparent", border: `1px solid ${isSuspended ? "#00E67644" : "rgba(255,255,255,0.1)"}`, borderRadius: 7, padding: "7px 14px", color: isSuspended ? "#00E676" : C.muted, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Suspend"}</button>
+                    <button onClick={() => setConfirmSuspend(c.id)} style={{ background: "transparent", border: `1px solid ${isSuspended ? "#00E67644" : "rgba(255,255,255,0.1)"}`, borderRadius: 7, padding: "7px 10px", color: isSuspended ? "#00E676" : C.muted, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{isSuspended ? "Reactivate" : "Suspend"}</button>
                   )}
                 </div>
                 </div>
