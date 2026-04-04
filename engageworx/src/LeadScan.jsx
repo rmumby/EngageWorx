@@ -140,22 +140,12 @@ export default function LeadScan({ C }) {
       var reader = new FileReader();
       reader.onload = async function(ev) {
         var base64 = ev.target.result.split(',')[1];
-        var resp = await fetch('https://api.anthropic.com/v1/messages', {
+        var resp = await fetch('/api/read-card', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 500,
-            messages: [{
-              role: 'user',
-              content: [{
-                type: 'image',
-                source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 }
-              }, {
-                type: 'text',
-                text: 'Extract contact info from this business card or badge. Return ONLY valid JSON with fields: name, company, email, phone, title, website. Use null for missing fields. No explanation.'
-              }]
-            }]
+            image: base64,
+            mediaType: file.type || 'image/jpeg',
           })
         });
         var data = await resp.json();
