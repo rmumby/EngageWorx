@@ -320,102 +320,142 @@ module.exports = async function handler(req, res) {
         break;
       }
 
-      case 'invoice.payment_succeeded': {
-        var invoice = event.data.object;
-        console.log('[Stripe] Payment succeeded:', invoice.customer_email, '$' + (invoice.amount_paid / 100));
-        supabase.from('audit_log').insert({
-          action: 'payment_succeeded',
-          metadata: {
-            email: invoice.customer_email,
-            amount: invoice.amount_paid / 100,
-            invoice_id: invoice.id,
-          },
-        }).then(function() {}).catch(function() {});
-        break;
-      }
-
       case 'checkout.session.expired': {
-        var expiredSession = event.data.object;
-        var expiredEmail = expiredSession.customer_email ||
-          (expiredSession.customer_details && expiredSession.customer_details.email) ||
-          (expiredSession.metadata && expiredSession.metadata.email);
-        var expiredName = (expiredSession.customer_details && expiredSession.customer_details.name) || '';
-        var expiredPlan = (expiredSession.metadata && expiredSession.metadata.plan) || 'starter';
+  var expiredSession = event.data.object;
+  var expiredEmail = expiredSession.customer_email ||
+    (expiredSession.customer_details && expiredSession.customer_details.email) ||
+    (expiredSession.metadata && expiredSession.metadata.email);
+  var expiredName = (expiredSession.customer_details && expiredSession.customer_details.name) || '';
+  var expiredPlan = (expiredSession.metadata && expiredSession.metadata.plan) || 'starter';
 
-        console.log('[Stripe] Checkout expired:', expiredEmail);
-        if (!expiredEmail) { console.warn('[Stripe] No email in expired session'); break; }
+  console.log('[Stripe] Checkout expired:', expiredEmail);
+  if (!expiredEmail) { console.warn('[Stripe] No email in expired session'); break; }
 
-        var expiredUserResult = await supabase.from('user_profiles').select('id, tenant_id').eq('email', expiredEmail).limit(1);
-        var expiredUser = expiredUserResult.data && expiredUserResult.data.length > 0 ? expiredUserResult.data[0] : null;
+  var expiredUserResult = await supabase.from('user_profiles').select('id, tenant_id').eq('email', expiredEmail).limit(1);
+  var expiredUser = expiredUserResult.data && expiredUserResult.data.length > 0 ? expiredUserResult.data[0] : null;
 
-        if (expiredUser && expiredUser.tenant_id) {
-          console.log('[Stripe] Expired session but user already has tenant — skipping recovery email');
-          break;
-        }
-
-        try {
-          var existingAbandon = await supabase.from('leads').select('id').eq('email', expiredEmail).limit(1);
-          if (!existingAbandon.data || existingAbandon.data.length === 0) {
-            await supabase.from('leads').insert({
-              name: expiredName || expiredEmail,
-              email: expiredEmail,
-              source: 'abandoned_checkout',
-              stage: 'inquiry',
-              type: 'prospect',
-              urgency: 'normal',
-              notes: 'Abandoned Stripe checkout — ' + expiredPlan + ' plan. Session expired.',
-              ai_summary: 'Started signup but did not complete payment.',
-              ai_next_action: 'Send recovery email and follow up within 48 hours.',
-              last_action_at: new Date().toISOString().split('T')[0],
-            });
-            console.log('[Stripe] Abandoned checkout lead created:', expiredEmail);
-          }
-        } catch (leadErr) { console.log('[Stripe] Abandon lead create failed:', leadErr.message); }
-
-        try {
-          var sgMailRecover = require('@sendgrid/mail');
-          sgMailRecover.setApiKey(process.env.SENDGRID_API_KEY);
-          var firstName = expiredName ? expiredName.split(' ')[0] : 'there';
-          var recoverHtml =
-            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
-            '<div style="text-align:center;margin-bottom:32px;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);display:inline-block;padding:8px 16px;border-radius:8px;"><span style="color:#fff;font-weight:900;font-size:20px;">EngageWorx</span></div></div>' +
-            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
-            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Looks like you started signing up for EngageWorx but didn\'t quite finish — no worries at all.</p>' +
-            '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">If you hit a snag, had a question, or just got pulled away — I\'m happy to help. Just reply to this email and I\'ll get back to you personally.</p>' +
-            '<div style="text-align:center;margin:28px 0;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a></div>' +
-            '<div style="text-align:center;margin:0 0 32px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
-            '<table cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:16px;vertical-align:top;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div></td><td style="vertical-align:top;"><div style="font-weight:bold;color:#222;font-size:14px;">Rob Mumby</div><div style="color:#555;font-size:13px;">Founder &amp; CEO, EngageWorx</div><div style="margin-top:4px;font-size:12px;"><a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> | <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a></div></td></tr></table></div>';
-
-          var spRecoverCfg = await getSPEmailConfig();
-          await sgMailRecover.send({
-            to: expiredEmail,
-            from: { email: spRecoverCfg.from, name: spRecoverCfg.fromName },
-            subject: 'Did you have any questions about EngageWorx?',
-            text: 'Hi ' + firstName + ',\n\nLooks like you started signing up but didn\'t quite finish.\n\nReady to jump back in? portal.engwx.com\n\nBook a quick call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx',
-            html: recoverHtml,
-          });
-          console.log('[Stripe] Recovery email sent to:', expiredEmail);
-        } catch (recoverErr) {
-          console.log('[Stripe] Recovery email failed (non-fatal):', recoverErr.message);
-        }
-
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        var sub = event.data.object;
-        console.log('[Stripe] Subscription cancelled:', sub.customer);
-        break;
-      }
-
-      default:
-        console.log('[Stripe] Unhandled event type:', event.type);
-    }
-
-    return res.status(200).json({ received: true });
-
-  } catch (err) {
-    console.error('[Stripe Webhook] Error:', err.message, err.stack);
-    return res.status(200).json({ received: true });
+  if (expiredUser && expiredUser.tenant_id) {
+    console.log('[Stripe] Expired session but user already has tenant — skipping');
+    break;
   }
+
+  // Create or update Pipeline lead
+  var abandonedLeadId = null;
+  try {
+    var existingAbandon = await supabase.from('leads').select('id').eq('email', expiredEmail).limit(1);
+    if (!existingAbandon.data || existingAbandon.data.length === 0) {
+      var abandonRes = await supabase.from('leads').insert({
+        name: expiredName || expiredEmail,
+        company: expiredName || '',
+        email: expiredEmail,
+        source: 'abandoned_checkout',
+        stage: 'inquiry',
+        type: 'Direct Business',
+        urgency: 'Hot',
+        billing_status: 'abandoned',
+        notes: 'Abandoned Stripe checkout — ' + expiredPlan + ' plan. No credit card entered.',
+        ai_next_action: 'Send recovery email and follow up within 48 hours.',
+        last_action_at: new Date().toISOString().split('T')[0],
+        last_activity_at: new Date().toISOString(),
+      }).select('id').single();
+      if (abandonRes.data) abandonedLeadId = abandonRes.data.id;
+      console.log('[Stripe] Abandoned checkout lead created:', expiredEmail);
+    } else {
+      abandonedLeadId = existingAbandon.data[0].id;
+      await supabase.from('leads').update({
+        billing_status: 'abandoned',
+        urgency: 'Hot',
+        last_activity_at: new Date().toISOString(),
+      }).eq('id', abandonedLeadId);
+    }
+  } catch (leadErr) { console.log('[Stripe] Abandon lead create failed:', leadErr.message); }
+
+  // Create Contact (dedup on email)
+  try {
+    if (abandonedLeadId) {
+      var existingContact = await supabase.from('contacts').select('id').eq('email', expiredEmail).eq('tenant_id', SP_TENANT_ID).single();
+      if (!existingContact.data) {
+        var nameParts = (expiredName || '').trim().split(' ');
+        await supabase.from('contacts').insert({
+          first_name: nameParts[0] || expiredEmail,
+          last_name: nameParts.slice(1).join(' ') || null,
+          email: expiredEmail,
+          company_name: expiredName || null,
+          pipeline_lead_id: abandonedLeadId,
+          tenant_id: SP_TENANT_ID,
+          status: 'active',
+          source: 'abandoned_checkout',
+        });
+        console.log('[Stripe] Abandoned checkout contact created:', expiredEmail);
+      }
+    }
+  } catch (contactErr) { console.log('[Stripe] Abandon contact create failed:', contactErr.message); }
+
+  // Auto-enrol in abandoned checkout sequence if one exists
+  try {
+    if (abandonedLeadId) {
+      var abandonSeqs = await supabase.from('sequences')
+        .select('id, name')
+        .eq('tenant_id', SP_TENANT_ID)
+        .ilike('name', '%abandon%')
+        .limit(1);
+      if (!abandonSeqs.data || abandonSeqs.data.length === 0) {
+        // Fall back to any sequence with 'recovery' or 'checkout' in name
+        abandonSeqs = await supabase.from('sequences')
+          .select('id, name')
+          .eq('tenant_id', SP_TENANT_ID)
+          .ilike('name', '%recover%')
+          .limit(1);
+      }
+      if (abandonSeqs.data && abandonSeqs.data.length > 0) {
+        var seqId = abandonSeqs.data[0].id;
+        var firstStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqId).eq('step_number', 1).single();
+        var startDate = new Date();
+        if (firstStep.data && firstStep.data.delay_days > 0) {
+          startDate.setDate(startDate.getDate() + firstStep.data.delay_days);
+        }
+        await supabase.from('lead_sequences').upsert({
+          tenant_id: SP_TENANT_ID,
+          lead_id: abandonedLeadId,
+          sequence_id: seqId,
+          current_step: 0,
+          status: 'active',
+          enrolled_at: new Date().toISOString(),
+          next_step_at: startDate.toISOString(),
+        }, { onConflict: 'lead_id,sequence_id' });
+        console.log('[Stripe] Enrolled abandoned lead in sequence:', abandonSeqs.data[0].name);
+      }
+    }
+  } catch (seqErr) { console.log('[Stripe] Sequence enrol failed:', seqErr.message); }
+
+  // Recovery email
+  try {
+    var sgMailRecover = require('@sendgrid/mail');
+    sgMailRecover.setApiKey(process.env.SENDGRID_API_KEY);
+    var firstName = expiredName ? expiredName.split(' ')[0] : 'there';
+    var recoverHtml =
+      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
+      '<div style="text-align:center;margin-bottom:32px;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);display:inline-block;padding:8px 16px;border-radius:8px;"><span style="color:#fff;font-weight:900;font-size:20px;">EngageWorx</span></div></div>' +
+      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
+      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Looks like you started signing up for EngageWorx but didn\'t quite finish — no worries at all.</p>' +
+      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">If you hit a snag, had a question, or just got pulled away — I\'m happy to help. Just reply to this email and I\'ll get back to you personally.</p>' +
+      '<div style="text-align:center;margin:28px 0;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a></div>' +
+      '<div style="text-align:center;margin:0 0 32px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
+      '<table cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:16px;vertical-align:top;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div></td><td style="vertical-align:top;"><div style="font-weight:bold;color:#222;font-size:14px;">Rob Mumby</div><div style="color:#555;font-size:13px;">Founder &amp; CEO, EngageWorx</div><div style="margin-top:4px;font-size:12px;"><a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> | <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a></div></td></tr></table></div>';
+
+    var spRecoverCfg = await getSPEmailConfig();
+    await sgMailRecover.send({
+      to: expiredEmail,
+      from: { email: spRecoverCfg.from, name: spRecoverCfg.fromName },
+      subject: 'Did you have any questions about EngageWorx?',
+      text: 'Hi ' + firstName + ',\n\nLooks like you started signing up but didn\'t quite finish.\n\nReady to jump back in? portal.engwx.com\n\nBook a quick call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx',
+      html: recoverHtml,
+    });
+    console.log('[Stripe] Recovery email sent to:', expiredEmail);
+  } catch (recoverErr) {
+    console.log('[Stripe] Recovery email failed (non-fatal):', recoverErr.message);
+  }
+
+  break;
+}
 };
