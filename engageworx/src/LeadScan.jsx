@@ -177,38 +177,31 @@ export default function LeadScan({ C }) {
     if (!file) return;
     setScanning(true);
     setMode('manual');
+    setError('');
     try {
-      var processImage = function(imgElement) {
-        var canvas = document.createElement('canvas');
-        canvas.width = imgElement.width;
-        canvas.height = imgElement.height;
-        var ctx = canvas.getContext('2d');
-        ctx.drawImage(imgElement, 0, 0);
-        return ctx.getImageData(0, 0, canvas.width, canvas.height);
-      };
-
-      var readQR = async function(imageData) {
-        // Try BarcodeDetector first (Chrome Android / desktop)
-        if ('BarcodeDetector' in window) {
-          try {
-            var detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-            var bitmap = await createImageBitmap(file);
-            var barcodes = await detector.detect(bitmap);
-            if (barcodes.length > 0) return barcodes[0].rawValue;
-          } catch(e2) {}
-        }
-        // Fallback: jsQR (works on iOS Chrome + Safari)
-        var jsQR = (await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js')).default;
-        var result = jsQR(imageData.data, imageData.width, imageData.height);
-        return result ? result.data : null;
-      };
+      // Load jsQR via script tag if not already loaded
+      if (!window.jsQR) {
+        await new Promise(function(resolve, reject) {
+          var script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
 
       var img = new window.Image();
-      img.onload = async function() {
+      img.onload = function() {
         try {
-          var imageData = processImage(img);
-          var raw = await readQR(imageData);
-          if (raw) {
+          var canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var result = window.jsQR(imageData.data, imageData.width, imageData.height);
+          if (result && result.data) {
+            var raw = result.data;
             if (raw.startsWith('BEGIN:VCARD')) {
               var parsed = parseVCard(raw);
               setForm(function(prev) { return Object.assign({}, prev, parsed); });
