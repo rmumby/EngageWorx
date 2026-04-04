@@ -137,9 +137,25 @@ export default function LeadScan({ C }) {
     setMode('manual');
     setError('');
     try {
+      // Compress image to max 1200px wide before sending
       var base64 = await new Promise(function(resolve, reject) {
         var reader = new FileReader();
-        reader.onload = function(ev) { resolve(ev.target.result.split(',')[1]); };
+        reader.onload = function(ev) {
+          var img = new window.Image();
+          img.onload = function() {
+            var maxW = 1200;
+            var scale = img.width > maxW ? maxW / img.width : 1;
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            var compressed = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            resolve(compressed);
+          };
+          img.onerror = reject;
+          img.src = ev.target.result;
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
@@ -147,7 +163,7 @@ export default function LeadScan({ C }) {
       var resp = await fetch('/api/read-card', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' })
+        body: JSON.stringify({ image: base64, mediaType: 'image/jpeg' })
       });
 
       if (!resp.ok) throw new Error('API error ' + resp.status);
