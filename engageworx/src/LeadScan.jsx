@@ -31,17 +31,14 @@ export default function LeadScan({ C }) {
   var [error, setError] = useState('');
   var [sequences, setSequences] = useState([]);
   var [selectedSeqId, setSelectedSeqId] = useState(CPEXPO_SEQ_ID);
-  var [scanning, setScanning] = useState(false);
   var [aiReading, setAiReading] = useState(false);
+
   useEffect(function() {
     fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
       .then(function(r) { return r.json(); })
       .then(function(d) { setSequences(d.sequences || []); })
       .catch(function() {});
   }, []);
-  var fileRef = useRef();
-  var videoRef = useRef();
-  var streamRef = useRef();
 
   function resetForm() {
     setForm({ name: '', company: '', email: '', phone: '', title: '', source: 'CPExpo', stage: 'inquiry', notes: '', urgency: 'Warm' });
@@ -77,7 +74,17 @@ export default function LeadScan({ C }) {
 
       if (form.name || form.email) {
         var nameParts = (form.name || '').trim().split(' ');
-        await supabase.from('contacts').insert({
+        // Dedup on email or phone
+        var existing = null;
+        if (form.email) {
+          var ec = await supabase.from('contacts').select('id').eq('email', form.email).eq('tenant_id', SP_TENANT_ID).single();
+          if (ec.data) existing = ec.data.id;
+        }
+        if (!existing && form.phone) {
+          var pc = await supabase.from('contacts').select('id').eq('phone', form.phone).eq('tenant_id', SP_TENANT_ID).single();
+          if (pc.data) existing = pc.data.id;
+        }
+        var contactPayload = {
           first_name: nameParts[0] || form.company,
           last_name: nameParts.slice(1).join(' ') || null,
           email: form.email || null,
@@ -88,10 +95,15 @@ export default function LeadScan({ C }) {
           tenant_id: SP_TENANT_ID,
           status: 'active',
           source: form.source,
-        });
+        };
+        if (existing) {
+          await supabase.from('contacts').update(contactPayload).eq('id', existing);
+        } else {
+          await supabase.from('contacts').insert(contactPayload);
+        }
       }
 
-     if (selectedSeqId) {
+      if (selectedSeqId) {
         var firstStepRes = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', selectedSeqId).eq('step_number', 1).single();
         var startDate = new Date();
         if (firstStepRes.data && firstStepRes.data.delay_days > 0) {
@@ -141,7 +153,7 @@ export default function LeadScan({ C }) {
                 source: { type: 'base64', media_type: file.type || 'image/jpeg', data: base64 }
               }, {
                 type: 'text',
-                text: 'Extract contact info from this business card. Return ONLY valid JSON with fields: name, company, email, phone, title, website. Use null for missing fields. No explanation.'
+                text: 'Extract contact info from this business card or badge. Return ONLY valid JSON with fields: name, company, email, phone, title, website. Use null for missing fields. No explanation.'
               }]
             }]
           })
@@ -172,209 +184,205 @@ export default function LeadScan({ C }) {
     }
   }
 
-  async function handleQRScan(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    setScanning(true);
-    setMode('manual');
-    setError('');
-    try {
-      // Load jsQR via script tag if not already loaded
-      if (!window.jsQR) {
-        await new Promise(function(resolve, reject) {
-          var script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      var img = new window.Image();
-      img.onload = function() {
-        try {
-          var canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          var result = window.jsQR(imageData.data, imageData.width, imageData.height);
-          if (result && result.data) {
-            var raw = result.data;
-            if (raw.startsWith('BEGIN:VCARD')) {
-              var parsed = parseVCard(raw);
-              setForm(function(prev) { return Object.assign({}, prev, parsed); });
-            } else if (raw.includes('@')) {
-              setForm(function(prev) { return Object.assign({}, prev, { email: raw.trim() }); });
-            } else {
-              updateForm('notes', raw);
-            }
-          } else {
-            setError('No QR code found — try manual entry or business card scan');
-          }
-        } catch(err) {
-          setError('QR scan failed: ' + err.message);
-        }
-        setScanning(false);
-      };
-      img.onerror = function() {
-        setError('Could not load image');
-        setScanning(false);
-      };
-      img.src = URL.createObjectURL(file);
-    } catch(e) {
-      setError('QR scan failed: ' + e.message);
-      setScanning(false);
-    }
-  }
-
   var inputStyle = {
-    width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 16,
+    width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
+    borderRadius: 12, padding: '14px 16px', color: '#f1f5f9', fontSize: 17,
     fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
-    WebkitAppearance: 'none',
+    WebkitAppearance: 'none', marginTop: 6,
   };
 
-  var labelStyle = { fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'block' };
+  var labelStyle = {
+    fontSize: 11, fontWeight: 700, color: colors.muted,
+    textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block',
+  };
 
+  // ── HOME SCREEN ─────────────────────────────────────────────────────────────
   if (mode === 'home') {
     return (
-      <div style={{ minHeight: '100vh', background: colors.bg, fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px' }}>
+      <div style={{ minHeight: '100vh', background: '#0a0f1e', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 20px 60px' }}>
+
+        {/* Success banner */}
         {saved && (
-          <div style={{ width: '100%', maxWidth: 400, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: '14px 18px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>✅</span>
+          <div style={{ width: '100%', maxWidth: 420, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 14, padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 28 }}>✅</span>
             <div>
-              <div style={{ color: '#10b981', fontWeight: 700, fontSize: 14 }}>{saved.name} saved</div>
-              <div style={{ color: '#64748b', fontSize: 12 }}>Added to Pipeline{saved.seq ? ' + ' + saved.seq : ''}</div>
+              <div style={{ color: '#10b981', fontWeight: 800, fontSize: 16 }}>{saved.name} saved!</div>
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>In Pipeline{saved.seq ? ' · enrolled in ' + saved.seq : ''}</div>
             </div>
           </div>
         )}
 
-        <div style={{ marginBottom: 32, textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 12px' }}>⚡</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>Lead Scan</div>
-          <div style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>CPExpo 2026 · Las Vegas</div>
+        {/* Logo */}
+        <div style={{ marginBottom: 36, textAlign: 'center' }}>
+          <div style={{ width: 64, height: 64, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 14px', boxShadow: '0 8px 32px rgba(0,201,255,0.3)' }}>⚡</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Lead Scan</div>
+          <div style={{ fontSize: 14, color: colors.muted, marginTop: 4 }}>CPExpo 2026 · The Venetian, Las Vegas</div>
         </div>
 
-        <div style={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <button onClick={function() { setMode('manual'); resetForm(); }} style={{ width: '100%', padding: '18px 20px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' }}>
-            <span style={{ fontSize: 28 }}>✏️</span>
-            <div>
+        <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* HERO — Scan Business Card */}
+          <label style={{ width: '100%', padding: '24px 22px', borderRadius: 18, border: 'none', background: 'linear-gradient(135deg, #00C9FF, #0070f3)', color: '#fff', fontWeight: 900, fontSize: 20, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', boxSizing: 'border-box', boxShadow: '0 8px 32px rgba(0,201,255,0.35)', position: 'relative', overflow: 'hidden' }}>
+            <span style={{ fontSize: 36, flexShrink: 0 }}>{aiReading ? '⏳' : '📷'}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 20, fontWeight: 900 }}>{aiReading ? 'AI Reading Card...' : 'Scan Business Card'}</div>
+              <div style={{ fontSize: 13, fontWeight: 500, opacity: 0.85, marginTop: 4 }}>Point camera at card · AI fills everything in</div>
+            </div>
+            <div style={{ fontSize: 28, opacity: 0.4 }}>→</div>
+            <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
+          </label>
+
+          {/* Badge photo — same AI but labelled differently */}
+          <label style={{ width: '100%', padding: '20px 22px', borderRadius: 16, border: '2px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.08)', color: '#f1f5f9', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', boxSizing: 'border-box' }}>
+            <span style={{ fontSize: 30, flexShrink: 0 }}>{aiReading ? '⏳' : '🪪'}</span>
+            <div style={{ flex: 1 }}>
+              <div>Scan Conference Badge</div>
+              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.6, marginTop: 3 }}>Photo of badge · AI extracts contact info</div>
+            </div>
+            <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
+          </label>
+
+          {/* Manual Entry */}
+          <button onClick={function() { setMode('manual'); resetForm(); }} style={{ width: '100%', padding: '20px 22px', borderRadius: 16, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#f1f5f9', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' }}>
+            <span style={{ fontSize: 30, flexShrink: 0 }}>✏️</span>
+            <div style={{ flex: 1 }}>
               <div>Manual Entry</div>
-              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.8, marginTop: 2 }}>Type name, company, email</div>
+              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.6, marginTop: 3 }}>Type name, company, email · 15 seconds</div>
             </div>
           </button>
 
-          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 14, border: '2px dashed rgba(0,201,255,0.3)', background: 'rgba(0,201,255,0.06)', color: '#f1f5f9', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', boxSizing: 'border-box' }}>
-            <span style={{ fontSize: 28 }}>{aiReading ? '⏳' : '📷'}</span>
-            <div>
-              <div>{aiReading ? 'Reading card...' : 'Scan Business Card'}</div>
-              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>AI reads name, company, email</div>
-            </div>
-            <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} />
-          </label>
-
-          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 14, border: '2px dashed rgba(224,64,251,0.3)', background: 'rgba(224,64,251,0.06)', color: '#f1f5f9', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', boxSizing: 'border-box' }}>
-            <span style={{ fontSize: 28 }}>{scanning ? '⏳' : '🔲'}</span>
-            <div>
-              <div>{scanning ? 'Scanning...' : 'Scan QR Badge'}</div>
-              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>Point at QR code on badge</div>
-            </div>
-            <input type="file" accept="image/*" capture="environment" onChange={handleQRScan} style={{ display: 'none' }} />
-          </label>
         </div>
 
-        <div style={{ marginTop: 28, width: '100%', maxWidth: 400 }}>
+        {/* Sequence selector */}
+        <div style={{ marginTop: 32, width: '100%', maxWidth: 420 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Auto-Enrol in Sequence</div>
-          <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
+          <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '14px 16px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
             <option value="">None — don't enrol</option>
             {sequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
           </select>
+          <div style={{ fontSize: 11, color: colors.muted, marginTop: 6 }}>Selected sequence fires automatically on every save</div>
         </div>
 
-        {error && <div style={{ marginTop: 16, width: '100%', maxWidth: 400, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#ef4444', fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ marginTop: 16, width: '100%', maxWidth: 420, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '14px 18px', color: '#ef4444', fontSize: 14 }}>{error}</div>}
       </div>
     );
   }
 
+  // ── MANUAL / AI FORM ────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: colors.bg, fontFamily: "'DM Sans', sans-serif", padding: '20px' }}>
-      <div style={{ maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0f1e', fontFamily: "'DM Sans', sans-serif", padding: '20px 20px 60px' }}>
+      <div style={{ maxWidth: 500, margin: '0 auto' }}>
+
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <button onClick={function() { setMode('home'); setError(''); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#94a3b8', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
-          <div style={{ fontSize: 16, fontWeight: 800, color: '#f1f5f9' }}>{aiReading ? '🤖 Reading card...' : 'New Lead'}</div>
+          <button onClick={function() { setMode('home'); setError(''); setAiReading(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: '#94a3b8', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>
+            {aiReading ? '🤖 AI Reading...' : 'New Lead'}
+          </div>
         </div>
 
+        {/* AI reading banner */}
         {aiReading && (
-          <div style={{ background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 12, padding: '16px', marginBottom: 20, textAlign: 'center', color: '#00C9FF', fontSize: 14, fontWeight: 600 }}>
-            AI is reading the business card...
+          <div style={{ background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '18px 20px', marginBottom: 24, textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
+            <div style={{ color: '#00C9FF', fontSize: 15, fontWeight: 700 }}>Claude is reading the card...</div>
+            <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>Fields will fill in automatically</div>
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Full Name</label>
-              <input style={inputStyle} value={form.name} onChange={function(e) { updateForm('name', e.target.value); }} placeholder="Jane Smith" autoFocus={!aiReading} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Company *</label>
-              <input style={inputStyle} value={form.company} onChange={function(e) { updateForm('company', e.target.value); }} placeholder="Acme Telecom" />
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* Name + Company — biggest fields */}
+          <div>
+            <label style={labelStyle}>Full Name</label>
+            <input style={{ ...inputStyle, fontSize: 20, fontWeight: 600 }} value={form.name} onChange={function(e) { updateForm('name', e.target.value); }} placeholder="Jane Smith" autoFocus={!aiReading} />
+          </div>
+          <div>
+            <label style={labelStyle}>Company *</label>
+            <input style={{ ...inputStyle, fontSize: 20, fontWeight: 600 }} value={form.company} onChange={function(e) { updateForm('company', e.target.value); }} placeholder="Acme Telecom" />
+          </div>
+
+          {/* Email + Phone */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <label style={labelStyle}>Email</label>
-              <input style={{ ...inputStyle, fontSize: 14 }} type="email" value={form.email} onChange={function(e) { updateForm('email', e.target.value); }} placeholder="jane@acme.com" />
+              <input style={inputStyle} type="email" value={form.email} onChange={function(e) { updateForm('email', e.target.value); }} placeholder="jane@acme.com" />
             </div>
             <div>
               <label style={labelStyle}>Phone</label>
-              <input style={{ ...inputStyle, fontSize: 14 }} type="tel" value={form.phone} onChange={function(e) { updateForm('phone', e.target.value); }} placeholder="+1 555 0000" />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Title</label>
-              <input style={inputStyle} value={form.title} onChange={function(e) { updateForm('title', e.target.value); }} placeholder="VP Sales" />
+              <input style={inputStyle} type="tel" value={form.phone} onChange={function(e) { updateForm('phone', e.target.value); }} placeholder="+1 555 0000" />
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          {/* Title */}
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input style={inputStyle} value={form.title} onChange={function(e) { updateForm('title', e.target.value); }} placeholder="VP Sales" />
+          </div>
+
+          {/* Urgency — big tap targets */}
+          <div>
+            <label style={labelStyle}>Urgency</label>
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              {[['Hot','🔥','#ef4444'],['Warm','⚡','#f59e0b'],['Cold','❄️','#64748b']].map(function(u) {
+                var isActive = form.urgency === u[0];
+                return (
+                  <button key={u[0]} onClick={function() { updateForm('urgency', u[0]); }} style={{ flex: 1, padding: '14px 8px', borderRadius: 12, border: '2px solid ' + (isActive ? u[2] : 'rgba(255,255,255,0.1)'), background: isActive ? u[2] + '22' : 'rgba(255,255,255,0.03)', color: isActive ? u[2] : '#64748b', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {u[1]} {u[0]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Source + Stage in a row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <label style={labelStyle}>Source</label>
-              <select style={{ ...inputStyle, fontSize: 14 }} value={form.source} onChange={function(e) { updateForm('source', e.target.value); }}>
+              <select style={inputStyle} value={form.source} onChange={function(e) { updateForm('source', e.target.value); }}>
                 {SOURCES.map(function(s) { return <option key={s} value={s}>{s}</option>; })}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Urgency</label>
-              <select style={{ ...inputStyle, fontSize: 14 }} value={form.urgency} onChange={function(e) { updateForm('urgency', e.target.value); }}>
-                <option>Hot</option><option>Warm</option><option>Cold</option>
-              </select>
-            </div>
-            <div>
               <label style={labelStyle}>Stage</label>
-              <select style={{ ...inputStyle, fontSize: 14 }} value={form.stage} onChange={function(e) { updateForm('stage', e.target.value); }}>
+              <select style={inputStyle} value={form.stage} onChange={function(e) { updateForm('stage', e.target.value); }}>
                 {STAGES.map(function(s) { return <option key={s} value={s}>{s}</option>; })}
               </select>
             </div>
           </div>
 
+          {/* Notes */}
           <div>
             <label style={labelStyle}>Notes</label>
-            <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical', lineHeight: 1.5 }} value={form.notes} onChange={function(e) { updateForm('notes', e.target.value); }} placeholder="What did you talk about?" />
+            <textarea style={{ ...inputStyle, minHeight: 90, resize: 'vertical', lineHeight: 1.6 }} value={form.notes} onChange={function(e) { updateForm('notes', e.target.value); }} placeholder="What did you talk about?" />
           </div>
 
+          {/* Sequence */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, display: 'block' }}>Auto-Enrol in Sequence</label>
-            <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
+            <label style={labelStyle}>Auto-Enrol in Sequence</label>
+            <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ ...inputStyle, color: selectedSeqId ? '#f1f5f9' : '#64748b' }}>
               <option value="">None — don't enrol</option>
               {sequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
             </select>
           </div>
 
-          {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 14px', color: '#ef4444', fontSize: 13 }}>{error}</div>}
+          {error && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12, padding: '14px 16px', color: '#ef4444', fontSize: 14 }}>{error}</div>
+          )}
 
-          <button onClick={handleSave} disabled={saving || aiReading} style={{ width: '100%', padding: '16px', borderRadius: 12, border: 'none', background: saving || aiReading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 17, cursor: saving || aiReading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+          {/* Save — big thumb button */}
+          <button onClick={handleSave} disabled={saving || aiReading} style={{ width: '100%', padding: '20px', borderRadius: 16, border: 'none', background: saving || aiReading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 20, cursor: saving || aiReading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: saving || aiReading ? 'none' : '0 8px 24px rgba(99,102,241,0.4)', marginTop: 8 }}>
             {saving ? 'Saving...' : '⚡ Save Lead'}
           </button>
+
+          {/* Also scan another card from form */}
+          {!aiReading && (
+            <label style={{ width: '100%', padding: '14px', borderRadius: 12, border: '1px dashed rgba(0,201,255,0.3)', background: 'rgba(0,201,255,0.04)', color: '#00C9FF', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxSizing: 'border-box' }}>
+              <span>📷</span> Scan a different card
+              <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} />
+            </label>
+          )}
+
         </div>
       </div>
     </div>
