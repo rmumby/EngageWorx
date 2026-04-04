@@ -137,37 +137,40 @@ export default function LeadScan({ C }) {
     setMode('manual');
     setError('');
     try {
-      var reader = new FileReader();
-      reader.onload = async function(ev) {
-        var base64 = ev.target.result.split(',')[1];
-        var resp = await fetch('/api/read-card', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image: base64,
-            mediaType: file.type || 'image/jpeg',
-          })
-        });
-        var data = await resp.json();
-        if (data.success && data.contact) {
-          var parsed = data.contact;
-          setForm(function(prev) {
-            return Object.assign({}, prev, {
-              name: parsed.name || prev.name,
-              company: parsed.company || prev.company,
-              email: parsed.email || prev.email,
-              phone: parsed.phone || prev.phone,
-              title: parsed.title || prev.title,
-            });
+      var base64 = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function(ev) { resolve(ev.target.result.split(',')[1]); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      var resp = await fetch('/api/read-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mediaType: file.type || 'image/jpeg' })
+      });
+
+      if (!resp.ok) throw new Error('API error ' + resp.status);
+
+      var data = await resp.json();
+      if (data.success && data.contact) {
+        var parsed = data.contact;
+        setForm(function(prev) {
+          return Object.assign({}, prev, {
+            name: parsed.name || prev.name,
+            company: parsed.company || prev.company,
+            email: parsed.email || prev.email,
+            phone: parsed.phone || prev.phone,
+            title: parsed.title || prev.title,
           });
-        }
-        setAiReading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch(e) {
-      setError('Could not read card: ' + e.message);
-      setAiReading(false);
+        });
+      } else {
+        setError('Could not read card — try manual entry');
+      }
+    } catch(err) {
+      setError('Could not read card: ' + err.message);
     }
+    setAiReading(false);
   }
 
   var inputStyle = {
