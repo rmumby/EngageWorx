@@ -541,11 +541,11 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
               .single();
 
             tenantConfig = {
-              businessName:      tenant?.name                    || 'our business',
-              industry:          tenant?.industry                || 'general business',
-              personality:       chatbotConfig?.personality      || 'friendly and professional',
-              knowledgeBase:     chatbotConfig?.knowledge_base   || '',
-              escalationRules:   chatbotConfig?.escalation_rules || '',
+              businessName:      tenant?.name                        || 'our business',
+              industry:          tenant?.industry                    || 'general business',
+              personality:       chatbotConfig?.personality_preset   || 'friendly and professional',
+              knowledgeBase:     chatbotConfig?.system_prompt        || '',
+              escalationRules:   chatbotConfig?.fallback_message     || '',
               maxResponseLength: 160,
             };
           }
