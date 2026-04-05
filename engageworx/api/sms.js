@@ -414,6 +414,36 @@ module.exports = async function handler(req, res) {
       const now = new Date().toISOString();
 const channel = isWhatsApp ? 'whatsapp' : 'sms';
 const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
+      // 4. Save inbound message to messages table
+      try {
+        await supabase.from('messages').insert({
+          conversation_id:     conversationId,
+          tenant_id:           tenantId,
+          contact_id:          contactId,
+          direction:           'inbound',
+          channel:             channel,
+          body:                Body,
+          status:              'delivered',
+          provider_message_id: MessageSid,
+          from_number:         From,
+          to_number:           To,
+          created_at:          now,
+          updated_at:          now,
+        });
+        console.log('[SMS] Inbound message saved:', MessageSid);
+      } catch (msgErr) {
+        console.log('[SMS] Message insert failed (non-fatal):', msgErr.message);
+      }
+
+      // 5. Update conversation last message
+      if (conversationId) {
+        await supabase.from('conversations').update({
+          last_message_at:      now,
+          last_message_preview: (Body || '').substring(0, 100),
+          unread_count:         supabase.rpc('increment', { x: 1 }),
+          updated_at:           now,
+        }).eq('id', conversationId);
+      }
 
      // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
       try {
