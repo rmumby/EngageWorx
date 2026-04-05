@@ -1949,6 +1949,26 @@ var spNavBase = [
         {sidebarCollapsed && (
           <button onClick={() => toggleDemoMode(!demoMode)} title={demoMode ? "Demo Mode ON" : "Demo Mode OFF"} style={{ width: "100%", padding: "8px 0", borderRadius: 9, marginBottom: 6, border: "none", background: demoMode ? `${C.accent}22` : "transparent", color: demoMode ? C.accent : C.muted, cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>🎮</button>
         )}
+        {/* Light/Dark Toggle */}
+        {!sidebarCollapsed && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 9, marginBottom: 6, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <span style={{ fontSize: 12, color: C.muted }}>🌙 Dark Mode</span>
+            <ThemeToggle />
+          </div>
+        )}
+        {sidebarCollapsed && (
+          <div style={{ textAlign: "center", marginBottom: 6 }}><ThemeToggle /></div>
+        )}
+
+        {/* Sign Out */}
+        {!sidebarCollapsed && (
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.href = "/"; }} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 9, marginBottom: 6, background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+            <span>⏻</span><span>Sign Out</span>
+          </button>
+        )}
+        {sidebarCollapsed && (
+          <button onClick={async () => { await supabase.auth.signOut(); window.location.href = "/"; }} title="Sign Out" style={{ width: "100%", padding: "8px 0", borderRadius: 9, marginBottom: 6, border: "none", background: "rgba(255,59,48,0.08)", color: "#FF3B30", cursor: "pointer", fontSize: 16, fontFamily: "'DM Sans', sans-serif", textAlign: "center" }}>⏻</button>
+        )}
 
         <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} style={{ width: "100%", padding: "6px 0", borderRadius: 8, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", textAlign: "center", flexShrink: 0 }}>{sidebarCollapsed ? "»" : "«"}</button>
       </div>
