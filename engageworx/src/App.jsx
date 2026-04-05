@@ -203,7 +203,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
             <Badge color={C.primary} size="md">🌐 Service Provider View</Badge>
             <Badge color="#00E676" size="md">● All Systems Operational</Badge>
           </div>
-        <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>API keys, integrations, channels, billing & team management
+        <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>API keys, integrations, channels, billing & team management</p>
         </div>
       </div>
 
