@@ -415,26 +415,23 @@ module.exports = async function handler(req, res) {
 const channel = isWhatsApp ? 'whatsapp' : 'sms';
 const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
       // 4. Save inbound message to messages table
-      try {
-        await supabase.from('messages').insert({
-          conversation_id:     conversationId,
+     try {
+        const msgInsert = await supabase.from('messages').insert({
           tenant_id:           tenantId,
+          conversation_id:     conversationId,
           contact_id:          contactId,
           direction:           'inbound',
           channel:             channel,
-          topic:               channel,
-          extension:           From,
           body:                Body,
           status:              'delivered',
           provider_message_id: MessageSid,
           metadata:            { from: From, to: To },
-          inserted_at:         now,
-          updated_at:          now,
           created_at:          now,
         });
-        console.log('[SMS] Inbound message saved:', MessageSid);
+        if (msgInsert.error) console.error('[SMS] Message insert error:', msgInsert.error.message);
+        else console.log('[SMS] Inbound message saved successfully');
       } catch (msgErr) {
-        console.log('[SMS] Message insert failed (non-fatal):', msgErr.message);
+        console.error('[SMS] Message insert failed:', msgErr.message);
       }
 
       // 5. Update conversation last message
