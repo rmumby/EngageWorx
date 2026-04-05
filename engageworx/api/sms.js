@@ -422,6 +422,8 @@ const conversationId = await findOrCreateConversation(supabase, tenantId, contac
           contact_id:          contactId,
           direction:           'inbound',
           channel:             channel,
+          topic:               channel,
+          extension:           From,
           body:                Body,
           status:              'delivered',
           provider_message_id: MessageSid,
