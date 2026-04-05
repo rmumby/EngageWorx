@@ -407,7 +407,6 @@ module.exports = async function handler(req, res) {
       const now = new Date().toISOString();
 const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
 
-      // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
      // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
       try {
         var spTenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
