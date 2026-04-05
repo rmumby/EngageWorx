@@ -20,8 +20,8 @@ const NOTIFICATION_PREFS = [
 const CHANNEL_DEFS = [
   { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
     { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", aiAssist: true, aiContext: "SMS phone number field for a business — just confirm the number looks correct" },
-    { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name", aiAssist: true, aiContext: "Business name used as SMS sender ID — suggest a clean, professional version" },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+    { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
     { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message. Msg & data rates may apply. Reply STOP to unsubscribe. will be appended automatically — do not include it." },
     { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices — richer messages, read receipts, and branded sender profile. No separate number needed. Register your RCS Business Agent in Settings to activate." },
     { key: "_byoc_toggle", label: "Enable BYOC (Bring Your Own Carrier)", type: "select", options: ["Disabled", "Enabled"], spOnly: true },
@@ -41,10 +41,10 @@ const CHANNEL_DEFS = [
     { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
     { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
   ]},
-  { id: "whatsapp", label: "WhatsApp Business API", icon: "📱", color: "#25D366", fields: [
-    { key: "business_account_id", label: "Business Account ID" },
+  { id: "whatsapp", label: "WhatsApp for Business", icon: "📱", color: "#25D366", fields: [
+    { key: "business_account_id", label: "Business Account ID", placeholder: "Found in Meta Business Manager → WhatsApp Manager" },
     { key: "phone_number_id", label: "Phone Number ID" },
-    { key: "access_token", label: "Access Token", type: "password" },
+    { key: "access_token", label: "Meta System User Access Token", type: "password", hint: "Advanced: Found in Meta Business Manager → System Users → Generate Token. Required for template messaging and advanced API features." },
   ]},
   { id: "rcs", label: "RCS Business Messaging", icon: "✨", color: "#7C4DFF", fields: [
     { key: "agent_id", label: "Agent ID", placeholder: "brands/your-brand/agents/engage" },
@@ -389,7 +389,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         body: JSON.stringify({ priceId: topup.priceId, email: userEmail, mode: "payment", successUrl: window.location.href + "?topup=success", cancelUrl: window.location.href }),
       });
       const data = await response.json();
-      if (data.url) { window.location.href = data.url; } else { alert("Error creating checkout session"); }
+      if (data.url) { window.open(data.url, '_blank'); } else { alert("Error creating checkout session"); }
     } catch (err) { alert("Error: " + err.message); }
     finally { setTopupLoading(null); }
   };
@@ -748,7 +748,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
           { id: "team", label: "Team", icon: "👥" },
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
-{ id: "welcome-email", label: "Welcome Email", icon: "📧" },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)",
