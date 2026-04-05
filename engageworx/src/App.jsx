@@ -42,49 +42,55 @@ function useLiveData(demoMode) {
         .from('tenants')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
 
-      const formatted = (tenants || []).map(t => ({
-        id: t.id,
-        name: t.name,
-        logo: (t.brand_name || t.name || '??').substring(0, 2).toUpperCase(),
-        role: "customer",
-        brand: {
-          primary: t.brand_primary || '#00C9FF',
-          secondary: t.brand_secondary || '#E040FB',
-          name: t.brand_name || t.name,
-        },
-        colors: {
-          primary: t.brand_primary || '#00C9FF',
-          accent: t.brand_secondary || '#E040FB',
-          bg: "#080d1a", surface: "#0d1425", border: "#182440",
-          text: "#E8F4FD", muted: "#6B8BAE",
-        },
-        stats: {
-          messages: 0, revenue: 0, campaigns: 0,
-          contacts: 0, deliveryRate: 0, openRate: 0,
-        },
-        channels: (t.channels_enabled || ['SMS', 'Email']),
-        plan: t.plan,
-        status: t.status,
-        slug: t.slug,
-        tenant_type: t.tenant_type || 'business',
-        parent_tenant_id: t.parent_tenant_id,
-      }));
-
-      setLiveTenants(formatted);
-      setLiveStats({
-        totalMessages: 0,
-        totalRevenue: 0,
-        activeCustomers: formatted.length,
-        totalCampaigns: 0,
+      // Count contacts directly assigned to each tenant
+      const { data: contactCounts } = await supabase
+        .from('contacts')
+        .select('tenant_id')
+        .neq('tenant_id', null);
+      const countMap = {};
+      (contactCounts || []).forEach(c => {
+        countMap[c.tenant_id] = (countMap[c.tenant_id] || 0) + 1;
       });
-    } catch (err) {
-      console.warn('Live data fetch error:', err.message);
-    }
-    setLiveLoading(false);
-  }, []);
+
+      // Count Pipeline contacts under SP tenant by company name
+      const { data: pipelineContacts } = await supabase
+        .from('contacts')
+        .select('company_name')
+        .eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387');
+      const companyCountMap = {};
+      (pipelineContacts || []).forEach(c => {
+        if (c.company_name) {
+          var key = c.company_name.toLowerCase().trim();
+          companyCountMap[key] = (companyCountMap[key] || 0) + 1;
+        }
+      });
+
+      const formatted = (tenants || []).map(t => {
+        var directCount = countMap[t.id] || 0;
+        var companyKey = (t.brand_name || t.name || '').toLowerCase().trim();
+        var pipelineCount = companyCountMap[companyKey] || 0;
+        var totalContacts = directCount > 0 ? directCount : pipelineCount;
+        return {
+          id: t.id,
+          name: t.name,
+          logo: (t.brand_name || t.name || '??').substring(0, 2).toUpperCase(),
+          role: "customer",
+          brand: {
+            primary: t.brand_primary || '#00C9FF',
+            secondary: t.brand_secondary || '#E040FB',
+            name: t.brand_name || t.name,
+          },
+          colors: {
+            primary: t.brand_primary || '#00C9FF',
+            accent: t.brand_secondary || '#E040FB',
+            bg: "#080d1a", surface: "#0d1425", border: "#182440",
+            text: "#E8F4FD", muted: "#6B8BAE",
+          },
+          stats: {
+            messages: 0, revenue: 0, campaigns: 0,
+            contacts: totalContacts,
 
   // Fetch when demoMode turns off
   useEffect(() => {
