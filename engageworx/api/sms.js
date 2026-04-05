@@ -321,13 +321,19 @@ module.exports = async function handler(req, res) {
 
   // ─── WEBHOOK (Twilio inbound + status) ──────────────────────────────────
   if (action === 'webhook') {
-    // !! CRITICAL: Parse raw form body — Twilio sends application/x-www-form-urlencoded
-    // Vercel's default JSON body parser corrupts this, so we parse manually.
+    // Always return 200 to Twilio to prevent retries
     let twilioBody;
     try {
       twilioBody = await parseFormBody(req);
     } catch (parseErr) {
       console.error('[Twilio] Body parse error:', parseErr.message);
+      res.setHeader('Content-Type', 'text/xml');
+      return res.status(200).send('<Response></Response>');
+    }
+
+    // Safety net — if anything crashes return 200 not 500
+    if (!twilioBody || !twilioBody.MessageSid) {
+      console.log('[Twilio] No MessageSid in body — raw body:', JSON.stringify(req.body));
       res.setHeader('Content-Type', 'text/xml');
       return res.status(200).send('<Response></Response>');
     }
