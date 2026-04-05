@@ -1351,9 +1351,9 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "sequences" && <SequenceBuilder C={C} tenantId={tenantId} demoMode={false} />}
         {page === "sequenceroster" && <SequenceRoster C={C} tenantId={tenantId} demoMode={false} />}
         {page === "importleads" && <ImportLeads C={C} tenantId={tenantId} demoMode={false} />}
-        {page === "billing" && <BillingModule C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" />}
         {page === "tenants" && <TenantManagement C={C} demoMode={false} />}
-        {page === "integrations" && <APIIntegrations C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="api" />}
         {page === "settings" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
