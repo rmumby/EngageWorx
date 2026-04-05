@@ -11,15 +11,22 @@
     },
     "api/cron-sequences.js": {
       "maxDuration": 60
-    },  
-      "api/read-card.js": {
+    },
+    "api/read-card.js": {
       "maxDuration": 30
+    },
+    "api/cron-signup-recovery.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/cron-sequences",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron-signup-recovery",
+      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [
