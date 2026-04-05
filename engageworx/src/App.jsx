@@ -120,7 +120,6 @@ function useLiveData(demoMode) {
   }, [demoMode, fetchLiveData]);
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
 }
-const TENANTS = {
 
 const TENANTS = {
   serviceProvider: {
