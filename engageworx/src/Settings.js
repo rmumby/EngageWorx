@@ -327,7 +327,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab }) {
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs }) {
   const [activeTab, setActiveTab] = useState(defaultTab || "api");
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
@@ -748,7 +748,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
           { id: "team", label: "Team", icon: "👥" },
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
-        ].map(t => (
+        ].filter(t => !allowedTabs || allowedTabs.includes(t.id)).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
             background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)",
             border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)",
