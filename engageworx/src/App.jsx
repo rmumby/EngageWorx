@@ -203,9 +203,6 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
             <Badge color={C.primary} size="md">🌐 Service Provider View</Badge>
             <Badge color="#00E676" size="md">● All Systems Operational</Badge>
           </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>
-          {allowedTabs && allowedTabs.includes("billing") && !allowedTabs.includes("api") ? "Billing" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "API & Integrations" : "Settings"}
-        </h1>
         <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>
           {allowedTabs && allowedTabs.includes("billing") && !allowedTabs.includes("api") ? "Plans, usage, invoices and top-ups" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "API keys and webhook configuration" : "API keys, integrations, channels, billing & team management"}
         </p>
