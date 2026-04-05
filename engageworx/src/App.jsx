@@ -117,8 +117,9 @@ function useLiveData(demoMode) {
   // Fetch when demoMode turns off
   useEffect(() => {
     if (!demoMode) fetchLiveData();
-  }, [demoMode, fetchLiveData]);
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
+}
+const TENANTS = {
 
 const TENANTS = {
   serviceProvider: {
