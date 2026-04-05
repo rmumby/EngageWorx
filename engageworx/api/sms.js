@@ -335,9 +335,14 @@ module.exports = async function handler(req, res) {
 
     try {
       const {
-        MessageSid, From, To, Body, NumMedia,
+        MessageSid, Body, NumMedia,
         MessageStatus, SmsStatus, ErrorCode, ErrorMessage,
       } = twilioBody;
+
+      // Strip whatsapp: prefix if present (WhatsApp messages arrive as whatsapp:+1XXXXXXXXXX)
+      const From = (twilioBody.From || '').replace(/^whatsapp:/i, '');
+      const To   = (twilioBody.To   || '').replace(/^whatsapp:/i, '');
+      const isWhatsApp = (twilioBody.From || '').toLowerCase().startsWith('whatsapp:');
 
       const supabase = getSupabase();
 
