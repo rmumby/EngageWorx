@@ -95,14 +95,15 @@ async function findOrCreateContact(supabase, tenantId, phone) {
 }
 
 // ─── FIND OR CREATE CONVERSATION ──────────────────────────────────────────
-async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone) {
+async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone, channel) {
+  channel = channel || 'sms';
   if (!tenantId || !contactId) return null;
   try {
     const { data: existing } = await supabase
       .from('conversations')
       .select('id')
       .eq('tenant_id',  tenantId)
-      .eq('channel',    'sms')
+      .eq('channel',    channel)
       .eq('contact_id', contactId)
       .in('status', ['active', 'waiting', 'snoozed'])
       .order('created_at', { ascending: false })
@@ -116,7 +117,7 @@ async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone
       .insert({
         tenant_id:            tenantId,
         contact_id:           contactId,
-        channel:              'sms',
+        channel:              channel,
         status:               'active',
         subject:              `SMS from ${fromPhone}`,
         last_message_at:      new Date().toISOString(),
@@ -405,7 +406,8 @@ module.exports = async function handler(req, res) {
       // 3. Find or create contact
       const contactId = await findOrCreateContact(supabase, tenantId, From);
       const now = new Date().toISOString();
-const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From);
+const channel = isWhatsApp ? 'whatsapp' : 'sms';
+const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
 
      // 3b. Auto-create pipeline lead for SP tenant (non-blocking)
       try {
