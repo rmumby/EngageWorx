@@ -539,6 +539,13 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
               .select('*')
               .eq('tenant_id', tenantId)
               .single();
+            // Check if AI is active on this channel
+const activeChannels = chatbotConfig?.channels_active || ['sms', 'whatsapp', 'email'];
+if (!activeChannels.includes(channel)) {
+  console.log('[AI] Channel', channel, 'not active for tenant', tenantId, '— skipping AI response');
+  res.setHeader('Content-Type', 'text/xml');
+  return res.status(200).send('<Response></Response>');
+}
 
             tenantConfig = {
               businessName:      tenant?.name                        || 'our business',
