@@ -90,15 +90,35 @@ function useLiveData(demoMode) {
           },
           stats: {
             messages: 0, revenue: 0, campaigns: 0,
-            contacts: totalContacts,
+            contacts: totalContacts, deliveryRate: 0, openRate: 0,
+          },
+          channels: (t.channels_enabled || ['SMS', 'Email']),
+          plan: t.plan,
+          status: t.status,
+          slug: t.slug,
+          tenant_type: t.tenant_type || 'business',
+          parent_tenant_id: t.parent_tenant_id,
+        };
+      });
+
+      setLiveTenants(formatted);
+      setLiveStats({
+        totalMessages: 0,
+        totalRevenue: 0,
+        activeCustomers: formatted.length,
+        totalCampaigns: 0,
+      });
+    } catch (err) {
+      console.warn('Live data fetch error:', err.message);
+    }
+    setLiveLoading(false);
+  }, []);
 
   // Fetch when demoMode turns off
   useEffect(() => {
     if (!demoMode) fetchLiveData();
   }, [demoMode, fetchLiveData]);
-
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
-}
 
 const TENANTS = {
   serviceProvider: {
