@@ -425,10 +425,10 @@ const conversationId = await findOrCreateConversation(supabase, tenantId, contac
           body:                Body,
           status:              'delivered',
           provider_message_id: MessageSid,
-          from_number:         From,
-          to_number:           To,
-          created_at:          now,
+          metadata:            { from: From, to: To },
+          inserted_at:         now,
           updated_at:          now,
+          created_at:          now,
         });
         console.log('[SMS] Inbound message saved:', MessageSid);
       } catch (msgErr) {
