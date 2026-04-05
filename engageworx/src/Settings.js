@@ -327,8 +327,8 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  const [activeTab, setActiveTab] = useState("api");
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab }) {
+  const [activeTab, setActiveTab] = useState(defaultTab || "api");
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
   const [stripePlan, setStripePlan] = useState(null);
