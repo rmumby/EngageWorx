@@ -1242,15 +1242,23 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [page, setPage] = useState("dashboard");
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "⊞" },
+    { id: "dashboard", label: "Platform Overview", icon: "⊞" },
+    { id: "pipeline", label: "Pipeline", icon: "📈" },
+    { id: "leadscan", label: "Lead Scan", icon: "📲" },
+    { id: "inbox", label: "Live Inbox", icon: "💬" },
+    { id: "support", label: "Help Desk", icon: "🎫" },
+    { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
+    { id: "sequences", label: "Sequence Builder", icon: "⚡" },
+    { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
+    { id: "importleads", label: "Import Leads", icon: "📥" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "inbox", label: "Live Inbox", icon: "💬" },
     { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "contacts", label: "Contacts", icon: "👥" },
-    { id: "support", label: "Support", icon: "🎫" },
+    { id: "billing", label: "Billing", icon: "💳" },
+    { id: "tenants", label: "Tenant Management", icon: "🏢" },
     { id: "registration", label: "Registration", icon: "📋" },
+    { id: "integrations", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
@@ -1338,6 +1346,14 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} />}
+        {page === "pipeline" && <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "leadscan" && <LeadScan C={C} />}
+        {page === "sequences" && <SequenceBuilder C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "sequenceroster" && <SequenceRoster C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "importleads" && <ImportLeads C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "billing" && <BillingModule C={C} tenantId={tenantId} demoMode={false} />}
+        {page === "tenants" && <TenantManagement C={C} demoMode={false} />}
+        {page === "integrations" && <APIIntegrations C={C} tenantId={tenantId} demoMode={false} />}
         {page === "settings" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
@@ -1345,7 +1361,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
           </div>
         )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && (
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
