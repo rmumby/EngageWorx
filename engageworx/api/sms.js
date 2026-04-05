@@ -440,7 +440,6 @@ const conversationId = await findOrCreateConversation(supabase, tenantId, contac
         await supabase.from('conversations').update({
           last_message_at:      now,
           last_message_preview: (Body || '').substring(0, 100),
-          unread_count:         supabase.rpc('increment', { x: 1 }),
           updated_at:           now,
         }).eq('id', conversationId);
       }
