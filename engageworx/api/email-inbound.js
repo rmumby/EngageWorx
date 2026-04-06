@@ -1,41 +1,44 @@
-var anthropicSdk = require('@anthropic-ai/sdk');
-var Anthropic = anthropicSdk.default || anthropicSdk;
+// /api/email-inbound.js — Inbound email handler via SendGrid Inbound Parse
 var sgMail = require('@sendgrid/mail');
 var { createClient } = require('@supabase/supabase-js');
 
 var supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
+  process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-var anthropic = new Anthropic({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-var EW_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387'; // EngageWorx SP tenant
+var EW_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
-var EW_EMAIL_SYSTEM_PROMPT = `You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle inbound sales and support enquiries sent to hello@engwx.com.
+var EW_EMAIL_SYSTEM_PROMPT = 'You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle inbound sales and support enquiries sent to hello@engwx.com.\n\nABOUT ENGAGEWORX:\n- Platform: SMS, WhatsApp, Email, Voice, and RCS — all in one portal at portal.engwx.com\n- Pricing: Starter $99/mo, Growth $249/mo, Pro $499/mo. Enterprise: custom.\n- No platform fee — a key differentiator vs competitors like GoHighLevel\n- Built-in AI chatbot powered by Claude (Anthropic)\n- Multi-tenant white-label architecture — businesses use it directly OR resell it (CSP model)\n- Live at portal.engwx.com\n\nYOUR ROLE:\n- Reply professionally and helpfully to inbound enquiries\n- Answer questions about pricing, features, channels, and setup\n- Encourage prospects to sign up at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min\n- For partnership or reseller enquiries, highlight the white-label CSP model\n- Keep replies concise — 3-5 sentences or short paragraphs, never a wall of text\n- Never mention Twilio, SendGrid, Supabase, Vercel, or any infrastructure provider\n- Sign off as: EngageWorx Team\n\nTONE: Warm, confident, direct. Short sentences. No buzzwords.';
 
-ABOUT ENGAGEWORX:
-- Platform: SMS, WhatsApp, Email, Voice, and RCS — all in one portal at portal.engwx.com
-- Pricing: Starter $99/mo (1 number, 1,000 SMS), Growth $249/mo (3 numbers, 5,000 SMS), Pro $499/mo (10 numbers, 20,000 SMS, white-label, API). Enterprise: custom.
-- SMS overage: $0.025/message. No platform fee — a key differentiator vs competitors.
-- Built-in AI chatbot powered by Claude (Anthropic)
-- Multi-tenant white-label architecture — businesses use it directly OR resell it to their own customers (CSP model)
-- Target customers: restaurants, healthcare, retail, professional services, e-commerce, and service providers (CSPs/MSPs/telcos)
-- Live at portal.engwx.com — free to try, no credit card required to start
-
-YOUR ROLE:
-- Reply professionally and helpfully to inbound enquiries
-- Answer questions about pricing, features, channels, and setup
-- Encourage prospects to sign up at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min
-- For complex technical questions, reassure them and offer a demo call
-- For partnership or reseller enquiries, highlight the white-label CSP model
-- Keep replies concise — 3-5 sentences or short paragraphs, never a wall of text
-- Never mention Twilio, SendGrid, Supabase, Vercel, or any infrastructure provider
-- Always be warm, professional, and founder-led in tone — this is a growing startup, not a faceless corporation
-- Sign off as: EngageWorx Team (the human founder Rob reviews all replies)
-
-TONE: Warm, confident, direct. Short sentences. No buzzwords like "game-changer" or "revolutionary".`;
+async function getAIReply(message) {
+  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_KEY) throw new Error('No Anthropic API key');
+  var response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 500,
+      system: EW_EMAIL_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: message }],
+    }),
+  });
+  if (!response.ok) {
+    var err = await response.json();
+    throw new Error('Claude error: ' + JSON.stringify(err));
+  }
+  var data = await response.json();
+  return data.content && data.content[0] && data.content[0].text
+    ? data.content[0].text.trim()
+    : null;
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -47,7 +50,7 @@ module.exports = async function handler(req, res) {
 
     var body = req.body || {};
 
-    // SendGrid sends multipart/form-data — parse it manually if body is empty
+    // SendGrid sends multipart/form-data — parse manually if body is empty
     if (!body || Object.keys(body).length === 0) {
       var rawBody = await new Promise(function(resolve) {
         var chunks = [];
@@ -55,7 +58,6 @@ module.exports = async function handler(req, res) {
         req.on('end', function() { resolve(Buffer.concat(chunks).toString()); });
       });
       console.log('raw body length:', rawBody.length, 'content-type:', req.headers['content-type']);
-
       var contentType = req.headers['content-type'] || '';
       var boundary = contentType.split('boundary=')[1];
       if (boundary) {
@@ -70,12 +72,12 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // SendGrid Inbound Parse fields
     var from        = body.from || '';
     var subject     = body.subject || '(no subject)';
     var text        = body.text || '';
     var html        = body.html || '';
-    var senderName  = (from.match(/^([^<]+)</) || [])[1]?.trim() || '';
+    var senderName  = (from.match(/^([^<]+)</) || [])[1];
+    senderName = senderName ? senderName.trim() : '';
     var senderEmail = (from.match(/<([^>]+)>/) || [])[1] || from.trim();
 
     // Skip bounces, auto-replies, or mail from ourselves
@@ -85,268 +87,172 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ skipped: true });
     }
 
-    // Use plain text, fall back to stripping HTML
     var emailBody = text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
 
     console.log('Processing email from:', senderEmail, 'subject:', subject);
 
-    // ── Generate AI reply ─────────────────────────────────────────────────────
-    var { getAIReply } = require('./_aiReply');
-    var aiReplyText = await getAIReply(
-      'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody,
-      EW_EMAIL_SYSTEM_PROMPT,
-      500
-    );
-    var aiReply = aiReplyText || 'Thank you for reaching out! Our team will get back to you shortly.';
-      messages: [{
-        role: 'user',
-        content: 'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody
-      }]
-    });
+    // ── Generate AI reply ────────────────────────────────────────────────────
+    var aiReply = null;
+    try {
+      aiReply = await getAIReply(
+        'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody
+      );
+      console.log('✅ AI reply generated, length:', aiReply ? aiReply.length : 0);
+    } catch (aiErr) {
+      console.error('AI reply error:', aiErr.message);
+      aiReply = 'Thank you for reaching out to EngageWorx! Our team will get back to you shortly. In the meantime, feel free to explore the platform at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min.';
+    }
 
-    var aiReply = response.content[0].text.trim();
     var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
 
-    var htmlReply = aiReply
-      .split('\n\n')
-      .map(function(p) {
-        return '<p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">' +
-          p.replace(/\n/g, '<br>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</p>';
-      })
-      .join('') +
-      '<br><table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-      '<tr><td style="padding-right:16px;vertical-align:top;">' +
-      '<div style="background:linear-gradient(135deg,#6B46C1,#3B82F6);color:white;font-weight:bold;font-size:15px;padding:8px 12px;border-radius:6px;letter-spacing:0.5px;">EW</div>' +
-      '</td><td style="vertical-align:top;">' +
-      '<div style="font-weight:bold;color:#222;font-size:14px;">EngageWorx Team</div>' +
-      '<div style="color:#777;font-size:12px;margin-top:2px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
-      '<div style="margin-top:4px;">' +
-      '📞 <a href="tel:+17869827800" style="color:#6B46C1;text-decoration:none;">+1 (786) 982-7800</a> &nbsp;|&nbsp;' +
-      '🌐 <a href="https://engwx.com" style="color:#6B46C1;text-decoration:none;">engwx.com</a> &nbsp;|&nbsp;' +
-      '📅 <a href="https://calendly.com/rob-engwx/30min" style="color:#6B46C1;text-decoration:none;">Book a demo</a>' +
-      '</div></td></tr></table>';
+    var htmlReply = aiReply.split('\n\n').map(function(p) {
+      return '<p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">' +
+        p.replace(/\n/g, '<br>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</p>';
+    }).join('') +
+    '<br><table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
+    '<tr><td style="padding-right:16px;vertical-align:top;">' +
+    '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:white;font-weight:bold;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div>' +
+    '</td><td style="vertical-align:top;">' +
+    '<div style="font-weight:bold;color:#222;font-size:14px;">EngageWorx Team</div>' +
+    '<div style="color:#777;font-size:12px;margin-top:2px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
+    '<div style="margin-top:4px;">' +
+    '📞 <a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> &nbsp;|&nbsp;' +
+    '🌐 <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a> &nbsp;|&nbsp;' +
+    '📅 <a href="https://calendly.com/rob-engwx/30min" style="color:#00C9FF;text-decoration:none;">Book a demo</a>' +
+    '</div></td></tr></table>';
 
-    // ── Send reply ────────────────────────────────────────────────────────────
-    await sgMail.send({
-      to: senderEmail,
-      from: { email: 'hello@engwx.com', name: 'EngageWorx' },
-      replyTo: 'hello@engwx.com',
-      subject: replySubject,
-      text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
-      html: htmlReply,
-    });
-    console.log('✅ AI reply sent to:', senderEmail);
+    // ── Send reply via SendGrid ───────────────────────────────────────────────
+    try {
+      await sgMail.send({
+        to: senderEmail,
+        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+        replyTo: 'hello@engwx.com',
+        subject: replySubject,
+        text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
+        html: htmlReply,
+      });
+      console.log('✅ AI reply sent to:', senderEmail);
+    } catch (sgErr) {
+      console.error('SendGrid error:', sgErr.message);
+    }
 
-   // ── Wire into Live Inbox ──────────────────────────────────────────────────
+    // ── Live Inbox ────────────────────────────────────────────────────────────
     try {
       console.log('🔵 Inbox block started');
+
       // 1. Find or create contact
       var contactId = null;
       var nameParts = (senderName || '').split(' ');
       var firstName = nameParts[0] || senderEmail.split('@')[0];
       var lastName = nameParts.slice(1).join(' ') || '';
 
-      var existingContactsResult = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('email', senderEmail)
-        .eq('tenant_id', EW_TENANT_ID)
-        .limit(1);
-      var existingContacts = existingContactsResult.data;
-
-      if (existingContacts && existingContacts.length > 0) {
-        contactId = existingContacts[0].id;
+      var existingContactsResult = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', EW_TENANT_ID).limit(1);
+      if (existingContactsResult.data && existingContactsResult.data.length > 0) {
+        contactId = existingContactsResult.data[0].id;
       } else {
-        var newContactResult = await supabase
-          .from('contacts')
-          .insert({
-            tenant_id: EW_TENANT_ID,
-            first_name: firstName,
-            last_name: lastName,
-            email: senderEmail,
-            status: 'active',
-          })
-          .select()
-          .single();
+        var newContactResult = await supabase.from('contacts').insert({
+          tenant_id: EW_TENANT_ID,
+          first_name: firstName,
+          last_name: lastName,
+          email: senderEmail,
+          status: 'active',
+        }).select().single();
         contactId = newContactResult.data ? newContactResult.data.id : null;
       }
       console.log('📋 Contact id:', contactId);
 
+      // 2. Find or create conversation
       var conversationId = null;
       if (contactId) {
-        var existingConvsResult = await supabase
-          .from('conversations')
-          .select('id')
-          .eq('contact_id', contactId)
-          .eq('tenant_id', EW_TENANT_ID)
-          .eq('channel', 'email')
-          .in('status', ['active', 'waiting'])
-          .limit(1);
-        var existingConvs = existingConvsResult.data;
-
-        if (existingConvs && existingConvs.length > 0) {
-          conversationId = existingConvs[0].id;
+        var existingConvsResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', EW_TENANT_ID).eq('channel', 'email').in('status', ['active', 'waiting']).limit(1);
+        if (existingConvsResult.data && existingConvsResult.data.length > 0) {
+          conversationId = existingConvsResult.data[0].id;
         } else {
-          var newConvResult = await supabase
-            .from('conversations')
-            .insert({
-              tenant_id: EW_TENANT_ID,
-              contact_id: contactId,
-              channel: 'email',
-              status: 'waiting',
-              subject: subject,
-              last_message_at: new Date().toISOString(),
-              unread_count: 1,
-            })
-            .select()
-            .single();
+          var newConvResult = await supabase.from('conversations').insert({
+            tenant_id: EW_TENANT_ID,
+            contact_id: contactId,
+            channel: 'email',
+            status: 'waiting',
+            subject: subject,
+            last_message_at: new Date().toISOString(),
+            unread_count: 1,
+          }).select().single();
           conversationId = newConvResult.data ? newConvResult.data.id : null;
         }
       }
       console.log('💬 Conversation id:', conversationId);
 
+      // 3. Save messages
       if (conversationId) {
-       await supabase.from('messages').insert({
+        var now = new Date().toISOString();
+
+        // Inbound message
+        var inboundInsert = await supabase.from('messages').insert({
           conversation_id: conversationId,
           tenant_id: EW_TENANT_ID,
           direction: 'inbound',
           channel: 'email',
           body: emailBody,
           status: 'delivered',
-          sender_type: 'bot',
+          sender_type: 'contact',
           metadata: { from: senderEmail, to: 'hello@engwx.com', subject: subject, sender_name: senderName },
-          created_at: new Date().toISOString(),
+          created_at: now,
         });
+        if (inboundInsert.error) console.error('Inbound message insert error:', inboundInsert.error.message);
 
-        await supabase.from('messages').insert({
+        // AI outbound reply
+        var outboundInsert = await supabase.from('messages').insert({
           conversation_id: conversationId,
           tenant_id: EW_TENANT_ID,
           direction: 'outbound',
           channel: 'email',
           body: aiReply,
           status: 'sent',
+          sender_type: 'bot',
           metadata: { from: 'hello@engwx.com', to: senderEmail, subject: replySubject, ai_generated: true },
-          created_at: new Date().toISOString(),
+          created_at: new Date(Date.now() + 1000).toISOString(),
         });
+        if (outboundInsert.error) console.error('Outbound message insert error:', outboundInsert.error.message);
 
-        await supabase
-          .from('conversations')
-          .update({
-            last_message_at: new Date().toISOString(),
-            status: 'waiting',
-            unread_count: 1,
-          })
-          .eq('id', conversationId);
+        // Update conversation
+        await supabase.from('conversations').update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: emailBody.substring(0, 100),
+          status: 'waiting',
+          unread_count: 1,
+        }).eq('id', conversationId);
 
         console.log('✅ Live Inbox updated — conversation:', conversationId);
       }
     } catch (inboxErr) {
       console.error('🔴 Live Inbox error:', inboxErr.message, inboxErr.stack);
     }
-    console.log('🟢 Past inbox block, entering leads block');
-    console.log('🔵 Starting leads block for:', senderEmail);
-try {
-  // Skip if already in pipeline
-  var { data: existingLead } = await supabase
-    .from('leads')
-    .select('id')
-    .eq('email', senderEmail)
-    .limit(1);
 
-  if (!existingLead || existingLead.length === 0) {
-    // Ask AI to extract company name and intent from the email
-    var summaryRes = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
-      system: 'Extract structured data from this inbound email. Respond ONLY with a JSON object, no markdown. Fields: company (string, guess from email domain if not mentioned), intent (one of: pricing, demo, partnership, support, general), urgency (one of: high, normal, low).',
-      messages: [{ role: 'user', content: 'From: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\n' + emailBody }]
-    });
-    var extracted = { company: '', intent: 'general', urgency: 'normal' };
+    // ── Pipeline lead ─────────────────────────────────────────────────────────
     try {
-      var raw = summaryRes.content[0].text.replace(/```json|```/g, '').trim();
-      extracted = JSON.parse(raw);
-    } catch (e) { /* use defaults */ }
-
-    // Derive company from email domain if AI didn't find one
-    var company = extracted.company || senderEmail.split('@')[1]?.split('.')[0] || '';
-    company = company.charAt(0).toUpperCase() + company.slice(1);
-
-    await supabase.from('leads').insert({
-      name: senderName || senderEmail,
-      email: senderEmail,
-      company: company,
-      source: 'inbound_email',
-      stage: 'inquiry',
-      type: extracted.intent === 'partnership' ? 'partner' : 'prospect',
-      urgency: extracted.urgency || 'normal',
-      message: emailBody.substring(0, 500),
-      notes: 'Auto-created from inbound email. Subject: ' + subject,
-      ai_summary: 'Inbound enquiry via hello@engwx.com. Intent: ' + (extracted.intent || 'general'),
-      ai_next_action: 'Review AI reply and follow up if needed.',
-      last_action_at: new Date().toISOString().split('T')[0],
-    });
-    console.log('Lead auto-created for:', senderEmail, 'company:', company);
-
-    // ── Auto-create Help Desk ticket for support/billing intents ─────────────
-    var ticketIntents = ['support', 'billing'];
-    if (ticketIntents.indexOf(extracted.intent) !== -1) {
-      try {
-        var ticketPriority = extracted.intent === 'billing' ? 'high' : (extracted.urgency === 'high' ? 'high' : 'normal');
-        var ticketResult = await supabase.from('support_tickets').insert({
-          tenant_id: EW_TENANT_ID,
-          submitter_type: 'external',
-          submitter_name: senderName || senderEmail,
-          submitter_email: senderEmail,
-          subject: subject,
-          description: emailBody.substring(0, 1000),
-          channel: 'email',
-          category: extracted.intent,
-          priority: ticketPriority,
-          status: 'open',
-          metadata: { source: 'inbound_email', ai_intent: extracted.intent }
-        }).select().single();
-
-        if (ticketResult.data) {
-          await supabase.from('ticket_messages').insert({
-            ticket_id: ticketResult.data.id,
-            role: 'user',
-            author_name: senderName || senderEmail,
-            author_type: 'external',
-            content: emailBody.substring(0, 1000),
-          });
-          console.log('✅ Support ticket auto-created:', ticketResult.data.ticket_number, 'intent:', extracted.intent);
-
-          // Auto-escalate billing tickets
-          if (extracted.intent === 'billing') {
-            await supabase.from('support_tickets').update({
-              status: 'escalated',
-              escalation_reason: 'Billing enquiry via email — auto-escalated',
-              escalation_trigger: 'ai_decision',
-            }).eq('id', ticketResult.data.id);
-            console.log('🚨 Billing ticket auto-escalated');
-          }
-        }
-      } catch (ticketErr) {
-        console.log('Support ticket auto-create failed (non-fatal):', ticketErr.message);
+      var existingLeadResult = await supabase.from('leads').select('id').eq('email', senderEmail).limit(1);
+      if (!existingLeadResult.data || existingLeadResult.data.length === 0) {
+        var company = senderEmail.split('@')[1] ? senderEmail.split('@')[1].split('.')[0] : '';
+        company = company.charAt(0).toUpperCase() + company.slice(1);
+        await supabase.from('leads').insert({
+          name: senderName || senderEmail,
+          email: senderEmail,
+          company: company,
+          source: 'inbound_email',
+          stage: 'inquiry',
+          urgency: 'Warm',
+          notes: 'Auto-created from inbound email. Subject: ' + subject,
+          last_action_at: new Date().toISOString().split('T')[0],
+          last_activity_at: new Date().toISOString(),
+        });
+        console.log('Lead auto-created for:', senderEmail);
+      } else {
+        console.log('Lead already exists for:', senderEmail);
       }
+    } catch (leadErr) {
+      console.error('Lead auto-create failed:', leadErr.message);
     }
-  } else {
-    console.log('Lead already exists for:', senderEmail, '— skipping');
-  }
-} catch (leadErr) {
-  console.error('Lead auto-create failed:', leadErr.message, JSON.stringify(leadErr));
-}
-    supabase.from('email_ai_log').insert({
-      from_email: senderEmail,
-      from_name: senderName,
-      subject: subject,
-      body_preview: emailBody.substring(0, 300),
-      ai_reply_preview: aiReply.substring(0, 300),
-      sent_at: new Date().toISOString()
-    }).then(function() {}).catch(function(e) {
-      console.log('Log insert skipped:', e.message);
-    });
 
     return res.status(200).json({ success: true, replied_to: senderEmail });
 
