@@ -373,9 +373,27 @@ module.exports = async function handler(req, res) {
         try {
           var aiReply = await getAIReply(supabase, tenantId, Body, channel);
           if (aiReply) {
-            console.log('[AI] Sending reply to', From, ':', aiReply);
-            var smsResult = await sendSMS(From, aiReply, To);
-            console.log('[AI] sendSMS result:', JSON.stringify(smsResult));
+            console.log('[AI] Sending reply to', From, 'via', channel, ':', aiReply);
+            var smsResult;
+            if (isWhatsApp) {
+              // Send via WhatsApp
+              var waAccountSid = process.env.TWILIO_ACCOUNT_SID;
+              var waAuthToken = process.env.TWILIO_AUTH_TOKEN;
+              var waAuth = Buffer.from(waAccountSid + ':' + waAuthToken).toString('base64');
+              var waParams = new URLSearchParams();
+              waParams.append('To', 'whatsapp:' + From);
+              waParams.append('From', 'whatsapp:' + To);
+              waParams.append('Body', aiReply);
+              var waRes = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + waAccountSid + '/Messages.json', {
+                method: 'POST',
+                headers: { 'Authorization': 'Basic ' + waAuth, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: waParams.toString(),
+              });
+              smsResult = { data: await waRes.json(), ok: waRes.ok };
+            } else {
+              smsResult = await sendSMS(From, aiReply, To);
+            }
+            console.log('[AI] Reply result:', JSON.stringify(smsResult.data));
 
             // Save AI reply to messages table
             try {
