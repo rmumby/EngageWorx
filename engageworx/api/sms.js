@@ -523,26 +523,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
         try {
           let aiAllowed = true;
 
-          if (tenantId) {
-            try {
-              const usageCheck = await supabase.rpc('increment_usage', {
-                p_tenant_id: tenantId,
-                p_channel:   'sms',
-                p_count:     1,
-              });
-              if (usageCheck.data && !usageCheck.data.allowed) {
-                aiAllowed = false;
-                console.log('[Usage] AI reply blocked — tenant', tenantId, 'at limit');
-              }
-            } catch (ue) {
-              console.log('[Usage] Check failed, allowing AI reply (fail-open)');
-            }
-          }
-
-          if (!aiAllowed) {
-            res.setHeader('Content-Type', 'text/xml');
-            return res.status(200).send('<Response></Response>');
-          }
+          // Usage already checked on inbound — proceed with AI reply
 
           let tenantConfig = {};
           if (tenantId) {
