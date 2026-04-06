@@ -288,35 +288,8 @@ module.exports = async function handler(req, res) {
   }
   // ── END action=ai ──────────────────────────────────────────────────────────
  if (action === 'inbound') {
-    var voiceConfig = null;
-    var config = {};
-    var tenantId = null;
-    try {
-      voiceConfig = await getVoiceConfig(body.To || '');
-      config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
-      tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
-    } catch (e) { console.warn('Voice config lookup error:', e.message); }
-
-    var voice = 'Polly.Amy';
-    if (config.tts_voice) {
-      var voiceMatch = String(config.tts_voice).match(/Polly\.\w+/);
-      if (voiceMatch) voice = voiceMatch[0];
-    }
-
-    // Log the call
-    if (tenantId) {
-      try {
-        await supabase.from('calls').insert({
-          tenant_id: tenantId,
-          call_sid: body.CallSid,
-          from_number: body.From,
-          to_number: body.To,
-          direction: 'inbound',
-          status: 'ringing',
-          started_at: new Date().toISOString(),
-        });
-      } catch (e) { console.warn('Call log error:', e.message); }
-    }
+    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Thank you for calling EngageWorx. Please leave a message after the tone and we will get back to you shortly.</Say><Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=c1bc59a8-5235-4921-9755-02514b574387" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=c1bc59a8-5235-4921-9755-02514b574387" /><Hangup/></Response>');
+  }
 
     console.log('📞 INBOUND DEBUG:', JSON.stringify({
       to: body.To,
