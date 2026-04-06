@@ -649,8 +649,8 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   var staleLeads  = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
 
   return (
-    <div style={{ minHeight:"100vh",background:"#070d1a",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f1f5f9" }}>
-      <div style={{ padding:"24px 28px 0",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+    <div style={{ minHeight:"100vh",background:bg,fontFamily:"'DM Sans','Segoe UI',sans-serif",color:text }}>
+      <div style={{ padding:"24px 28px 0",borderBottom:"1px solid " + border }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
             <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
@@ -691,7 +691,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
       </div>
 
       {showActions && (
-        <div style={{ padding:"16px 28px",borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ padding:"16px 28px",borderBottom:"1px solid " + border }}>
           <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16 }}>
             <div style={{ background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:14 }}>
               <div style={{ fontSize:11,fontWeight:700,color:"#ef4444",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Overdue / Due Today ({todayActions.length})</div>
@@ -745,7 +745,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
       {loading ? (
         <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting...</div>
       ) : (
-        <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 300px)" }}>
+        <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 300px)",background:bg }}>
           {STAGES.map(stage => {
             var sl = filtered.filter(l => l.stage === stage.id);
             return (
@@ -755,7 +755,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
                   <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
                   <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
                 </div>
-                <div style={{ background:"rgba(255,255,255,0.02)",borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ background:surface,borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid " + border }}>
                   {sl.length === 0
                     ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
                     : sl.map(lead => <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />)}
