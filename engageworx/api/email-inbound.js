@@ -204,17 +204,15 @@ module.exports = async function handler(req, res) {
       console.log('💬 Conversation id:', conversationId);
 
       if (conversationId) {
-        await supabase.from('messages').insert({
+       await supabase.from('messages').insert({
           conversation_id: conversationId,
           tenant_id: EW_TENANT_ID,
           direction: 'inbound',
           channel: 'email',
-          from_address: senderEmail,
-          to_address: 'hello@engwx.com',
-          subject: subject,
           body: emailBody,
           status: 'delivered',
-          metadata: { sender_name: senderName },
+          metadata: { from: senderEmail, to: 'hello@engwx.com', subject: subject, sender_name: senderName },
+          created_at: new Date().toISOString(),
         });
 
         await supabase.from('messages').insert({
@@ -222,12 +220,10 @@ module.exports = async function handler(req, res) {
           tenant_id: EW_TENANT_ID,
           direction: 'outbound',
           channel: 'email',
-          from_address: 'hello@engwx.com',
-          to_address: senderEmail,
-          subject: replySubject,
           body: aiReply,
           status: 'sent',
-          metadata: { ai_generated: true },
+          metadata: { from: 'hello@engwx.com', to: senderEmail, subject: replySubject, ai_generated: true },
+          created_at: new Date().toISOString(),
         });
 
         await supabase
