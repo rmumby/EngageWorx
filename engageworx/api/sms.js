@@ -379,7 +379,7 @@ module.exports = async function handler(req, res) {
       // ── Inbound SMS ─────────────────────────────────────────────────────
       console.log(`[Twilio] Inbound from ${From} to ${To}: ${Body}`);
 
-      // 1. Resolve tenant from phone_numbers table
+      // 1. Resolve tenant from phone_numbers table or channel_configs
       let tenantId = null;
       try {
         const { data: phoneRecord } = await supabase
@@ -390,12 +390,40 @@ module.exports = async function handler(req, res) {
 
         if (phoneRecord?.tenant_id) {
           tenantId = phoneRecord.tenant_id;
-          console.log(`[Twilio] Resolved tenant ${tenantId} for number ${To}`);
-        } else {
-          console.log(`[Twilio] No tenant found for ${To} — using platform fallback`);
+          console.log(`[Twilio] Resolved tenant ${tenantId} from phone_numbers for ${To}`);
         }
       } catch (lookupErr) {
-        console.log('[Twilio] Tenant lookup failed:', lookupErr.message);
+        console.log('[Twilio] phone_numbers lookup failed:', lookupErr.message);
+      }
+
+      // Fallback — look up in channel_configs by phone number
+      if (!tenantId) {
+        try {
+          const { data: configs } = await supabase
+            .from('channel_configs')
+            .select('tenant_id, config_encrypted')
+            .in('channel', ['sms', 'whatsapp'])
+            .eq('enabled', true);
+
+          const normalizedTo = To.replace(/[\s\-\(\)\+]/g, '');
+          const match = (configs || []).find(function(c) {
+            var num = ((c.config_encrypted || {}).phone_number || '').replace(/[\s\-\(\)\+]/g, '');
+            return num && normalizedTo.endsWith(num.slice(-9));
+          });
+
+          if (match) {
+            tenantId = match.tenant_id;
+            console.log(`[Twilio] Resolved tenant ${tenantId} from channel_configs for ${To}`);
+          }
+        } catch (e) {
+          console.log('[Twilio] channel_configs lookup failed:', e.message);
+        }
+      }
+
+      // Final fallback — SP tenant for main EngageWorx number
+      if (!tenantId) {
+        tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+        console.log(`[Twilio] Using SP tenant fallback for ${To}`);
       }
 
       // 2. Classify message type
