@@ -710,8 +710,9 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          var RESEND_KEY = process.env.RESEND_API_KEY;
-          if (RESEND_KEY) {
+          var sendVmEmail = vcResult?.data?.config_encrypted?.send_transcript_email !== 'Disabled';
+var RESEND_KEY = process.env.RESEND_API_KEY;
+if (RESEND_KEY && sendVmEmail) {
             var callerNum = body.From || 'Unknown';
             var vmDate = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
             var vmDur = vmRecordingDuration ? (Math.floor(vmRecordingDuration / 60) + 'm ' + (vmRecordingDuration % 60) + 's') : 'Unknown';
