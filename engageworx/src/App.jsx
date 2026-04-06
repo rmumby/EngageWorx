@@ -1259,6 +1259,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "integrations", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "branding", label: "Branding", icon: "🎨" },
   ];
 
   return (
@@ -1354,13 +1355,17 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="api" allowedTabs={["api", "webhooks"]} />}
         {page === "settings" && (
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
+        )}
+        {page === "branding" && (
           <div style={{ padding: "32px 36px" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
             <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
           </div>
         )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
+        )}
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -1519,6 +1524,7 @@ var spNavBase = [
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
+  { id: "branding", label: "Branding", icon: "🎨" },
   ];
   var spNavItems = isSuperAdmin
     ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6))
