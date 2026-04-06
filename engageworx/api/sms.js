@@ -522,34 +522,45 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
   console.error('[Notify] notifyInbound top-level error:', err.message);
 });
 
-      // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
-      if (messageType === 'inbound' && (process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY)) {
+     // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
+      if (messageType === 'inbound') {
         try {
-          let aiAllowed = true;
+          var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+          if (!ANTHROPIC_KEY) throw new Error('No Anthropic key');
 
-          // Usage already checked on inbound — proceed with AI reply
+          var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': ANTHROPIC_KEY,
+              'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001',
+              max_tokens: 160,
+              system: 'You are Eva, the AI assistant for EngageWorx. Reply in under 160 characters. Be helpful and concise. Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo. Website: engwx.com. Phone: +1 (786) 982-7800. Email: hello@engwx.com.',
+              messages: [{ role: 'user', content: Body }],
+            }),
+          });
 
-          let tenantConfig = {};
-          if (tenantId) {
-            const { data: tenant } = await supabase
-              .from('tenants')
-              .select('name, industry')
-              .eq('id', tenantId)
-              .single();
+          var claudeData = await claudeRes.json();
+          var aiReply = claudeData.content && claudeData.content[0] && claudeData.content[0].text
+            ? claudeData.content[0].text.trim()
+            : null;
 
-            const { data: chatbotConfig } = await supabase
-              .from('chatbot_configs')
-              .select('*')
-              .eq('tenant_id', tenantId)
-              .single();
-            console.log('[AI] chatbotConfig:', JSON.stringify(chatbotConfig), 'tenantId:', tenantId);
+          console.log('[AI] Claude direct reply:', aiReply);
 
-            // Check if AI is active on this channel
-            const activeChannels = chatbotConfig?.channels_active || ['sms', 'whatsapp', 'email'];
-            if (!activeChannels.includes(channel)) {
-              console.log('[AI] Channel', channel, 'not active for tenant', tenantId, '— skipping AI response');
-              res.setHeader('Content-Type', 'text/xml');
-              return res.status(200).send('<Response></Response>');
+          if (aiReply) {
+            await sendSMS(From, aiReply, To);
+            console.log('[AI] SMS reply sent to', From);
+          }
+        } catch (aiErr) {
+          console.error('[AI] Error:', aiErr.message);
+        }
+      }
+
+      res.setHeader('Content-Type', 'text/xml');
+      return res.status(200).send('<Response></Response>');
             }
 
             tenantConfig = {
