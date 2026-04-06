@@ -568,6 +568,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
               .select('*')
               .eq('tenant_id', tenantId)
               .single();
+            console.log('[AI] chatbotConfig:', JSON.stringify(chatbotConfig), 'tenantId:', tenantId);
 
             // Check if AI is active on this channel
             const activeChannels = chatbotConfig?.channels_active || ['sms', 'whatsapp', 'email'];
