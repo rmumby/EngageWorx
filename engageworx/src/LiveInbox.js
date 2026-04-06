@@ -245,7 +245,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var mapped = data.map(function(m) {
             return {
               id: m.id,
-              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -285,7 +285,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
                 id: m.id,
-                from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+                from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
                 text: m.body || '',
                 time: m.created_at ? new Date(m.created_at) : new Date(),
                 agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -385,7 +385,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
               id: m.id,
-              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -839,10 +839,10 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                       </div>
                     )}
                     <div style={{
-                      background: isContact ? "rgba(255,255,255,0.06)" : isBot ? `${C.accent || C.primary}22` : `${C.primary}22`,
-                      border: `1px solid ${isContact ? "rgba(255,255,255,0.08)" : isBot ? `${C.accent || C.primary}33` : `${C.primary}33`}`,
+                      background: isContact ? "rgba(100,130,200,0.18)" : isBot ? `${C.accent || C.primary}22` : `${C.primary}22`,
+                      border: `1px solid ${isContact ? "rgba(100,130,200,0.3)" : isBot ? `${C.accent || C.primary}33` : `${C.primary}33`}`,
                       borderRadius: isContact ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-                      padding: "10px 14px", color: "rgba(255,255,255,0.85)", fontSize: 13, lineHeight: 1.5,
+                      padding: "10px 14px", color: isContact ? C.text : "rgba(255,255,255,0.85)", fontSize: 13, lineHeight: 1.5,
                       whiteSpace: "pre-wrap", wordBreak: "break-word",
                     }}>
                       {isBot && <div style={{ color: C.accent || C.primary, fontSize: 9, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>🤖 AI Assistant</div>}
