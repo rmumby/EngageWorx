@@ -1241,6 +1241,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [page, setPage] = useState("dashboard");
 
   const navItems = [
+    const navItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
     { id: "leadscan", label: "Lead Scan", icon: "📲" },
@@ -1254,10 +1255,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "importleads", label: "Import Leads", icon: "📥" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "billing", label: "Billing", icon: "💳" },
-    { id: "tenants", label: "Tenant Management", icon: "🏢" },
-    { id: "registration", label: "Registration", icon: "📋" },
-    { id: "integrations", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
     { id: "branding", label: "Branding", icon: "🎨" },
   ];
@@ -1363,7 +1360,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
             <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
           </div>
-        )}
         )}
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
           <div style={{ padding: "32px 36px" }}>
@@ -1524,7 +1520,6 @@ var spNavBase = [
     { id: "api", label: "API & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
-  { id: "branding", label: "Branding", icon: "🎨" },
   ];
   var spNavItems = isSuperAdmin
     ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6))
