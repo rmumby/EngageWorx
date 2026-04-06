@@ -560,7 +560,12 @@ function Modal({ lead, onClose, onSave }) {
   );
 }
 
-export default function PipelineDashboard() {
+export default function PipelineDashboard({ C, tenantId, demoMode }) {
+  var bg = C ? C.bg : '#070d1a';
+  var surface = C ? C.surface : 'rgba(255,255,255,0.04)';
+  var text = C ? C.text : '#f1f5f9';
+  var muted = C ? C.muted : '#94a3b8';
+  var border = C ? C.border : 'rgba(255,255,255,0.08)';
   const [leads, setLeads]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [selected, setSelected]     = useState(null);
