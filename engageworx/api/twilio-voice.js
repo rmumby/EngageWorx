@@ -95,7 +95,7 @@ async function getVoiceConfig(toNumber) {
            normalizedTo.endsWith(fullConfigNumber.slice(-10));
   });
 
-  if (!match) return data[0]; // Fallback to first voice config
+  if (!match) return null; // No match — never fall back to another tenant's config
   return match;
 }
 
