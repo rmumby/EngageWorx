@@ -43,7 +43,11 @@ async function sendSMS(to, body, from) {
   const auth   = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
   const params = new URLSearchParams();
   params.append('To',   to);
-  params.append('From', fromNumber);
+  if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+    params.append('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID);
+  } else {
+    params.append('From', fromNumber);
+  }
   params.append('Body', body);
 
   const response = await fetch(
