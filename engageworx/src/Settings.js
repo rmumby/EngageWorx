@@ -61,6 +61,8 @@ const CHANNEL_DEFS = [
     { key: "business_hours_start", label: "Open", placeholder: "9", hint: "24-hour format · 9 = 9:00 AM · 13 = 1:00 PM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
     { key: "business_hours_end", label: "Close", placeholder: "17", hint: "24-hour format · 9 = 9:00 AM · 13 = 1:00 PM · 17 = 5:00 PM · 20.5 = 8:30 PM" },
     { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
+    { key: "voicemail_email", label: "Voicemail Email Recipients", placeholder: "email1@company.com, email2@company.com", hint: "Who receives call transcripts and voicemail recordings. Separate multiple emails with commas." },
+{ key: "send_transcript_email", label: "Send Transcript Emails", type: "select", options: ["Enabled", "Disabled"] },
   ]},
   { id: "mms", label: "MMS", icon: "📷", color: "#E040FB", fields: [
     { key: "max_media_size", label: "Max Media Size", type: "select", options: ["1 MB", "5 MB (default)", "10 MB"] },
