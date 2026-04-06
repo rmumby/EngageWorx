@@ -467,11 +467,11 @@ const LandingPage = () => {
         .lp-logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #00C9FF, #E040FB); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: #000; }
         .lp-logo-text { font-size: 20px; font-weight: 800; color: #E8F4FD; letter-spacing: -0.5px; }
         .lp-logo-text span { color: #00C9FF; }
-        .lp-nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
-        .lp-nav-links a, .lp-nav-links span { color: #6B8BAE; text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; position: relative; cursor: pointer; }
-        .lp-nav-links a:hover, .lp-nav-links span:hover { color: #E8F4FD; }
-        .lp-nav-links a::after, .lp-nav-links span::after { content: ""; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #00C9FF; transition: width 0.3s; }
-        .lp-nav-links a:hover::after, .lp-nav-links span:hover::after { width: 100%; }
+        .lp-sub-nav-links { display: flex; align-items: center; gap: 32px; list-style: none; }
+        .lp-sub-nav-links a, .lp-sub-nav-links span { color: #E8F4FD; text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; position: relative; cursor: pointer; }
+        .lp-sub-nav-links a:hover, .lp-sub-nav-links span:hover { color: #E8F4FD; }
+        .lp-sub-nav-links a::after, .lp-sub-nav-links span::after { content: ""; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #00C9FF; transition: width 0.3s; }
+        .lp-sub-nav-links a:hover::after, .lp-sub-nav-links span:hover::after { width: 100%; }
         .lp-nav-cta { background: linear-gradient(135deg, #00C9FF, #E040FB) !important; color: #000 !important; padding: 10px 24px !important; border-radius: 8px; font-weight: 700 !important; font-size: 14px !important; transition: transform 0.2s, box-shadow 0.2s !important; }
         .lp-nav-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,201,255,0.15); }
         .lp-nav-cta::after { display: none !important; }
@@ -564,7 +564,7 @@ const LandingPage = () => {
         .lp-footer-bottom { max-width: 1100px; margin: 0 auto; padding-top: 24px; border-top: 1px solid #1a2540; display: flex; justify-content: space-between; align-items: center; color: #3A5068; font-size: 13px; }
         @media (max-width: 768px) {
           .lp-nav { padding: 12px 20px; }
-          .lp-nav-links { display: none !important; }
+          .lp-sub-nav-links { display: none !important; }
           .lp-main-hamburger { display: block !important; }
           .lp-hero { padding: 100px 20px 60px; }
           .lp-hero h1 { letter-spacing: -1.5px; }
