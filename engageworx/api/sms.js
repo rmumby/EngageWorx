@@ -480,17 +480,6 @@ const conversationId = await findOrCreateConversation(supabase, tenantId, contac
           var leadCheck = await supabase.from('leads').select('id').or('name.eq.' + From + ',notes.ilike.%' + From + '%').limit(1);
           if (!leadCheck.data || leadCheck.data.length === 0) {
             var smsIntent = 'general';
-            try {
-              var AnthropicSdk = require('@anthropic-ai/sdk');
-              var anthropicClient = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
-              var intentRes = await anthropicClient.messages.create({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 100,
-                system: 'Classify this inbound SMS intent. Respond with ONLY one word: pricing, support, demo, partnership, or general.',
-                messages: [{ role: 'user', content: Body }]
-              });
-              smsIntent = intentRes.content[0].text.trim().toLowerCase();
-            } catch (aiErr) { /* non-fatal */ }
 
             await supabase.from('leads').insert({
               name: From,
