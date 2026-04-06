@@ -110,11 +110,6 @@ module.exports = async function handler(req, res) {
   var action = req.query.action || 'inbound';
   var body = req.body || {};
   console.log('📞 Voice webhook:', action, 'To:', body.To, 'From:', body.From);
-  // Temporary: immediate forward for Delamere number
-if (body.To === '+441606827617') {
-  res.setHeader('Content-Type', 'text/xml');
-  return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Dial timeout="30" callerId="+441606827617">+447827997562</Dial></Response>');
-}
 
   // Helper to build safe XML strings
   function xml(text) {
@@ -292,8 +287,7 @@ if (body.To === '+441606827617') {
     }
   }
   // ── END action=ai ──────────────────────────────────────────────────────────
-  if (action === 'inbound') {
-    // Look up voice config for this number
+ if (action === 'inbound') {
     var voiceConfig = null;
     var config = {};
     var tenantId = null;
@@ -301,11 +295,9 @@ if (body.To === '+441606827617') {
       voiceConfig = await getVoiceConfig(body.To || '');
       config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
       tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
-    } catch (e) {
-      console.warn('Voice config lookup error:', e.message);
-    }
+    } catch (e) { console.warn('Voice config lookup error:', e.message); }
 
-    var voice = 'Polly.Joanna';
+    var voice = 'Polly.Amy';
     if (config.tts_voice) {
       var voiceMatch = String(config.tts_voice).match(/Polly\.\w+/);
       if (voiceMatch) voice = voiceMatch[0];
@@ -326,20 +318,48 @@ if (body.To === '+441606827617') {
       } catch (e) { console.warn('Call log error:', e.message); }
     }
 
-    // AI Voice Agent greeting — then listen for speech
-    var agentName = config.ai_agent_name || 'Eva';
-    var greeting = xml(config.ai_greeting || 'Thank you for calling EngageWorx, the AI-powered customer communications platform. My name is ' + agentName + '. How can I help you today?');
-    var twimlStr = '<?xml version="1.0" encoding="UTF-8"?><Response>';
-    twimlStr += '<Say voice="' + voice + '">This call may be recorded for quality purposes. ' + greeting + '</Say>';
-    twimlStr += '<Gather input="speech" speechTimeout="auto" timeout="10" action="/api/twilio-voice?action=ai-respond&amp;tenant=' + (tenantId || '') + '&amp;turn=1" method="POST">';
-    twimlStr += '<Say voice="' + voice + '"></Say>';
-    twimlStr += '</Gather>';
-    // No speech detected — offer voicemail
-    twimlStr += '<Say voice="' + voice + '">I did not catch that. If you would like to leave a message, please do so after the tone. Otherwise, you can hang up anytime.</Say>';
-    twimlStr += '<Record maxLength="120" playBeep="true" action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + (tenantId || '') + '" transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + (tenantId || '') + '" />';
-    twimlStr += '<Say voice="' + voice + '">Goodbye.</Say><Hangup/></Response>';
+    var callMode = config.call_mode || 'ivr';
+    var greeting = config.greeting || 'Thank you for calling.';
+    var afterHoursGreeting = config.after_hours_greeting || 'Thank you for calling. We are currently closed. Please leave a message after the tone and we will get back to you as soon as possible.';
+    var recordingNotice = config.recording_enabled !== 'Disabled' ? 'This call may be recorded for quality purposes. ' : '';
 
-    return res.status(200).end(twimlStr);
+    // After hours → voicemail
+    if (!isBusinessHours(config)) {
+      return res.status(200).end(twiml(
+        say(recordingNotice + afterHoursGreeting, voice) +
+        '<Record maxLength="120" playBeep="true" ' +
+        'action="/api/twilio-voice?action=voicemail-complete&tenant=' + (tenantId || '') + '" ' +
+        'transcribe="true" ' +
+        'transcribeCallback="/api/twilio-voice?action=transcription&tenant=' + (tenantId || '') + '" />' +
+        say('We did not receive a message. Goodbye.', voice) +
+        '<Hangup/>'
+      ));
+    }
+
+    // During hours → IVR menu (script only, no AI discussion)
+    var departments = config.departments || [
+      { digit: '1', name: 'Sales', number: '' },
+      { digit: '2', name: 'Support', number: '' },
+    ];
+
+    var menuOptions = departments
+      .map(function(d) { return 'Press ' + d.digit + ' ' + (d.description || ('for ' + d.name)); })
+      .join('. ');
+
+    var ivrPrompt = recordingNotice + greeting + ' ' + menuOptions + '. Or stay on the line to leave a message.';
+
+    return res.status(200).end(twiml(
+      '<Gather numDigits="1" timeout="8" ' +
+      'action="/api/twilio-voice?action=route&tenant=' + (tenantId || '') + '" method="POST">' +
+      say(ivrPrompt, voice) +
+      '</Gather>' +
+      say('We did not receive your selection. Please leave a message after the tone.', voice) +
+      '<Record maxLength="120" playBeep="true" ' +
+      'action="/api/twilio-voice?action=voicemail-complete&tenant=' + (tenantId || '') + '" ' +
+      'transcribe="true" ' +
+      'transcribeCallback="/api/twilio-voice?action=transcription&tenant=' + (tenantId || '') + '" />' +
+      '<Hangup/>'
+    ));
   }
 
   // ═══════════════════════════════════════════════════════════════
