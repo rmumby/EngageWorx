@@ -1239,9 +1239,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const cpTheme = useTheme();
   const C = getThemedColors(tenant.colors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
-
   const navItems = [
-    const navItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
     { id: "leadscan", label: "Lead Scan", icon: "📲" },
