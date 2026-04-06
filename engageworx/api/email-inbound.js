@@ -211,6 +211,7 @@ module.exports = async function handler(req, res) {
           channel: 'email',
           body: emailBody,
           status: 'delivered',
+          sender_type: 'bot',
           metadata: { from: senderEmail, to: 'hello@engwx.com', subject: subject, sender_name: senderName },
           created_at: new Date().toISOString(),
         });
