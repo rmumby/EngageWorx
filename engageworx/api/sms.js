@@ -525,37 +525,21 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
      // ── AI AUTO-RESPONSE ─────────────────────────────────────────────────
       if (messageType === 'inbound') {
         try {
-          var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
-          if (!ANTHROPIC_KEY) throw new Error('No Anthropic key');
+          var { getAIReply, getTenantAIConfig } = require('./_aiReply');
+          var aiConfig = await getTenantAIConfig(supabase, tenantId);
 
-          var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': ANTHROPIC_KEY,
-              'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 160,
-              system: 'You are Eva, the AI assistant for EngageWorx. Reply in under 160 characters. Be helpful and concise. Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo. Website: engwx.com. Phone: +1 (786) 982-7800. Email: hello@engwx.com.',
-              messages: [{ role: 'user', content: Body }],
-            }),
-          });
+          if (aiConfig.channelsActive.includes(channel)) {
+            var smsSystemPrompt = aiConfig.systemPrompt + ' Keep replies under 160 characters. Reply via SMS — no markdown, no bullet points.';
+            var aiReply = await getAIReply(Body, smsSystemPrompt, 160);
+            console.log('[AI] SMS reply:', aiReply);
 
-          var claudeData = await claudeRes.json();
-          var aiReply = claudeData.content && claudeData.content[0] && claudeData.content[0].text
-            ? claudeData.content[0].text.trim()
-            : null;
-
-          console.log('[AI] Claude direct reply:', aiReply);
-
-          if (aiReply) {
-            await sendSMS(From, aiReply, To);
-            console.log('[AI] SMS reply sent to', From);
+            if (aiReply) {
+              await sendSMS(From, aiReply, To);
+              console.log('[AI] SMS sent to', From);
+            }
           }
         } catch (aiErr) {
-          console.error('[AI] Error:', aiErr.message);
+          console.error('[AI] SMS error:', aiErr.message);
         }
       }
 
