@@ -139,7 +139,7 @@ const LandingPage = () => {
           color: #E8F4FD; text-decoration: none; font-size: 14px; font-weight: 500;
           cursor: pointer; transition: color 0.2s;
         }
-        .lp-sub-nav-links a:hover, .lp-sub-nav-links span:hover { color: #E8F4FD; }
+        .lp-sub-nav-links a:hover, .lp-sub-nav-links span:hover { color: #00C9FF; }
         .lp-sub-cta {
           background: linear-gradient(135deg, #00C9FF, #E040FB) !important;
           color: #000 !important; padding: 10px 24px !important; border-radius: 8px;
@@ -169,7 +169,7 @@ const LandingPage = () => {
           <li><span onClick={() => navigateTo('home')}>Home</span></li>
           <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
           <li><span onClick={() => navigateTo('about')}>About</span></li>
-          <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
+          <li><a href="/blog">Blog</a></li> <li><a href="/api-docs">API Docs</a></li>
           <li><a href="/api-docs" style={{ color: '#E8F4FD' }}>API Docs</a></li>
           <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
           <li><a href={PORTAL_URL} style={{ fontWeight: 600 }}>Login</a></li>
@@ -593,13 +593,13 @@ const LandingPage = () => {
             <div className="lp-logo-icon">EW</div>
             <div className="lp-logo-text">Engage<span>Worx</span></div>
           </div>
-          <ul className="lp-nav-links">
+          <ul className="lp-sub-nav-links">
             <li><span onClick={() => scrollTo('lp-channels')}>Channels</span></li>
             <li><span onClick={() => scrollTo('lp-features')}>Features</span></li>
             <li><span onClick={() => navigateTo('pricing')}>Pricing</span></li>
             <li><span onClick={() => navigateTo('about')}>About</span></li>
-            <li><a href="/blog" style={{ color: '#E8F4FD' }}>Blog</a></li>
-            <li><a href="/api-docs" style={{ color: '#E8F4FD' }}>API Docs</a></li>
+            <li><a href="/blog">Blog</a></li>
+            <li><a href="/api-docs">API Docs</a></li>
             <li><span onClick={() => navigateTo('contact')}>Contact</span></li>
             <li><a href={PORTAL_URL} style={{ fontWeight: 600 }}>Login</a></li>
             <li><span className="lp-nav-cta" onClick={goToSignup}>Get Started Free</span></li>
