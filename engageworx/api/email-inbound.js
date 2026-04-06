@@ -92,10 +92,13 @@ module.exports = async function handler(req, res) {
     console.log('Processing email from:', senderEmail, 'subject:', subject);
 
     // ── Generate AI reply ─────────────────────────────────────────────────────
-    var response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      system: EW_EMAIL_SYSTEM_PROMPT,
+    var { getAIReply } = require('./_aiReply');
+    var aiReplyText = await getAIReply(
+      'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody,
+      EW_EMAIL_SYSTEM_PROMPT,
+      500
+    );
+    var aiReply = aiReplyText || 'Thank you for reaching out! Our team will get back to you shortly.';
       messages: [{
         role: 'user',
         content: 'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody
