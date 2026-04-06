@@ -583,14 +583,13 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
           console.log('[AI] Response status:', aiResponse.status, 'data:', JSON.stringify(aiData));
 
           if (aiData.success && aiData.response) {
-            res.setHeader('Content-Type', 'text/xml');
-            return res.status(200).send(
-              `<Response><Message>${aiData.response
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-              }</Message></Response>`
-            );
+            // Send reply via Twilio API directly instead of TwiML
+            try {
+              await sendSMS(From, aiData.response, To);
+              console.log('[AI] SMS reply sent to', From);
+            } catch (smsErr) {
+              console.error('[AI] SMS send error:', smsErr.message);
+            }
           }
 
           console.log(`[AI] No response from AI for ${From}`);
