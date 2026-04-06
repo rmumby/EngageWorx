@@ -392,10 +392,9 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
 }
 
 // ── Main Module ────────────────────────────────────────────────────────────
-export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, forceDark }) {
-  var props = { forceDark };
+export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent }) {
   var { theme } = useTheme();
-  var colors = getColors(props.forceDark ? 'dark' : theme);
+  var colors = getColors(theme);
 
   var [view, setView] = useState('list');
   var [tickets, setTickets] = useState([]);
