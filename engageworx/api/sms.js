@@ -569,9 +569,6 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
               .eq('tenant_id', tenantId)
               .single();
             // Check if AI is active on this channel
-SELECT column_name, data_type 
-FROM information_schema.columns 
-WHERE table_name = 'chatbot_configs';
   console.log('[AI] Channel', channel, 'not active for tenant', tenantId, '— skipping AI response');
   res.setHeader('Content-Type', 'text/xml');
   return res.status(200).send('<Response></Response>');
