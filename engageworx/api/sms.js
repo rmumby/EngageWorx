@@ -598,6 +598,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
           // Always use production URL — VERCEL_URL resolves to preview deployments
           const baseUrl = 'https://portal.engwx.com';
 
+          console.log('[AI] Calling ai endpoint with tenantConfig:', JSON.stringify(tenantConfig));
           const aiResponse = await fetch(`${baseUrl}/api/ai?action=respond`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -609,6 +610,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
           });
 
           const aiData = await aiResponse.json();
+          console.log('[AI] Response status:', aiResponse.status, 'data:', JSON.stringify(aiData));
 
           if (aiData.success && aiData.response && !aiData.escalate) {
             res.setHeader('Content-Type', 'text/xml');
