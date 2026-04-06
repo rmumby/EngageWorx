@@ -136,7 +136,7 @@ const LandingPage = () => {
         }
         .lp-sub-nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
         .lp-sub-nav-links a, .lp-sub-nav-links span {
-          color: #6B8BAE; text-decoration: none; font-size: 14px; font-weight: 500;
+          color: #E8F4FD; text-decoration: none; font-size: 14px; font-weight: 500;
           cursor: pointer; transition: color 0.2s;
         }
         .lp-sub-nav-links a:hover, .lp-sub-nav-links span:hover { color: #E8F4FD; }
