@@ -452,6 +452,7 @@ const conversationId = await findOrCreateConversation(supabase, tenantId, contac
           channel:             channel,
           body:                Body,
           status:              'delivered',
+          sender_type:         'contact',
           provider_message_id: MessageSid,
           metadata:            { from: From, to: To },
           created_at:          now,
