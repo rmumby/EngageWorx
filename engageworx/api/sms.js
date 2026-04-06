@@ -534,9 +534,12 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
             console.log('[AI] SMS reply:', aiReply);
 
             if (aiReply) {
-              await sendSMS(From, aiReply, To);
-              console.log('[AI] SMS sent to', From);
-            }
+            console.log('[AI] Attempting sendSMS to:', From, 'from:', To, 'reply:', aiReply);
+            var smsResult = await sendSMS(From, aiReply, To);
+            console.log('[AI] sendSMS result:', JSON.stringify(smsResult));
+          } else {
+            console.log('[AI] No reply generated');
+          }
           }
         } catch (aiErr) {
           console.error('[AI] SMS error:', aiErr.message);
