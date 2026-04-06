@@ -3,7 +3,7 @@
 // POST /api/ai?action=classify  → Classify intent of a message
 // POST /api/ai?action=test      → Test AI is working
 
-const CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
+const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -189,21 +189,38 @@ Respond with ONLY a JSON object, no markdown:
       .join('\n');
 
     try {
-      const parsed = JSON.parse(text.replace(/```json\n?|```/g, '').trim());
+      // Try to extract JSON from response — handle markdown, extra text, etc.
+      var jsonMatch = text.match(/\{[\s\S]*\}/);
+      var parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (parsed && parsed.response) {
+        return res.status(200).json({
+          success: true,
+          response: parsed.response,
+          intent: parsed.intent || 'unknown',
+          escalate: parsed.escalate || false,
+          sentiment: parsed.sentiment || 'neutral',
+          model: data.model,
+          usage: data.usage,
+        });
+      }
+      // If no valid JSON with response field — use raw text but strip any JSON artifacts
+      var cleanText = text
+        .replace(/```json\n?|```/g, '')
+        .replace(/^\{[\s\S]*\}$/, '') // remove if entire response is JSON
+        .trim();
       return res.status(200).json({
         success: true,
-        response: parsed.response,
-        intent: parsed.intent,
-        escalate: parsed.escalate || false,
-        sentiment: parsed.sentiment || 'neutral',
+        response: cleanText.slice(0, maxResponseLength) || 'Thanks for your message! We\'ll be in touch shortly.',
+        intent: 'unknown',
+        escalate: false,
+        sentiment: 'neutral',
         model: data.model,
         usage: data.usage,
       });
     } catch (e) {
-      // If JSON parse fails, return raw text as response
       return res.status(200).json({
         success: true,
-        response: text.slice(0, maxResponseLength),
+        response: 'Thanks for your message! We\'ll be in touch shortly.',
         intent: 'unknown',
         escalate: false,
         sentiment: 'neutral',
