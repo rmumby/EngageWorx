@@ -753,7 +753,7 @@ if (RESEND_KEY && sendVmEmail) {
           }
         }
 
-        return res.status(200).end('OK');
+        return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
       }
 
       // ═══════════════════════════════════════════════════════════════
