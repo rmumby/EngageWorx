@@ -612,7 +612,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
           const aiData = await aiResponse.json();
           console.log('[AI] Response status:', aiResponse.status, 'data:', JSON.stringify(aiData));
 
-          if (aiData.success && aiData.response && !aiData.escalate) {
+          if (aiData.success && aiData.response) {
             res.setHeader('Content-Type', 'text/xml');
             return res.status(200).send(
               `<Response><Message>${aiData.response
@@ -623,7 +623,7 @@ notifyInbound(supabase, tenantId, From, Body).then(function() {
             );
           }
 
-          console.log(`[AI] Escalating from ${From}: ${aiData.escalate ? 'escalation requested' : 'AI failed'}`);
+          console.log(`[AI] No response from AI for ${From}`);
 
         } catch (aiErr) {
           console.error('[AI] Auto-response error:', aiErr);
