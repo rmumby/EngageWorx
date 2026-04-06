@@ -262,7 +262,7 @@ export default function LeadScan({ C }) {
   // ── LOCATION MANAGER ─────────────────────────────────────────────────────────
   if (showLocationMgr) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0f1e', fontFamily: "'DM Sans', sans-serif", padding: '24px 20px 60px' }}>
+      <div style={{ minHeight: '100vh', background: C ? C.bg : '#0a0f1e', fontFamily: "'DM Sans', sans-serif", padding: '24px 20px 60px' }}>
         <div style={{ maxWidth: 420, margin: '0 auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
@@ -330,7 +330,7 @@ export default function LeadScan({ C }) {
   // ── HOME SCREEN ──────────────────────────────────────────────────────────────
   if (mode === 'home') {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0f1e', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px 60px' }}>
+      <div style={{ minHeight: '100vh', background: C ? C.bg : '#0a0f1e', fontFamily: "'DM Sans', sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '28px 20px 60px' }}>
 
         {saved && (
           <div style={{ width: '100%', maxWidth: 420, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -417,7 +417,7 @@ export default function LeadScan({ C }) {
 
   // ── MANUAL / AI FORM ─────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0f1e', fontFamily: "'DM Sans', sans-serif", padding: '20px 20px 60px' }}>
+    <div style={{ minHeight: '100vh', background: C ? C.bg : '#0a0f1e', fontFamily: "'DM Sans', sans-serif", padding: '20px 20px 60px' }}>
       <div style={{ maxWidth: 500, margin: '0 auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
