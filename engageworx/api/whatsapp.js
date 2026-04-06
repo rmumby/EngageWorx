@@ -236,6 +236,11 @@ module.exports = async function handler(req, res) {
           if (configResult.data) tenantId = configResult.data.tenant_id;
         }
 
+        if (!tenantId) {
+          tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+          console.log('[WhatsApp] Using SP tenant fallback');
+        }
+
         if (tenantId) {
           // Find or create contact
           var contactResult = await supabase.from('contacts').select('id, first_name').eq('phone', cleanFrom).eq('tenant_id', tenantId).maybeSingle();
@@ -283,9 +288,10 @@ module.exports = async function handler(req, res) {
                 var businessInfo = aiConfig.ai_business_info || '';
                 var agentName = aiConfig.ai_agent_name || 'Assistant';
 
+                var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
                 var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+                  headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
                   body: JSON.stringify({
                     model: 'claude-sonnet-4-20250514',
                     max_tokens: 300,
@@ -297,7 +303,7 @@ module.exports = async function handler(req, res) {
                 if (claudeRes.ok) {
                   var claudeData = await claudeRes.json();
                   var aiReply = claudeData.content[0].text;
-                  var replyResult = await sendWhatsApp(cleanFrom, aiReply);
+                  var replyResult = await sendWhatsApp(cleanFrom, aiReply, cleanTo);
 
                   if (conversationId && replyResult.ok) {
                     await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'whatsapp', direction: 'outbound', body: aiReply, status: 'sent', provider_id: replyResult.data.sid });
