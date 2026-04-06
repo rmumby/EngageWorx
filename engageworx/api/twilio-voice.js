@@ -318,7 +318,15 @@ module.exports = async function handler(req, res) {
       } catch (e) { console.warn('Call log error:', e.message); }
     }
 
-    var callMode = config.call_mode || 'ivr';
+    console.log('📞 INBOUND DEBUG:', JSON.stringify({
+      to: body.To,
+      tenantId: tenantId,
+      hasConfig: !!voiceConfig,
+      greeting: config.greeting,
+      voice: voice,
+      isOpen: isBusinessHours(config),
+      depts: (config.departments || []).length
+    }));
     var greeting = config.greeting || 'Thank you for calling.';
     var afterHoursGreeting = config.after_hours_greeting || 'Thank you for calling. We are currently closed. Please leave a message after the tone and we will get back to you as soon as possible.';
     var recordingNotice = config.recording_enabled !== 'Disabled' ? 'This call may be recorded for quality purposes. ' : '';
