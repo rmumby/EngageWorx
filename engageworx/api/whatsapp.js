@@ -303,7 +303,9 @@ module.exports = async function handler(req, res) {
                 if (claudeRes.ok) {
                   var claudeData = await claudeRes.json();
                   var aiReply = claudeData.content[0].text;
+                  console.log('[WhatsApp] Sending AI reply to:', cleanFrom, 'from:', cleanTo, 'message:', aiReply);
                   var replyResult = await sendWhatsApp(cleanFrom, aiReply, cleanTo);
+                  console.log('[WhatsApp] Reply result:', JSON.stringify(replyResult.data));
 
                   if (conversationId && replyResult.ok) {
                     await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'whatsapp', direction: 'outbound', body: aiReply, status: 'sent', provider_id: replyResult.data.sid });
