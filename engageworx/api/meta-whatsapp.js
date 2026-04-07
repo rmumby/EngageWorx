@@ -133,7 +133,9 @@ module.exports = async function handler(req, res) {
           status: 'open',
         }).select('id');
         console.log('[MetaWA] Conversation insert result:', JSON.stringify(newConv));
+        if (newConv.error) console.error('[MetaWA] Conversation insert ERROR:', newConv.error.message);
         conversationId = newConv.data?.[0]?.id;
+        if (!conversationId) console.error('[MetaWA] Conversation ID still undefined after insert');
         console.log('[MetaWA] Created new conversation:', conversationId);
       }
 
