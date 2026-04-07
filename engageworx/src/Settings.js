@@ -264,7 +264,6 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [webhookTestResult, setWebhookTestResult] = useState({});
   const [upgradeLoading, setUpgradeLoading] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     alert_email: '',
     notify_on_csp_tenant_created: true,
