@@ -500,7 +500,6 @@ if (!tenantId) {
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
 
-  const toggleNotif = (id, channel) => {
   const toggleNotif = (id, channel) => { setNotifications(prev => prev.map(n => n.id === id ? { ...n, [channel]: !n[channel] } : n)); };
   const Toggle = ({ enabled, color }) => (<div style={{ width: 36, height: 20, borderRadius: 10, cursor: "pointer", background: enabled ? (color || C.primary) : "rgba(255,255,255,0.1)", position: "relative", transition: "all 0.2s", flexShrink: 0 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: enabled ? 18 : 2, transition: "all 0.2s" }} /></div>);
 
