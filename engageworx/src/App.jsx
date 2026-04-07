@@ -116,7 +116,7 @@ function useLiveData(demoMode) {
 
   // Fetch when demoMode turns off
   useEffect(() => {
-    if (!demoMode) fetchLiveData();
+    if (isAuthenticated && profile && profileReady && view === "login") {
   }, [demoMode, fetchLiveData]);
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
 }
