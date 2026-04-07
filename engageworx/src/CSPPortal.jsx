@@ -38,7 +38,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  useEffect(function() { loadCSPData(); }, [cspTenantId]);
+  useEffect(() => { if (cspTenantId) loadCSPData(); }, [cspTenantId]);
 
   async function loadCSPData() {
     setLoading(true);
