@@ -69,6 +69,69 @@ const CHANNEL_DEFS = [
   ]},
 ];
 
+// ── Integrations state ──────────────────────────────────────────────────
+  const [integrations, setIntegrations] = useState([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
+  const [showNewIntegration, setShowNewIntegration] = useState(false);
+  const [newIntegration, setNewIntegration] = useState({
+    name: '', service: 'calendly', event_type: 'booking.created',
+    action: 'create_lead_and_contact',
+    action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' },
+    field_mapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company' },
+  });
+
+  const SERVICES = [
+    { id: 'calendly', label: 'Calendly', icon: '📅', hint: 'Auto-create Pipeline leads from booking events', defaultMapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company', notes: 'payload.event.name' } },
+    { id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
+    { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
+    { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+    { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+  ];
+
+  const loadIntegrations = async () => {
+    setIntegrationsLoading(true);
+    try {
+      const tenantRow = await supabase.from('tenants').select('id').limit(1);
+      const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+      const { data } = await supabase.from('integrations').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      setIntegrations(data || []);
+    } catch(e) { console.error('loadIntegrations error:', e); }
+    setIntegrationsLoading(false);
+  };
+  useEffect(() => { if (activeTab === 'integrations') loadIntegrations(); }, [activeTab]);
+
+  const saveIntegration = async () => {
+    if (!newIntegration.name) return alert('Integration name is required');
+    const tenantRow = await supabase.from('tenants').select('id').limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    const secret = 'ewx_whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('');
+    const { error } = await supabase.from('integrations').insert({
+      tenant_id: tenantId,
+      name: newIntegration.name,
+      service: newIntegration.service,
+      event_type: newIntegration.event_type,
+      action: newIntegration.action,
+      action_config: newIntegration.action_config,
+      field_mapping: newIntegration.field_mapping,
+      webhook_secret: secret,
+      status: 'active',
+    });
+    if (error) return alert('Error: ' + error.message);
+    setShowNewIntegration(false);
+    setNewIntegration({ name: '', service: 'calendly', event_type: 'booking.created', action: 'create_lead_and_contact', action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' }, field_mapping: {} });
+    loadIntegrations();
+  };
+
+  const deleteIntegration = async (id) => {
+    if (!window.confirm('Delete this integration?')) return;
+    await supabase.from('integrations').delete().eq('id', id);
+    loadIntegrations();
+  };
+
+  const toggleIntegration = async (id, currentStatus) => {
+    await supabase.from('integrations').update({ status: currentStatus === 'active' ? 'paused' : 'active' }).eq('id', id);
+    loadIntegrations();
+  };
 function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const [members, setMembers] = useState([]);
@@ -80,6 +143,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('admin');
   const [saving, setSaving] = useState(null);
+  const [liveWebhooks, setLiveWebhooks] = useState([]);
 
   const NOTIFY_FLAGS = [
     { key: 'notify_on_escalation', label: 'Ticket Escalations' },
@@ -743,6 +807,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
       <div style={{ display: "flex", gap: 2, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
         {[
+          { id: "integrations", label: "Integrations", icon: "🔌" },
           { id: "api", label: "API Keys", icon: "🔑" },
           { id: "webhooks", label: "Webhooks", icon: "🔗" },
           { id: "channels", label: "Channels", icon: "📡" },
@@ -761,7 +826,147 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
         ))}
       </div>
 
-      {/* ═══════════ API KEYS TAB ═══════════ */}
+{/* ═══════════ INTEGRATIONS TAB ═══════════ */}
+      {activeTab === "integrations" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Integrations</h2>
+              <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Connect any service. Define what happens. AI handles the rest.</div>
+            </div>
+            <button onClick={() => setShowNewIntegration(!showNewIntegration)} style={btnPrimary}>+ Add Integration</button>
+          </div>
+
+          {/* How it works */}
+          <div style={{ ...card, marginBottom: 20, borderLeft: `4px solid ${C.primary}`, background: `${C.primary}08` }}>
+            <div style={{ color: C.primary, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>🔌 How it works</div>
+            <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.7 }}>
+              1. Add an integration below and choose what action to run when it fires.<br/>
+              2. Copy your unique webhook URL and paste it into the 3rd party service (Calendly, Typeform, HubSpot, etc.)<br/>
+              3. Every time that service fires an event, EngageWorx automatically creates a Pipeline lead, contact, and enrols in a sequence.
+            </div>
+          </div>
+
+          {/* New integration form */}
+          {showNewIntegration && (
+            <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
+              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>New Integration</h3>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={label}>Integration Name</label>
+                  <input value={newIntegration.name} onChange={e => setNewIntegration({...newIntegration, name: e.target.value})} placeholder="e.g. Calendly Demo Bookings" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={label}>Service</label>
+                  <select value={newIntegration.service} onChange={e => {
+                    var svc = SERVICES.find(s => s.id === e.target.value);
+                    setNewIntegration({...newIntegration, service: e.target.value, field_mapping: svc?.defaultMapping || {}});
+                  }} style={inputStyle}>
+                    {SERVICES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+                  </select>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{SERVICES.find(s => s.id === newIntegration.service)?.hint}</div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                <div>
+                  <label style={label}>Action to Run</label>
+                  <select value={newIntegration.action} onChange={e => setNewIntegration({...newIntegration, action: e.target.value})} style={inputStyle}>
+                    <option value="create_lead_and_contact">Create Pipeline Lead + Contact</option>
+                    <option value="create_lead">Create Pipeline Lead only</option>
+                    <option value="create_contact">Create Contact only</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={label}>Lead Urgency</label>
+                  <select value={newIntegration.action_config?.urgency || 'Hot'} onChange={e => setNewIntegration({...newIntegration, action_config: {...newIntegration.action_config, urgency: e.target.value}})} style={inputStyle}>
+                    <option value="Hot">🔥 Hot</option>
+                    <option value="Warm">⚡ Warm</option>
+                    <option value="Cold">❄️ Cold</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={label}>Field Mapping (JSON path in webhook payload → EngageWorx field)</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  {['name','email','company','phone'].map(field => (
+                    <div key={field}>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 4, textTransform: 'uppercase' }}>{field}</div>
+                      <input
+                        value={newIntegration.field_mapping?.[field] || ''}
+                        onChange={e => setNewIntegration({...newIntegration, field_mapping: {...newIntegration.field_mapping, [field]: e.target.value}})}
+                        placeholder={field === 'name' ? 'payload.invitee.name' : field}
+                        style={{ ...inputStyle, fontSize: 12, padding: '8px 10px', fontFamily: 'monospace' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>Use dot notation for nested fields. Leave blank to auto-detect from common payload structures.</div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={saveIntegration} style={btnPrimary}>Save Integration</button>
+                <button onClick={() => setShowNewIntegration(false)} style={btnSec}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Integration list */}
+          {integrationsLoading ? (
+            <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading integrations...</div>
+          ) : integrations.length === 0 ? (
+            <div style={{ ...card, textAlign: "center", padding: 48 }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 17, marginBottom: 8 }}>No integrations yet</div>
+              <div style={{ color: C.muted, fontSize: 13, marginBottom: 20, maxWidth: 400, margin: "0 auto 20px" }}>Connect Calendly, Typeform, HubSpot, Zapier, or any service that sends webhooks — leads auto-appear in your Pipeline.</div>
+              <button onClick={() => setShowNewIntegration(true)} style={btnPrimary}>+ Add Your First Integration</button>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {integrations.map(intg => {
+                var svc = SERVICES.find(s => s.id === intg.service) || SERVICES[SERVICES.length - 1];
+                var webhookUrl = `${window.location.origin}/api/webhook-inbound?tenant_id=${currentTenantId}&integration_id=${intg.id}`;
+                return (
+                  <div key={intg.id} style={{ ...card, borderLeft: `4px solid ${intg.status === 'active' ? '#00E676' : '#64748b'}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                      <span style={{ fontSize: 24 }}>{svc.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{intg.name}</div>
+                        <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{svc.label} · {intg.action.replace(/_/g, ' ')} · {intg.trigger_count || 0} triggers</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: intg.status === 'active' ? '#00E676' : '#64748b', background: (intg.status === 'active' ? '#00E676' : '#64748b') + '18', padding: '3px 10px', borderRadius: 6 }}>
+                          {intg.status === 'active' ? '● Active' : '○ Paused'}
+                        </span>
+                        <button onClick={() => toggleIntegration(intg.id, intg.status)} style={{ ...btnSec, padding: "6px 12px", fontSize: 11 }}>
+                          {intg.status === 'active' ? 'Pause' : 'Activate'}
+                        </button>
+                        <button onClick={() => deleteIntegration(intg.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>✕</button>
+                      </div>
+                    </div>
+
+                    {/* Webhook URL */}
+                    <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Webhook URL — paste this into {svc.label}</div>
+                        <code style={{ fontSize: 12, color: C.primary, fontFamily: 'monospace', wordBreak: 'break-all' }}>{webhookUrl}</code>
+                      </div>
+                      <button onClick={() => { navigator.clipboard.writeText(webhookUrl); }} style={{ ...btnSec, padding: "6px 12px", fontSize: 11, whiteSpace: 'nowrap', flexShrink: 0 }}>Copy URL</button>
+                    </div>
+
+                    {intg.last_triggered_at && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: C.muted }}>Last triggered: {new Date(intg.last_triggered_at).toLocaleString()}</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}      
+{/* ═══════════ API KEYS TAB ═══════════ */}
       {activeTab === "api" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
