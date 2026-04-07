@@ -131,8 +131,8 @@ module.exports = async function handler(req, res) {
           contact_id: contactId,
           channel: 'whatsapp',
           status: 'open',
-          last_message_at: new Date().toISOString(),
-        }).select();
+        }).select('id');
+        console.log('[MetaWA] Conversation insert result:', JSON.stringify(newConv));
         conversationId = newConv.data?.[0]?.id;
         console.log('[MetaWA] Created new conversation:', conversationId);
       }
