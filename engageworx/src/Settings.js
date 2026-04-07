@@ -344,13 +344,14 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
       )}
     </div>
   );
-}
 
-{ id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
-    { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
-    { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
-    { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
-  ];
+const SERVICES = [
+  { id: 'calendly', label: 'Calendly', icon: '📅', hint: 'Auto-create Pipeline leads from booking events', defaultMapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company', notes: 'payload.event.name' } },
+  { id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
+  { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
+  { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+  { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+];
 
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs }) {
   const [activeTab, setActiveTab] = useState(defaultTab || "api");
