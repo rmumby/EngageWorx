@@ -11,7 +11,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [demoMode, setDemoMode] = useState(false);
-  const [profileReady, setProfileReady] = useState(false); // ← NEW
 
   const toggleDemoMode = useCallback((val) => {
     setDemoMode(typeof val === 'boolean' ? val : !demoMode);
@@ -22,7 +21,6 @@ export function AuthProvider({ children }) {
   // Fetch profile — never throws, never hangs
   const fetchProfile = useCallback(async (userId) => {
     if (!userId) return null;
-    setProfileReady(false); // ← reset on each fetch
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -53,7 +51,6 @@ export function AuthProvider({ children }) {
               if (tenantData) profileData.tenant_type = tenantData.tenant_type;
             } catch (ttErr) {}
             setProfile(profileData);
-            setProfileReady(true); // ← mark ready
             return profileData;
           }
         } catch (mbErr) {
@@ -61,15 +58,12 @@ export function AuthProvider({ children }) {
         }
         if (data) {
           setProfile(data);
-          setProfileReady(true); // ← mark ready
           return data;
         }
         console.warn('Profile fetch error:', error ? error.message : 'no tenant_id');
         setProfile({ id: userId, role: 'user' });
-        setProfileReady(true); // ← mark ready even on fallback
         return null;
       }
-
       // Enrich profile with tenant_type (CSP detection)
       if (data && data.tenant_id && !data.tenant_type) {
         try {
@@ -81,15 +75,11 @@ export function AuthProvider({ children }) {
           if (tenantData) data.tenant_type = tenantData.tenant_type;
         } catch (ttErr) {}
       }
-
       setProfile(data);
-      setProfileReady(true); // ← mark ready
       return data;
-
     } catch (err) {
       console.warn('Profile fetch failed:', err.message);
       setProfile({ id: userId, role: 'user' });
-      setProfileReady(true); // ← mark ready even on error
       return null;
     }
   }, []);
@@ -114,12 +104,7 @@ export function AuthProvider({ children }) {
     };
 
     // Safety: force loading off after 3s
-    const safety = setTimeout(() => {
-      if (mounted) {
-        setLoading(false);
-        setProfileReady(true); // ← safety timeout also marks ready
-      }
-    }, 3000);
+    const safety = setTimeout(() => { if (mounted) setLoading(false); }, 3000);
 
     init();
 
@@ -130,14 +115,13 @@ export function AuthProvider({ children }) {
         setSession(s);
         setUser(s?.user ?? null);
         if (event === 'SIGNED_IN' && s?.user) {
-          await fetchProfile(s.user.id);
+          fetchProfile(s.user.id); // Don't await — let it run in background
         }
         if (event === 'PASSWORD_RECOVERY') {
           setPasswordRecovery(true);
         }
         if (event === 'SIGNED_OUT') {
           setProfile(null);
-          setProfileReady(false); // ← reset on signout
         }
       }
     );
@@ -156,10 +140,11 @@ export function AuthProvider({ children }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      // Manually set user/session immediately so we don't wait for onAuthStateChange
       setUser(data.user);
       setSession(data.session);
-      // Await profile so isCSP/tenant_type is set before routing
-      await fetchProfile(data.user.id);
+      // Fetch profile — await so isCSP is set before routing
+    await fetchProfile(data.user.id);
       return { data, error: null };
     } catch (err) {
       setAuthError(err.message);
@@ -188,7 +173,6 @@ export function AuthProvider({ children }) {
     setUser(null);
     setSession(null);
     setProfile(null);
-    setProfileReady(false);
   };
 
   const resetPassword = async (email) => {
@@ -221,7 +205,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, profile, loading, profileReady,
+      user, session, profile, loading,
       demoMode, toggleDemoMode,
       signIn, signUp, signOut, resetPassword, updatePassword,
       authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId, passwordRecovery,
