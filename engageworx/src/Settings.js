@@ -460,6 +460,48 @@ if (!tenantId) {
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
+  // ── SP Alerts state ──────────────────────────────────────────
+  const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+  const [alertConfig, setAlertConfig] = useState({
+    alert_email: '',
+    notify_on_csp_tenant_created: true,
+    notify_on_csp_tenant_deleted: true,
+    notify_on_csp_upgraded: true,
+    notify_on_csp_payment: true,
+  });
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsSaving, setAlertsSaving] = useState(false);
+
+  const loadAlertConfig = async () => {
+    setAlertsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('sp_settings')
+        .select('value')
+        .eq('tenant_id', SP_TENANT_ID)
+        .eq('key', 'csp_alerts')
+        .maybeSingle();
+      if (data && data.value) setAlertConfig(prev => ({ ...prev, ...data.value }));
+    } catch(e) { console.error('loadAlertConfig error:', e); }
+    setAlertsLoading(false);
+  };
+
+  const saveAlertConfig = async () => {
+    setAlertsSaving(true);
+    try {
+      await supabase.from('sp_settings').upsert({
+        tenant_id: SP_TENANT_ID,
+        key: 'csp_alerts',
+        value: alertConfig,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,key' });
+    } catch(e) { alert('Error saving: ' + e.message); }
+    setAlertsSaving(false);
+  };
+
+  useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
+
+  const toggleNotif = (id, channel) => {
   const toggleNotif = (id, channel) => { setNotifications(prev => prev.map(n => n.id === id ? { ...n, [channel]: !n[channel] } : n)); };
   const Toggle = ({ enabled, color }) => (<div style={{ width: 36, height: 20, borderRadius: 10, cursor: "pointer", background: enabled ? (color || C.primary) : "rgba(255,255,255,0.1)", position: "relative", transition: "all 0.2s", flexShrink: 0 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: enabled ? 18 : 2, transition: "all 0.2s" }} /></div>);
 
@@ -492,6 +534,7 @@ if (!tenantId) {
           { id: "team", label: "Team", icon: "👥" },
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
+          { id: "alerts", label: "SP Alerts", icon: "🚨" },
         ].filter(t => !allowedTabs || allowedTabs.includes(t.id)).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{t.icon} {t.label}</button>
         ))}
@@ -765,6 +808,44 @@ if (!tenantId) {
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+{activeTab === "alerts" && (
+        <div>
+          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>SP Alert Notifications</h2>
+          <div style={{ ...card, maxWidth: 560 }}>
+            {alertsLoading ? <div style={{ color: C.muted }}>Loading...</div> : (
+              <div style={{ display: "grid", gap: 20 }}>
+                <div>
+                  <label style={label}>Alert Email Address</label>
+                  <input value={alertConfig.alert_email} onChange={e => setAlertConfig({ ...alertConfig, alert_email: e.target.value })} placeholder="rob@engwx.com" style={inputStyle} />
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>All SP alert notifications are sent to this address.</div>
+                </div>
+                <div>
+                  <label style={label}>Notify Me When</label>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {[
+                      { key: 'notify_on_csp_tenant_created', label: '🏢 CSP creates a new tenant' },
+                      { key: 'notify_on_csp_tenant_deleted', label: '🗑 CSP deletes a tenant' },
+                      { key: 'notify_on_csp_upgraded', label: '⬆️ CSP upgrades their plan' },
+                      { key: 'notify_on_csp_payment', label: '💳 CSP payment received' },
+                    ].map(item => (
+                      <div key={item.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}>
+                        <span style={{ color: "#fff", fontSize: 14 }}>{item.label}</span>
+                        <div onClick={() => setAlertConfig({ ...alertConfig, [item.key]: !alertConfig[item.key] })} style={{ width: 44, height: 24, borderRadius: 12, cursor: "pointer", position: "relative", background: alertConfig[item.key] ? C.primary : "rgba(255,255,255,0.15)", transition: "all 0.2s", flexShrink: 0 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: alertConfig[item.key] ? 23 : 3, transition: "all 0.2s" }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={saveAlertConfig} disabled={alertsSaving} style={{ ...btnPrimary, opacity: alertsSaving ? 0.6 : 1 }}>
+                  {alertsSaving ? 'Saving...' : 'Save Alert Settings'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
