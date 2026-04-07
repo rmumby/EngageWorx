@@ -1349,8 +1349,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "tenants" && <TenantManagement C={C} demoMode={false} />}
         {page === "billing" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
-        {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
-{page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
         )}
@@ -1380,7 +1378,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
   const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
-
+  
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
   useEffect(() => {
@@ -1415,7 +1413,7 @@ function AppInner() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
+    
     // Handle return from Stripe checkout
     if (params.get("checkout") === "success" || params.get("signup") === "success") {
       const email = params.get("email") || "";
@@ -1424,7 +1422,7 @@ function AppInner() {
       setLoginTab("login");
       if (email) setLoginForm(p => ({ ...p, email: decodeURIComponent(email) }));
     }
-
+    
     // Handle direct signup link from landing page
     if (params.get("view") === "signup") {
       window.history.replaceState({}, "", window.location.pathname);
@@ -1623,7 +1621,7 @@ var spNavBase = [
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "36px 32px" }}>
             <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Set New Password</h2>
             <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your new password below</p>
-
+            
             {resetMessage && (
               <div style={{ background: resetMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${resetMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: resetMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
                 {resetMessage.text}
