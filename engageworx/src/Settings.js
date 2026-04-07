@@ -264,6 +264,24 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [webhookTestResult, setWebhookTestResult] = useState({});
   const [upgradeLoading, setUpgradeLoading] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  // ── Resolved tenant ID (works for any logged-in user) ──────────────────
+  const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId);
+  useEffect(() => {
+    if (resolvedTenantId) return;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('tenant_id')
+            .eq('id', user.id)
+            .single();
+          if (profile?.tenant_id) setResolvedTenantId(profile.tenant_id);
+        }
+      } catch(e) { console.error('tenant resolve error:', e); }
+    })();
+  }, []);
 
   const ALL_PERMISSIONS = ["messages", "contacts", "campaigns", "analytics", "webhooks", "flows", "settings"];
   const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
