@@ -1377,7 +1377,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
+  const { user, profile, loading, profileReady, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
   
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
@@ -1432,7 +1432,7 @@ function AppInner() {
 
   // Auto-route authenticated users directly to their portal
   useEffect(() => {
-    if (isAuthenticated && profile && view === "login") {
+    if (isAuthenticated && profile && profileReady && view === "login") {
       if (profile.role === "superadmin") {
         setView("sp");
       } else if (isCSP && profile.tenant_id) {
