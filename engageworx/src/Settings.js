@@ -314,7 +314,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const saveIntegration = async () => {
     if (!newIntegration.name) return alert('Integration name is required');
-    const tenantRow = await supabase.from('tenants').select('id').limit(1);
+    alert('tenant ID is: ' + currentTenantId);  // ← add this temporarily
     const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
     const secret = 'ewx_whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('');
     const { error } = await supabase.from('integrations').insert({ tenant_id: tenantId, name: newIntegration.name, service: newIntegration.service, event_type: newIntegration.event_type, action: newIntegration.action, action_config: newIntegration.action_config, field_mapping: newIntegration.field_mapping, webhook_secret: secret, status: 'active' });
