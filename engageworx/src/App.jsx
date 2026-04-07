@@ -116,7 +116,7 @@ function useLiveData(demoMode) {
 
   // Fetch when demoMode turns off
   useEffect(() => {
-    if (isAuthenticated && profile && profileReady && view === "login") {
+    if (!demoMode) fetchLiveData();
   }, [demoMode, fetchLiveData]);
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
 }
@@ -1445,7 +1445,7 @@ function AppInner() {
         setView("no_tenant");
       }
     }
-  }, [isAuthenticated, profile, view]);
+  }, [isAuthenticated, profile, profileReady, view]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -1543,6 +1543,15 @@ var spNavBase = [
 
   // User signed up but didn't complete payment
   if (view === "no_tenant") {
+    // Bypass billing gate for CSPs and SPs — they don't need a subscription
+    if (isCSP && profile?.tenant_id) {
+      setView("csp_" + profile.tenant_id);
+      return null;
+    }
+    if (isSuperAdmin) {
+      setView("sp");
+      return null;
+    }
     return (
       <div style={{ minHeight: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 440, padding: "0 20px" }}>
