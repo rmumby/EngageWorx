@@ -101,13 +101,14 @@ function useLiveData(demoMode) {
         };
       });
 
-      setLiveTenants(formatted);
-      setLiveStats({
-        totalMessages: 0,
-        totalRevenue: 0,
-        activeCustomers: formatted.length,
-        totalCampaigns: 0,
-      });
+      const filtered = formatted.filter(t => t.tenant_type !== 'csp');
+setLiveTenants(filtered);
+setLiveStats({
+  totalMessages: 0,
+  totalRevenue: 0,
+  activeCustomers: filtered.length,
+  totalCampaigns: 0,
+});
     } catch (err) {
       console.warn('Live data fetch error:', err.message);
     }
