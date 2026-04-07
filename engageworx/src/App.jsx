@@ -1239,7 +1239,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const cpTheme = useTheme();
   const C = getThemedColors(tenant.colors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
-
   const navItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
@@ -1254,11 +1253,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "importleads", label: "Import Leads", icon: "📥" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "billing", label: "Billing", icon: "💳" },
-    { id: "tenants", label: "Tenant Management", icon: "🏢" },
-    { id: "registration", label: "Registration", icon: "📋" },
-    { id: "integrations", label: "API & Integrations", icon: "🔌" },
     { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "branding", label: "Branding", icon: "🎨" },
   ];
 
   return (
@@ -1351,16 +1347,21 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "sequenceroster" && <SequenceRoster C={C} tenantId={tenantId} demoMode={false} />}
         {page === "importleads" && <ImportLeads C={C} tenantId={tenantId} demoMode={false} />}
         {page === "tenants" && <TenantManagement C={C} demoMode={false} />}
+        {page === "billing" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
+        {page === "integrations" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
-        {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="api" allowedTabs={["api", "webhooks"]} />}
+{page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
+        )}
+        {page === "branding" && (
           <div style={{ padding: "32px 36px" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Settings</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
             <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
           </div>
         )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "pipeline" && page !== "leadscan" && page !== "sequences" && page !== "sequenceroster" && page !== "importleads" && page !== "billing" && page !== "tenants" && page !== "integrations" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -1379,7 +1380,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
   const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
-  
+
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
   useEffect(() => {
@@ -1414,7 +1415,7 @@ function AppInner() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    
+
     // Handle return from Stripe checkout
     if (params.get("checkout") === "success" || params.get("signup") === "success") {
       const email = params.get("email") || "";
@@ -1423,7 +1424,7 @@ function AppInner() {
       setLoginTab("login");
       if (email) setLoginForm(p => ({ ...p, email: decodeURIComponent(email) }));
     }
-    
+
     // Handle direct signup link from landing page
     if (params.get("view") === "signup") {
       window.history.replaceState({}, "", window.location.pathname);
@@ -1542,18 +1543,6 @@ var spNavBase = [
     return <SignupPage onBack={() => setView("login")} />;
   }
 
-  // Wait for profile to fully load before routing
-  if (loading || (isAuthenticated && !profileReady)) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
-          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
   // User signed up but didn't complete payment
   if (view === "no_tenant") {
     return (
@@ -1599,6 +1588,18 @@ var spNavBase = [
     );
   }
 
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (drillDownTenant) {
     // Check tenant type — show appropriate portal
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
@@ -1622,7 +1623,7 @@ var spNavBase = [
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "36px 32px" }}>
             <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Set New Password</h2>
             <p style={{ color: C.muted, textAlign: "center", marginBottom: 24, fontSize: 13 }}>Enter your new password below</p>
-            
+
             {resetMessage && (
               <div style={{ background: resetMessage.type === "error" ? "#FF3B3018" : "#00E67618", border: `1px solid ${resetMessage.type === "error" ? "#FF3B3044" : "#00E67644"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: resetMessage.type === "error" ? "#FF3B30" : "#00E676", fontSize: 13 }}>
                 {resetMessage.text}
@@ -1993,7 +1994,7 @@ var spNavBase = [
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} forceDark={true} />
+            <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} />
           </div>
         )}
       </div>
