@@ -303,8 +303,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const loadIntegrations = async () => {
     setIntegrationsLoading(true);
     try {
-      const tenantRow = await supabase.from('tenants').select('id').limit(1);
-      const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+      let tenantId = currentTenantId;
+if (!tenantId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
+    tenantId = profile?.tenant_id;
+  }
+}
       const { data } = await supabase.from('integrations').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
       setIntegrations(data || []);
     } catch(e) { console.error('loadIntegrations error:', e); }
@@ -335,8 +341,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const generateApiKey = async () => {
     if (!newKeyData.name) return alert("Key name is required");
-    const tenantRow = await supabase.from("tenants").select("id").limit(1);
-    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    const tenantRow = await supabase.fr
     if (!tenantId) return alert("No tenant found");
     const envPrefix = newKeyData.environment === "production" ? "ewx_live_" : newKeyData.environment === "staging" ? "ewx_test_" : "ewx_dev_";
     const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(36)).join("").slice(0, 32);
@@ -355,8 +360,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const loadChannelConfigs = async () => {
     setChannelsLoading(true);
     try {
-      const tenantRow = await supabase.from("tenants").select("id").limit(1);
-      const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+      let tenantId = currentTenantId;
+if (!tenantId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
+    tenantId = profile?.tenant_id;
+  }
+}
       const { data, error } = await supabase.from("channel_configs").select("*").eq("tenant_id", tenantId);
       if (!error && data) { const map = {}; data.forEach(c => { map[c.channel] = c; }); setChannelConfigs(map); }
     } catch (err) { console.error("Failed to load channel configs:", err); }
@@ -366,8 +377,14 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 
   const saveChannelConfig = async (channelId, config, enabled) => {
     setChannelSaving(channelId);
-    const tenantRow = await supabase.from("tenants").select("id").limit(1);
-    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    let tenantId = currentTenantId;
+if (!tenantId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
+    tenantId = profile?.tenant_id;
+  }
+}
     if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
     const existing = channelConfigs[channelId];
     const existingConfig = existing?.config_encrypted || {};
