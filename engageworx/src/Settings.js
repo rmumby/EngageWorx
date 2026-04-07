@@ -264,6 +264,16 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [webhookTestResult, setWebhookTestResult] = useState({});
   const [upgradeLoading, setUpgradeLoading] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    alert_email: '',
+    notify_on_csp_tenant_created: true,
+    notify_on_csp_tenant_deleted: true,
+    notify_on_csp_upgraded: true,
+    notify_on_csp_payment: true,
+  });
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsSaving, setAlertsSaving] = useState(false);
   // ── Resolved tenant ID (works for any logged-in user) ──────────────────
   const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId);
   useEffect(() => {
@@ -462,16 +472,6 @@ if (!tenantId) {
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
   // ── SP Alerts state ──────────────────────────────────────────
   const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-  const [alertConfig, setAlertConfig] = useState({
-    alert_email: '',
-    notify_on_csp_tenant_created: true,
-    notify_on_csp_tenant_deleted: true,
-    notify_on_csp_upgraded: true,
-    notify_on_csp_payment: true,
-  });
-  const [alertsLoading, setAlertsLoading] = useState(true);
-  const [alertsSaving, setAlertsSaving] = useState(false);
-
   const loadAlertConfig = async () => {
     setAlertsLoading(true);
     try {
