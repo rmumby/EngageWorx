@@ -134,7 +134,8 @@ async function sendCalendlyLink(toNumber, fromNumber, chatbotConfig) {
   try {
     var knowledgeBase = (chatbotConfig && chatbotConfig.knowledge_base) || '';
     var match = knowledgeBase.match(/https:\/\/calendly\.com\/[^\s"')]+/);
-    var calendlyLink = match ? match[0] : 'https://calendly.com/engageworkx/demo';
+    var calendlyLink = match ? match[0] : null;
+    if (!calendlyLink) { console.warn('No Calendly link found in knowledge base'); return; }
 
     var TWILIO_SID = process.env.TWILIO_ACCOUNT_SID;
     var TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN;
