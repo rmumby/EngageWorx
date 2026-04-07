@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
           tenant_id: tenantId,
           contact_id: contactId,
           channel: 'whatsapp',
-          status: 'open',
+          status: 'active',
         }).select('id');
         console.log('[MetaWA] Conversation insert result:', JSON.stringify(newConv));
         if (newConv.error) console.error('[MetaWA] Conversation insert ERROR:', newConv.error.message);
