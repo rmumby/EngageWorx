@@ -101,12 +101,13 @@ function useLiveData(demoMode) {
         };
       });
 
-      const filtered = formatted.filter(t => t.tenant_type !== 'csp');
+      // SP view: show CSPs but hide their sub-tenants
+const filtered = formatted.filter(t => !t.parent_tenant_id || t.tenant_type === 'csp');
 setLiveTenants(filtered);
 setLiveStats({
   totalMessages: 0,
   totalRevenue: 0,
-  activeCustomers: filtered.length,
+  activeCustomers: filtered.filter(t => t.tenant_type !== 'csp').length,
   totalCampaigns: 0,
 });
     } catch (err) {
