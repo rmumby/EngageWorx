@@ -69,69 +69,14 @@ const CHANNEL_DEFS = [
   ]},
 ];
 
-// ── Integrations state ──────────────────────────────────────────────────
-  const [integrations, setIntegrations] = useState([]);
-  const [integrationsLoading, setIntegrationsLoading] = useState(true);
-  const [showNewIntegration, setShowNewIntegration] = useState(false);
-  const [newIntegration, setNewIntegration] = useState({
-    name: '', service: 'calendly', event_type: 'booking.created',
-    action: 'create_lead_and_contact',
-    action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' },
-    field_mapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company' },
-  });
+const SERVICES = [
+  { id: 'calendly', label: 'Calendly', icon: '📅', hint: 'Auto-create Pipeline leads from booking events', defaultMapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company', notes: 'payload.event.name' } },
+  { id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
+  { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
+  { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+  { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+];
 
-  const SERVICES = [
-    { id: 'calendly', label: 'Calendly', icon: '📅', hint: 'Auto-create Pipeline leads from booking events', defaultMapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company', notes: 'payload.event.name' } },
-    { id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
-    { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
-    { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
-    { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
-  ];
-
-  const loadIntegrations = async () => {
-    setIntegrationsLoading(true);
-    try {
-      const tenantRow = await supabase.from('tenants').select('id').limit(1);
-      const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
-      const { data } = await supabase.from('integrations').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
-      setIntegrations(data || []);
-    } catch(e) { console.error('loadIntegrations error:', e); }
-    setIntegrationsLoading(false);
-  };
-  useEffect(() => { if (activeTab === 'integrations') loadIntegrations(); }, [activeTab]);
-
-  const saveIntegration = async () => {
-    if (!newIntegration.name) return alert('Integration name is required');
-    const tenantRow = await supabase.from('tenants').select('id').limit(1);
-    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
-    const secret = 'ewx_whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('');
-    const { error } = await supabase.from('integrations').insert({
-      tenant_id: tenantId,
-      name: newIntegration.name,
-      service: newIntegration.service,
-      event_type: newIntegration.event_type,
-      action: newIntegration.action,
-      action_config: newIntegration.action_config,
-      field_mapping: newIntegration.field_mapping,
-      webhook_secret: secret,
-      status: 'active',
-    });
-    if (error) return alert('Error: ' + error.message);
-    setShowNewIntegration(false);
-    setNewIntegration({ name: '', service: 'calendly', event_type: 'booking.created', action: 'create_lead_and_contact', action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' }, field_mapping: {} });
-    loadIntegrations();
-  };
-
-  const deleteIntegration = async (id) => {
-    if (!window.confirm('Delete this integration?')) return;
-    await supabase.from('integrations').delete().eq('id', id);
-    loadIntegrations();
-  };
-
-  const toggleIntegration = async (id, currentStatus) => {
-    await supabase.from('integrations').update({ status: currentStatus === 'active' ? 'paused' : 'active' }).eq('id', id);
-    loadIntegrations();
-  };
 function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const [members, setMembers] = useState([]);
@@ -143,6 +88,15 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('admin');
   const [saving, setSaving] = useState(null);
+  const [integrations, setIntegrations] = useState([]);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
+  const [showNewIntegration, setShowNewIntegration] = useState(false);
+  const [newIntegration, setNewIntegration] = useState({
+    name: '', service: 'calendly', event_type: 'booking.created',
+    action: 'create_lead_and_contact',
+    action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' },
+    field_mapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company' },
+  });
   const [liveWebhooks, setLiveWebhooks] = useState([]);
 
   const NOTIFY_FLAGS = [
@@ -391,6 +345,13 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
     </div>
   );
 }
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
+    { id: 'typeform', label: 'Typeform', icon: '📋', hint: 'Create leads from form submissions', defaultMapping: { name: 'form_response.answers.0.text', email: 'form_response.answers.1.email' } },
+    { id: 'hubspot', label: 'HubSpot', icon: '🟠', hint: 'Sync contacts from HubSpot CRM', defaultMapping: { name: 'properties.firstname.value', email: 'properties.email.value', company: 'properties.company.value' } },
+    { id: 'zapier', label: 'Zapier / Make', icon: '⚡', hint: 'Connect 5,000+ apps via Zapier or Make', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+    { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
+  ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs }) {
@@ -658,6 +619,50 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [webhookTestResult, setWebhookTestResult] = useState({});
   const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
 
+  const loadIntegrations = async () => {
+    setIntegrationsLoading(true);
+    try {
+      const tenantRow = await supabase.from('tenants').select('id').limit(1);
+      const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+      const { data } = await supabase.from('integrations').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false });
+      setIntegrations(data || []);
+    } catch(e) { console.error('loadIntegrations error:', e); }
+    setIntegrationsLoading(false);
+  };
+  useEffect(() => { if (activeTab === 'integrations') loadIntegrations(); }, [activeTab]);
+
+  const saveIntegration = async () => {
+    if (!newIntegration.name) return alert('Integration name is required');
+    const tenantRow = await supabase.from('tenants').select('id').limit(1);
+    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    const secret = 'ewx_whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('');
+    const { error } = await supabase.from('integrations').insert({
+      tenant_id: tenantId,
+      name: newIntegration.name,
+      service: newIntegration.service,
+      event_type: newIntegration.event_type,
+      action: newIntegration.action,
+      action_config: newIntegration.action_config,
+      field_mapping: newIntegration.field_mapping,
+      webhook_secret: secret,
+      status: 'active',
+    });
+    if (error) return alert('Error: ' + error.message);
+    setShowNewIntegration(false);
+    setNewIntegration({ name: '', service: 'calendly', event_type: 'booking.created', action: 'create_lead_and_contact', action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' }, field_mapping: {} });
+    loadIntegrations();
+  };
+
+  const deleteIntegration = async (id) => {
+    if (!window.confirm('Delete this integration?')) return;
+    await supabase.from('integrations').delete().eq('id', id);
+    loadIntegrations();
+  };
+
+  const toggleIntegration = async (id, currentStatus) => {
+    await supabase.from('integrations').update({ status: currentStatus === 'active' ? 'paused' : 'active' }).eq('id', id);
+    loadIntegrations();
+  };
   const loadWebhooks = async () => {
     setWebhooksLoading(true);
     try {
@@ -869,7 +874,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div style={{ display : "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                 <div>
                   <label style={label}>Action to Run</label>
                   <select value={newIntegration.action} onChange={e => setNewIntegration({...newIntegration, action: e.target.value})} style={inputStyle}>
