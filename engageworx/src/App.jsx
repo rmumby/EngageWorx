@@ -1554,6 +1554,18 @@ var spNavBase = [
   }
   
   // User signed up but didn't complete payment
+  // Wait for profile to fully load before routing
+  if (loading || (isAuthenticated && !profileReady)) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (view === "no_tenant") {
     // Bypass billing gate for CSPs and SPs — they don't need a subscription
     if (isCSP && profile?.tenant_id) {
