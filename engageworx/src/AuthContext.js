@@ -115,7 +115,7 @@ export function AuthProvider({ children }) {
         setSession(s);
         setUser(s?.user ?? null);
         if (event === 'SIGNED_IN' && s?.user) {
-          fetchProfile(s.user.id); // Don't await — let it run in background
+          await fetchProfile(s.user.id);
         }
         if (event === 'PASSWORD_RECOVERY') {
           setPasswordRecovery(true);
