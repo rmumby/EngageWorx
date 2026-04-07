@@ -1552,9 +1552,8 @@ var spNavBase = [
       </div>
     );
   }
-  
-  // User signed up but didn't complete payment
-  // Wait for profile to fully load before routing
+
+// Wait for profile to fully load before routing
   if (loading || (isAuthenticated && !profileReady)) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
@@ -1614,18 +1613,6 @@ var spNavBase = [
           <p style={{ color: "#475569", fontSize: 12, marginTop: 24 }}>
             Need help? Contact us at <a href="mailto:support@engwx.com" style={{ color: "#0ea5e9", textDecoration: "none" }}>support@engwx.com</a> or call <a href="tel:+17869827800" style={{ color: "#0ea5e9", textDecoration: "none" }}>+1 (786) 982-7800</a>
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading while auth + profile are initializing
-  if (loading || (isAuthenticated && !profileReady)) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
-          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
         </div>
       </div>
     );
