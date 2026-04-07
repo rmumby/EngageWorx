@@ -1347,8 +1347,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "sequenceroster" && <SequenceRoster C={C} tenantId={tenantId} demoMode={false} />}
         {page === "importleads" && <ImportLeads C={C} tenantId={tenantId} demoMode={false} />}
         {page === "tenants" && <TenantManagement C={C} demoMode={false} />}
-        {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
-        {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
+        {page === "billing" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
+        {page === "integrations" && <Settings C={C} currentTenantId={tenantID} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
         )}
