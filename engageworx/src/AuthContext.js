@@ -143,8 +143,8 @@ export function AuthProvider({ children }) {
       // Manually set user/session immediately so we don't wait for onAuthStateChange
       setUser(data.user);
       setSession(data.session);
-      // Fetch profile in background
-      fetchProfile(data.user.id);
+      // Fetch profile — await so isCSP is set before routing
+    await fetchProfile(data.user.id);
       return { data, error: null };
     } catch (err) {
       setAuthError(err.message);
