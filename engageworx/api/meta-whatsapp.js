@@ -19,10 +19,12 @@ module.exports = async function handler(req, res) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
+    console.log('[MetaWA] GET verification attempt — mode:', mode, 'token:', token, 'challenge:', challenge);
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('[MetaWA] Webhook verified');
+      console.log('[MetaWA] Webhook verified successfully');
       return res.status(200).send(challenge);
     }
+    console.log('[MetaWA] Verification FAILED — token mismatch. Expected:', VERIFY_TOKEN, 'Got:', token);
     return res.status(403).json({ error: 'Forbidden' });
   }
 
