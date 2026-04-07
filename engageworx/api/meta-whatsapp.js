@@ -43,6 +43,8 @@ module.exports = async function handler(req, res) {
     if (!value || !value.messages) return;
 
     var phoneNumberId = value.metadata?.phone_number_id;
+    console.log('[MetaWA] Received phoneNumberId:', phoneNumberId);
+    console.log('[MetaWA] Full payload:', JSON.stringify(body, null, 2));
     var messages = value.messages || [];
     var contacts = value.contacts || [];
 
