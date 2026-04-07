@@ -30,8 +30,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
-  res.status(200).json({ status: 'ok' }); // Respond immediately to Meta
-
+  // Process BEFORE responding so Vercel doesn't terminate early
   try {
     var supabase = getSupabase();
     var body = req.body;
@@ -40,15 +39,21 @@ module.exports = async function handler(req, res) {
     var entry = body.entry?.[0];
     var changes = entry?.changes?.[0];
     var value = changes?.value;
-    if (!value || !value.messages) return;
+
+    if (!value || !value.messages) {
+      return res.status(200).json({ status: 'ok' });
+    }
 
     var phoneNumberId = value.metadata?.phone_number_id;
-    console.log('[MetaWA] Received phoneNumberId:', phoneNumberId);
-    console.log('[MetaWA] Full payload:', JSON.stringify(body, null, 2));
     var messages = value.messages || [];
     var contacts = value.contacts || [];
 
-    if (!phoneNumberId || messages.length === 0) return;
+    console.log('[MetaWA] Received phoneNumberId:', phoneNumberId);
+    console.log('[MetaWA] Messages count:', messages.length);
+
+    if (!phoneNumberId || messages.length === 0) {
+      return res.status(200).json({ status: 'ok' });
+    }
 
     // Look up tenant by Phone Number ID from channel_configs
     var configResult = await supabase
@@ -63,6 +68,7 @@ module.exports = async function handler(req, res) {
     if (configResult.data) {
       for (var config of configResult.data) {
         var cfg = config.config_encrypted || {};
+        console.log('[MetaWA] Checking config phone_number_id:', cfg.phone_number_id, 'vs incoming:', phoneNumberId);
         if (cfg.phone_number_id === phoneNumberId) {
           tenantId = config.tenant_id;
           accessToken = cfg.access_token;
@@ -73,12 +79,14 @@ module.exports = async function handler(req, res) {
 
     if (!tenantId) {
       console.warn('[MetaWA] No tenant found for Phone Number ID:', phoneNumberId);
-      return;
+      return res.status(200).json({ status: 'ok' });
     }
+
+    console.log('[MetaWA] Tenant found:', tenantId);
 
     // Process each message
     for (var msg of messages) {
-      var from = msg.from; // sender's WhatsApp number
+      var from = msg.from;
       var messageText = msg.text?.body || msg.type || '';
       var waContact = contacts.find(c => c.wa_id === from);
       var senderName = waContact?.profile?.name || from;
@@ -102,6 +110,7 @@ module.exports = async function handler(req, res) {
           channel: 'whatsapp',
         }).select('id').single();
         contactId = newContact.data?.id;
+        console.log('[MetaWA] Created new contact:', contactId);
       }
 
       // Find or create conversation
@@ -124,6 +133,7 @@ module.exports = async function handler(req, res) {
           status: 'open',
         }).select('id').single();
         conversationId = newConv.data?.id;
+        console.log('[MetaWA] Created new conversation:', conversationId);
       }
 
       // Store inbound message
@@ -141,6 +151,8 @@ module.exports = async function handler(req, res) {
         metadata: { from: '+' + from, phone_number_id: phoneNumberId },
       });
 
+      console.log('[MetaWA] Inbound message stored');
+
       // Run AI chatbot if enabled
       try {
         var chatbotResult = await supabase
@@ -150,6 +162,8 @@ module.exports = async function handler(req, res) {
           .maybeSingle();
 
         var chatbot = chatbotResult.data;
+        console.log('[MetaWA] Chatbot config found:', !!chatbot, 'channels_active:', chatbot?.channels_active);
+
         if (chatbot && chatbot.channels_active?.includes('whatsapp')) {
           var Anthropic = require('@anthropic-ai/sdk');
           var anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -165,10 +179,11 @@ module.exports = async function handler(req, res) {
           });
 
           var reply = aiRes.content[0].text.trim();
+          console.log('[MetaWA] AI reply generated:', reply.substring(0, 50) + '...');
 
           // Send reply via Meta Cloud API
           if (accessToken && reply) {
-            await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+            var metaRes = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
               method: 'POST',
               headers: {
                 'Authorization': 'Bearer ' + accessToken,
@@ -181,6 +196,8 @@ module.exports = async function handler(req, res) {
                 text: { body: reply },
               }),
             });
+            var metaData = await metaRes.json();
+            console.log('[MetaWA] Meta API response:', JSON.stringify(metaData));
 
             // Store outbound AI reply
             await supabase.from('messages').insert({
@@ -195,13 +212,21 @@ module.exports = async function handler(req, res) {
               sender_type: 'bot',
               metadata: { to: '+' + from, phone_number_id: phoneNumberId },
             });
+
+            console.log('[MetaWA] Outbound message stored');
           }
+        } else {
+          console.log('[MetaWA] Chatbot not active for whatsapp — skipping AI response');
         }
       } catch (aiErr) {
         console.error('[MetaWA] AI chatbot error:', aiErr.message);
       }
     }
+
+    return res.status(200).json({ status: 'ok' });
+
   } catch (err) {
     console.error('[MetaWA] Handler error:', err.message);
+    return res.status(200).json({ status: 'ok' }); // Always return 200 to Meta
   }
 };
