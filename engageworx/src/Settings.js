@@ -624,7 +624,12 @@ if (!tenantId) {
                   <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.15)"}`, opacity: isEnabled ? 1 : 0.7 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div></div></div>
-                      <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.15)", transition: "background 0.2s" }}><div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: isEnabled ? 23 : 3, transition: "left 0.2s" }} /></button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  <span style={{ fontSize: 12, color: isEnabled ? ch.color : "rgba(255,255,255,0.3)", fontWeight: 600 }}>{isEnabled ? "ON" : "OFF"}</span>
+  <button onClick={() => saveChannelConfig(ch.id, configData, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: `2px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.2)"}`, cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.08)", transition: "all 0.2s" }}>
+    <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: isEnabled ? 22 : 2, transition: "left 0.2s" }} />
+  </button>
+</div>
                     </div>
                     {isEnabled && (
                       <>
