@@ -1541,6 +1541,18 @@ var spNavBase = [
     return <SignupPage onBack={() => setView("login")} />;
   }
 
+  // Wait for profile to be fully ready before routing
+  if (loading || !profileReady) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+  
   // User signed up but didn't complete payment
   if (view === "no_tenant") {
     // Bypass billing gate for CSPs and SPs — they don't need a subscription
@@ -1595,8 +1607,8 @@ var spNavBase = [
     );
   }
 
-  // Show loading while checking auth state
-  if (loading) {
+  // Show loading while auth + profile are initializing
+  if (loading || (isAuthenticated && !profileReady)) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ textAlign: "center" }}>
@@ -1606,6 +1618,9 @@ var spNavBase = [
       </div>
     );
   }
+
+  // User signed up but didn't complete payment
+  if (view === "no_tenant") {
 
   if (drillDownTenant) {
     // Check tenant type — show appropriate portal
