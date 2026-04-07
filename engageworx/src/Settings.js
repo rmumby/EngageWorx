@@ -338,8 +338,15 @@ if (!tenantId) {
 
   const saveIntegration = async () => {
     if (!newIntegration.name) return alert('Integration name is required');
-    alert('tenant ID is: ' + currentTenantId);  // ← add this temporarily
-    const tenantId = currentTenantId || tenantRow?.data?.[0]?.id;
+    let tenantId = resolvedTenantId;
+    if (!tenantId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
+        tenantId = profile?.tenant_id;
+      }
+    }
+    if (!tenantId) return alert('Could not resolve tenant. Please reload and try again.');
     const secret = 'ewx_whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2,'0')).join('');
     const { error } = await supabase.from('integrations').insert({ tenant_id: tenantId, name: newIntegration.name, service: newIntegration.service, event_type: newIntegration.event_type, action: newIntegration.action, action_config: newIntegration.action_config, field_mapping: newIntegration.field_mapping, webhook_secret: secret, status: 'active' });
     if (error) return alert('Error: ' + error.message);
@@ -359,7 +366,14 @@ if (!tenantId) {
 
   const generateApiKey = async () => {
     if (!newKeyData.name) return alert("Key name is required");
-    const tenantRow = await supabase.fr
+    let tenantId = resolvedTenantId;
+    if (!tenantId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
+        tenantId = profile?.tenant_id;
+      }
+    }
     if (!tenantId) return alert("No tenant found");
     const envPrefix = newKeyData.environment === "production" ? "ewx_live_" : newKeyData.environment === "staging" ? "ewx_test_" : "ewx_dev_";
     const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(36)).join("").slice(0, 32);
@@ -528,7 +542,7 @@ if (!tenantId) {
             <div style={{ display: "grid", gap: 12 }}>
               {integrations.map(intg => {
                 var svc = SERVICES.find(s => s.id === intg.service) || SERVICES[SERVICES.length - 1];
-                var webhookUrl = `${window.location.origin}/api/webhook-inbound?tenant_id=${currentTenantId}&integration_id=${intg.id}`;
+                var webhookUrl = `${window.location.origin}/api/webhook-inbound?tenant_id=${resolvedTenantId}&integration_id=${intg.id}`;
                 return (
                   <div key={intg.id} style={{ ...card, borderLeft: `4px solid ${intg.status === 'active' ? '#00E676' : '#64748b'}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
