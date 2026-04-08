@@ -150,15 +150,6 @@ const chatbotUpdate = await supabase
     channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
   })
   .eq('tenant_id', currentTenantId);
-      // Sync to chatbot_configs so message handlers pick up business knowledge
-const chatbotUpdate = await supabase
-  .from('chatbot_configs')
-  .update({
-    bot_name: aiConfig.agentName,
-    knowledge_base: aiConfig.businessInfo,
-    channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
-  })
-  .eq('tenant_id', currentTenantId);
       setConfigSaved(true);
       setKbUploadState("idle");
       setTimeout(function() { setConfigSaved(false); }, 3000);
