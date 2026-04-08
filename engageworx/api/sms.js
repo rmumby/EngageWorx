@@ -62,7 +62,7 @@ async function getAIReply(supabase, tenantId, message, channel) {
     if (!ANTHROPIC_KEY) { console.log('[AI] No Anthropic key'); return null; }
 
     // Get tenant chatbot config
-    var systemPrompt = 'You are Eva, the AI assistant for EngageWorx. Keep replies under 160 characters for SMS. Be helpful and concise. Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo. Website: engwx.com. Phone: +1 (786) 982-7800. Email: hello@engwx.com.';
+    if (chatbot.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbot.knowledge_base;
     var channelsActive = ['sms', 'whatsapp', 'email'];
 
     if (tenantId) {
