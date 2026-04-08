@@ -156,9 +156,10 @@ if (!intgId) {
         });
       }
     }
-
-    // Step 4 — Create webhook subscription with Calendly
-    const webhookRes = await fetch(`${CALENDLY_API}/webhook_subscriptions`, {
+    
+console.log('[CalendlyConnect] Creating webhook:', { callbackUrl, orgUri, userUri });
+// Step 4 — Create webhook subscription with Calendly
+const webhookRes = await fetch(`${CALENDLY_API}/webhook_subscriptions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -174,12 +175,14 @@ if (!intgId) {
     });
 
     if (!webhookRes.ok) {
-      const err = await webhookRes.json();
-      return res.status(400).json({
-        error: 'Failed to register Calendly webhook',
-        detail: err?.message || err?.title || webhookRes.status,
-      });
-    }
+  const errText = await webhookRes.text();
+  console.error('[CalendlyConnect] Webhook creation failed:', webhookRes.status, errText);
+  return res.status(400).json({
+    error: 'Failed to register Calendly webhook',
+    detail: errText,
+    status: webhookRes.status,
+  });
+}
 
     const webhookData = await webhookRes.json();
     const webhookUri = webhookData.resource?.uri;
