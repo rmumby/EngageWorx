@@ -428,7 +428,19 @@ if (!tenantId) {
 }
     if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
     const existing = channelConfigs[channelId];
-    const existingConfig = existing?.config_encrypted || {};
+    // Always read fresh from DB before merging — never trust React state for existing credentials
+let existingConfig = {};
+try {
+  const { data: freshConfig } = await supabase
+    .from('channel_configs')
+    .select('config_encrypted')
+    .eq('tenant_id', tenantId)
+    .eq('channel', channelId)
+    .maybeSingle();
+  existingConfig = freshConfig?.config_encrypted || existing?.config_encrypted || {};
+} catch(e) {
+  existingConfig = existing?.config_encrypted || {};
+}
 const newConfig = config !== undefined ? config : existingConfig;
 const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
 // Only merge fields that have actual values — never overwrite existing with blank
