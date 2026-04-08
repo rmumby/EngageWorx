@@ -132,7 +132,16 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       var channelList = ['sms', 'whatsapp', 'email', 'voice'];
       for (var i = 0; i < channelList.length; i++) {
         var ch = channelList[i];
-        var configData = { ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], ai_agent_name: aiConfig.agentName, ai_business_info: aiConfig.businessInfo, kb_sources: overrideKbSources || kbSources };
+        // Read existing config first — never overwrite credentials
+const existingRow = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
+const existingEncrypted = existingRow.data?.config_encrypted || {};
+const configData = { 
+  ...existingEncrypted,
+  ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], 
+  ai_agent_name: aiConfig.agentName, 
+  ai_business_info: aiConfig.businessInfo, 
+  kb_sources: overrideKbSources || kbSources 
+};
         var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
         if (existing.data) {
           await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
