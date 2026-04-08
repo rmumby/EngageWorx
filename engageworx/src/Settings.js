@@ -514,7 +514,26 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
     if (f.type === "ai_tone") { const previewKey = ch.id + "_" + f.key; const preview = aiTonePreviews[previewKey] || ""; return (<div><textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={f.rows || 5} style={{ ...inputStyle, resize: "vertical", minHeight: 100 }} /><button onClick={() => aiTonePreview(configData[f.key], businessName, (p) => setAiTonePreviews(prev => ({ ...prev, [previewKey]: p })))} style={btnAI}>✨ Preview Tone</button>{preview && <div style={{ marginTop: 10, background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, fontStyle: "italic" }}>{preview}<button onClick={() => setAiTonePreviews(prev => ({ ...prev, [previewKey]: "" }))} style={{ display: "block", background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 10, cursor: "pointer", marginTop: 8, padding: 0 }}>Dismiss</button></div>}</div>); }
     if (f.type === "select") return (<select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>{(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>);
     if (f.type === "textarea") return (<div><textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={4} style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} />{f.aiAssist && <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>}</div>);
-    return (<div><input type={f.type || "text"} value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} style={inputStyle} />{f.hint && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{f.hint}</div>}{f.aiAssist && <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>}</div>);
+    const isPasswordField = f.type === "password";
+const hasSavedValue = !!(channelConfigs[ch.id]?.config_encrypted?.[f.key]);
+const currentValue = configData[f.key] || "";
+return (<div>
+  {isPasswordField && hasSavedValue && !currentValue && (
+    <div style={{ fontSize: 11, color: "#00E676", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+      <span>✓ Saved</span>
+      <span style={{ color: "rgba(255,255,255,0.3)" }}>— leave blank to keep existing value</span>
+    </div>
+  )}
+  <input
+    type={f.type || "text"}
+    value={currentValue}
+    onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
+    placeholder={isPasswordField && hasSavedValue && !currentValue ? '••••••••••••••••' : (f.placeholder || "")}
+    style={inputStyle}
+  />
+  {f.hint && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{f.hint}</div>}
+  {f.aiAssist && <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>}
+</div>);
   };
 
   const pageTitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Billing" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "API & Integrations" : "Settings";
