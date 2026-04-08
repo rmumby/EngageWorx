@@ -142,7 +142,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       }
 
       // Sync to chatbot_configs so message handlers pick up business knowledge
-const chatbotUpdate = await supabase
+await supabase
   .from('chatbot_configs')
   .update({
     bot_name: aiConfig.agentName,
