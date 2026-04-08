@@ -644,7 +644,7 @@ return (<div>
           )}
           {(() => {
   const calendlyIntg = integrations.find(i => i.service === 'calendly');
-  const isConnected = calendlyIntg?.status === 'active' && calendlyIntg?.action_config?.calendly_webhook_uri;
+  const isConnected = (calendlyIntg?.status === 'active' && calendlyIntg?.action_config?.calendly_webhook_uri) || calendlyStatus === 'connected';
   const connectedAt = calendlyIntg?.action_config?.connected_at;
   return (
     <div style={{ ...card, borderLeft: `4px solid ${isConnected ? '#00E676' : '#00C9FF'}`, marginBottom: 20 }}>
