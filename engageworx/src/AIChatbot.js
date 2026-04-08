@@ -142,23 +142,19 @@ const configData = {
   ai_business_info: aiConfig.businessInfo, 
   kb_sources: overrideKbSources || kbSources 
 };
-        var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
-        if (existing.data) {
-          await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
-        } else if (aiConfig.channels[ch]) {
-          await supabase.from('channel_configs').insert({ tenant_id: currentTenantId, channel: ch, config_encrypted: configData, enabled: true, provider: ch, status: 'connected' });
-        }
+var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
+if (existing.data) {
+  await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
+} else if (aiConfig.channels[ch]) {
+  await supabase.from('channel_configs').insert({ tenant_id: currentTenantId, channel: ch, config_encrypted: configData, enabled: true, provider: ch, status: 'connected' });
+}
       }
-
       // Sync to chatbot_configs so message handlers pick up business knowledge
-await supabase
-  .from('chatbot_configs')
-  .update({
-    bot_name: aiConfig.agentName,
-    knowledge_base: aiConfig.businessInfo,
-    channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
-  })
-  .eq('tenant_id', currentTenantId);
+      await supabase.from('chatbot_configs').update({
+        bot_name: aiConfig.agentName,
+        knowledge_base: aiConfig.businessInfo,
+        channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
+      }).eq('tenant_id', currentTenantId);
       setConfigSaved(true);
       setKbUploadState("idle");
       setTimeout(function() { setConfigSaved(false); }, 3000);
