@@ -88,20 +88,35 @@ export default async function handler(req, res) {
     // Find or use the provided integration_id
     let intgId = integration_id;
     if (!intgId) {
-      const { data: existing } = await supabase
-        .from('integrations')
-        .select('id')
-        .eq('tenant_id', tenant_id)
-        .eq('service', 'calendly')
-        .maybeSingle();
-      intgId = existing?.id;
-    }
+  const { data: existing } = await supabase
+    .from('integrations')
+    .select('id')
+    .eq('tenant_id', tenant_id)
+    .eq('service', 'calendly')
+    .maybeSingle();
+  intgId = existing?.id;
+}
 
-    if (!intgId) {
-      return res.status(400).json({
-        error: 'No Calendly integration found. Please create one in Settings → Integrations first.',
-      });
-    }
+// If still not found, create one automatically
+if (!intgId) {
+  const { data: created, error: createError } = await supabase
+    .from('integrations')
+    .insert({
+      tenant_id: tenant_id,
+      name: 'Calendly',
+      service: 'calendly',
+      event_type: 'invitee.created',
+      action: 'create_lead_and_contact',
+      action_config: { urgency: 'Hot', stage: 'inquiry', type: 'Direct Business' },
+      field_mapping: { name: 'payload.invitee.name', email: 'payload.invitee.email', company: 'payload.invitee.company' },
+      webhook_secret: 'ewx_whsec_' + Math.random().toString(36).slice(2),
+      status: 'active',
+    })
+    .select('id')
+    .single();
+  if (createError) return res.status(500).json({ error: 'Could not create integration: ' + createError.message });
+  intgId = created.id;
+}
 
     const callbackUrl = `https://portal.engwx.com/api/webhook-inbound?tenant_id=${tenant_id}&integration_id=${intgId}`;
 
