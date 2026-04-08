@@ -166,12 +166,11 @@ const webhookRes = await fetch(`${CALENDLY_API}/webhook_subscriptions`, {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: callbackUrl,
-        events: ['invitee.created', 'invitee.canceled'],
-        organization: orgUri,
-        user: userUri,
-        scope: 'organization',
-      }),
+  url: callbackUrl,
+  events: ['invitee.created', 'invitee.canceled'],
+  organization: orgUri,
+  scope: 'organization',
+}),
     });
 
     if (!webhookRes.ok) {
