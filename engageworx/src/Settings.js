@@ -431,7 +431,15 @@ if (!tenantId) {
     const existingConfig = existing?.config_encrypted || {};
     const newConfig = config !== undefined ? config : existingConfig;
     const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
-    const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, config_encrypted: newConfig, status: newEnabled ? "connected" : "disconnected", updated_at: new Date().toISOString() };
+    // Merge with existing config — never wipe fields that weren't changed
+const mergedConfig = Object.assign({}, existingConfig, newConfig);
+// Remove empty string values — don't overwrite existing with blank
+Object.keys(mergedConfig).forEach(k => {
+  if (mergedConfig[k] === '' || mergedConfig[k] === null) {
+    if (existingConfig[k]) mergedConfig[k] = existingConfig[k];
+  }
+});
+const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, config_encrypted: mergedConfig, status: newEnabled ? "connected" : "disconnected", updated_at: new Date().toISOString() };
     let error;
     if (existing) { ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id)); }
     else { ({ error } = await supabase.from("channel_configs").insert(payload)); }
