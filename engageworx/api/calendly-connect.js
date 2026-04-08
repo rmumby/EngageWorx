@@ -188,19 +188,18 @@ const webhookRes = await fetch(`${CALENDLY_API}/webhook_subscriptions`, {
 
     // Step 5 — Store token and connection details in integrations table
     const { error: updateError } = await supabase
-      .from('integrations')
-      .update({
-        status: 'active',
-        action_config: {
-          calendly_token: token,
-          calendly_user_uri: userUri,
-          calendly_org_uri: orgUri,
-          calendly_webhook_uri: webhookUri,
-          connected_at: new Date().toISOString(),
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', intgId);
+  .from('integrations')
+  .update({
+    status: 'active',
+    action_config: {
+      calendly_token: token,
+      calendly_user_uri: userUri,
+      calendly_org_uri: orgUri,
+      calendly_webhook_uri: webhookUri,
+      connected_at: new Date().toISOString(),
+    },
+  })
+  .eq('id', intgId);
 
     if (updateError) {
       return res.status(500).json({ error: 'Webhook registered but failed to save: ' + updateError.message });
