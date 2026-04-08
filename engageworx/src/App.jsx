@@ -102,7 +102,7 @@ function useLiveData(demoMode) {
       });
 
       // SP view: show CSPs but hide their sub-tenants
-const filtered = formatted.filter(t => !t.parent_tenant_id && t.tenant_type !== 'csp');
+const filtered = formatted.filter(t => !t.parent_tenant_id);
 setLiveTenants(filtered);
 setLiveStats({
   totalMessages: 0,
