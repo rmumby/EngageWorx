@@ -67,12 +67,14 @@ export default async function handler(req, res) {
     });
 
     if (!meRes.ok) {
-      const err = await meRes.json();
-      return res.status(400).json({
-        error: 'Invalid Calendly token. Please check and try again.',
-        detail: err?.message || meRes.status,
-      });
-    }
+  const errText = await meRes.text();
+  console.error('[CalendlyConnect] Token validation failed:', meRes.status, errText);
+  return res.status(400).json({
+    error: 'Invalid Calendly token. Please check and try again.',
+    detail: errText,
+    status: meRes.status,
+  });
+}
 
     const meData = await meRes.json();
     const userUri = meData.resource?.uri;
