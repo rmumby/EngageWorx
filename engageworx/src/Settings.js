@@ -429,16 +429,13 @@ if (!tenantId) {
     if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
     const existing = channelConfigs[channelId];
     const existingConfig = existing?.config_encrypted || {};
-    const newConfig = config !== undefined ? config : existingConfig;
-    const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
-    // Merge with existing config — never wipe fields that weren't changed
-const mergedConfig = Object.assign({}, existingConfig, newConfig);
-// Remove empty string values — don't overwrite existing with blank
-Object.keys(mergedConfig).forEach(k => {
-  if (mergedConfig[k] === '' || mergedConfig[k] === null) {
-    if (existingConfig[k]) mergedConfig[k] = existingConfig[k];
-  }
-});
+const newConfig = config !== undefined ? config : existingConfig;
+const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
+// Only merge fields that have actual values — never overwrite existing with blank
+const filteredNew = Object.fromEntries(
+  Object.entries(newConfig).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
+);
+const mergedConfig = { ...existingConfig, ...filteredNew };
 const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, config_encrypted: mergedConfig, status: newEnabled ? "connected" : "disconnected", updated_at: new Date().toISOString() };
     let error;
     if (existing) { ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id)); }
