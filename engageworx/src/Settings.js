@@ -273,6 +273,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   });
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
+  const [calendlyToken, setCalendlyToken] = useState('');
+const [calendlyConnecting, setCalendlyConnecting] = useState(false);
+const [calendlyStatus, setCalendlyStatus] = useState(null);
+const [calendlyMessage, setCalendlyMessage] = useState('');
   // ── Resolved tenant ID (works for any logged-in user) ──────────────────
   const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId);
   useEffect(() => {
@@ -517,6 +521,36 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
 
+  const connectCalendly = async () => {
+  if (!calendlyToken) return alert('Please enter your Calendly Personal Access Token');
+  setCalendlyConnecting(true);
+  setCalendlyStatus(null);
+  try {
+    const calendlyIntg = integrations.find(i => i.service === 'calendly');
+    const res = await fetch('/api/calendly-connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenant_id: resolvedTenantId, token: calendlyToken, integration_id: calendlyIntg?.id }),
+    });
+    const data = await res.json();
+    if (data.success) { setCalendlyStatus('connected'); setCalendlyMessage(data.user ? `Connected as ${data.user}` : 'Connected successfully'); setCalendlyToken(''); loadIntegrations(); }
+    else { setCalendlyStatus('error'); setCalendlyMessage(data.error || 'Connection failed'); }
+  } catch (e) { setCalendlyStatus('error'); setCalendlyMessage('Connection failed: ' + e.message); }
+  setCalendlyConnecting(false);
+};
+
+const disconnectCalendly = async () => {
+  if (!window.confirm('Disconnect Calendly? Bookings will no longer create Pipeline leads.')) return;
+  setCalendlyConnecting(true);
+  const calendlyIntg = integrations.find(i => i.service === 'calendly');
+  const savedToken = calendlyIntg?.action_config?.calendly_token || '';
+  try {
+    await fetch('/api/calendly-connect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: resolvedTenantId, token: savedToken, action: 'disconnect' }) });
+    setCalendlyStatus(null); setCalendlyMessage(''); loadIntegrations();
+  } catch (e) { alert('Error: ' + e.message); }
+  setCalendlyConnecting(false);
+};
+  
   const toggleNotif = (id, channel) => { setNotifications(prev => prev.map(n => n.id === id ? { ...n, [channel]: !n[channel] } : n)); };
   const Toggle = ({ enabled, color }) => (<div style={{ width: 36, height: 20, borderRadius: 10, cursor: "pointer", background: enabled ? (color || C.primary) : "rgba(255,255,255,0.1)", position: "relative", transition: "all 0.2s", flexShrink: 0 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: enabled ? 18 : 2, transition: "all 0.2s" }} /></div>);
 
@@ -608,6 +642,54 @@ return (<div>
               </div>
             </div>
           )}
+          {(() => {
+  const calendlyIntg = integrations.find(i => i.service === 'calendly');
+  const isConnected = calendlyIntg?.status === 'active' && calendlyIntg?.action_config?.calendly_webhook_uri;
+  const connectedAt = calendlyIntg?.action_config?.connected_at;
+  return (
+    <div style={{ ...card, borderLeft: `4px solid ${isConnected ? '#00E676' : '#00C9FF'}`, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <span style={{ fontSize: 28 }}>📅</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Calendly</div>
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Auto-create Pipeline leads when meetings are booked</div>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: isConnected ? '#00E676' : 'rgba(255,255,255,0.3)', background: isConnected ? '#00E67618' : 'rgba(255,255,255,0.06)', padding: '4px 12px', borderRadius: 6, border: `1px solid ${isConnected ? '#00E67644' : 'rgba(255,255,255,0.08)'}` }}>
+          {isConnected ? '● Connected' : '○ Not connected'}
+        </span>
+      </div>
+      {isConnected ? (
+        <div>
+          <div style={{ background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.2)', borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
+            <div style={{ color: '#00E676', fontWeight: 700, fontSize: 13, marginBottom: 4 }}>✓ Calendly webhook active</div>
+            {connectedAt && <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Connected {new Date(connectedAt).toLocaleDateString()} — bookings auto-create Pipeline leads</div>}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input type="password" value={calendlyToken} onChange={e => setCalendlyToken(e.target.value)} placeholder="Re-enter token to refresh connection" style={{ ...inputStyle, flex: 1 }} />
+            <button onClick={connectCalendly} disabled={calendlyConnecting || !calendlyToken} style={{ ...btnPrimary, opacity: !calendlyToken ? 0.4 : 1, whiteSpace: 'nowrap' }}>{calendlyConnecting ? 'Updating...' : 'Update'}</button>
+            <button onClick={disconnectCalendly} disabled={calendlyConnecting} style={{ ...btnSec, color: '#FF3B30', whiteSpace: 'nowrap' }}>Disconnect</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 14, lineHeight: 1.6 }}>
+            Paste your Calendly Personal Access Token to connect. Every booking will automatically create a Pipeline lead.{' '}
+            <a href="https://calendly.com/integrations/api_webhooks" target="_blank" rel="noopener noreferrer" style={{ color: '#00C9FF', fontSize: 12 }}>Get token from Calendly →</a>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input type="password" value={calendlyToken} onChange={e => setCalendlyToken(e.target.value)} placeholder="Paste your Calendly Personal Access Token" style={{ ...inputStyle, flex: 1 }} onKeyDown={e => e.key === 'Enter' && connectCalendly()} />
+            <button onClick={connectCalendly} disabled={calendlyConnecting || !calendlyToken} style={{ ...btnPrimary, opacity: !calendlyToken ? 0.4 : 1, whiteSpace: 'nowrap' }}>{calendlyConnecting ? 'Connecting...' : 'Connect Calendly'}</button>
+          </div>
+        </div>
+      )}
+      {calendlyStatus && (
+        <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, fontSize: 13, background: calendlyStatus === 'connected' ? 'rgba(0,230,118,0.08)' : 'rgba(255,59,48,0.08)', border: `1px solid ${calendlyStatus === 'connected' ? 'rgba(0,230,118,0.3)' : 'rgba(255,59,48,0.3)'}`, color: calendlyStatus === 'connected' ? '#00E676' : '#FF6B6B' }}>
+          {calendlyStatus === 'connected' ? '✓ ' : '✕ '}{calendlyMessage}
+        </div>
+      )}
+    </div>
+  );
+})()}
           {integrationsLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading integrations...</div> : integrations.length === 0 ? (
             <div style={{ ...card, textAlign: "center", padding: 48 }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
