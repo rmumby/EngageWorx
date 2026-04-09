@@ -157,9 +157,8 @@ for (const marker of allMarkers) {
   if (idx > 20) { emailBody = emailBody.substring(0, idx).trim(); break; }
 }
 emailBody = emailBody.trim() || '(no message content)';
-}
-emailBody = emailBody || rawBody;
-    const emailSubject = subject || '(no subject)';
+
+const emailSubject = subject || '(no subject)';
 
     console.log(`📧 Inbound email from ${senderEmail}: ${emailSubject}`);
 
