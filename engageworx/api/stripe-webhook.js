@@ -260,7 +260,6 @@ module.exports = async function handler(req, res) {
             notify_on_new_signup: false,
             notify_on_payment: true,
             notify_on_new_lead: false,
-            await supabase.from('leads').update({
           });
 
           console.log('[Stripe] Tenant created:', tenant.id, 'for:', email);
