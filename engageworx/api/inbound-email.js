@@ -148,12 +148,6 @@ module.exports = async function handler(req, res) {
     const notifyEmail    = emailChannelConfig.notify_email || emailChannelConfig.admin_notify_email;
     const businessInfo   = emailChannelConfig.ai_business_info;
 
-    // If tenant config is incomplete, log and skip reply — don't use another tenant's info
-    if (!replyFromEmail || !replyFromName) {
-      console.log(`⚠️ Tenant ${tenantId} email config incomplete (missing from_email or from_name) — storing in inbox only, no reply sent`);
-      // Still store in Live Inbox so admin can reply manually
-    }
-
     // Skip internal emails from this tenant's own domain
     if (replyFromEmail && senderEmail.includes(replyFromEmail.split('@')[1])) {
       console.log(`Skipping internal email from ${senderEmail}`);
@@ -186,7 +180,7 @@ module.exports = async function handler(req, res) {
       'Book time with me',
       'CONFIDENTIAL', 'DISCLAIMER',
     ];
-    const tenantSigMarkers = emailChannelConfig.signature_strip_markers || [];
+    const tenantSigMarkers = (emailChannelConfig && emailChannelConfig.signature_strip_markers) || [];
     const allMarkers = [...genericSigMarkers, ...tenantSigMarkers];
 
     let emailBody = rawBody;
@@ -199,7 +193,7 @@ module.exports = async function handler(req, res) {
     const emailSubject = subject || '(no subject)';
     console.log(`📧 Inbound email from ${senderEmail}: ${emailSubject}`);
 
-    // ── Step 4: Log to Supabase ──
+    // ── Step 4: Log to Supabase inbound_emails table ──
     let emailLogId = null;
     try {
       const { data: logEntry } = await supabase.from('inbound_emails').insert({
@@ -215,11 +209,12 @@ module.exports = async function handler(req, res) {
       console.log('Email log skipped:', logErr.message);
     }
 
-    // ── Step 5: Wire into Live Inbox ──
+    // ── Step 5: Wire into Live Inbox — contact, conversation, inbound message ──
     let contactId = null;
     let conversationId = null;
 
     try {
+      // Find or create contact
       const { data: existingContact } = await supabase
         .from('contacts').select('id')
         .eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
@@ -240,6 +235,7 @@ module.exports = async function handler(req, res) {
         console.log('📋 New contact created:', contactId);
       }
 
+      // Find or create conversation
       const { data: existingConv } = await supabase
         .from('conversations').select('id')
         .eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
@@ -266,21 +262,23 @@ module.exports = async function handler(req, res) {
         console.log('📋 New conversation created:', conversationId);
       }
 
+      // ── Save inbound message — cleaned body, correct fields ──
       if (conversationId) {
-        await supabase.from('messages').insert({
-  tenant_id: tenantId,
-  conversation_id: conversationId,
-  contact_id: contactId,
-  channel: 'email',
-  direction: 'outbound',
-  sender_type: 'ai',
-  body: parsed.reply_body,
-  status: 'delivered',
-  topic: emailSubject || 'email',
-  extension: replyFromEmail || 'email',
-  created_at: new Date().toISOString(),
-});
-        console.log('📋 Inbound message saved');
+        const { error: inboundErr } = await supabase.from('messages').insert({
+          tenant_id: tenantId,
+          conversation_id: conversationId,
+          contact_id: contactId,
+          channel: 'email',
+          direction: 'inbound',
+          sender_type: 'contact',
+          body: emailBody.substring(0, 5000),
+          status: 'delivered',
+          topic: emailSubject || 'email',
+          extension: senderEmail || 'email',
+          created_at: new Date().toISOString(),
+        });
+        if (inboundErr) console.error('❌ Inbound message save error:', inboundErr.message);
+        else console.log('📋 Inbound message saved');
       }
 
       console.log(`📋 Live Inbox wired: tenant=${tenantId}, contact=${contactId}, conversation=${conversationId}`);
@@ -409,32 +407,35 @@ Respond ONLY with valid JSON (no markdown backticks):
           }),
         });
         console.log(`✉️ Auto-reply sent from ${replyFromEmail} to ${senderEmail}`);
-
-        // Log outbound message in Live Inbox — outside Resend try/catch so it always runs
-if (conversationId && tenantId && parsed.reply_body) {
-  const { error: outErr } = await supabase.from('messages').insert({
-    tenant_id: tenantId,
-    conversation_id: conversationId,
-    contact_id: contactId,
-    channel: 'email',
-    direction: 'outbound',
-    sender_type: 'ai',
-    body: parsed.reply_body,
-    status: 'delivered',
-    created_at: new Date().toISOString(),
-  });
-  if (outErr) console.error('❌ AI reply save error:', outErr.message);
-  else console.log('✅ AI reply saved to Live Inbox');
-
-  await supabase.from('conversations').update({
-    last_message_at: new Date().toISOString(),
-    status: 'waiting',
-    unread_count: 0,
-  }).eq('id', conversationId);
-}
       } catch (sendErr) {
         console.error('Resend error:', sendErr.message);
       }
+
+      // ── Save AI reply to Live Inbox — outside Resend try/catch so it always runs ──
+      if (conversationId && tenantId && parsed.reply_body) {
+        const { error: outErr } = await supabase.from('messages').insert({
+          tenant_id: tenantId,
+          conversation_id: conversationId,
+          contact_id: contactId,
+          channel: 'email',
+          direction: 'outbound',
+          sender_type: 'ai',
+          body: parsed.reply_body,
+          status: 'delivered',
+          topic: emailSubject || 'email',
+          extension: replyFromEmail || 'email',
+          created_at: new Date().toISOString(),
+        });
+        if (outErr) console.error('❌ AI reply save error:', outErr.message);
+        else console.log('✅ AI reply saved to Live Inbox');
+
+        await supabase.from('conversations').update({
+          last_message_at: new Date().toISOString(),
+          status: 'waiting',
+          unread_count: 0,
+        }).eq('id', conversationId);
+      }
+
     } else if (!emailAllowed && notifyEmail) {
       // Usage limit — forward to admin for manual follow-up
       await fetch('https://api.resend.com/emails', {
@@ -496,7 +497,7 @@ if (conversationId && tenantId && parsed.reply_body) {
       }
     }
 
-    // ── Step 10: Update log ──
+    // ── Step 10: Update inbound_emails log ──
     if (emailLogId) {
       try {
         await supabase.from('inbound_emails').update({
