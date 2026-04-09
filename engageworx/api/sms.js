@@ -61,16 +61,16 @@ async function getAIReply(supabase, tenantId, message, channel) {
     var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { console.log('[AI] No Anthropic key'); return null; }
 
-    // Get tenant chatbot config
-    if (chatbot.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbot.knowledge_base;
+    var systemPrompt = 'You are a helpful assistant. Keep replies under 160 characters for SMS. No markdown.';
     var channelsActive = ['sms', 'whatsapp', 'email'];
 
     if (tenantId) {
       try {
-        var chatbotResult = await supabase.from('chatbot_configs').select('system_prompt, channels_active, personality_preset').eq('tenant_id', tenantId).single();
+        var chatbotResult = await supabase.from('chatbot_configs').select('system_prompt, channels_active, personality_preset, knowledge_base').eq('tenant_id', tenantId).single();
         if (chatbotResult.data) {
           if (chatbotResult.data.system_prompt) systemPrompt = chatbotResult.data.system_prompt + ' Keep replies under 160 characters for SMS. No markdown.';
           if (chatbotResult.data.channels_active) channelsActive = chatbotResult.data.channels_active;
+          if (chatbotResult.data.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbotResult.data.knowledge_base;
         }
       } catch (e) { console.log('[AI] Chatbot config lookup failed:', e.message); }
     }
