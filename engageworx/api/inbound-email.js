@@ -123,7 +123,15 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
-    const emailBody = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+    let rawBody = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+// Strip common signature markers
+const sigMarkers = ['--\r\n', '\n--\n', '________________________________', 'From:', 'Sent from my', 'cid:', 'Exclaimer'];
+let emailBody = rawBody;
+for (const marker of sigMarkers) {
+  const idx = emailBody.indexOf(marker);
+  if (idx > 50) { emailBody = emailBody.substring(0, idx).trim(); break; }
+}
+emailBody = emailBody || rawBody;
     const emailSubject = subject || '(no subject)';
 
     console.log(`📧 Inbound email from ${senderEmail}: ${emailSubject}`);
