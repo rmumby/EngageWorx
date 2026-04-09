@@ -374,6 +374,7 @@ useEffect(() => {
     async function fetchAll() {
       try {
         console.log('🟡 Starting fetch...');
+        console.log('🟡 currentTenantId:', currentTenantId, 'viewLevel:', viewLevel);
         // 1. Conversations
         const convQuery = currentTenantId && viewLevel === 'tenant'
           ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
