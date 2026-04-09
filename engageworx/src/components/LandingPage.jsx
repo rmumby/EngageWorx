@@ -911,9 +911,9 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="lp-footer-bottom">
-            <span>© 2026 EngageWorx. All rights reserved. · Patent Pending</span>
-            <span>Built with 🤖 in Miami</span>
-          </div>
+  <span style={{color: '#6B8BAE'}}>© 2026 EngageWorx. All rights reserved. · <span style={{color: '#00C9FF'}}>Patent Pending</span></span>
+  <span style={{color: '#6B8BAE'}}>Built with 🤖 in Miami</span>
+</div>
         </footer>
       </div>
     </div>
