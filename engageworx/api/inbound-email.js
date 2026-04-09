@@ -172,14 +172,16 @@ module.exports = async function handler(req, res) {
     // Generic signature stripping — no hardcoded names
     // Tenants can extend via signature_strip_markers in their channel_config
     const genericSigMarkers = [
-      '\n--\n', '--\r\n',
-      '________________________________',
-      '\nFrom:', '\r\nFrom:',
-      'Sent from my iPhone', 'Sent from my Samsung',
-      '[cid:', 'content.exclaimer',
-      'Book time with me',
-      'CONFIDENTIAL', 'DISCLAIMER',
-    ];
+  '\n--\n', '--\r\n',
+  '________________________________',
+  '\nFrom:', '\r\nFrom:',
+  '\r\nOn ', '\nOn ',           // Quoted reply: "On Thu, Apr 9..."
+  '\n> ', '\r\n> ',             // Quoted lines starting with >
+  'Sent from my iPhone', 'Sent from my Samsung',
+  '[cid:', 'content.exclaimer',
+  'Book time with me',
+  'CONFIDENTIAL', 'DISCLAIMER',
+];
     const tenantSigMarkers = (emailChannelConfig && emailChannelConfig.signature_strip_markers) || [];
     const allMarkers = [...genericSigMarkers, ...tenantSigMarkers];
 
