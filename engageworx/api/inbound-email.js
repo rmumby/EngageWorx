@@ -419,7 +419,7 @@ Respond ONLY with valid JSON (no markdown backticks):
           contact_id: contactId,
           channel: 'email',
           direction: 'outbound',
-          sender_type: 'ai',
+          sender_type: 'bot',
           body: parsed.reply_body,
           status: 'delivered',
           created_at: new Date().toISOString(),
