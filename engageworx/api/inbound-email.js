@@ -139,19 +139,24 @@ if (text && text.trim().length > 10) {
 }
 
 // Strip signatures — cut at common markers
-const sigMarkers = ['Javier Rubert', 'Strategy Consultant', 'R3 Consulting', 'Book time with me', 'IT THAT WORKS', '________________________________', '--\r\n', '\n--\n', 'From:', 'Sent from my'];
+// Generic signature stripping — no hardcoded names
+const genericSigMarkers = [
+  '\n--\n', '--\r\n',
+  '________________________________',
+  '\nFrom:', '\r\nFrom:',
+  'Sent from my iPhone', 'Sent from my Samsung',
+  '[cid:', 'content.exclaimer',
+  'Book time with me',
+  'CONFIDENTIAL', 'DISCLAIMER',
+];
+const tenantSigMarkers = emailChannelConfig.signature_strip_markers || [];
+const allMarkers = [...genericSigMarkers, ...tenantSigMarkers];
 let emailBody = rawBody;
-for (const marker of sigMarkers) {
+for (const marker of allMarkers) {
   const idx = emailBody.indexOf(marker);
-  if (idx > 10) { emailBody = emailBody.substring(0, idx).trim(); break; }
+  if (idx > 20) { emailBody = emailBody.substring(0, idx).trim(); break; }
 }
 emailBody = emailBody.trim() || '(no message content)';
-// Strip common signature markers
-const sigMarkers = ['--\r\n', '\n--\n', '________________________________', 'From:', 'Sent from my', 'cid:', 'Exclaimer'];
-let emailBody = rawBody;
-for (const marker of sigMarkers) {
-  const idx = emailBody.indexOf(marker);
-  if (idx > 50) { emailBody = emailBody.substring(0, idx).trim(); break; }
 }
 emailBody = emailBody || rawBody;
     const emailSubject = subject || '(no subject)';
