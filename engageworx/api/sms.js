@@ -310,9 +310,9 @@ module.exports = async function handler(req, res) {
       const optInWords  = ['START','SUBSCRIBE','YES'];
       const helpWords   = ['HELP','INFO'];
       var messageType = 'inbound';
-      if (optOutWords.includes(upperBody)) messageType = 'opt_out';
-      else if (optInWords.includes(upperBody)) messageType = 'opt_in';
-      else if (helpWords.includes(upperBody)) messageType = 'help';
+if (optOutWords.includes(upperBody)) messageType = 'opt_out';
+else if (optInWords.includes(upperBody)) messageType = 'opt_in';
+else if (helpWords.includes(upperBody)) messageType = 'help';
 
       // 3. Find or create contact + conversation
       const channel = isWhatsApp ? 'whatsapp' : 'sms';
@@ -356,13 +356,15 @@ module.exports = async function handler(req, res) {
         }
       } catch (plErr) { console.log('[SMS] Pipeline lead create failed (non-fatal):', plErr.message); }
 
-      // 7. Opt-in / opt-out
+      // 7. Opt-in / opt-out / help
       if (messageType === 'opt_out' && contactId) {
         await supabase.from('contacts').update({ status: 'unsubscribed', updated_at: now }).eq('id', contactId);
       } else if (messageType === 'opt_in' && contactId) {
         await supabase.from('contacts').update({ status: 'active', updated_at: now }).eq('id', contactId);
+        await sendSMS(From, 'EngageWorx: You are now opted in to receive messages. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out.', To);
+      } else if (messageType === 'help') {
+        await sendSMS(From, 'EngageWorx: For help visit engwx.com or call +1 (786) 982-7800. Reply STOP to unsubscribe. Msg & data rates may apply.', To);
       }
-
       // 8. Notify inbound (non-blocking)
       notifyInbound(supabase, tenantId, From, Body).catch(function(err) {
         console.error('[Notify] Error:', err.message);
