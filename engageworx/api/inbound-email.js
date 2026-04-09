@@ -408,25 +408,28 @@ Respond ONLY with valid JSON (no markdown backticks):
         });
         console.log(`✉️ Auto-reply sent from ${replyFromEmail} to ${senderEmail}`);
 
-        // Log outbound message in Live Inbox
-        if (conversationId && tenantId) {
-          await supabase.from('messages').insert({
-            tenant_id: tenantId,
-            conversation_id: conversationId,
-            contact_id: contactId,
-            channel: 'email',
-            direction: 'outbound',
-            sender_type: 'ai',
-            body: parsed.reply_body,
-            status: 'delivered',
-            created_at: new Date().toISOString(),
-          });
-          await supabase.from('conversations').update({
-            last_message_at: new Date().toISOString(),
-            status: 'waiting',
-            unread_count: 0,
-          }).eq('id', conversationId);
-        }
+        // Log outbound message in Live Inbox — outside Resend try/catch so it always runs
+if (conversationId && tenantId && parsed.reply_body) {
+  const { error: outErr } = await supabase.from('messages').insert({
+    tenant_id: tenantId,
+    conversation_id: conversationId,
+    contact_id: contactId,
+    channel: 'email',
+    direction: 'outbound',
+    sender_type: 'ai',
+    body: parsed.reply_body,
+    status: 'delivered',
+    created_at: new Date().toISOString(),
+  });
+  if (outErr) console.error('❌ AI reply save error:', outErr.message);
+  else console.log('✅ AI reply saved to Live Inbox');
+
+  await supabase.from('conversations').update({
+    last_message_at: new Date().toISOString(),
+    status: 'waiting',
+    unread_count: 0,
+  }).eq('id', conversationId);
+}
       } catch (sendErr) {
         console.error('Resend error:', sendErr.message);
       }
