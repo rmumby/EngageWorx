@@ -2,6 +2,7 @@
 // Receives inbound emails via SendGrid Inbound Parse
 // All branding, from addresses, and business info pulled from Supabase channel_configs
 // Zero hardcoded tenant values — works for any CSP, Agent, or Tenant
+// New tenants self-configure via Settings → Channels → Email in the portal
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -13,26 +14,8 @@ const supabase = createClient(
 // Disable Vercel's default body parser — we need raw body for multipart parsing
 module.exports.config = { api: { bodyParser: false } };
 
-// Default SP tenant ID — fallback only if no tenant matched by email
+// SP tenant ID — fallback routing only if no tenant matched by inbound_email
 const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-
-// Default SP config — used only when tenant has no channel_config
-const EW_DEFAULTS = {
-  from_email: 'hello@engwx.com',
-  from_name: 'EngageWorx',
-  website_url: 'https://engwx.com',
-  support_phone: '+1 (786) 982-7800',
-  notify_email: 'rob@engwx.com',
-  ai_business_info: `Key facts about EngageWorx:
-- AI-powered CPaaS platform: SMS, RCS, WhatsApp, Email, Voice
-- White-label multi-tenant architecture for service providers and direct businesses
-- Built-in AI chatbot with 90%+ resolution rate (powered by Claude)
-- Visual flow builder, campaign management, real-time analytics
-- Voice IVR system with voicemail and transcription
-- Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
-- Self-service: go live in under 5 minutes
-- No platform fee — transparent pricing`,
-};
 
 // Simple multipart form-data parser
 function parseMultipart(req) {
@@ -110,15 +93,11 @@ module.exports = async function handler(req, res) {
     const senderEmail = (senderMatch[1] || senderRaw || '').trim().toLowerCase();
     const senderName = (senderRaw || '').replace(/<[^>]+>/, '').trim() || senderEmail;
 
-    // Skip auto-replies and internal emails
+    // Skip auto-replies
     const skipPatterns = ['noreply', 'no-reply', 'mailer-daemon', 'postmaster', 'bounce', 'auto-reply', 'autoreply'];
     if (skipPatterns.some(p => senderEmail.includes(p))) {
       console.log(`Skipping auto-reply from ${senderEmail}`);
       return res.status(200).json({ skipped: true, reason: 'auto-reply' });
-    }
-    if (senderEmail.includes('engwx.com') || senderEmail.includes('conectacloud.net')) {
-      console.log(`Skipping internal email from ${senderEmail}`);
-      return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
     // ── Step 1: Match tenant by recipient email via channel_configs ──
@@ -144,7 +123,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // If no match, fall back to SP tenant and load its config
+      // Fall back to SP tenant
       if (!tenantId) {
         tenantId = EW_SP_TENANT_ID;
         console.log('📋 No tenant match — falling back to SP tenant');
@@ -161,15 +140,27 @@ module.exports = async function handler(req, res) {
       tenantId = EW_SP_TENANT_ID;
     }
 
-    // ── Step 2: Resolve all tenant config values — fallback to EW defaults ──
-    const replyFromEmail   = emailChannelConfig.from_email    || EW_DEFAULTS.from_email;
-    const replyFromName    = emailChannelConfig.from_name     || EW_DEFAULTS.from_name;
-    const replyWebsite     = emailChannelConfig.website_url   || EW_DEFAULTS.website_url;
-    const replyPhone       = emailChannelConfig.support_phone || EW_DEFAULTS.support_phone;
-    const notifyEmail      = emailChannelConfig.notify_email  || EW_DEFAULTS.notify_email;
-    const businessInfo     = emailChannelConfig.ai_business_info || EW_DEFAULTS.ai_business_info;
+    // ── Step 2: Resolve all config values from Supabase — no hardcoded fallbacks ──
+    const replyFromEmail = emailChannelConfig.from_email;
+    const replyFromName  = emailChannelConfig.from_name;
+    const replyWebsite   = emailChannelConfig.website_url;
+    const replyPhone     = emailChannelConfig.support_phone;
+    const notifyEmail    = emailChannelConfig.notify_email || emailChannelConfig.admin_notify_email;
+    const businessInfo   = emailChannelConfig.ai_business_info;
 
-    // ── Step 3: Clean email body — strip HTML, signatures ──
+    // If tenant config is incomplete, log and skip reply — don't use another tenant's info
+    if (!replyFromEmail || !replyFromName) {
+      console.log(`⚠️ Tenant ${tenantId} email config incomplete (missing from_email or from_name) — storing in inbox only, no reply sent`);
+      // Still store in Live Inbox so admin can reply manually
+    }
+
+    // Skip internal emails from this tenant's own domain
+    if (replyFromEmail && senderEmail.includes(replyFromEmail.split('@')[1])) {
+      console.log(`Skipping internal email from ${senderEmail}`);
+      return res.status(200).json({ skipped: true, reason: 'internal' });
+    }
+
+    // ── Step 3: Clean email body — strip HTML and signatures ──
     let rawBody = '';
     if (text && text.trim().length > 10) {
       rawBody = text.trim();
@@ -184,7 +175,8 @@ module.exports = async function handler(req, res) {
         .trim();
     }
 
-    // Generic signature stripping — no hardcoded names, tenant can extend via config
+    // Generic signature stripping — no hardcoded names
+    // Tenants can extend via signature_strip_markers in their channel_config
     const genericSigMarkers = [
       '\n--\n', '--\r\n',
       '________________________________',
@@ -194,7 +186,7 @@ module.exports = async function handler(req, res) {
       'Book time with me',
       'CONFIDENTIAL', 'DISCLAIMER',
     ];
-    const tenantSigMarkers = (emailChannelConfig.signature_strip_markers) || [];
+    const tenantSigMarkers = emailChannelConfig.signature_strip_markers || [];
     const allMarkers = [...genericSigMarkers, ...tenantSigMarkers];
 
     let emailBody = rawBody;
@@ -228,7 +220,6 @@ module.exports = async function handler(req, res) {
     let conversationId = null;
 
     try {
-      // Find or create contact
       const { data: existingContact } = await supabase
         .from('contacts').select('id')
         .eq('email', senderEmail).eq('tenant_id', tenantId).limit(1);
@@ -249,7 +240,6 @@ module.exports = async function handler(req, res) {
         console.log('📋 New contact created:', contactId);
       }
 
-      // Find or create conversation
       const { data: existingConv } = await supabase
         .from('conversations').select('id')
         .eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
@@ -276,7 +266,6 @@ module.exports = async function handler(req, res) {
         console.log('📋 New conversation created:', conversationId);
       }
 
-      // Save inbound message
       if (conversationId) {
         await supabase.from('messages').insert({
           tenant_id: tenantId,
@@ -297,7 +286,12 @@ module.exports = async function handler(req, res) {
       console.log('Live Inbox wiring error:', inboxErr.message);
     }
 
-    // ── Step 6: AI classification and reply generation ──
+    // ── Step 6: AI classification and reply — only if config is complete ──
+    if (!replyFromEmail || !replyFromName) {
+      console.log('⚠️ Skipping AI reply — tenant email config incomplete. Configure via Settings → Channels → Email.');
+      return res.status(200).json({ success: true, replied: false, reason: 'config_incomplete', tenant: tenantId });
+    }
+
     const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -310,13 +304,11 @@ module.exports = async function handler(req, res) {
         max_tokens: 800,
         system: `You are the AI email assistant for ${replyFromName}. You handle incoming emails professionally and helpfully.
 
-Business information:
-${businessInfo}
+${businessInfo ? `Business information:\n${businessInfo}` : `You represent ${replyFromName}. Answer questions helpfully and professionally.`}
 
-Contact details:
-- Email: ${replyFromEmail}
-- Phone: ${replyPhone}
-- Website: ${replyWebsite}
+${replyPhone ? `Support phone: ${replyPhone}` : ''}
+${replyWebsite ? `Website: ${replyWebsite}` : ''}
+${replyFromEmail ? `Email: ${replyFromEmail}` : ''}
 
 Your job:
 1. Classify the intent (sales_inquiry, partnership, support, demo_request, pricing, spam, other)
@@ -325,9 +317,8 @@ Your job:
 4. For support: acknowledge and offer help
 5. For spam: do not reply (set intent to "spam", should_reply to false)
 6. Always sign off as "The ${replyFromName} Team"
-7. Never make up features or services that don't exist
+7. Never make up features or services
 8. Do not use markdown formatting in the email body
-9. NEVER share login credentials, passwords, or internal account details
 
 Respond ONLY with valid JSON (no markdown backticks):
 {
@@ -341,10 +332,7 @@ Respond ONLY with valid JSON (no markdown backticks):
 }`,
         messages: [{
           role: 'user',
-          content: `New email received:
-From: ${senderName} <${senderEmail}>
-Subject: ${emailSubject}
-Body: ${emailBody.substring(0, 3000)}`,
+          content: `New email received:\nFrom: ${senderName} <${senderEmail}>\nSubject: ${emailSubject}\nBody: ${emailBody.substring(0, 3000)}`,
         }],
       }),
     });
@@ -362,7 +350,7 @@ Body: ${emailBody.substring(0, 3000)}`,
         sentiment: 'neutral',
         should_reply: true,
         reply_subject: `Re: ${emailSubject}`,
-        reply_body: `Thank you for reaching out to ${replyFromName}. We've received your message and will get back to you shortly.\n\nFeel free to call us at ${replyPhone} or visit ${replyWebsite}.\n\nBest regards,\nThe ${replyFromName} Team`,
+        reply_body: `Thank you for reaching out to ${replyFromName}. We've received your message and will get back to you shortly.${replyPhone ? `\n\nFeel free to call us at ${replyPhone}.` : ''}${replyWebsite ? `\nVisit us at ${replyWebsite}.` : ''}\n\nBest regards,\nThe ${replyFromName} Team`,
         notify_admin: true,
         summary: 'AI parse failed — generic reply sent',
       };
@@ -396,7 +384,7 @@ Body: ${emailBody.substring(0, 3000)}`,
           <div style="border-top: 1px solid #e5e7eb; padding: 16px 24px; margin-top: 8px;">
             <p style="margin: 0; font-size: 13px; color: #6b7280;">
               <strong style="color: #1a1a2e;">${replyFromName}</strong><br/>
-              <a href="${replyWebsite}" style="color: #00C9FF; text-decoration: none;">${replyWebsite.replace('https://', '')}</a>
+              ${replyWebsite ? `<a href="${replyWebsite}" style="color: #00C9FF; text-decoration: none;">${replyWebsite.replace('https://', '')}</a>` : ''}
               ${replyPhone ? ` · <a href="tel:${replyPhone.replace(/\D/g, '')}" style="color: #00C9FF; text-decoration: none;">${replyPhone}</a>` : ''}
             </p>
           </div>
@@ -404,7 +392,7 @@ Body: ${emailBody.substring(0, 3000)}`,
       `;
 
       try {
-        const sendResponse = await fetch('https://api.resend.com/emails', {
+        await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${RESEND_API_KEY}`,
@@ -418,7 +406,6 @@ Body: ${emailBody.substring(0, 3000)}`,
             reply_to: replyFromEmail,
           }),
         });
-        const replyResult = await sendResponse.json();
         console.log(`✉️ Auto-reply sent from ${replyFromEmail} to ${senderEmail}`);
 
         // Log outbound message in Live Inbox
@@ -443,7 +430,7 @@ Body: ${emailBody.substring(0, 3000)}`,
       } catch (sendErr) {
         console.error('Resend error:', sendErr.message);
       }
-    } else if (!emailAllowed) {
+    } else if (!emailAllowed && notifyEmail) {
       // Usage limit — forward to admin for manual follow-up
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -458,7 +445,7 @@ Body: ${emailBody.substring(0, 3000)}`,
     }
 
     // ── Step 9: Notify admin for important inquiries ──
-    if (parsed.notify_admin) {
+    if (parsed.notify_admin && notifyEmail) {
       try {
         await fetch('https://api.resend.com/emails', {
           method: 'POST',
