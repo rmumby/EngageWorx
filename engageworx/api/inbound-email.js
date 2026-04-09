@@ -274,7 +274,7 @@ module.exports = async function handler(req, res) {
           body: emailBody.substring(0, 5000),
           status: 'delivered',
           topic: emailSubject || 'email',
-          extension: senderEmail || 'email',
+extension: replyFromEmail || 'email',
           created_at: new Date().toISOString(),
         });
         if (inboundErr) console.error('❌ Inbound message save error:', inboundErr.message);
