@@ -157,8 +157,29 @@ module.exports = async function handler(req, res) {
       if (tenantErr) console.log('📋 Tenant error:', tenantErr.message);
       
       // Find tenant named "My Business" or use first available tenant
-      const myBiz = tenants?.find(t => t.name === 'My Business');
-      tenantId = myBiz?.id || tenants?.[0]?.id || null;
+      // Try to match tenant by recipient email address via channel_configs
+let matchedTenant = null;
+try {
+  const toEmail = (to || '').toLowerCase();
+  const { data: configs } = await supabase
+    .from('channel_configs')
+    .select('tenant_id, config_encrypted')
+    .eq('channel', 'email');
+  if (configs) {
+    for (const cfg of configs) {
+      const inboundEmail = (cfg.config_encrypted?.inbound_email || '').toLowerCase();
+      if (inboundEmail && toEmail.includes(inboundEmail.split('@')[0])) {
+        matchedTenant = cfg.tenant_id;
+        break;
+      }
+    }
+  }
+} catch (e) { console.log('Tenant match error:', e.message); }
+
+// Fall back to EngageWorx SP tenant
+const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+tenantId = matchedTenant || EW_SP_TENANT_ID;
+console.log('📋 Matched tenant:', tenantId, matchedTenant ? '(by email)' : '(default SP)');
       console.log('📋 Using tenant:', tenantId);
 
       // Load email channel config for AI customization
