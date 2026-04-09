@@ -273,8 +273,17 @@ module.exports = async function handler(req, res) {
           sender_type: 'contact',
           body: emailBody.substring(0, 5000),
           status: 'delivered',
-          topic: emailSubject || 'email',
-extension: replyFromEmail || 'email',
+          await supabase.from('messages').insert({
+  tenant_id: tenantId,
+  conversation_id: conversationId,
+  contact_id: contactId,
+  channel: 'email',
+  direction: 'inbound',
+  sender_type: 'contact',
+  body: emailBody.substring(0, 5000),
+  status: 'delivered',
+  created_at: new Date().toISOString(),
+});
           created_at: new Date().toISOString(),
         });
         if (inboundErr) console.error('❌ Inbound message save error:', inboundErr.message);
@@ -422,8 +431,17 @@ Respond ONLY with valid JSON (no markdown backticks):
           sender_type: 'ai',
           body: parsed.reply_body,
           status: 'delivered',
-          topic: emailSubject || 'email',
-          extension: replyFromEmail || 'email',
+          await supabase.from('messages').insert({
+  tenant_id: tenantId,
+  conversation_id: conversationId,
+  contact_id: contactId,
+  channel: 'email',
+  direction: 'outbound',
+  sender_type: 'ai',
+  body: parsed.reply_body,
+  status: 'delivered',
+  created_at: new Date().toISOString(),
+});
           created_at: new Date().toISOString(),
         });
         if (outErr) console.error('❌ AI reply save error:', outErr.message);
