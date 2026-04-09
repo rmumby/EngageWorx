@@ -129,7 +129,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     setConfigError(null);
     try {
       const { supabase } = await import('./supabaseClient');
-      var channelList = ['sms', 'whatsapp', 'email', 'voice'];
+      var channelList = ['sms', 'email', 'voice'];
       for (var i = 0; i < channelList.length; i++) {
         var ch = channelList[i];
         // Read existing config first — never overwrite credentials
