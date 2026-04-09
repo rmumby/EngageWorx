@@ -123,7 +123,29 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
-    let rawBody = text || (html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+    // Prefer text field, fall back to HTML stripped of tags
+let rawBody = '';
+if (text && text.trim().length > 10) {
+  rawBody = text.trim();
+} else if (html) {
+  rawBody = html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/https?:\/\/\S+/g, '')  // strip URLs
+    .replace(/\[cid:[^\]]+\]/g, '')  // strip cid: references
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Strip signatures — cut at common markers
+const sigMarkers = ['Javier Rubert', 'Strategy Consultant', 'R3 Consulting', 'Book time with me', 'IT THAT WORKS', '________________________________', '--\r\n', '\n--\n', 'From:', 'Sent from my'];
+let emailBody = rawBody;
+for (const marker of sigMarkers) {
+  const idx = emailBody.indexOf(marker);
+  if (idx > 10) { emailBody = emailBody.substring(0, idx).trim(); break; }
+}
+emailBody = emailBody.trim() || '(no message content)';
 // Strip common signature markers
 const sigMarkers = ['--\r\n', '\n--\n', '________________________________', 'From:', 'Sent from my', 'cid:', 'Exclaimer'];
 let emailBody = rawBody;
