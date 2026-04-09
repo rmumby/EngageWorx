@@ -149,7 +149,7 @@ const genericSigMarkers = [
   'Book time with me',
   'CONFIDENTIAL', 'DISCLAIMER',
 ];
-const tenantSigMarkers = emailChannelConfig.signature_strip_markers || [];
+const tenantSigMarkers = (emailChannelConfig && emailChannelConfig.signature_strip_markers) || [];
 const allMarkers = [...genericSigMarkers, ...tenantSigMarkers];
 let emailBody = rawBody;
 for (const marker of allMarkers) {
