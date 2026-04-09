@@ -413,7 +413,9 @@ useEffect(() => {
         // 4. Assemble
         var result = convos.map(function(conv) {
           var c = contactMap[conv.contact_id];
-          var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown' : 'Unknown';
+          var name = c 
+  ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown'
+  : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : conv.channel === 'email' ? 'Email Conversation' : 'Unknown');
           var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
           var convMsgs = msgMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
           return {
