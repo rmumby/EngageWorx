@@ -233,7 +233,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs }) {
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs, enabledModules, onSaveModules }) {
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
@@ -603,6 +603,7 @@ return (<div>
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
           { id: "alerts", label: "SP Alerts", icon: "🚨" },
+{ id: "modules", label: "Modules", icon: "🧩" },
         ].filter(t => !allowedTabs || allowedTabs.includes(t.id)).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{t.icon} {t.label}</button>
         ))}
@@ -969,6 +970,52 @@ return (<div>
       {activeTab === "welcome-email" && (
         <WelcomeEmailSettings C={C} tenantId={currentTenantId || "c1bc59a8-5235-4921-9755-02514b574387"} />
       )}
+      {activeTab === "modules" && (
+  <div>
+    <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
+    <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool like Salesforce, Zendesk, or HubSpot.</p>
+    {!enabledModules ? (
+      <div style={{ ...card, padding: 40, textAlign: "center" }}>
+        <div style={{ color: C.muted, fontSize: 14 }}>Module settings are not available in this context.</div>
+      </div>
+    ) : (
+      <div>
+        <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
+          {[
+            { id: "pipeline", label: "Pipeline & Import Leads", desc: "Built-in CRM pipeline. Disable if you use Salesforce, HubSpot, or another CRM.", icon: "📈" },
+            { id: "helpdesk", label: "Help Desk", desc: "Built-in ticketing system. Disable if you use Zendesk, Freshdesk, or another platform.", icon: "🎫" },
+            { id: "sequences", label: "Sequences & Sequence Builder", desc: "Built-in drip sequences. Disable if you use Mailchimp, HubSpot, or another tool.", icon: "📧" },
+            { id: "blog", label: "Blog Manager", desc: "Built-in blog publishing. Disable if you manage content elsewhere.", icon: "📝" },
+          ].map(function(mod) {
+            var enabled = enabledModules.includes(mod.id);
+            return (
+              <div key={mod.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: enabled ? "rgba(0,201,255,0.04)" : "rgba(255,255,255,0.02)", border: "1px solid " + (enabled ? C.primary + "33" : "rgba(255,255,255,0.06)"), borderRadius: 12 }}>
+                <span style={{ fontSize: 24 }}>{mod.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
+                  <div style={{ color: C.muted, fontSize: 12 }}>{mod.desc}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: enabled ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600 }}>{enabled ? "ON" : "OFF"}</span>
+                  <div onClick={function() {
+                    if (!onSaveModules) return;
+                    var next = enabled
+                      ? enabledModules.filter(function(m) { return m !== mod.id; })
+                      : enabledModules.concat([mod.id]);
+                    onSaveModules(next);
+                  }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : "rgba(255,255,255,0.12)", position: "relative", cursor: onSaveModules ? "pointer" : "default", transition: "background 0.2s", flexShrink: 0 }}>
+                    <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: enabled ? 23 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p style={{ color: C.muted, fontSize: 12 }}>Changes take effect immediately in the sidebar. Toggle again to re-enable.</p>
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 }
