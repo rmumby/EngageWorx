@@ -727,9 +727,121 @@ async function handleCreateDemo() {
               🎮 Demo accounts come ready for a live walkthrough. Appears under your My Clients list and counts toward your commission tracking.
             </div>
             <button onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ background: 'linear-gradient(135deg, ' + C.accent + ', #7C4DFF)', border: 'none', borderRadius: 10, padding: '14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: (demoLoading || !demoForm.email || !demoForm.companyName) ? 0.6 : 1 }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</button>
+          )}
           </div>
         </div>
       )}
-    </div>
-  </div>
-)}
+
+      {/* ── Sandbox Modal ── */}
+      {showSandbox && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowSandbox(false); }}>
+          <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 480, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>🧪 Create Sandbox</h2>
+              <span onClick={function() { setShowSandbox(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
+            </div>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Create a sandbox account for a prospect to explore the platform with full access and no commitment.</p>
+            {sandboxResult && sandboxResult.success ? (
+              <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
+                <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Sandbox Created</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{sandboxResult.tenant_name}</span>
+                  <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{sandboxResult.email}</span>
+                  <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{sandboxResult.password}</span>
+                  <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
+                </div>
+                <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+                  <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + sandboxResult.email + '\nPassword: ' + sandboxResult.password); }} style={btnPrimary}>Copy Credentials</button>
+                  <button onClick={function() { setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Create Another</button>
+                  <button onClick={function() { setShowSandbox(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Close</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {sandboxResult && sandboxResult.error && (
+                  <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#FF3B30', fontSize: 13 }}>{sandboxResult.error}</div>
+                )}
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Contact Name</div>
+                      <input value={sandboxForm.fullName} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { fullName: e.target.value })); }} placeholder="Jane Smith" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Company Name *</div>
+                      <input value={sandboxForm.companyName} onChange={function(e) { var n = e.target.value; setSandboxForm(Object.assign({}, sandboxForm, { companyName: n, password: generatePassword(n) })); }} placeholder="Prospect Co" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Email *</div>
+                      <input value={sandboxForm.email} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { email: e.target.value })); }} placeholder="jane@prospect.com" type="email" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div>
+                      <input value={sandboxForm.password} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'monospace'", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
+                    🧪 Sandbox accounts use the <span style={{ color: C.primary }}>Starter plan</span> with full feature access. Appears under your My Clients list.
+                  </div>
+                  <button onClick={handleCreateSandbox} disabled={sandboxLoading || !sandboxForm.email || !sandboxForm.companyName} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: (sandboxLoading || !sandboxForm.email || !sandboxForm.companyName) ? 0.6 : 1 })}>{sandboxLoading ? 'Creating...' : '🧪 Create Sandbox Account'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Demo Account Modal ── */}
+      {showDemoForm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowDemoForm(false); }}>
+          <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 480, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>🎮 Create Demo Account</h2>
+              <span onClick={function() { setShowDemoForm(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
+            </div>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Create a pre-configured demo account to showcase the platform to a prospect in a live setting.</p>
+            {demoResult && demoResult.success ? (
+              <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
+                <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Demo Account Created</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
+                  <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{demoResult.tenant_name}</span>
+                  <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{demoResult.email}</span>
+                  <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{demoResult.password}</span>
+                  <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
+                </div>
+                <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
+                  <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + demoResult.email + '\nPassword: ' + demoResult.password); }} style={btnPrimary}>Copy Credentials</button>
+                  <button onClick={function() { setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Create Another</button>
+                  <button onClick={function() { setShowDemoForm(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Close</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {demoResult && demoResult.error && (
+                  <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#FF3B30', fontSize: 13 }}>{demoResult.error}</div>
+                )}
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Contact Name</div>
+                      <input value={demoForm.fullName} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { fullName: e.target.value })); }} placeholder="Jane Smith" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Company Name *</div>
+                      <input value={demoForm.companyName} onChange={function(e) { var n = e.target.value; setDemoForm(Object.assign({}, demoForm, { companyName: n, password: generatePassword(n) })); }} placeholder="Prospect Co" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Email *</div>
+                      <input value={demoForm.email} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { email: e.target.value })); }} placeholder="jane@prospect.com" type="email" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                    <div>
+                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div>
+                      <input value={demoForm.password} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'monospace'", boxSizing: 'border-box', outline: 'none' }} />
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
+                    🎮 Demo accounts come ready for a live walkthrough. Appears under My Clients and counts toward commission
