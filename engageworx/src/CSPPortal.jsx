@@ -6,7 +6,6 @@ import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 import Settings from './Settings';
 import PipelineDashboard from './components/PipelineDashboard';
-import CustomerPortal from './CustomerPortal';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -190,19 +189,19 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   // ── If drilling into a tenant — show CustomerPortal scoped to that tenant ──
   if (drillDownTenant) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {logoEl}
           <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
           <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
           <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🏢 {drillDownTenant.name}</span>
+          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+          <span style={{ color: C.muted, fontSize: 11 }}>{drillDownTenant.plan} · {drillDownTenant.status}</span>
         </div>
-        <span onClick={function() { setDrillDownTenant(null); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+        <span onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
       </div>
-      <div style={{ padding: '32px 40px' }}>
-        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{drillDownTenant.name}</h1>
-        <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{drillDownTenant.plan} plan · {drillDownTenant.status}</p>
+      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
       </div>
     </div>
