@@ -5,10 +5,15 @@ import ContactsModule from './ContactsModule';
 import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 import Settings from './Settings';
+import PipelineDashboard from './PipelineDashboard';
+import CustomerPortal from './CustomerPortal';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
 }
+
+// Default modules that are enabled for all CSPs
+var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
@@ -33,13 +38,15 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [tenants, setTenants] = useState([]);
   var [loading, setLoading] = useState(true);
   var [drillDown, setDrillDown] = useState(null);
+  var [drillDownTenant, setDrillDownTenant] = useState(null); // full tenant object for portal
   var [showCreate, setShowCreate] = useState(false);
   var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false });
   var [createLoading, setCreateLoading] = useState(false);
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   var [showSandbox, setShowSandbox] = useState(false);
-var [showDemoForm, setShowDemoForm] = useState(false);
+  var [showDemoForm, setShowDemoForm] = useState(false);
+  var [enabledModules, setEnabledModules] = useState(DEFAULT_ENABLED_MODULES);
 
   useEffect(() => { if (cspTenantId) loadCSPData(); }, [cspTenantId]);
 
@@ -47,7 +54,13 @@ var [showDemoForm, setShowDemoForm] = useState(false);
     setLoading(true);
     try {
       var cspResult = await supabase.from('tenants').select('*').eq('id', cspTenantId).maybeSingle();
-      if (cspResult.data) setCspInfo(cspResult.data);
+      if (cspResult.data) {
+        setCspInfo(cspResult.data);
+        // Load saved module preferences if stored
+        if (cspResult.data.metadata && cspResult.data.metadata.enabled_modules) {
+          setEnabledModules(cspResult.data.metadata.enabled_modules);
+        }
+      }
       var tenantsResult = await supabase.from('tenants').select('*').eq('parent_tenant_id', cspTenantId).order('name');
       if (tenantsResult.data) setTenants(tenantsResult.data);
       try {
@@ -63,6 +76,17 @@ var [showDemoForm, setShowDemoForm] = useState(false);
     setLoading(false);
   }
 
+  function isModuleEnabled(id) { return enabledModules.includes(id); }
+
+  async function saveModules(modules) {
+    setEnabledModules(modules);
+    try {
+      await supabase.from('tenants').update({
+        metadata: Object.assign({}, cspInfo?.metadata || {}, { enabled_modules: modules })
+      }).eq('id', cspTenantId);
+    } catch (e) { console.log('Module save error:', e.message); }
+  }
+
   async function handleCreateTenant() {
     if (!createForm.email || !createForm.companyName || !createForm.password) return;
     setCreateLoading(true);
@@ -72,17 +96,17 @@ var [showDemoForm, setShowDemoForm] = useState(false);
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-  csp_tenant_id: cspTenantId,
-  email: createForm.email.trim(),
-  password: createForm.password,
-  full_name: createForm.fullName.trim(),
-  company_name: createForm.companyName.trim(),
-  plan: createForm.plan,
-  website_url: createForm.websiteUrl || null,
-  brand_primary: createForm.detectedBrand ? createForm.detectedBrand.primaryColor : null,
-  brand_secondary: createForm.detectedBrand ? createForm.detectedBrand.secondaryColor : null,
-  brand_logo_url: createForm.detectedBrand ? createForm.detectedBrand.logoUrl : null,
-}),
+          csp_tenant_id: cspTenantId,
+          email: createForm.email.trim(),
+          password: createForm.password,
+          full_name: createForm.fullName.trim(),
+          company_name: createForm.companyName.trim(),
+          plan: createForm.plan,
+          website_url: createForm.websiteUrl || null,
+          brand_primary: createForm.detectedBrand ? createForm.detectedBrand.primaryColor : null,
+          brand_secondary: createForm.detectedBrand ? createForm.detectedBrand.secondaryColor : null,
+          brand_logo_url: createForm.detectedBrand ? createForm.detectedBrand.logoUrl : null,
+        }),
       });
       var data = await resp.json();
       if (data.success) { setCreateResult(data); loadCSPData(); }
@@ -112,13 +136,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
           detecting: false,
           companyName: data.name || f.companyName,
           password: data.name ? generatePassword(data.name) : f.password,
-          detectedBrand: data.name ? {
-            name: data.name,
-            primaryColor: data.primaryColor,
-            secondaryColor: data.secondaryColor,
-            logoUrl: data.logoUrl,
-            description: data.description,
-          } : null,
+          detectedBrand: data.name ? { name: data.name, primaryColor: data.primaryColor, secondaryColor: data.secondaryColor, logoUrl: data.logoUrl, description: data.description } : null,
         });
       });
     } catch (e) {
@@ -126,18 +144,28 @@ var [showDemoForm, setShowDemoForm] = useState(false);
     }
   }
 
-  var navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
-    { id: 'tenants', label: 'Tenant Management', icon: '🏢' },
-    { id: 'inbox', label: 'Live Inbox', icon: '💬' },
-    { id: 'contacts', label: 'Contacts', icon: '👥' },
-    { id: 'campaigns', label: 'Campaigns', icon: '🚀' },
-    { id: 'ai-studio', label: 'AI Chatbot', icon: '🤖' },
-    { id: 'sequences', label: 'Sequences', icon: '📧' },
-    { id: 'analytics', label: 'Analytics', icon: '📊' },
-    { id: 'integrations', label: 'API & Integrations', icon: '🔌' },
-    { id: 'settings', label: 'Settings', icon: '⚙️' },
+  // ── All nav items — optional ones filtered by module toggles ──────────────
+  var allNavItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '⊞', always: true },
+    { id: 'tenants', label: 'Tenant Management', icon: '🏢', always: true },
+    { id: 'inbox', label: 'Live Inbox', icon: '💬', always: true },
+    { id: 'contacts', label: 'Contacts', icon: '👥', always: true },
+    { id: 'campaigns', label: 'Campaigns', icon: '🚀', always: true },
+    { id: 'pipeline', label: 'Pipeline', icon: '📈', module: 'pipeline' },
+    { id: 'sequences', label: 'Sequences', icon: '📧', module: 'sequences' },
+    { id: 'ai-studio', label: 'AI Chatbot', icon: '🤖', always: true },
+    { id: 'flow-builder', label: 'Flow Builder', icon: '⚡', always: true },
+    { id: 'helpdesk', label: 'Help Desk', icon: '🎫', module: 'helpdesk' },
+    { id: 'blog', label: 'Blog Manager', icon: '📝', module: 'blog' },
+    { id: 'analytics', label: 'Analytics', icon: '📊', always: true },
+    { id: 'registration', label: 'Registration', icon: '📋', always: true },
+    { id: 'integrations', label: 'API & Integrations', icon: '🔌', always: true },
+    { id: 'settings', label: 'Settings', icon: '⚙️', always: true },
   ];
+
+  var navItems = allNavItems.filter(function(item) {
+    return item.always || isModuleEnabled(item.module);
+  });
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
   var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
@@ -159,18 +187,40 @@ var [showDemoForm, setShowDemoForm] = useState(false);
     ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
     : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
 
+  // ── If drilling into a tenant — show CustomerPortal scoped to that tenant ──
+  if (drillDownTenant) {
+    return (
+      <CustomerPortal
+        tenantId={drillDownTenant.id}
+        onBack={function() { setDrillDownTenant(null); setPage('tenants'); }}
+        liveTenants={[drillDownTenant]}
+        profile={profile}
+        cspMode={true}
+        cspTenantId={cspTenantId}
+        cspName={cspInfo ? cspInfo.name : 'Partner Portal'}
+      />
+    );
+  }
+
+  // ── Full-screen pages ──────────────────────────────────────────────────────
+  var topBar = function(label, icon) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {logoEl}
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+          <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>{icon} {label}</span>
+        </div>
+        <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+      </div>
+    );
+  };
+
   if (page === 'ai-studio') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {logoEl}
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
-            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🤖 AI Studio</span>
-          </div>
-          <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
-        </div>
+        {topBar('AI Chatbot Studio', '🤖')}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
         </div>
@@ -181,17 +231,20 @@ var [showDemoForm, setShowDemoForm] = useState(false);
   if (page === 'sequences') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {logoEl}
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
-            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>📧 Sequences</span>
-          </div>
-          <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
-        </div>
+        {topBar('Sequences', '📧')}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <SequenceBuilder C={C} currentTenantId={cspTenantId} />
+        </div>
+      </div>
+    );
+  }
+
+  if (page === 'flow-builder') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+        {topBar('Flow Builder', '⚡')}
+        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+          <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} defaultTab="flows" />
         </div>
       </div>
     );
@@ -220,8 +273,11 @@ var [showDemoForm, setShowDemoForm] = useState(false);
     );
   }
 
+  // ── Main layout ────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
+
+      {/* ── Sidebar ── */}
       <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
@@ -241,7 +297,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto' }}>
           {navItems.map(function(item) {
             var active = page === item.id;
             return (
@@ -265,16 +321,143 @@ var [showDemoForm, setShowDemoForm] = useState(false);
         </div>
       </div>
 
+      {/* ── Main content ── */}
       <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
           {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
           <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
         </div>
 
+        {/* Contacts */}
         {page === 'contacts' && (
           <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
         )}
 
+        {/* Pipeline */}
+        {page === 'pipeline' && (
+          <PipelineDashboard C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} />
+        )}
+
+        {/* Help Desk */}
+        {page === 'helpdesk' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎫 Help Desk</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Support tickets for your tenants</p>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🎫</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Help Desk coming to CSP portal in next update.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Blog */}
+        {page === 'blog' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📝 Blog Manager</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Manage your blog content</p>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Blog Manager coming to CSP portal in next update.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Registration */}
+        {page === 'registration' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📋 Registration</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>TCR, RCS, and Meta brand registration</p>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Registration module coming to CSP portal in next update.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Campaigns */}
+        {page === 'campaigns' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🚀 Campaigns</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Manage campaigns across all your tenants</p>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🚀</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Partner-level campaigns coming in next update.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics */}
+        {page === 'analytics' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📊 Analytics</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Usage and performance across all tenants</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
+              {[
+                { label: 'Total Messages', value: totalMessages.toLocaleString(), color: C.primary, icon: '💬' },
+                { label: 'SMS Sent', value: totalSms.toLocaleString(), color: '#00E676', icon: '📱' },
+                { label: 'WhatsApp Sent', value: totalWhatsapp.toLocaleString(), color: '#25D366', icon: '📲' },
+                { label: 'Email Sent', value: totalEmail.toLocaleString(), color: '#FF6B35', icon: '📧' },
+              ].map(function(s, i) {
+                return <div key={i} style={Object.assign({}, card, { textAlign: 'center' })}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
+                  <div style={{ color: s.color, fontSize: 28, fontWeight: 800 }}>{s.value}</div>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
+                </div>;
+              })}
+            </div>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 40 })}>
+              <div style={{ color: C.muted, fontSize: 14 }}>Detailed analytics charts coming in next update.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Integrations */}
+        {page === 'integrations' && (
+          <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />
+        )}
+
+        {/* Settings — with module toggles */}
+        {page === 'settings' && (
+          <div>
+            <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security"]} />
+
+            {/* Optional Modules section */}
+            <div style={Object.assign({}, card, { marginTop: 24 })}>
+              <h2 style={{ color: '#fff', margin: '0 0 6px', fontSize: 18, fontWeight: 700 }}>⚙️ Optional Modules</h2>
+              <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool (e.g. Salesforce, Zendesk, HubSpot).</p>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {[
+                  { id: 'pipeline', label: 'Pipeline & Import Leads', desc: 'Built-in CRM pipeline. Disable if you use Salesforce, HubSpot, or another CRM.', icon: '📈' },
+                  { id: 'helpdesk', label: 'Help Desk', desc: 'Built-in ticketing system. Disable if you use Zendesk, Freshdesk, or another platform.', icon: '🎫' },
+                  { id: 'sequences', label: 'Sequences & Sequence Builder', desc: 'Built-in drip sequences. Disable if you use Mailchimp, HubSpot, or another tool.', icon: '📧' },
+                  { id: 'blog', label: 'Blog Manager', desc: 'Built-in blog publishing. Disable if you manage content elsewhere.', icon: '📝' },
+                ].map(function(mod) {
+                  var enabled = isModuleEnabled(mod.id);
+                  return (
+                    <div key={mod.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', background: enabled ? 'rgba(0,201,255,0.04)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (enabled ? C.primary + '33' : 'rgba(255,255,255,0.06)'), borderRadius: 12 }}>
+                      <span style={{ fontSize: 24 }}>{mod.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
+                        <div style={{ color: C.muted, fontSize: 12 }}>{mod.desc}</div>
+                      </div>
+                      <div onClick={function() {
+                        var next = enabled
+                          ? enabledModules.filter(function(m) { return m !== mod.id; })
+                          : enabledModules.concat([mod.id]);
+                        saveModules(next);
+                      }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : 'rgba(255,255,255,0.12)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: enabled ? 23 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p style={{ color: C.muted, fontSize: 12, marginTop: 16 }}>Changes take effect immediately. Toggle again to re-enable.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Dashboard */}
         {page === 'dashboard' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
@@ -303,10 +486,10 @@ var [showDemoForm, setShowDemoForm] = useState(false);
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
                 <div style={{ display: 'flex', gap: 10 }}>
-  <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
-  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
-  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ New Tenant</button>
-</div>
+                  <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
+                  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
+                  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ New Tenant</button>
+                </div>
               </div>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading...</div>
@@ -314,7 +497,6 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                 <div style={{ textAlign: 'center', padding: 40 }}>
                   <div style={{ fontSize: 40, marginBottom: 12 }}>🏢</div>
                   <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No tenants yet</div>
-                  <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Add your first client to get started.</div>
                   <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
                 </div>
               ) : (
@@ -325,7 +507,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                     var limit = usage ? usage.plan_limit : 0;
                     var pct = limit > 0 ? Math.round((msgs / limit) * 100) : 0;
                     return (
-                      <div key={tenant.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 100px', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+                      <div key={tenant.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 120px', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
                         <div>
                           <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{tenant.name}</div>
                           <div style={{ color: C.muted, fontSize: 11 }}>{tenant.plan} · {tenant.status}</div>
@@ -344,7 +526,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <button onClick={function() { setDrillDown(tenant.id); setPage('tenant_detail'); }} style={Object.assign({}, btnSec, { padding: '6px 12px', fontSize: 11 })}>View</button>
+                          <button onClick={function() { setDrillDownTenant(tenant); }} style={Object.assign({}, btnPrimary, { padding: '6px 14px', fontSize: 11 })}>Manage →</button>
                         </div>
                       </div>
                     );
@@ -355,6 +537,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
           </div>
         )}
 
+        {/* Tenants page */}
         {page === 'tenants' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
@@ -363,16 +546,15 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} under {cspInfo ? cspInfo.name : 'your account'}</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-  <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '12px 20px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🧪 Create Sandbox</button>
-  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '12px 20px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🎮 Create Demo Account</button>
-  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ New Tenant</button>
-</div>
+                <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '12px 20px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🧪 Create Sandbox</button>
+                <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '12px 20px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🎮 Create Demo Account</button>
+                <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ New Tenant</button>
+              </div>
             </div>
             {tenants.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No tenants yet</div>
-                <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>Add your first client to start providing them with AI-powered communications.</div>
                 <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
               </div>
             ) : (
@@ -380,10 +562,10 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                 {tenants.map(function(tenant) {
                   var msgs = tenant.usage ? tenant.usage.total_messages : 0;
                   return (
-                    <div key={tenant.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 80px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (tenant.status === 'active' ? '#00E676' : '#FFD600') })}>
+                    <div key={tenant.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 120px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (tenant.status === 'active' ? '#00E676' : '#FFD600') })}>
                       <div>
                         <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{tenant.name}</div>
-                        <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{tenant.slug} · Created {new Date(tenant.created_at).toLocaleDateString()}</div>
+                        <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Created {new Date(tenant.created_at).toLocaleDateString()}</div>
                       </div>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Plan</div>
@@ -398,7 +580,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                         <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{msgs.toLocaleString()}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <button onClick={function() { setDrillDown(tenant.id); setPage('tenant_detail'); }} style={Object.assign({}, btnSec, { padding: '6px 14px', fontSize: 11 })}>Manage</button>
+                        <button onClick={function() { setDrillDownTenant(tenant); }} style={Object.assign({}, btnPrimary, { padding: '8px 16px', fontSize: 12 })}>Manage →</button>
                       </div>
                     </div>
                   );
@@ -408,69 +590,7 @@ var [showDemoForm, setShowDemoForm] = useState(false);
           </div>
         )}
 
-        {(page === 'campaigns' || page === 'analytics') && (
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{navItems.find(function(n) { return n.id === page; }).label}</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Partner-level {page} view coming soon.</p>
-            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>{navItems.find(function(n) { return n.id === page; }).icon}</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>This feature will aggregate data across all your tenants.</div>
-            </div>
-          </div>
-        )}
-
-        {page === 'integrations' && (
-          <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />
-        )}
-
-        {page === 'settings' && (
-          <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security"]} />
-        )}
-
-        {page === 'tenant_detail' && drillDown && (
-          <div>
-            {function() {
-              var tenant = tenants.find(function(t) { return t.id === drillDown; });
-              if (!tenant) return <div style={{ color: C.muted }}>Tenant not found</div>;
-              var usage = tenant.usage;
-              var msgs = usage ? usage.total_messages : 0;
-              var limit = usage ? usage.plan_limit : 0;
-              var pct = limit > 0 ? Math.round((msgs / limit) * 100) : 0;
-              return (
-                <div>
-                  <button onClick={function() { setPage('tenants'); setDrillDown(null); }} style={Object.assign({}, btnSec, { marginBottom: 20, padding: '8px 16px' })}>← Back to Tenants</button>
-                  <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>{tenant.name}</h1>
-                  <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{tenant.plan} plan · {tenant.status} · ID: {tenant.id}</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
-                    {[
-                      { label: 'Total Messages', value: msgs.toLocaleString(), color: C.primary },
-                      { label: 'Plan Limit', value: limit.toLocaleString(), color: '#FFD600' },
-                      { label: 'Usage', value: pct + '%', color: pct > 80 ? '#FF6B35' : '#00E676' },
-                      { label: 'SMS / WA / Email', value: (usage ? usage.sms_sent : 0) + ' / ' + (usage ? usage.whatsapp_sent : 0) + ' / ' + (usage ? usage.email_sent : 0), color: '#fff' },
-                    ].map(function(stat, i) {
-                      return (
-                        <div key={i} style={card}>
-                          <div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{stat.label}</div>
-                          <div style={{ color: stat.color, fontSize: 24, fontWeight: 800 }}>{stat.value}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={card}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <span style={{ color: C.muted, fontSize: 13 }}>Message Usage</span>
-                      <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{msgs.toLocaleString()} / {limit.toLocaleString()}</span>
-                    </div>
-                    <div style={{ height: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 4 }}>
-                      <div style={{ height: '100%', width: Math.min(pct, 100) + '%', background: pct > 90 ? '#FF3B30' : pct > 80 ? '#FF6B35' : 'linear-gradient(90deg, ' + C.primary + ', ' + C.accent + ')', borderRadius: 4 }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            }()}
-          </div>
-        )}
-
+        {/* Create Tenant Modal */}
         {showCreate && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowCreate(false); }}>
             <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 500, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
@@ -502,76 +622,36 @@ var [showDemoForm, setShowDemoForm] = useState(false);
                     <div>
                       <label style={labelStyle}>Website URL</label>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                          value={createForm.websiteUrl}
-                          onChange={function(e) { setCreateForm(Object.assign({}, createForm, { websiteUrl: e.target.value })); }}
-                          placeholder="https://clientbusiness.com"
-                          style={Object.assign({}, inputStyle, { flex: 1 })}
-                        />
-                        <button
-                          onClick={detectBrand}
-                          disabled={!createForm.websiteUrl || createForm.detecting}
-                          style={{
-                            background: createForm.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)',
-                            border: 'none', borderRadius: 10, padding: '10px 14px', color: createForm.detecting ? '#6B8BAE' : '#000',
-                            fontWeight: 700, cursor: createForm.websiteUrl && !createForm.detecting ? 'pointer' : 'not-allowed',
-                            fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif",
-                            opacity: !createForm.websiteUrl ? 0.5 : 1,
-                          }}
-                        >
+                        <input value={createForm.websiteUrl} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { websiteUrl: e.target.value })); }} placeholder="https://clientbusiness.com" style={Object.assign({}, inputStyle, { flex: 1 })} />
+                        <button onClick={detectBrand} disabled={!createForm.websiteUrl || createForm.detecting} style={{ background: createForm.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 10, padding: '10px 14px', color: createForm.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: createForm.websiteUrl && !createForm.detecting ? 'pointer' : 'not-allowed', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif", opacity: !createForm.websiteUrl ? 0.5 : 1 }}>
                           {createForm.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
                         </button>
                       </div>
                       {createForm.detectedBrand && (
                         <div style={{ marginTop: 8, padding: '8px 12px', background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-                          {createForm.detectedBrand.logoUrl && (
-                            <img src={createForm.detectedBrand.logoUrl} alt="logo" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'contain', background: 'rgba(255,255,255,0.06)' }} />
-                          )}
+                          {createForm.detectedBrand.logoUrl && <img src={createForm.detectedBrand.logoUrl} alt="logo" style={{ width: 24, height: 24, borderRadius: 4, objectFit: 'contain' }} />}
                           <span style={{ color: '#00E676', fontSize: 12, fontWeight: 600 }}>✅ {createForm.detectedBrand.name}</span>
-                          {createForm.detectedBrand.primaryColor && (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span style={{ width: 12, height: 12, borderRadius: 3, background: createForm.detectedBrand.primaryColor, display: 'inline-block' }} />
-                              <span style={{ color: '#6B8BAE', fontSize: 11 }}>{createForm.detectedBrand.primaryColor}</span>
-                            </span>
-                          )}
                         </div>
                       )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div>
-                        <label style={labelStyle}>Contact Name</label>
-                        <input value={createForm.fullName} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { fullName: e.target.value })); }} placeholder="Jane Smith" style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Company Name *</label>
-                        <input value={createForm.companyName} onChange={function(e) { var name = e.target.value; setCreateForm(Object.assign({}, createForm, { companyName: name, password: generatePassword(name) })); }} placeholder="Client Business" style={inputStyle} />
-                      </div>
+                      <div><label style={labelStyle}>Contact Name</label><input value={createForm.fullName} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { fullName: e.target.value })); }} placeholder="Jane Smith" style={inputStyle} /></div>
+                      <div><label style={labelStyle}>Company Name *</label><input value={createForm.companyName} onChange={function(e) { var name = e.target.value; setCreateForm(Object.assign({}, createForm, { companyName: name, password: generatePassword(name) })); }} placeholder="Client Business" style={inputStyle} /></div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      <div>
-                        <label style={labelStyle}>Email *</label>
-                        <input value={createForm.email} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} />
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Password *</label>
-                        <input value={createForm.password} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { password: e.target.value })); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-                      </div>
+                      <div><label style={labelStyle}>Email *</label><input value={createForm.email} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} /></div>
+                      <div><label style={labelStyle}>Password *</label><input value={createForm.password} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { password: e.target.value })); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} /></div>
                     </div>
                     <div>
                       <label style={labelStyle}>Plan</label>
                       <div style={{ display: 'flex', gap: 10 }}>
                         {['starter', 'growth', 'pro'].map(function(p) {
                           var selected = createForm.plan === p;
-                          return (
-                            <button key={p} onClick={function() { setCreateForm(Object.assign({}, createForm, { plan: p })); }}
-                              style={{ background: selected ? C.primary + '22' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (selected ? C.primary + '66' : 'rgba(255,255,255,0.08)'), borderRadius: 8, padding: '8px 20px', color: selected ? C.primary : '#fff', fontWeight: selected ? 700 : 500, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", textTransform: 'capitalize' }}>{p}</button>
-                          );
+                          return <button key={p} onClick={function() { setCreateForm(Object.assign({}, createForm, { plan: p })); }} style={{ background: selected ? C.primary + '22' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (selected ? C.primary + '66' : 'rgba(255,255,255,0.08)'), borderRadius: 8, padding: '8px 20px', color: selected ? C.primary : '#fff', fontWeight: selected ? 700 : 500, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", textTransform: 'capitalize' }}>{p}</button>;
                         })}
                       </div>
                     </div>
-                    <button onClick={handleCreateTenant} disabled={createLoading} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: createLoading ? 0.6 : 1 })}>
-                      {createLoading ? 'Creating...' : 'Create Tenant'}
-                    </button>
+                    <button onClick={handleCreateTenant} disabled={createLoading} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: createLoading ? 0.6 : 1 })}>{createLoading ? 'Creating...' : 'Create Tenant'}</button>
                   </div>
                 </div>
               )}
