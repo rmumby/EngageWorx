@@ -779,7 +779,7 @@ async function handleCreateDemo() {
                     </div>
                     <div>
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div>
-                      <input value={sandboxForm.password} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'monospace'", boxSizing: 'border-box', outline: 'none' }} />
+                      <input value={sandboxForm.password} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none' }} />
                     </div>
                   </div>
                   <div style={{ background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
@@ -840,7 +840,7 @@ async function handleCreateDemo() {
                     </div>
                     <div>
                       <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div>
-                      <input value={demoForm.password} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'monospace'", boxSizing: 'border-box', outline: 'none' }} />
+                      <input value={demoForm.password} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { password: e.target.value })); }} placeholder="Auto-generated" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: 'monospace', boxSizing: 'border-box', outline: 'none' }} />
                     </div>
                   </div>
                   <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
