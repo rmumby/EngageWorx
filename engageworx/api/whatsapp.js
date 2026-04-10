@@ -110,7 +110,13 @@ module.exports = async function handler(req, res) {
           var contactId = contactResult.data ? contactResult.data.id : null;
 
           if (!contactId) {
-            var newContact = await supabase.from('contacts').insert({ tenant_id: tenantId, phone: cleanTo, first_name: 'WhatsApp', last_name: cleanTo.slice(-4), source: 'whatsapp' }).select('id').single();
+            var newContact = await supabase.from('contacts').insert({
+              tenant_id: tenantId,
+              phone: cleanTo,
+              first_name: 'WhatsApp',
+              last_name: cleanTo.slice(-4),
+              source: 'whatsapp',
+            }).select('id').single();
             if (newContact.data) contactId = newContact.data.id;
           }
 
@@ -119,14 +125,33 @@ module.exports = async function handler(req, res) {
             var conversationId = convResult.data ? convResult.data.id : null;
 
             if (!conversationId) {
-              var newConv = await supabase.from('conversations').insert({ tenant_id: tenantId, contact_id: contactId, channel: 'whatsapp', status: 'active', last_message_at: new Date().toISOString() }).select('id').single();
+              var newConv = await supabase.from('conversations').insert({
+                tenant_id: tenantId,
+                contact_id: contactId,
+                channel: 'whatsapp',
+                status: 'active',
+                last_message_at: new Date().toISOString(),
+              }).select('id').single();
               if (newConv.data) conversationId = newConv.data.id;
             } else {
-              await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'active' }).eq('id', conversationId);
+              await supabase.from('conversations').update({
+                last_message_at: new Date().toISOString(),
+                status: 'active',
+              }).eq('id', conversationId);
             }
 
             if (conversationId) {
-              await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'whatsapp', direction: 'outbound', body: body, status: result.data.status || 'queued', provider_id: result.data.sid });
+              await supabase.from('messages').insert({
+                tenant_id: tenantId,
+                conversation_id: conversationId,
+                contact_id: contactId,
+                channel: 'whatsapp',
+                direction: 'outbound',
+                sender_type: 'agent',
+                body: body,
+                status: result.data.status || 'queued',
+                provider_id: result.data.sid,
+              });
             }
           }
         } catch (dbErr) {
@@ -236,6 +261,7 @@ module.exports = async function handler(req, res) {
           if (configResult.data) tenantId = configResult.data.tenant_id;
         }
 
+        // Final fallback: SP tenant
         if (!tenantId) {
           tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
           console.log('[WhatsApp] Using SP tenant fallback');
@@ -247,7 +273,13 @@ module.exports = async function handler(req, res) {
           var contactId = contactResult.data ? contactResult.data.id : null;
 
           if (!contactId) {
-            var nc = await supabase.from('contacts').insert({ tenant_id: tenantId, phone: cleanFrom, first_name: 'WhatsApp', last_name: cleanFrom.slice(-4), source: 'whatsapp' }).select('id').single();
+            var nc = await supabase.from('contacts').insert({
+              tenant_id: tenantId,
+              phone: cleanFrom,
+              first_name: 'WhatsApp',
+              last_name: cleanFrom.slice(-4),
+              source: 'whatsapp',
+            }).select('id').single();
             if (nc.data) contactId = nc.data.id;
           }
 
@@ -257,26 +289,60 @@ module.exports = async function handler(req, res) {
             var cv = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
             if (cv.data) {
               conversationId = cv.data.id;
-              await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'active' }).eq('id', conversationId);
+              await supabase.from('conversations').update({
+                last_message_at: new Date().toISOString(),
+                status: 'active',
+                unread_count: 1,
+              }).eq('id', conversationId);
             } else {
-              var ncv = await supabase.from('conversations').insert({ tenant_id: tenantId, contact_id: contactId, channel: 'whatsapp', status: 'active', last_message_at: new Date().toISOString() }).select('id').single();
+              var ncv = await supabase.from('conversations').insert({
+                tenant_id: tenantId,
+                contact_id: contactId,
+                channel: 'whatsapp',
+                status: 'active',
+                last_message_at: new Date().toISOString(),
+                unread_count: 1,
+              }).select('id').single();
               if (ncv.data) conversationId = ncv.data.id;
             }
           }
 
-          // Store inbound message
+          // Store inbound message — sender_type: 'contact'
           if (conversationId) {
-            await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'whatsapp', direction: 'inbound', body: messageBody, status: 'received', provider_id: messageSid });
+            var { error: inboundErr } = await supabase.from('messages').insert({
+              tenant_id: tenantId,
+              conversation_id: conversationId,
+              contact_id: contactId,
+              channel: 'whatsapp',
+              direction: 'inbound',
+              sender_type: 'contact',
+              body: messageBody,
+              status: 'delivered',
+              provider_id: messageSid,
+            });
+            if (inboundErr) console.error('[WhatsApp] Inbound message save error:', inboundErr.message);
+            else console.log('[WhatsApp] Inbound message saved');
           }
 
-          // AI auto-reply (within 24hr customer service window — FREE from Meta)
+          // AI auto-reply (within 24hr customer service window)
           var aiConfig = null;
           try {
             var cfgResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
             if (cfgResult.data) aiConfig = cfgResult.data.config_encrypted;
           } catch (ce) {}
 
-          if (aiConfig && aiConfig.ai_enabled !== false) {
+          // Also try email channel config for ai_business_info if whatsapp config missing it
+          var businessInfo = (aiConfig && aiConfig.ai_business_info) || '';
+          if (!businessInfo) {
+            try {
+              var emailCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
+              if (emailCfg.data && emailCfg.data.config_encrypted && emailCfg.data.config_encrypted.ai_business_info) {
+                businessInfo = emailCfg.data.config_encrypted.ai_business_info;
+              }
+            } catch (e) {}
+          }
+
+          if (!aiConfig || aiConfig.ai_enabled !== false) {
             var replyAllowed = true;
             try {
               var uc = await supabase.rpc('increment_usage', { p_tenant_id: tenantId, p_channel: 'whatsapp', p_count: 1 });
@@ -285,13 +351,16 @@ module.exports = async function handler(req, res) {
 
             if (replyAllowed) {
               try {
-                var businessInfo = aiConfig.ai_business_info || '';
-                var agentName = aiConfig.ai_agent_name || 'Assistant';
-
+                var agentName = (aiConfig && aiConfig.ai_agent_name) || 'Assistant';
                 var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+
                 var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': ANTHROPIC_KEY,
+                    'anthropic-version': '2023-06-01',
+                  },
                   body: JSON.stringify({
                     model: 'claude-sonnet-4-20250514',
                     max_tokens: 300,
@@ -303,13 +372,36 @@ module.exports = async function handler(req, res) {
                 if (claudeRes.ok) {
                   var claudeData = await claudeRes.json();
                   var aiReply = claudeData.content[0].text;
-                  console.log('[WhatsApp] Sending AI reply to:', cleanFrom, 'from:', cleanTo, 'message:', aiReply);
-                  var replyResult = await sendWhatsApp(cleanFrom, aiReply, cleanTo);
-                  console.log('[WhatsApp] Reply result:', JSON.stringify(replyResult.data));
+                  console.log('[WhatsApp] Sending AI reply to:', cleanFrom, 'from:', cleanTo);
 
+                  var replyResult = await sendWhatsApp(cleanFrom, aiReply, cleanTo);
+                  console.log('[WhatsApp] Reply result:', replyResult.ok ? 'OK' : 'FAILED', replyResult.data.sid || replyResult.data.message);
+
+                  // Save AI reply — sender_type: 'bot'
                   if (conversationId && replyResult.ok) {
-                    await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'whatsapp', direction: 'outbound', body: aiReply, status: 'sent', provider_id: replyResult.data.sid });
+                    var { error: outboundErr } = await supabase.from('messages').insert({
+                      tenant_id: tenantId,
+                      conversation_id: conversationId,
+                      contact_id: contactId,
+                      channel: 'whatsapp',
+                      direction: 'outbound',
+                      sender_type: 'bot',
+                      body: aiReply,
+                      status: 'sent',
+                      provider_id: replyResult.data.sid,
+                    });
+                    if (outboundErr) console.error('[WhatsApp] AI reply save error:', outboundErr.message);
+                    else console.log('[WhatsApp] AI reply saved to Live Inbox');
+
+                    // Update conversation status
+                    await supabase.from('conversations').update({
+                      last_message_at: new Date().toISOString(),
+                      status: 'waiting',
+                      unread_count: 0,
+                    }).eq('id', conversationId);
                   }
+                } else {
+                  console.error('[WhatsApp] Claude API error:', await claudeRes.text());
                 }
               } catch (aiErr) {
                 console.error('[WhatsApp] AI reply error:', aiErr.message);
@@ -317,7 +409,7 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // Notify Rob
+          // Notify admin
           try {
             var RESEND_KEY = process.env.RESEND_API_KEY;
             if (RESEND_KEY) {
@@ -346,7 +438,10 @@ module.exports = async function handler(req, res) {
     if (isStatusCallback && messageSid) {
       try {
         var supabase = getSupabase();
-        await supabase.from('messages').update({ status: messageStatus, updated_at: new Date().toISOString() }).eq('provider_id', messageSid);
+        await supabase.from('messages').update({
+          status: messageStatus,
+          updated_at: new Date().toISOString(),
+        }).eq('provider_id', messageSid);
       } catch (sErr) {}
     }
 
