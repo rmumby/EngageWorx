@@ -35,6 +35,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [page, setPage] = useState('dashboard');
   var [cspInfo, setCspInfo] = useState(null);
   var [tenants, setTenants] = useState([]);
+  var [tenantPage, setTenantPage] = useState('tenant_inbox');
   var [loading, setLoading] = useState(true);
   var [drillDown, setDrillDown] = useState(null);
   var [drillDownTenant, setDrillDownTenant] = useState(null); // full tenant object for portal
@@ -197,7 +198,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'tenant_analytics', label: 'Analytics', icon: '📊' },
     { id: 'tenant_settings', label: 'Settings', icon: '⚙️' },
   ];
-  var [tenantPage, setTenantPage] = React.useState('tenant_inbox');
   var tC = Object.assign({}, C, {
     primary: drillDownTenant.brand_primary || C.primary,
     accent: drillDownTenant.brand_secondary || C.accent,
