@@ -38,6 +38,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [createLoading, setCreateLoading] = useState(false);
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  var [showSandbox, setShowSandbox] = useState(false);
+var [showDemoForm, setShowDemoForm] = useState(false);
 
   useEffect(() => { if (cspTenantId) loadCSPData(); }, [cspTenantId]);
 
@@ -300,7 +302,11 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
-                <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ Add Tenant</button>
+                <div style={{ display: 'flex', gap: 10 }}>
+  <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
+  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
+  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ New Tenant</button>
+</div>
               </div>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading...</div>
@@ -356,7 +362,11 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>Tenant Management</h1>
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} under {cspInfo ? cspInfo.name : 'your account'}</p>
               </div>
-              <button onClick={function() { setShowCreate(true); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnPrimary}>+ Add Tenant</button>
+              <div style={{ display: 'flex', gap: 10 }}>
+  <button onClick={function() { setShowSandbox(true); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '12px 20px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🧪 Create Sandbox</button>
+  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '12px 20px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🎮 Create Demo Account</button>
+  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ New Tenant</button>
+</div>
             </div>
             {tenants.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
