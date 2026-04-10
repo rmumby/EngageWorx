@@ -844,4 +844,5 @@ async function handleCreateDemo() {
                     </div>
                   </div>
                   <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
-                    🎮 Demo accounts come ready for a live walkthrough. Appears under My Clients and counts toward commission
+  🎮 Demo accounts come ready for a live walkthrough. Appears under My Clients and counts toward commission tracking.
+</div>
