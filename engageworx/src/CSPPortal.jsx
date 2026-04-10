@@ -5,7 +5,7 @@ import ContactsModule from './ContactsModule';
 import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 import Settings from './Settings';
-import PipelineDashboard from './PipelineDashboard';
+import PipelineDashboard from './components/PipelineDashboard';
 import CustomerPortal from './CustomerPortal';
 
 function getCSPColors() {
@@ -189,18 +189,25 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   // ── If drilling into a tenant — show CustomerPortal scoped to that tenant ──
   if (drillDownTenant) {
-    return (
-      <CustomerPortal
-        tenantId={drillDownTenant.id}
-        onBack={function() { setDrillDownTenant(null); setPage('tenants'); }}
-        liveTenants={[drillDownTenant]}
-        profile={profile}
-        cspMode={true}
-        cspTenantId={cspTenantId}
-        cspName={cspInfo ? cspInfo.name : 'Partner Portal'}
-      />
-    );
-  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {logoEl}
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
+          <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🏢 {drillDownTenant.name}</span>
+        </div>
+        <span onClick={function() { setDrillDownTenant(null); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
+      </div>
+      <div style={{ padding: '32px 40px' }}>
+        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>{drillDownTenant.name}</h1>
+        <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>{drillDownTenant.plan} plan · {drillDownTenant.status}</p>
+        <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
+      </div>
+    </div>
+  );
+}
 
   // ── Full-screen pages ──────────────────────────────────────────────────────
   var topBar = function(label, icon) {
@@ -335,8 +342,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {/* Pipeline */}
         {page === 'pipeline' && (
-          <PipelineDashboard C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} />
-        )}
+  <div>
+    <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📈 Pipeline</h1>
+    <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
+      <div style={{ color: C.muted, fontSize: 14 }}>Pipeline coming to CSP portal.</div>
+    </div>
+  </div>
+)}
 
         {/* Help Desk */}
         {page === 'helpdesk' && (
