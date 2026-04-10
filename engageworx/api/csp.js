@@ -215,7 +215,7 @@ module.exports = async function handler(req, res) {
     }
 
     var cspCheck = await supabase.from('tenants').select('id, name, tenant_type').eq('id', cspTenantId).maybeSingle();
-    if (!cspCheck.data || !['csp', 'sp'].includes(cspCheck.data.tenant_type)) {
+    if (!cspCheck.data || !['csp', 'sp', 'agent'].includes(cspCheck.data.tenant_type)) {
       return res.status(403).json({ error: 'Not a valid CSP tenant' });
     }
 
