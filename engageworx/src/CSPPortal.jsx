@@ -543,39 +543,17 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
 
         {page === 'settings' && (
-          <div>
-            <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security"]} />
-            <div style={Object.assign({}, card, { marginTop: 24 })}>
-              <h2 style={{ color: '#fff', margin: '0 0 6px', fontSize: 18, fontWeight: 700 }}>⚙️ Optional Modules</h2>
-              <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool.</p>
-              <div style={{ display: 'grid', gap: 12 }}>
-                {[
-                  { id: 'pipeline', label: 'Pipeline & Import Leads', desc: 'Built-in CRM pipeline. Disable if you use Salesforce, HubSpot, or another CRM.', icon: '📈' },
-                  { id: 'helpdesk', label: 'Help Desk', desc: 'Built-in ticketing system. Disable if you use Zendesk, Freshdesk, or another platform.', icon: '🎫' },
-                  { id: 'sequences', label: 'Sequences & Sequence Builder', desc: 'Built-in drip sequences. Disable if you use Mailchimp, HubSpot, or another tool.', icon: '📧' },
-                  { id: 'blog', label: 'Blog Manager', desc: 'Built-in blog publishing. Disable if you manage content elsewhere.', icon: '📝' },
-                ].map(function(mod) {
-                  var enabled = isModuleEnabled(mod.id);
-                  return (
-                    <div key={mod.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', background: enabled ? 'rgba(0,201,255,0.04)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (enabled ? C.primary + '33' : 'rgba(255,255,255,0.06)'), borderRadius: 12 }}>
-                      <span style={{ fontSize: 24 }}>{mod.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
-                        <div style={{ color: C.muted, fontSize: 12 }}>{mod.desc}</div>
-                      </div>
-                      <div onClick={function() {
-                        var next = enabled ? enabledModules.filter(function(m) { return m !== mod.id; }) : enabledModules.concat([mod.id]);
-                        saveModules(next);
-                      }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : 'rgba(255,255,255,0.12)', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: enabled ? 23 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
+  <Settings
+    C={C}
+    currentTenantId={cspTenantId}
+    viewLevel="tenant"
+    demoMode={false}
+    defaultTab="channels"
+    allowedTabs={["channels", "team", "notifications", "security", "modules"]}
+    enabledModules={enabledModules}
+    onSaveModules={saveModules}
+  />
+)}
 
         {page === 'dashboard' && (
           <div>
