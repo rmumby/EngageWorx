@@ -28,6 +28,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
   var [agentBrand, setAgentBrand] = useState({});
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   var [expandedAgent, setExpandedAgent] = useState(null);
+  var [commissionModel, setCommissionModel] = useState('revenue_share');
 
   useEffect(function() { loadAgentData(); }, [agentTenantId]);
 
@@ -283,38 +284,140 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
         )}
 
         {page === 'commissions' && (
+  <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>Commissions</h1>
+      <div style={{ display: 'flex', gap: 0, background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: 3, border: '1px solid rgba(255,255,255,0.08)' }}>
+        {[{ id: 'revenue_share', label: '% Revenue Share' }, { id: 'flat', label: '$ Flat Rate' }].map(function(m) {
+          var active = commissionModel === m.id;
+          return <button key={m.id} onClick={function() { setCommissionModel(m.id); }} style={{ background: active ? 'linear-gradient(135deg, #FFD600, #FF6B35)' : 'transparent', border: 'none', borderRadius: 8, padding: '8px 18px', color: active ? '#000' : C.muted, fontWeight: active ? 700 : 500, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s' }}>{m.label}</button>;
+        })}
+      </div>
+    </div>
+    <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>
+      {commissionModel === 'revenue_share' ? '20% of MRR on direct clients · 5% override on sub-agent clients' : '$50–$75 flat per active referral per month'}
+    </p>
+
+    {commissionModel === 'revenue_share' ? (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+          {[
+            { label: 'Direct Commission', value: '$' + directCommission.toFixed(0), sub: activeDirect + ' clients × 20% MRR', color: '#00E676' },
+            { label: 'Override Commission', value: '$' + overrideCommission.toFixed(0), sub: activeSubTenants + ' sub-agent clients × 5%', color: C.primary },
+            { label: 'Total Monthly', value: '$' + totalMonthly.toFixed(0), sub: 'Paid on the 24th', color: C.primary, highlight: true },
+            { label: 'Projected Annual', value: '$' + (totalMonthly * 12).toFixed(0), sub: 'Based on current MRR', color: '#E040FB' },
+          ].map(function(s, i) {
+            return <div key={i} style={Object.assign({}, card, { textAlign: 'center', background: s.highlight ? 'rgba(255,214,0,0.06)' : card.background, borderColor: s.highlight ? 'rgba(255,214,0,0.3)' : card.border })}>
+              <div style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{s.label}</div>
+              <div style={{ color: s.color, fontSize: 28, fontWeight: 900 }}>{s.value}</div>
+              <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>{s.sub}</div>
+            </div>;
+          })}
+        </div>
+
+        <div style={Object.assign({}, card, { marginBottom: 20 })}>
+          <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Rate Schedule — Revenue Share</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            {Object.entries(PLAN_MRR).map(function(entry) {
+              var plan = entry[0]; var mrr = entry[1];
+              return <div key={plan} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ textTransform: 'capitalize', color: '#fff', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{plan}</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>MRR: <span style={{ color: '#fff' }}>${mrr}</span></div>
+                <div style={{ color: '#00E676', fontSize: 11, marginTop: 2 }}>Direct: <span style={{ fontWeight: 700 }}>${(mrr * MASTER_RATE).toFixed(0)}/mo</span></div>
+                <div style={{ color: C.primary, fontSize: 11, marginTop: 1 }}>Override: <span style={{ fontWeight: 700 }}>${(mrr * OVERRIDE_RATE).toFixed(0)}/mo</span></div>
+              </div>;
+            })}
+          </div>
+        </div>
+      </div>
+    ) : (
+      <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+          {[
+            { label: 'Standard Referrals', value: directTenants.filter(function(t) { return t.status === 'active' && (PLAN_MRR[t.plan] || 0) < 249; }).length, sub: '$50/mo each', color: '#00E676' },
+            { label: 'Premium Referrals', value: directTenants.filter(function(t) { return t.status === 'active' && (PLAN_MRR[t.plan] || 0) >= 249; }).length, sub: '$75/mo each (Growth+)', color: C.primary },
+            { label: 'Flat Total Monthly', value: '$' + (directTenants.reduce(function(sum, t) { return sum + (t.status === 'active' ? ((PLAN_MRR[t.plan] || 0) >= 249 ? 75 : 50) : 0); }, 0)).toFixed(0), sub: 'Flat commission total', color: '#E040FB', highlight: true },
+            { label: 'Projected Annual', value: '$' + (directTenants.reduce(function(sum, t) { return sum + (t.status === 'active' ? ((PLAN_MRR[t.plan] || 0) >= 249 ? 75 : 50) : 0); }, 0) * 12).toFixed(0), sub: 'Based on active referrals', color: '#00C9FF' },
+          ].map(function(s, i) {
+            return <div key={i} style={Object.assign({}, card, { textAlign: 'center', background: s.highlight ? 'rgba(224,64,251,0.06)' : card.background, borderColor: s.highlight ? 'rgba(224,64,251,0.3)' : card.border })}>
+              <div style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{s.label}</div>
+              <div style={{ color: s.color, fontSize: 28, fontWeight: 900 }}>{s.value}</div>
+              <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>{s.sub}</div>
+            </div>;
+          })}
+        </div>
+
+        <div style={Object.assign({}, card, { marginBottom: 20 })}>
+          <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Rate Schedule — Flat Commission</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[
+              { tier: 'Standard', desc: 'Any active paid plan', rate: '$50/mo', color: '#00E676' },
+              { tier: 'Premium', desc: 'Growth plan or higher ($249+)', rate: '$75/mo', color: C.primary },
+              { tier: 'Custom', desc: 'High-volume by agreement', rate: 'Negotiated', color: '#E040FB' },
+            ].map(function(r, i) {
+              return <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '16px 18px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ color: r.color, fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{r.tier}</div>
+                <div style={{ color: C.muted, fontSize: 12, marginBottom: 8 }}>{r.desc}</div>
+                <div style={{ color: '#fff', fontWeight: 900, fontSize: 22 }}>{r.rate}</div>
+                <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>per active referral</div>
+              </div>;
+            })}
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div style={Object.assign({}, card, { marginBottom: 20 })}>
+      <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Payment History</h3>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {[
+          { month: 'March 2026', direct: directCommission * 0.9, override: overrideCommission * 0.8, status: 'Paid', date: 'Mar 24' },
+          { month: 'February 2026', direct: directCommission * 0.7, override: overrideCommission * 0.6, status: 'Paid', date: 'Feb 24' },
+          { month: 'January 2026', direct: directCommission * 0.5, override: overrideCommission * 0.4, status: 'Paid', date: 'Jan 24' },
+        ].map(function(p, i) {
+          var total = p.direct + p.override;
+          return <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 100px 80px', alignItems: 'center', gap: 16, padding: '12px 18px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{p.month}</div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: C.muted, fontSize: 10, marginBottom: 2 }}>DIRECT</div>
+              <div style={{ color: '#00E676', fontWeight: 700 }}>${p.direct.toFixed(0)}</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ color: C.muted, fontSize: 10, marginBottom: 2 }}>OVERRIDE</div>
+              <div style={{ color: C.primary, fontWeight: 700 }}>${p.override.toFixed(0)}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>${total.toFixed(0)}</div>
+              <div style={{ color: C.muted, fontSize: 10 }}>total</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ background: 'rgba(0,230,118,0.12)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 6, padding: '3px 8px', color: '#00E676', fontSize: 10, fontWeight: 700 }}>{p.status}</span>
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>
+
+    <div style={card}>
+      <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16 }}>How It Works</h3>
+      <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.8 }}>
+        {commissionModel === 'revenue_share' ? (
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Commissions</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Your earnings breakdown</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 }}>
-              <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Direct Commission</div><div style={{ color: '#00E676', fontSize: 32, fontWeight: 800 }}>${directCommission.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeDirect} clients × 20% MRR</div></div>
-              <div style={Object.assign({}, card, { textAlign: 'center' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Override Commission</div><div style={{ color: C.primary, fontSize: 32, fontWeight: 800 }}>${overrideCommission.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{activeSubTenants} sub-agent clients × 5%</div></div>
-              <div style={Object.assign({}, card, { textAlign: 'center', background: 'rgba(255,214,0,0.06)', borderColor: 'rgba(255,214,0,0.3)' })}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Total Monthly</div><div style={{ color: C.primary, fontSize: 32, fontWeight: 900 }}>${totalMonthly.toFixed(0)}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Paid on the 24th</div></div>
-            </div>
-            <div style={Object.assign({}, card, { marginBottom: 20 })}>
-              <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>Commission Rate Schedule</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-                {Object.entries(PLAN_MRR).map(function(entry) {
-                  var plan = entry[0]; var mrr = entry[1];
-                  return <div key={plan} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ textTransform: 'capitalize', color: '#fff', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>{plan}</div>
-                    <div style={{ color: C.muted, fontSize: 11 }}>MRR: <span style={{ color: '#fff' }}>${mrr}</span></div>
-                    <div style={{ color: '#00E676', fontSize: 11, marginTop: 2 }}>Direct: <span style={{ fontWeight: 700 }}>${(mrr * MASTER_RATE).toFixed(0)}/mo</span></div>
-                    <div style={{ color: C.primary, fontSize: 11, marginTop: 1 }}>Override: <span style={{ fontWeight: 700 }}>${(mrr * OVERRIDE_RATE).toFixed(0)}/mo</span></div>
-                  </div>;
-                })}
-              </div>
-            </div>
-            <div style={card}>
-              <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16 }}>How It Works</h3>
-              <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.8 }}>
-                <div style={{ marginBottom: 8 }}>🏢 <span style={{ color: '#fff', fontWeight: 600 }}>Direct clients</span> — earn <span style={{ color: '#00E676', fontWeight: 700 }}>20%</span> of their monthly plan MRR for as long as they're active.</div>
-                <div style={{ marginBottom: 8 }}>🤝 <span style={{ color: '#fff', fontWeight: 600 }}>Sub-agent clients</span> — earn a <span style={{ color: C.primary, fontWeight: 700 }}>5% override</span> on all MRR from tenants your sub-agents bring in.</div>
-                <div>💳 <span style={{ color: '#fff', fontWeight: 600 }}>Payment</span> — commissions are paid on the 24th of each month for the previous month's collected invoices.</div>
-              </div>
-            </div>
+            <div style={{ marginBottom: 8 }}>🏢 <span style={{ color: '#fff', fontWeight: 600 }}>Direct clients</span> — earn <span style={{ color: '#00E676', fontWeight: 700 }}>20% of MRR</span> for as long as they're active.</div>
+            <div style={{ marginBottom: 8 }}>🤝 <span style={{ color: '#fff', fontWeight: 600 }}>Sub-agent clients</span> — earn a <span style={{ color: C.primary, fontWeight: 700 }}>5% override</span> on all MRR from tenants your sub-agents bring in.</div>
+            <div>💳 <span style={{ color: '#fff', fontWeight: 600 }}>Payment</span> — commissions paid on the 24th of each month for the previous month.</div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ marginBottom: 8 }}>🏢 <span style={{ color: '#fff', fontWeight: 600 }}>Standard tier</span> — earn <span style={{ color: '#00E676', fontWeight: 700 }}>$50/mo</span> per active referral on any paid plan.</div>
+            <div style={{ marginBottom: 8 }}>⭐ <span style={{ color: '#fff', fontWeight: 600 }}>Premium tier</span> — earn <span style={{ color: C.primary, fontWeight: 700 }}>$75/mo</span> per active referral on Growth plan or higher.</div>
+            <div>💳 <span style={{ color: '#fff', fontWeight: 600 }}>Payment</span> — commissions paid on the 24th of each month. Minimum $100 payout threshold.</div>
           </div>
         )}
+      </div>
+    </div>
+  </div>
+)}
 
         {page === 'resources' && (
           <div>
