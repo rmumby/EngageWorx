@@ -149,10 +149,10 @@ module.exports = async function handler(req, res) {
     const businessInfo   = emailChannelConfig.ai_business_info;
 
     // Skip internal emails from this tenant's own domain
-    if (replyFromEmail && senderEmail.includes(replyFromEmail.split('@')[1])) {
-      console.log(`Skipping internal email from ${senderEmail}`);
-      return res.status(200).json({ skipped: true, reason: 'internal' });
-    }
+    if (replyFromEmail && senderEmail === replyFromEmail.toLowerCase()) {
+  console.log(`Skipping internal email from ${senderEmail}`);
+  return res.status(200).json({ skipped: true, reason: 'internal' });
+}
 
     // ── Step 3: Clean email body — strip HTML and signatures ──
     let rawBody = '';
