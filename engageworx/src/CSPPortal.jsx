@@ -188,21 +188,100 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   // ── If drilling into a tenant — show CustomerPortal scoped to that tenant ──
   if (drillDownTenant) {
+  var tenantNavItems = [
+    { id: 'tenant_inbox', label: 'Live Inbox', icon: '💬' },
+    { id: 'tenant_contacts', label: 'Contacts', icon: '👥' },
+    { id: 'tenant_campaigns', label: 'Campaigns', icon: '🚀' },
+    { id: 'tenant_ai', label: 'AI Chatbot', icon: '🤖' },
+    { id: 'tenant_sequences', label: 'Sequences', icon: '📧' },
+    { id: 'tenant_analytics', label: 'Analytics', icon: '📊' },
+    { id: 'tenant_settings', label: 'Settings', icon: '⚙️' },
+  ];
+  var [tenantPage, setTenantPage] = React.useState('tenant_inbox');
+  var tC = Object.assign({}, C, {
+    primary: drillDownTenant.brand_primary || C.primary,
+    accent: drillDownTenant.brand_secondary || C.accent,
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {logoEl}
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
-          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-          <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>🏢 {drillDownTenant.name}</span>
-          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-          <span style={{ color: C.muted, fontSize: 11 }}>{drillDownTenant.plan} · {drillDownTenant.status}</span>
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
+      {/* Tenant sidebar */}
+      <div style={{ width: 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden' }}>
+        <div onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
+          <span>←</span><span>Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
         </div>
-        <span onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + tC.primary + ', ' + tC.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>
+            {(drillDownTenant.brand_name || drillDownTenant.name || 'T').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{drillDownTenant.name}</div>
+            <div style={{ fontSize: 10, color: tC.primary, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{drillDownTenant.plan} · {drillDownTenant.status}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          {tenantNavItems.map(function(item) {
+            var active = tenantPage === item.id;
+            return (
+              <div key={item.id} onClick={function() { setTenantPage(item.id); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? tC.primary + '15' : 'transparent', color: active ? tC.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s' }}>
+                <span style={{ fontSize: 18 }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 'auto' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', fontSize: 11, color: C.muted }}>
+            <div style={{ color: '#fff', fontWeight: 600, marginBottom: 2 }}>Managing as</div>
+            <div>{cspInfo ? cspInfo.name : 'Partner'}</div>
+          </div>
+        </div>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
+
+      {/* Tenant content */}
+      <div style={{ marginLeft: 240, flex: 1, overflow: 'hidden' }}>
+        {tenantPage === 'tenant_inbox' && (
+          <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+              <LiveInbox C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
+            </div>
+          </div>
+        )}
+        {tenantPage === 'tenant_contacts' && (
+          <div style={{ padding: '32px 40px' }}>
+            <ContactsModule C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+          </div>
+        )}
+        {tenantPage === 'tenant_ai' && (
+          <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <AIChatbot C={tC} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+          </div>
+        )}
+        {tenantPage === 'tenant_sequences' && (
+          <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <SequenceBuilder C={tC} currentTenantId={drillDownTenant.id} />
+          </div>
+        )}
+        {tenantPage === 'tenant_settings' && (
+          <div style={{ padding: '32px 40px' }}>
+            <Settings C={tC} currentTenantId={drillDownTenant.id} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security"]} />
+          </div>
+        )}
+        {(tenantPage === 'tenant_campaigns' || tenantPage === 'tenant_analytics') && (
+          <div style={{ padding: '32px 40px' }}>
+            <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
+              {tenantPage === 'tenant_campaigns' ? '🚀 Campaigns' : '📊 Analytics'} — {drillDownTenant.name}
+            </h1>
+            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>{tenantPage === 'tenant_campaigns' ? '🚀' : '📊'}</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>Coming in next update for tenant management view.</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
