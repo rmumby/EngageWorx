@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
+import { DEMO_LEADS } from '../demoFixtures';
 
 const STAGES = [
   { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
@@ -586,7 +587,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   const [hideDormant, setHideDormant] = useState(true);
 
   const fetchLeads = async () => {
-    if (demoMode) { setLeads([]); setLoading(false); return; }
+    if (demoMode) { setLeads(DEMO_LEADS); setLastSync(new Date()); setLoading(false); return; }
     if (!tenantId) { setLeads([]); setLoading(false); return; }
     const { data, error } = await supabase.from("leads").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false });
     if (error) console.error("Fetch error:", error);

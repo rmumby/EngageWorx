@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
+import { DEMO_CONTACTS } from './demoFixtures';
 
 const TAGS = ["VIP", "New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
 const TAG_COLORS = { VIP: "#FFD600", New: "#00E676", Active: "#00C9FF", Inactive: "#FF9800", Churned: "#FF3B30", Lead: "#E040FB", Prospect: "#7C4DFF", Enterprise: "#FF6B35", SMB: "#6B8BAE", Newsletter: "#25D366" };
@@ -121,7 +122,7 @@ function mapContact(c) {
 }
 
 export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
-  const [contacts, setContacts] = useState(() => demoMode ? generateContacts(60) : []);
+  const [contacts, setContacts] = useState(() => demoMode ? DEMO_CONTACTS : []);
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState("list");
   const [selectedContact, setSelectedContact] = useState(null);
@@ -143,7 +144,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const pageSize = 15;
 
   useEffect(() => {
-    if (demoMode) { setContacts(generateContacts(60)); return; }
+    if (demoMode) { setContacts(DEMO_CONTACTS); return; }
     const fetchContacts = async () => {
       setLiveLoading(true);
       try {

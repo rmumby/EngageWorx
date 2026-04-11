@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
+import { DEMO_CONVERSATIONS } from '../demoFixtures';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 const AGENTS = [
@@ -209,7 +210,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   };
 
   // ALL hooks must be declared before any conditional return (React rules)
-  const [conversations, setConversations] = useState(() => demoMode ? generateConversations() : []);
+  const [conversations, setConversations] = useState(() => demoMode ? DEMO_CONVERSATIONS : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
   const [liveReady, setLiveReady] = useState(demoMode);
@@ -232,7 +233,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const composeRef = useRef(null);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
-  useEffect(() => { if (demoMode) { setConversations(generateConversations()); } }, [demoMode]);
+  useEffect(() => { if (demoMode) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
   useEffect(() => {
     // Load messages when conversation selected in live mode
     var convId = selectedConv ? selectedConv.id : null;

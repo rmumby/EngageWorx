@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../ThemeContext';
+import { DEMO_TICKETS } from '../../demoFixtures';
 
 const STATUS_CONFIG = {
   open:      { label: 'Open',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
@@ -411,7 +412,20 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
   useEffect(function() { loadTickets(); }, [filter.status, filter.priority, filter.search, demoMode]);
 
   async function loadTickets() {
-    if (demoMode) { setTickets([]); setStats({ total: 0, open: 0, escalated: 0, ai_resolved: 0, resolution_rate: 0 }); setLoading(false); return; }
+    if (demoMode) {
+      var demoResolved = DEMO_TICKETS.filter(function(t) { return ['resolved','closed'].includes(t.status); });
+      var demoAi = demoResolved.filter(function(t) { return t.ai_handled; });
+      setTickets(DEMO_TICKETS);
+      setStats({
+        total: DEMO_TICKETS.length,
+        open: DEMO_TICKETS.filter(function(t) { return t.status === 'open'; }).length,
+        escalated: DEMO_TICKETS.filter(function(t) { return t.status === 'escalated'; }).length,
+        ai_resolved: demoAi.length,
+        resolution_rate: demoResolved.length ? Math.round(demoAi.length / demoResolved.length * 100) : 0,
+      });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     var params = 'action=list_tickets&limit=200';
     if (tenantId && !isSPAdmin) params += '&tenant_id=' + tenantId;
