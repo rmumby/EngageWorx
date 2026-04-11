@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 
-const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-
 function daysSince(d) {
   if (!d) return null;
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
@@ -28,7 +26,9 @@ export default function SequenceRoster({ C, currentTenantId }) {
   var [search, setSearch] = useState('');
 
   useEffect(function() {
-    fetch('/api/sequences?action=list&tenant_id=' + (currentTenantId || SP_TENANT_ID))
+    if (!currentTenantId) { setSequences([]); setSeqLoading(false); return; }
+    setSeqLoading(true);
+    fetch('/api/sequences?action=list&tenant_id=' + currentTenantId)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setSequences(d.sequences || []);
@@ -38,7 +38,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
         setSeqLoading(false);
       })
       .catch(function() { setSeqLoading(false); });
-  }, []);
+  }, [currentTenantId]);
 
   useEffect(function() {
     if (!selectedSeq) return;

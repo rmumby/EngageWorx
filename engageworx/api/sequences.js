@@ -18,8 +18,6 @@ function getSupabase() {
   );
 }
 
-var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-
 async function personaliseMessage(template, lead, tenantName) {
   try {
     var AnthropicSdk = require('@anthropic-ai/sdk');
@@ -215,7 +213,8 @@ module.exports = async function handler(req, res) {
 
   // ── LIST sequences ──────────────────────────────────────────────────────────
   if (action === 'list' && req.method === 'GET') {
-    var tenantId = req.query.tenant_id || EW_SP_TENANT_ID;
+    var tenantId = req.query.tenant_id;
+    if (!tenantId) return res.status(400).json({ error: 'tenant_id required' });
     var listRes = await supabase
       .from('sequences')
       .select('*, sequence_steps(*)')
@@ -275,6 +274,7 @@ module.exports = async function handler(req, res) {
     var sequence_id = enrolBody.sequence_id;
     var tenant_id = enrolBody.tenant_id;
     if (!lead_id || !sequence_id) return res.status(400).json({ error: 'lead_id and sequence_id required' });
+    if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
 
     var firstStepRes = await supabase
       .from('sequence_steps')
@@ -290,7 +290,7 @@ module.exports = async function handler(req, res) {
     }
 
     var enrolRes = await supabase.from('lead_sequences').upsert({
-      tenant_id: tenant_id || EW_SP_TENANT_ID,
+      tenant_id: tenant_id,
       lead_id: lead_id,
       sequence_id: sequence_id,
       current_step: 0,
@@ -311,6 +311,7 @@ module.exports = async function handler(req, res) {
     var leadList = bulkBody.leads;
     var bulkTenantId = bulkBody.tenant_id;
     if (!bulkSeqId || !leadList || !leadList.length) return res.status(400).json({ error: 'Missing sequence_id or leads' });
+    if (!bulkTenantId) return res.status(400).json({ error: 'tenant_id required' });
     var results = { enrolled: 0, skipped: 0, errors: [] };
     for (var bulkLead of leadList) {
       try {
@@ -337,7 +338,7 @@ module.exports = async function handler(req, res) {
         var bulkStartDate = new Date();
         if (bulkFirstStep && bulkFirstStep.delay_days > 0) bulkStartDate.setDate(bulkStartDate.getDate() + bulkFirstStep.delay_days);
         var bulkEnrolRes = await supabase.from('lead_sequences').upsert({
-          tenant_id: bulkTenantId || EW_SP_TENANT_ID,
+          tenant_id: bulkTenantId,
           lead_id: bulkLeadId,
           sequence_id: bulkSeqId,
           current_step: 0,
@@ -384,9 +385,10 @@ module.exports = async function handler(req, res) {
     var createSteps = body.steps;
     var createTenantId = body.tenant_id;
     if (!createName || !createSteps || !createSteps.length) return res.status(400).json({ error: 'name and steps required' });
+    if (!createTenantId) return res.status(400).json({ error: 'tenant_id required' });
 
     var seqRes = await supabase.from('sequences').insert({
-      tenant_id: createTenantId || EW_SP_TENANT_ID,
+      tenant_id: createTenantId,
       name: createName,
       type: createType || 'outreach',
       lead_type: createLeadType || 'all',
