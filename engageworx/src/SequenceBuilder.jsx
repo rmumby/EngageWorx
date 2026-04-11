@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 
-const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 const CHANNELS = ['email', 'sms', 'whatsapp'];
 
 export default function SequenceBuilder({ C, currentTenantId }) {
@@ -22,8 +21,9 @@ export default function SequenceBuilder({ C, currentTenantId }) {
   var inputStyle = { background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#f1f5f9', fontSize: 13, fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' };
 
   function loadSequences() {
+    if (!currentTenantId) { setSequences([]); setLoading(false); return; }
     setLoading(true);
-    fetch('/api/sequences?action=list&tenant_id=' + (currentTenantId || SP_TENANT_ID))
+    fetch('/api/sequences?action=list&tenant_id=' + currentTenantId)
       .then(function(r) { return r.json(); })
       .then(function(d) {
         setSequences(d.sequences || []);
@@ -32,7 +32,7 @@ export default function SequenceBuilder({ C, currentTenantId }) {
       .catch(function() { setLoading(false); });
   }
 
-  useEffect(function() { loadSequences(); }, []);
+  useEffect(function() { loadSequences(); }, [currentTenantId]);
 
   function selectSequence(seq) {
     setSelectedSeq(seq);
@@ -158,10 +158,11 @@ setSteps(aiSteps.map(function(s, i) {
 
   async function createNewSequence() {
     if (!newName.trim()) return;
+    if (!currentTenantId) { alert('No tenant selected.'); return; }
     setSaving(true);
     try {
       var res = await supabase.from('sequences').insert({
-  tenant_id: currentTenantId || SP_TENANT_ID,
+        tenant_id: currentTenantId,
         name: newName.trim(),
         type: 'outreach',
         status: 'active',
