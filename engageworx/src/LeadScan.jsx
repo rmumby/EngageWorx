@@ -50,7 +50,7 @@ function parseVCard(text) {
   return result;
 }
 
-export default function LeadScan({ C }) {
+export default function LeadScan({ C, demoMode = false }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [mode, setMode]               = useState('home');
@@ -69,11 +69,12 @@ export default function LeadScan({ C }) {
   var [newLocationText, setNewLocationText]   = useState('');
 
   useEffect(function() {
+    if (demoMode) { setSequences([]); return; }
     fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
       .then(function(r) { return r.json(); })
       .then(function(d) { setSequences(d.sequences || []); })
       .catch(function() {});
-  }, []);
+  }, [demoMode]);
 
   function resetForm() {
     setForm({ name: '', company: '', email: '', phone: '', title: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
@@ -113,6 +114,10 @@ export default function LeadScan({ C }) {
 
   async function handleSave() {
     if (!form.name && !form.company) { setError('Name or company required'); return; }
+    if (demoMode) {
+      setSaved({ name: form.name || form.company, leadId: 'demo-' + Date.now(), seq: null, location: selectedLocation });
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -128,6 +133,7 @@ export default function LeadScan({ C }) {
         notes: form.notes || (form.title ? 'Title: ' + form.title : ''),
         last_action_at: new Date().toISOString().split('T')[0],
         last_activity_at: new Date().toISOString(),
+        tenant_id: SP_TENANT_ID,
       };
       var leadRes = await supabase.from('leads').insert(leadPayload).select('id').single();
       if (leadRes.error) throw leadRes.error;

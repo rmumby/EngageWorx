@@ -392,7 +392,7 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
 }
 
 // ── Main Module ────────────────────────────────────────────────────────────
-export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent }) {
+export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, demoMode }) {
   var { theme } = useTheme();
   var isDark = C ? C.bg === '#080d1a' || C.bg?.includes('0d') || C.text === '#E8F4FD' : theme === 'dark';
   var colors = getColors(isDark ? 'dark' : 'light');
@@ -408,9 +408,10 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
   var { bg, surface, surface2, border, text, textMuted } = colors;
   var accent = '#6366f1';
 
-  useEffect(function() { loadTickets(); }, [filter.status, filter.priority, filter.search]);
+  useEffect(function() { loadTickets(); }, [filter.status, filter.priority, filter.search, demoMode]);
 
   async function loadTickets() {
+    if (demoMode) { setTickets([]); setStats({ total: 0, open: 0, escalated: 0, ai_resolved: 0, resolution_rate: 0 }); setLoading(false); return; }
     setLoading(true);
     var params = 'action=list_tickets&limit=200';
     if (tenantId && !isSPAdmin) params += '&tenant_id=' + tenantId;

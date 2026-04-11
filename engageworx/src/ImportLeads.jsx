@@ -32,7 +32,9 @@ function parseCSV(text) {
   }).filter(function(r) { return r.email || r.first_name || r.company; });
 }
 
-export default function ImportLeads({ C }) {
+const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+
+export default function ImportLeads({ C, demoMode = false }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [csvText, setCsvText] = useState('');
@@ -48,11 +50,12 @@ export default function ImportLeads({ C }) {
   ]);
 
   useEffect(function() {
-    fetch('/api/sequences?action=list')
+    if (demoMode) { setSequences([]); return; }
+    fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
       .then(function(r) { return r.json(); })
       .then(function(d) { setSequences(d.sequences || []); })
       .catch(function() {});
-  }, []);
+  }, [demoMode]);
 
   function handleParse() {
     var rows = parseCSV(csvText);
@@ -76,6 +79,10 @@ export default function ImportLeads({ C }) {
 
     if (!leads.length) return alert('No leads selected.');
     if (!selectedSeq) return alert('Select a sequence first.');
+    if (demoMode) {
+      setResult({ success: true, enrolled: leads.length, skipped: 0, errors: [] });
+      return;
+    }
 
     setEnrolling(true);
     setResult(null);
@@ -83,7 +90,7 @@ export default function ImportLeads({ C }) {
       var resp = await fetch('/api/sequences?action=bulk-enrol', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sequence_id: selectedSeq, leads: leads }),
+        body: JSON.stringify({ sequence_id: selectedSeq, leads: leads, tenant_id: SP_TENANT_ID }),
       });
       var data = await resp.json();
       setResult(data);

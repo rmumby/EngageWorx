@@ -678,6 +678,7 @@ try {
       full_name: 'Demo User',
       company_name: demoForm.companyName,
       plan: demoForm.plan,
+      is_demo: true,
     })
   });
   const data = await resp.json();
@@ -1969,17 +1970,17 @@ var spNavBase = [
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
-        {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} />}
-        {spPage === "import" && <ImportLeads C={C} />}
+        {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} />}
+        {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
         {spPage === "sequences" && <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}
         {spPage === "sequence-builder" && <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
-        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
+        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "lead-scan" && <LeadScan C={C} />}
+        {spPage === "lead-scan" && <LeadScan C={C} demoMode={demoMode} />}
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
@@ -1987,7 +1988,7 @@ var spNavBase = [
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} />
+            <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} demoMode={demoMode} />
           </div>
         )}
       </div>

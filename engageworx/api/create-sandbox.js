@@ -80,6 +80,7 @@ module.exports = async function handler(req, res) {
       slug: slug,
       plan: plan,
       status: 'trial',
+      is_sandbox: true,
     }).select().single();
 
     if (tenantResult.error) {

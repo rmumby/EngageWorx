@@ -75,7 +75,7 @@ const SERVICES = [
   { id: 'generic', label: 'Custom Webhook', icon: '🔗', hint: 'Any service that can send a POST request', defaultMapping: { name: 'name', email: 'email', company: 'company', phone: 'phone' } },
 ];
 
-function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
+function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode }) {
   const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const [members, setMembers] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -107,6 +107,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin }) {
   useEffect(function() { fetchMembers(selectedTenantId); }, [selectedTenantId]);
 
   async function fetchMembers(tenantId) {
+    if (demoMode) { setMembers([]); setLoading(false); return; }
     if (!tenantId) { setMembers([]); setLoading(false); return; }
     setLoading(true);
     try {
@@ -324,15 +325,24 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
 
   useEffect(() => {
     if (activeTab !== "billing") return;
+    if (demoMode) { setUsageData({ messages: 0, contacts: 0, campaigns: 0, members: 0, apiKeys: 0 }); return; }
+    if (!resolvedTenantId) return;
     (async () => {
       try {
-        var results = await Promise.all([supabase.from("messages").select("id", { count: "exact", head: true }), supabase.from("contacts").select("id", { count: "exact", head: true }), supabase.from("campaigns").select("id", { count: "exact", head: true }), supabase.from("tenant_members").select("id", { count: "exact", head: true }), supabase.from("api_keys").select("id", { count: "exact", head: true }).eq("status", "active")]);
+        var results = await Promise.all([
+          supabase.from("messages").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
+          supabase.from("contacts").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
+          supabase.from("campaigns").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
+          supabase.from("tenant_members").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId),
+          supabase.from("api_keys").select("id", { count: "exact", head: true }).eq("tenant_id", resolvedTenantId).eq("status", "active"),
+        ]);
         setUsageData({ messages: results[0].count || 0, contacts: results[1].count || 0, campaigns: results[2].count || 0, members: results[3].count || 0, apiKeys: results[4].count || 0 });
       } catch (err) { setUsageData({ messages: 0, contacts: 0, campaigns: 0, members: 0, apiKeys: 0 }); }
     })();
-  }, [activeTab]);
+  }, [activeTab, demoMode, resolvedTenantId]);
 
   const loadIntegrations = async () => {
+    if (demoMode) { setIntegrations([]); setIntegrationsLoading(false); return; }
     setIntegrationsLoading(true);
     try {
       let tenantId = currentTenantId;
@@ -372,6 +382,7 @@ if (!tenantId) {
   const toggleIntegration = async (id, currentStatus) => { await supabase.from('integrations').update({ status: currentStatus === 'active' ? 'paused' : 'active' }).eq('id', id); loadIntegrations(); };
 
   const loadApiKeys = async () => {
+    if (demoMode) { setLiveApiKeys([]); setApiKeysLoading(false); return; }
     setApiKeysLoading(true);
     try {
       if (!resolvedTenantId) { setLiveApiKeys([]); setApiKeysLoading(false); return; }
@@ -404,10 +415,11 @@ if (!tenantId) {
   const revokeApiKey = async (id) => { if (!window.confirm("Revoke this API key?")) return; const { error } = await supabase.from("api_keys").update({ status: "revoked", revoked_at: new Date().toISOString() }).eq("id", id); if (error) return alert("Error revoking key: " + error.message); loadApiKeys(); };
   const deleteApiKey = async (id) => { if (!window.confirm("Permanently delete this API key?")) return; const { error } = await supabase.from("api_keys").delete().eq("id", id); if (error) return alert("Error deleting: " + error.message); loadApiKeys(); };
 
-  const loadAuditLog = async () => { setAuditLoading(true); try { if (!resolvedTenantId) { setAuditLog([]); setAuditLoading(false); return; } const { data, error } = await supabase.from("audit_log").select("*").eq("tenant_id", resolvedTenantId).order("created_at", { ascending: false }).limit(20); if (!error && data) setAuditLog(data); } catch (err) { console.error("Failed to load audit log:", err); } setAuditLoading(false); };
+  const loadAuditLog = async () => { if (demoMode) { setAuditLog([]); setAuditLoading(false); return; } setAuditLoading(true); try { if (!resolvedTenantId) { setAuditLog([]); setAuditLoading(false); return; } const { data, error } = await supabase.from("audit_log").select("*").eq("tenant_id", resolvedTenantId).order("created_at", { ascending: false }).limit(20); if (!error && data) setAuditLog(data); } catch (err) { console.error("Failed to load audit log:", err); } setAuditLoading(false); };
   useEffect(() => { if (activeTab === "security") loadAuditLog(); }, [activeTab]);
 
   const loadChannelConfigs = async () => {
+    if (demoMode) { setChannelConfigs({}); setChannelsLoading(false); return; }
     setChannelsLoading(true);
     try {
       let tenantId = currentTenantId;
@@ -469,7 +481,7 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   const aiAssistField = async (channelId, fieldKey, currentValue, aiContext, businessName) => { try { const res = await fetch("/api/ai-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ max_tokens: 150, messages: [{ role: "user", content: `Improve this for ${businessName || "our business"}: "${currentValue}". Context: ${aiContext}. Return only the improved text.` }] }) }); const data = await res.json(); const improved = (data.content || []).find(b => b.type === "text")?.text || ""; if (improved) updateChannelField(channelId, fieldKey, improved.trim()); } catch (e) { alert("AI assist failed."); } };
   const aiTonePreview = async (tone, businessName, setPreview) => { try { const res = await fetch("/api/ai-advisor", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ max_tokens: 200, messages: [{ role: "user", content: `Write a sample welcome email opening in this tone: "${tone || "warm and professional"}". Company: ${businessName || "our business"}. 2-3 sentences.` }] }) }); const data = await res.json(); const preview = (data.content || []).find(b => b.type === "text")?.text || ""; setPreview(preview); } catch (e) { alert("AI preview failed."); } };
 
-  const loadWebhooks = async () => { setWebhooksLoading(true); try { if (!resolvedTenantId) { setLiveWebhooks([]); setWebhooksLoading(false); return; } const { data, error } = await supabase.from("webhooks").select("*").eq("tenant_id", resolvedTenantId).order("created_at", { ascending: false }); if (!error && data) setLiveWebhooks(data); } catch (err) { console.error("Failed to load webhooks:", err); } setWebhooksLoading(false); };
+  const loadWebhooks = async () => { if (demoMode) { setLiveWebhooks([]); setWebhooksLoading(false); return; } setWebhooksLoading(true); try { if (!resolvedTenantId) { setLiveWebhooks([]); setWebhooksLoading(false); return; } const { data, error } = await supabase.from("webhooks").select("*").eq("tenant_id", resolvedTenantId).order("created_at", { ascending: false }); if (!error && data) setLiveWebhooks(data); } catch (err) { console.error("Failed to load webhooks:", err); } setWebhooksLoading(false); };
   useEffect(() => { if (activeTab === "webhooks") loadWebhooks(); }, [activeTab]);
   const generateSecret = () => "whsec_" + Array.from(crypto.getRandomValues(new Uint8Array(24)), b => b.toString(16).padStart(2, "0")).join("");
   const createWebhook = async () => { if (!newWebhookData.name || !newWebhookData.url) return alert("Name and URL are required"); if (!newWebhookData.url.startsWith("https://")) return alert("Webhook URL must use HTTPS"); if (newWebhookData.events.length === 0) return alert("Select at least one event"); const secret = newWebhookData.secret || generateSecret(); if (!resolvedTenantId) return alert("No tenant found"); const { error } = await supabase.from("webhooks").insert({ tenant_id: resolvedTenantId, name: newWebhookData.name, url: newWebhookData.url, events: newWebhookData.events, secret, retry_policy: newWebhookData.retry_policy, status: "active" }); if (error) return alert("Error creating webhook: " + error.message); setNewWebhookData({ name: "", url: "", events: [], secret: "", retry_policy: "3_exponential" }); setShowNewWebhook(false); loadWebhooks(); };
@@ -498,6 +510,7 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   // ── SP Alerts state ──────────────────────────────────────────
   const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
   const loadAlertConfig = async () => {
+    if (demoMode) { setAlertsLoading(false); return; }
     setAlertsLoading(true);
     try {
       const { data } = await supabase
@@ -871,7 +884,7 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} />}
+      {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} demoMode={demoMode} />}
 
       {showUpgradeModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setShowUpgradeModal(false)}>

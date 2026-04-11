@@ -209,6 +209,8 @@ module.exports = async function handler(req, res) {
     var fullName = req.body.full_name || '';
     var companyName = req.body.company_name || '';
     var plan = req.body.plan || 'starter';
+    var isSandbox = req.body.is_sandbox === true;
+    var isDemo = req.body.is_demo === true;
 
     if (!cspTenantId || !email || !password || !companyName) {
       return res.status(400).json({ error: 'Missing required fields: csp_tenant_id, email, password, company_name' });
@@ -253,6 +255,8 @@ module.exports = async function handler(req, res) {
         status: 'active',
         parent_tenant_id: cspTenantId,
         tenant_type: 'business',
+        is_sandbox: isSandbox,
+        is_demo: isDemo,
       }).select().single();
 
       if (tenantResult.error) {

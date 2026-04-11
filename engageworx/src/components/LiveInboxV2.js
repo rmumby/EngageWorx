@@ -262,10 +262,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Poll for new conversations every 15 seconds in live mode
   useEffect(() => {
     if (demoMode || !supabase) return;
+    if (viewLevel === 'tenant' && !currentTenantId) return;
     var pollInterval = setInterval(function() {
       (async function pollFetch() {
         try {
-          var convQuery = currentTenantId && viewLevel === 'tenant'
+          var convQuery = viewLevel === 'tenant'
             ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
             : supabase.from('conversations').select('*');
           var convResult = await convQuery;
@@ -310,7 +311,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           
           // Also fetch calls for polling
           try {
-            var pollCallQuery = currentTenantId && viewLevel === 'tenant'
+            var pollCallQuery = viewLevel === 'tenant'
               ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
               : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
             var pollCallResult = await pollCallQuery;
@@ -354,10 +355,12 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [liveLoading, setLiveLoading] = useState(!demoMode);
 useEffect(() => {
   if (demoMode || !supabase) return;
-  supabase.from('tenant_members')
+  if (viewLevel === 'tenant' && !currentTenantId) return;
+  var agentQuery = supabase.from('tenant_members')
     .select('user_id, user_profiles(full_name, email)')
-    .eq('status', 'active')
-    .then(({ data }) => {
+    .eq('status', 'active');
+  if (viewLevel === 'tenant') agentQuery = agentQuery.eq('tenant_id', currentTenantId);
+  agentQuery.then(({ data }) => {
       if (data && data.length > 0) {
         const members = data.map(m => ({
           id: m.user_id,
@@ -367,16 +370,17 @@ useEffect(() => {
         }));
       }
     });
-}, [demoMode, supabase]);
+}, [demoMode, supabase, currentTenantId, viewLevel]);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
-    
+    if (viewLevel === 'tenant' && !currentTenantId) { setLiveLoading(false); setConversations([]); return; }
+
     async function fetchAll() {
       try {
         console.log('🟡 Starting fetch...');
         console.log('🟡 currentTenantId:', currentTenantId, 'viewLevel:', viewLevel);
         // 1. Conversations
-        const convQuery = currentTenantId && viewLevel === 'tenant'
+        const convQuery = viewLevel === 'tenant'
           ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
           : supabase.from('conversations').select('*');
         const { data: convData, error: convError } = await convQuery;
@@ -440,7 +444,7 @@ useEffect(() => {
         
         // 5. Fetch calls and add as voice conversations
         try {
-          var callQuery = currentTenantId && viewLevel === 'tenant'
+          var callQuery = viewLevel === 'tenant'
             ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
             : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
           var callResult = await callQuery;

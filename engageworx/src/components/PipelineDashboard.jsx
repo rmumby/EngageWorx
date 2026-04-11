@@ -193,7 +193,7 @@ function ContactsPanel({ leadId, leadCompany }) {
   );
 }
 
-function Modal({ lead, onClose, onSave }) {
+function Modal({ lead, onClose, onSave, tenantId }) {
   const split = splitName(lead.name);
   const [firstName, setFirstName] = useState(split.first);
   const [lastName, setLastName]   = useState(split.last);
@@ -208,7 +208,10 @@ function Modal({ lead, onClose, onSave }) {
   const [sequences, setSequences] = useState([]);
   const [enrolStatus, setEnrolStatus] = useState("");
   useEffect(function() {
-    fetch('/api/sequences?action=list&tenant_id=c1bc59a8-5235-4921-9755-02514b574387').then(function(r){ return r.json(); }).then(function(d){ setSequences(d.sequences||[]); }).catch(function(){});
+    var seqTenant = lead.tenant_id || tenantId;
+    if (seqTenant) {
+      fetch('/api/sequences?action=list&tenant_id=' + seqTenant).then(function(r){ return r.json(); }).then(function(d){ setSequences(d.sequences||[]); }).catch(function(){});
+    }
     if (lead.id && !String(lead.id).startsWith('new_')) {
       fetch('/api/sequences?action=status&lead_id=' + lead.id).then(function(r){ return r.json(); }).then(function(d){
         var active = (d.enrolments||[]).filter(function(e){ return e.status==='active'; });
@@ -247,7 +250,11 @@ function Modal({ lead, onClose, onSave }) {
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     try {
       if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
-      else { const { error } = await supabase.from("leads").insert(payload); if (error) throw error; }
+      else {
+        if (!tenantId) { setSaveError("No tenant context — cannot create lead."); setSaving(false); return; }
+        const { error } = await supabase.from("leads").insert({ ...payload, tenant_id: tenantId });
+        if (error) throw error;
+      }
       onSave();
     } catch (err) { setSaveError(err.message || "Save failed."); }
     setSaving(false);
@@ -579,7 +586,9 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   const [hideDormant, setHideDormant] = useState(true);
 
   const fetchLeads = async () => {
-    const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
+    if (demoMode) { setLeads([]); setLoading(false); return; }
+    if (!tenantId) { setLeads([]); setLoading(false); return; }
+    const { data, error } = await supabase.from("leads").select("*").eq("tenant_id", tenantId).order("created_at", { ascending: false });
     if (error) console.error("Fetch error:", error);
     const ids = (data || []).map(l => l.id);
     var countMap = {};
@@ -599,8 +608,11 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
 
   useEffect(() => {
     fetchLeads();
+    if (demoMode || !tenantId) return;
     const channel = supabase.channel("leads-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, (payload) => {
+        var row = payload.new || payload.old;
+        if (row && row.tenant_id !== tenantId) return;
         setLiveFlash(true);
         setTimeout(() => setLiveFlash(false), 2000);
         if (payload.eventType === "INSERT")      setLeads(p => [{ ...payload.new, contact_count: 0 }, ...p]);
@@ -609,7 +621,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
         setLastSync(new Date());
       }).subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [tenantId, demoMode]);
 
   const newLead = { id: "new_" + Date.now(), name: "", company: "", email: "", phone: "", type: "Unknown", urgency: "Warm", stage: "inquiry", package: "", go_live_date: "", notes: "", source: "Website", last_action_at: new Date().toISOString().split("T")[0], next_action: "", next_action_date: "" };
 
@@ -766,7 +778,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
         </div>
       )}
 
-      {selected && <Modal lead={selected} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} />}
+      {selected && <Modal lead={selected} tenantId={tenantId} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} />}
     </div>
   );
 }
