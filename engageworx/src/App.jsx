@@ -800,7 +800,7 @@ setDemoCreating(false);
                       {c.entity_tier === "agent" && <span style={{ background: "#FF6B3522", color: "#FF6B35", border: "1px solid #FF6B3544", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>AGENT</span>}
                       {c.entity_tier === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
                       {c.msp_enabled && <span style={{ background: "#00E67622", color: "#00E676", border: "1px solid #00E67644", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>MSP</span>}
-                      {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ sub-tenant</span>}
+                      {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ tenant</span>}
                     </div>
                     <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
                   </div>
@@ -815,7 +815,7 @@ setDemoCreating(false);
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
-                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Sub-Tenant" : "Business"}</span>
+                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Tenant" : "Business"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 10px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
@@ -1357,13 +1357,13 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "contacts", label: "Contacts", icon: "👥" },
     { id: "campaigns", label: "Campaigns", icon: "🚀" },
     { id: "flows", label: "Flow Builder", icon: "⚡" },
-    { id: "sequences", label: "Sequence Builder", icon: "⚡" },
     { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
+    { id: "sequences", label: "Sequence Builder", icon: "📝" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
-    { id: "sms-registration", label: "SMS Registration", icon: "📋" },
     { id: "branding", label: "Branding", icon: "🎨" },
+    { id: "sms-registration", label: "SMS Registration", icon: "📋" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
   return (
@@ -1608,29 +1608,29 @@ function AppInner() {
   const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
 
 var spNavBase = [
-    { id: "dashboard", label: "Platform Overview", icon: "⊞" },
-    { id: "tenants", label: "Tenant Management", icon: "🏢" },
-    { id: "hierarchy", label: "Hierarchy", icon: "🌳" },
-    { id: "pipeline", label: "Pipeline", icon: "📈" },
-  { id: "import", label: "Import Leads", icon: "📥" },
-  { id: "sequences", label: "Sequence Roster", icon: "📋" },
-    { id: "campaigns", label: "Campaigns", icon: "🚀" },
-    { id: "contacts", label: "Contacts", icon: "👥" },
-    { id: "inbox", label: "Live Inbox", icon: "💬" },
-    { id: "helpdesk", label: "Help Desk", icon: "🎫" },
-    { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "flows", label: "Flow Builder", icon: "⚡" },
-  { id: "sequence-builder", label: "Sequence Builder", icon: "⚡" },
-  { id: "lead-scan", label: "Lead Scan", icon: "📲" },
-  { id: "demo", label: "Demo Mode", icon: "🎯" },
-    { id: "analytics", label: "Global Analytics", icon: "📊" },
-    { id: "api", label: "APIs & Integrations", icon: "🔌" },
-    { id: "registration", label: "Registration", icon: "📋" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "dashboard",        label: "Platform Overview",  icon: "⊞" },
+    { id: "tenants",          label: "Tenant Management",  icon: "🏢" },
+    { id: "hierarchy",        label: "Hierarchy",          icon: "🌳" },
+    { id: "pipeline",         label: "Pipeline",           icon: "📈" },
+    { id: "import",           label: "Import Leads",       icon: "📥" },
+    { id: "lead-scan",        label: "Lead Scan",          icon: "📲" },
+    { id: "sequences",        label: "Sequence Roster",    icon: "📋" },
+    { id: "sequence-builder", label: "Sequence Builder",   icon: "📝" },
+    { id: "campaigns",        label: "Campaigns",          icon: "🚀" },
+    { id: "contacts",         label: "Contacts",           icon: "👥" },
+    { id: "inbox",            label: "Live Inbox",         icon: "💬" },
+    { id: "helpdesk",         label: "Help Desk",          icon: "🎫" },
+    { id: "chatbot",          label: "AI Chatbot",         icon: "🤖" },
+    { id: "flows",            label: "Flow Builder",       icon: "⚡" },
+    { id: "analytics",        label: "Global Analytics",   icon: "📊" },
+    { id: "tcr-queue",        label: "TCR Queue",          icon: "📋", superadminOnly: true },
+    { id: "demo",             label: "Demo Mode",          icon: "🎯" },
+    { id: "blog",             label: "Blog Manager",       icon: "📝", superadminOnly: true },
+    { id: "api",              label: "APIs & Integrations", icon: "🔌" },
+    { id: "registration",     label: "Registration",       icon: "📋" },
+    { id: "settings",         label: "Settings",           icon: "⚙️" },
   ];
-  var spNavItems = isSuperAdmin
-    ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6), [{ id: "tcr-queue", label: "TCR Queue", icon: "📋" }])
-    : spNavBase;
+  var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
 
   const hostname = window.location.hostname;
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";

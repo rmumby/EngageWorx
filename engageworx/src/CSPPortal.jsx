@@ -203,21 +203,19 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   }
 
   var allNavItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⊞', always: true },
-    { id: 'tenants', label: 'Tenant Management', icon: '🏢', always: true },
-    { id: 'inbox', label: 'Live Inbox', icon: '💬', always: true },
-    { id: 'contacts', label: 'Contacts', icon: '👥', always: true },
-    { id: 'campaigns', label: 'Campaigns', icon: '🚀', always: true },
-    { id: 'pipeline', label: 'Pipeline', icon: '📈', module: 'pipeline' },
-    { id: 'sequences', label: 'Sequences', icon: '📧', module: 'sequences' },
-    { id: 'ai-studio', label: 'AI Chatbot', icon: '🤖', always: true },
-    { id: 'flow-builder', label: 'Flow Builder', icon: '⚡', always: true },
-    { id: 'helpdesk', label: 'Help Desk', icon: '🎫', module: 'helpdesk' },
-    { id: 'blog', label: 'Blog Manager', icon: '📝', module: 'blog' },
-    { id: 'analytics', label: 'Analytics', icon: '📊', always: true },
-    { id: 'registration', label: 'Registration', icon: '📋', always: true },
-    { id: 'integrations', label: 'API & Integrations', icon: '🔌', always: true },
-    { id: 'settings', label: 'Settings', icon: '⚙️', always: true },
+    { id: 'dashboard',    label: 'Dashboard',           icon: '⊞',  always: true },
+    { id: 'tenants',      label: 'Tenant Management',   icon: '🏢', always: true },
+    { id: 'inbox',        label: 'Live Inbox',          icon: '💬', always: true },
+    { id: 'contacts',     label: 'Contacts',            icon: '👥', always: true },
+    { id: 'campaigns',    label: 'Campaigns',           icon: '🚀', always: true },
+    { id: 'pipeline',     label: 'Pipeline',            icon: '📈', module: 'pipeline' },
+    { id: 'sequences',    label: 'Sequences',           icon: '📧', module: 'sequences' },
+    { id: 'ai-studio',    label: 'AI Chatbot',          icon: '🤖', always: true },
+    { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
+    { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
+    { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
+    { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
+    { id: 'settings',     label: 'Settings',            icon: '⚙️', always: true },
   ];
 
   var navItems = allNavItems.filter(function(item) {
