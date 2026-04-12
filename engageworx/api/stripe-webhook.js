@@ -279,6 +279,7 @@ module.exports = async function handler(req, res) {
                 notes: 'Auto-created from Stripe signup. Plan: ' + plan,
                 last_action_at: new Date().toISOString().split('T')[0],
                 last_activity_at: new Date().toISOString(),
+                tenant_id: EW_SP_TENANT_ID,
               });
               console.log('[Stripe] Pipeline lead auto-created for:', email);
             }
@@ -357,6 +358,7 @@ module.exports = async function handler(req, res) {
         ai_next_action: 'Send recovery email and follow up within 48 hours.',
         last_action_at: new Date().toISOString().split('T')[0],
         last_activity_at: new Date().toISOString(),
+        tenant_id: EW_SP_TENANT_ID,
       }).select('id').single();
       if (abandonRes.data) abandonedLeadId = abandonRes.data.id;
       console.log('[Stripe] Abandoned checkout lead created:', expiredEmail);
@@ -373,7 +375,7 @@ module.exports = async function handler(req, res) {
   // Create Contact (dedup on email)
   try {
     if (abandonedLeadId) {
-      var existingContact = await supabase.from('contacts').select('id').eq('email', expiredEmail).eq('tenant_id', SP_TENANT_ID).single();
+      var existingContact = await supabase.from('contacts').select('id').eq('email', expiredEmail).eq('tenant_id', EW_SP_TENANT_ID).single();
       if (!existingContact.data) {
         var nameParts = (expiredName || '').trim().split(' ');
         await supabase.from('contacts').insert({
@@ -382,7 +384,7 @@ module.exports = async function handler(req, res) {
           email: expiredEmail,
           company_name: expiredName || null,
           pipeline_lead_id: abandonedLeadId,
-          tenant_id: SP_TENANT_ID,
+          tenant_id: EW_SP_TENANT_ID,
           status: 'active',
           source: 'abandoned_checkout',
         });
@@ -396,14 +398,13 @@ module.exports = async function handler(req, res) {
     if (abandonedLeadId) {
       var abandonSeqs = await supabase.from('sequences')
         .select('id, name')
-        .eq('tenant_id', SP_TENANT_ID)
+        .eq('tenant_id', EW_SP_TENANT_ID)
         .ilike('name', '%abandon%')
         .limit(1);
       if (!abandonSeqs.data || abandonSeqs.data.length === 0) {
-        // Fall back to any sequence with 'recovery' or 'checkout' in name
         abandonSeqs = await supabase.from('sequences')
           .select('id, name')
-          .eq('tenant_id', SP_TENANT_ID)
+          .eq('tenant_id', EW_SP_TENANT_ID)
           .ilike('name', '%recover%')
           .limit(1);
       }
@@ -415,7 +416,7 @@ module.exports = async function handler(req, res) {
           startDate.setDate(startDate.getDate() + firstStep.data.delay_days);
         }
         await supabase.from('lead_sequences').upsert({
-          tenant_id: SP_TENANT_ID,
+          tenant_id: EW_SP_TENANT_ID,
           lead_id: abandonedLeadId,
           sequence_id: seqId,
           current_step: 0,
@@ -458,4 +459,220 @@ module.exports = async function handler(req, res) {
 
   break;
 }
+
+      // ── SUBSCRIPTION CANCELLED / PAUSED ───────────────────────────────────
+      case 'customer.subscription.deleted':
+      case 'customer.subscription.paused': {
+        var cancelSub = event.data.object;
+        var cancelCustomerId = cancelSub.customer;
+        var cancelEventName = event.type === 'customer.subscription.deleted' ? 'cancelled' : 'paused';
+        console.log('[Stripe] Subscription ' + cancelEventName + ':', cancelCustomerId);
+
+        var cancelTenantRes = await supabase.from('tenants').select('id, name, plan').eq('stripe_customer_id', cancelCustomerId).maybeSingle();
+        var cancelTenant = cancelTenantRes.data;
+        if (!cancelTenant) { console.warn('[Stripe] No tenant for customer:', cancelCustomerId); break; }
+
+        await supabase.from('tenants').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', cancelTenant.id);
+        await supabase.from('tenant_members').update({ status: 'inactive' }).eq('tenant_id', cancelTenant.id);
+        console.log('[Stripe] Tenant soft-disabled:', cancelTenant.name);
+
+        try {
+          var sgCancel = require('@sendgrid/mail');
+          sgCancel.setApiKey(process.env.SENDGRID_API_KEY);
+          await sgCancel.send({
+            to: 'rob@engwx.com',
+            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            subject: 'Subscription ' + cancelEventName + ': ' + cancelTenant.name,
+            html: '<h3>Subscription ' + cancelEventName.charAt(0).toUpperCase() + cancelEventName.slice(1) + '</h3>' +
+              '<p><b>Tenant:</b> ' + cancelTenant.name + '</p>' +
+              '<p><b>Plan:</b> ' + (cancelTenant.plan || 'unknown') + '</p>' +
+              '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
+              '<p><b>Stripe Customer:</b> ' + cancelCustomerId + '</p>' +
+              '<p>Tenant soft-disabled. Data preserved for recovery.</p>',
+          });
+        } catch (ne) { console.log('[Stripe] Cancel notification failed:', ne.message); }
+
+        try {
+          var ownerRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', cancelTenant.id).eq('role', 'admin').limit(1);
+          var ownerId = ownerRes.data && ownerRes.data[0] ? ownerRes.data[0].user_id : null;
+          if (ownerId) {
+            var ownerProfile = await supabase.from('user_profiles').select('email').eq('id', ownerId).single();
+            var ownerEmail = ownerProfile.data ? ownerProfile.data.email : null;
+            if (ownerEmail) {
+              var ownerLeadRes = await supabase.from('leads').select('id').eq('email', ownerEmail).limit(1);
+              var ownerLeadId = ownerLeadRes.data && ownerLeadRes.data[0] ? ownerLeadRes.data[0].id : null;
+              if (!ownerLeadId) {
+                var newLead = await supabase.from('leads').insert({
+                  name: cancelTenant.name, company: cancelTenant.name, email: ownerEmail,
+                  source: 'churn', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  billing_status: cancelEventName, tenant_id: EW_SP_TENANT_ID,
+                  notes: 'Subscription ' + cancelEventName + '. Plan was: ' + (cancelTenant.plan || 'unknown'),
+                  last_action_at: new Date().toISOString().split('T')[0],
+                  last_activity_at: new Date().toISOString(),
+                }).select('id').single();
+                ownerLeadId = newLead.data ? newLead.data.id : null;
+              }
+              if (ownerLeadId) {
+                var recoverySeq = await supabase.from('sequences').select('id, name').eq('tenant_id', EW_SP_TENANT_ID).ilike('name', '%abandon%').limit(1);
+                if (!recoverySeq.data || recoverySeq.data.length === 0) {
+                  recoverySeq = await supabase.from('sequences').select('id, name').eq('tenant_id', EW_SP_TENANT_ID).ilike('name', '%recover%').limit(1);
+                }
+                if (recoverySeq.data && recoverySeq.data.length > 0) {
+                  var rSeqId = recoverySeq.data[0].id;
+                  var rFirstStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', rSeqId).eq('step_number', 1).single();
+                  var rStart = new Date();
+                  if (rFirstStep.data && rFirstStep.data.delay_days > 0) rStart.setDate(rStart.getDate() + rFirstStep.data.delay_days);
+                  await supabase.from('lead_sequences').upsert({
+                    tenant_id: EW_SP_TENANT_ID, lead_id: ownerLeadId, sequence_id: rSeqId,
+                    current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: rStart.toISOString(),
+                  }, { onConflict: 'lead_id,sequence_id' });
+                  console.log('[Stripe] Enrolled churned lead in recovery sequence:', recoverySeq.data[0].name);
+                }
+              }
+            }
+          }
+        } catch (seqErr) { console.log('[Stripe] Recovery enrol failed:', seqErr.message); }
+
+        break;
+      }
+
+      // ── PAYMENT FAILED (final retry) ──────────────────────────────────────
+      case 'invoice.payment_failed': {
+        var failedInvoice = event.data.object;
+        var failedCustomerId = failedInvoice.customer;
+        var isLastAttempt = failedInvoice.next_payment_attempt === null;
+        console.log('[Stripe] Payment failed:', failedCustomerId, 'final:', isLastAttempt);
+
+        if (!isLastAttempt) {
+          console.log('[Stripe] Not final retry — skipping disable');
+          break;
+        }
+
+        var failedTenantRes = await supabase.from('tenants').select('id, name, plan').eq('stripe_customer_id', failedCustomerId).maybeSingle();
+        var failedTenant = failedTenantRes.data;
+        if (!failedTenant) { console.warn('[Stripe] No tenant for customer:', failedCustomerId); break; }
+
+        await supabase.from('tenants').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('id', failedTenant.id);
+        await supabase.from('tenant_members').update({ status: 'inactive' }).eq('tenant_id', failedTenant.id);
+
+        try {
+          var sgFail = require('@sendgrid/mail');
+          sgFail.setApiKey(process.env.SENDGRID_API_KEY);
+          await sgFail.send({
+            to: 'rob@engwx.com',
+            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            subject: 'Payment failed (final): ' + failedTenant.name,
+            html: '<h3>Payment Failed — Account Disabled</h3>' +
+              '<p><b>Tenant:</b> ' + failedTenant.name + '</p>' +
+              '<p><b>Plan:</b> ' + (failedTenant.plan || 'unknown') + '</p>' +
+              '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
+              '<p><b>Stripe Customer:</b> ' + failedCustomerId + '</p>' +
+              '<p>All retries exhausted. Tenant soft-disabled, data preserved.</p>',
+          });
+        } catch (ne) { console.log('[Stripe] Fail notification error:', ne.message); }
+
+        try {
+          var failOwnerRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', failedTenant.id).eq('role', 'admin').limit(1);
+          var failOwnerId = failOwnerRes.data && failOwnerRes.data[0] ? failOwnerRes.data[0].user_id : null;
+          if (failOwnerId) {
+            var failOwnerProfile = await supabase.from('user_profiles').select('email').eq('id', failOwnerId).single();
+            var failOwnerEmail = failOwnerProfile.data ? failOwnerProfile.data.email : null;
+            if (failOwnerEmail) {
+              var failLeadRes = await supabase.from('leads').select('id').eq('email', failOwnerEmail).limit(1);
+              var failLeadId = failLeadRes.data && failLeadRes.data[0] ? failLeadRes.data[0].id : null;
+              if (!failLeadId) {
+                var newFailLead = await supabase.from('leads').insert({
+                  name: failedTenant.name, company: failedTenant.name, email: failOwnerEmail,
+                  source: 'payment_failed', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  billing_status: 'payment_failed', tenant_id: EW_SP_TENANT_ID,
+                  notes: 'Payment failed after all retries. Plan was: ' + (failedTenant.plan || 'unknown'),
+                  last_action_at: new Date().toISOString().split('T')[0],
+                  last_activity_at: new Date().toISOString(),
+                }).select('id').single();
+                failLeadId = newFailLead.data ? newFailLead.data.id : null;
+              }
+              if (failLeadId) {
+                var failRecoverySeq = await supabase.from('sequences').select('id').eq('tenant_id', EW_SP_TENANT_ID).ilike('name', '%abandon%').limit(1);
+                if (!failRecoverySeq.data || failRecoverySeq.data.length === 0) {
+                  failRecoverySeq = await supabase.from('sequences').select('id').eq('tenant_id', EW_SP_TENANT_ID).ilike('name', '%recover%').limit(1);
+                }
+                if (failRecoverySeq.data && failRecoverySeq.data.length > 0) {
+                  var fSeqId = failRecoverySeq.data[0].id;
+                  var fFirstStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', fSeqId).eq('step_number', 1).single();
+                  var fStart = new Date();
+                  if (fFirstStep.data && fFirstStep.data.delay_days > 0) fStart.setDate(fStart.getDate() + fFirstStep.data.delay_days);
+                  await supabase.from('lead_sequences').upsert({
+                    tenant_id: EW_SP_TENANT_ID, lead_id: failLeadId, sequence_id: fSeqId,
+                    current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: fStart.toISOString(),
+                  }, { onConflict: 'lead_id,sequence_id' });
+                  console.log('[Stripe] Enrolled failed-payment lead in recovery sequence');
+                }
+              }
+            }
+          }
+        } catch (seqErr) { console.log('[Stripe] Recovery enrol failed:', seqErr.message); }
+
+        break;
+      }
+
+      // ── SUBSCRIPTION RESUMED / PAYMENT RECOVERED ──────────────────────────
+      case 'customer.subscription.resumed':
+      case 'invoice.paid': {
+        var paidObj = event.data.object;
+        var paidCustomerId = paidObj.customer;
+        console.log('[Stripe] Recovery event:', event.type, 'customer:', paidCustomerId);
+
+        var reactiveTenantRes = await supabase.from('tenants').select('id, name, status').eq('stripe_customer_id', paidCustomerId).maybeSingle();
+        var reactiveTenant = reactiveTenantRes.data;
+        if (!reactiveTenant) { console.log('[Stripe] No tenant for customer:', paidCustomerId); break; }
+        if (reactiveTenant.status === 'active') { console.log('[Stripe] Tenant already active — no action'); break; }
+
+        await supabase.from('tenants').update({ status: 'active', updated_at: new Date().toISOString() }).eq('id', reactiveTenant.id);
+        await supabase.from('tenant_members').update({ status: 'active' }).eq('tenant_id', reactiveTenant.id);
+        console.log('[Stripe] Tenant reactivated:', reactiveTenant.name);
+
+        try {
+          var ownerReactRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', reactiveTenant.id).eq('role', 'admin').limit(1);
+          var reactOwnerId = ownerReactRes.data && ownerReactRes.data[0] ? ownerReactRes.data[0].user_id : null;
+          if (reactOwnerId) {
+            var reactProfile = await supabase.from('user_profiles').select('email').eq('id', reactOwnerId).single();
+            var reactEmail = reactProfile.data ? reactProfile.data.email : null;
+            if (reactEmail) {
+              var reactLeadRes = await supabase.from('leads').select('id').eq('email', reactEmail).limit(1);
+              if (reactLeadRes.data && reactLeadRes.data.length > 0) {
+                var reactLeadId = reactLeadRes.data[0].id;
+                await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', reactLeadId).eq('status', 'active');
+                console.log('[Stripe] Cancelled recovery sequence for reactivated lead:', reactEmail);
+              }
+            }
+          }
+        } catch (seqErr) { console.log('[Stripe] Sequence cancel failed:', seqErr.message); }
+
+        try {
+          var sgReact = require('@sendgrid/mail');
+          sgReact.setApiKey(process.env.SENDGRID_API_KEY);
+          await sgReact.send({
+            to: 'rob@engwx.com',
+            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            subject: 'Tenant reactivated: ' + reactiveTenant.name,
+            html: '<h3>Subscription Reactivated</h3>' +
+              '<p><b>Tenant:</b> ' + reactiveTenant.name + '</p>' +
+              '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
+              '<p><b>Stripe Customer:</b> ' + paidCustomerId + '</p>' +
+              '<p>Tenant and team member access restored.</p>',
+          });
+        } catch (ne) { console.log('[Stripe] Reactivation notification error:', ne.message); }
+
+        break;
+      }
+
+      default:
+        console.log('[Stripe] Unhandled event type:', event.type);
+    }
+
+    return res.status(200).json({ received: true });
+  } catch (err) {
+    console.error('[Stripe Webhook] Error:', err.message);
+    return res.status(200).json({ received: true, error: err.message });
+  }
 };
