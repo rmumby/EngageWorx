@@ -54,14 +54,18 @@ module.exports = async function handler(req, res) {
   // ── DEDUP ───────────────────────────────────────────────────────────────
   if (action === 'dedup') {
     var tenantId = body.tenant_id;
-    if (!tenantId) return res.status(400).json({ error: 'tenant_id required' });
+    var allTenants = body.all_tenants === true;
+    if (!tenantId && !allTenants) return res.status(400).json({ error: 'tenant_id required (or pass all_tenants:true)' });
 
-    try {
+    console.log('[Dedup] Start. scope:', allTenants ? 'ALL' : tenantId);
+
+    async function dedupOneTenant(tid) {
       var all = await supabase.from('contacts')
         .select('*')
-        .eq('tenant_id', tenantId)
+        .eq('tenant_id', tid)
         .not('email', 'is', null)
         .order('created_at', { ascending: true });
+      if (all.error) throw new Error('contacts fetch: ' + all.error.message);
       var contacts = all.data || [];
 
       var groups = {};
@@ -80,10 +84,10 @@ module.exports = async function handler(req, res) {
       for (var key in groups) {
         var grp = groups[key];
         if (grp.length < 2) continue;
-        var keep = grp[0]; // oldest
+        var keep = grp[0];
         var dupes = grp.slice(1);
+        console.log('[Dedup]   Group', key, '— keep', keep.id, 'dupes', dupes.map(function(d) { return d.id; }).join(','));
 
-        // Fill in missing fields on kept from dupes
         var fillUpdate = {};
         FILLABLE.forEach(function(f) {
           if (isEmpty(keep[f])) {
@@ -94,12 +98,10 @@ module.exports = async function handler(req, res) {
         });
 
         if (Object.keys(fillUpdate).length > 0) {
-          try { await supabase.from('contacts').update(fillUpdate).eq('id', keep.id); }
-          catch (fe) { errors.push({ keep_id: keep.id, fill_error: fe.message }); }
+          var up = await supabase.from('contacts').update(fillUpdate).eq('id', keep.id);
+          if (up.error) errors.push({ keep_id: keep.id, fill_error: up.error.message });
         }
 
-        // Redirect FK references (conversations + messages) from dupes to kept,
-        // then delete the dupes.
         for (var d of dupes) {
           try {
             var convUpd = await supabase.from('conversations').update({ contact_id: keep.id }).eq('contact_id', d.id);
@@ -114,13 +116,42 @@ module.exports = async function handler(req, res) {
         }
         groupsMerged++;
       }
+      return { groupsMerged: groupsMerged, contactsDeleted: contactsDeleted, fkRedirects: fkRedirects, errors: errors };
+    }
 
+    try {
+      var totalGroups = 0, totalDeleted = 0, totalFk = 0, allErrors = [], tenantsProcessed = 0;
+      if (allTenants) {
+        var tres = await supabase.from('tenants').select('id, name');
+        var tenants = tres.data || [];
+        console.log('[Dedup] Processing', tenants.length, 'tenants');
+        for (var t of tenants) {
+          try {
+            var r = await dedupOneTenant(t.id);
+            totalGroups += r.groupsMerged;
+            totalDeleted += r.contactsDeleted;
+            totalFk += r.fkRedirects;
+            if (r.errors.length > 0) allErrors.push({ tenant_id: t.id, tenant_name: t.name, errors: r.errors });
+            tenantsProcessed++;
+          } catch (te) { allErrors.push({ tenant_id: t.id, error: te.message }); }
+        }
+      } else {
+        var single = await dedupOneTenant(tenantId);
+        totalGroups = single.groupsMerged;
+        totalDeleted = single.contactsDeleted;
+        totalFk = single.fkRedirects;
+        allErrors = single.errors;
+        tenantsProcessed = 1;
+      }
+
+      console.log('[Dedup] Done. groups:', totalGroups, 'deleted:', totalDeleted, 'fk:', totalFk, 'errors:', allErrors.length);
       return res.status(200).json({
         success: true,
-        groups_merged: groupsMerged,
-        contacts_deleted: contactsDeleted,
-        fk_rows_redirected: fkRedirects,
-        errors: errors,
+        groups_merged: totalGroups,
+        contacts_deleted: totalDeleted,
+        fk_rows_redirected: totalFk,
+        tenants_processed: tenantsProcessed,
+        errors: allErrors,
       });
     } catch (err) {
       console.error('[Dedup] Error:', err.message);

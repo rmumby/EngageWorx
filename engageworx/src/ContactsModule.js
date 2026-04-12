@@ -188,29 +188,57 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   }, [newContact.email, showAddContact, currentTenantId, demoMode]);
 
   const handleDedup = async () => {
-    if (demoMode || !currentTenantId) return;
-    if (!window.confirm('Find & merge duplicate contacts (same email, same tenant)?\n\nOldest record is kept. Missing fields are filled in from duplicates. Conversations and messages are redirected to the kept contact. This cannot be undone.')) return;
+    console.log('[Dedup] handleDedup clicked. demoMode=', demoMode, 'currentTenantId=', currentTenantId, 'viewLevel=', viewLevel);
+    if (demoMode) { alert('Dedup is disabled in demo mode.'); return; }
+
+    var scope = currentTenantId || null;
+    var scopeMsg = scope
+      ? 'this tenant'
+      : 'ALL tenants (SP admin global dedup)';
+
+    if (!window.confirm(
+      'Find & merge duplicate contacts for ' + scopeMsg + '?\n\n' +
+      'Oldest record per (tenant, email) is kept. Missing fields are filled in from duplicates. ' +
+      'Conversations and messages are redirected to the kept contact. This cannot be undone.'
+    )) { console.log('[Dedup] User cancelled'); return; }
+
     setDedupRunning(true);
+    console.log('[Dedup] Calling /api/contacts?action=dedup with scope:', scope || 'ALL');
+
     try {
       const resp = await fetch('/api/contacts?action=dedup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: currentTenantId }),
+        body: JSON.stringify(scope ? { tenant_id: scope } : { all_tenants: true }),
       });
+      console.log('[Dedup] API response status:', resp.status);
       const data = await resp.json();
+      console.log('[Dedup] API response body:', data);
+
       if (data.success) {
-        alert('Merged ' + data.groups_merged + ' duplicate group(s), deleted ' + data.contacts_deleted + ' record(s), redirected ' + (data.fk_rows_redirected || 0) + ' related row(s).');
+        alert(
+          'Dedup complete.\n' +
+          '• Groups merged: ' + (data.groups_merged || 0) + '\n' +
+          '• Contacts deleted: ' + (data.contacts_deleted || 0) + '\n' +
+          '• Related rows redirected: ' + (data.fk_rows_redirected || 0) +
+          (data.tenants_processed ? '\n• Tenants processed: ' + data.tenants_processed : '') +
+          (data.errors && data.errors.length > 0 ? '\n\n⚠️ ' + data.errors.length + ' error(s) — see console.' : '')
+        );
+        if (data.errors && data.errors.length > 0) console.warn('[Dedup] Errors:', data.errors);
         // Refresh contacts
         try {
           let query = supabase.from('contacts').select('*').order('created_at', { ascending: false });
           if (currentTenantId) query = query.eq('tenant_id', currentTenantId);
           const { data: refreshed } = await query;
           setContacts((refreshed || []).map(mapContact));
-        } catch (re) {}
+        } catch (re) { console.warn('[Dedup] Refresh failed:', re.message); }
       } else {
-        alert('Dedup failed: ' + (data.error || 'Unknown'));
+        alert('Dedup failed: ' + (data.error || 'Unknown') + ' (status ' + resp.status + ')');
       }
-    } catch (e) { alert('Dedup error: ' + e.message); }
+    } catch (e) {
+      console.error('[Dedup] Fetch error:', e);
+      alert('Dedup error: ' + e.message);
+    }
     setDedupRunning(false);
   };
 
