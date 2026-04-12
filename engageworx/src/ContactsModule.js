@@ -140,6 +140,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
   const [emailWarning, setEmailWarning] = useState(null);
   const [dedupRunning, setDedupRunning] = useState(false);
+  // SP admin tenant filter — only used when viewLevel === 'sp'
+  const [spTenantFilter, setSpTenantFilter] = useState('all');
+  const [spTenantList, setSpTenantList] = useState([]);
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
@@ -152,6 +155,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       try {
         let query = supabase.from('contacts').select('*').order('created_at', { ascending: false });
         if (currentTenantId) query = query.eq('tenant_id', currentTenantId);
+        else if (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all') query = query.eq('tenant_id', spTenantFilter);
         const { data, error } = await query;
         if (error) throw error;
         setContacts((data || []).map(mapContact));
@@ -162,7 +166,17 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       setLiveLoading(false);
     };
     fetchContacts();
-  }, [demoMode, currentTenantId, viewLevel]);
+  }, [demoMode, currentTenantId, viewLevel, spTenantFilter]);
+
+  // Load tenant list for the SP admin filter dropdown (only when viewLevel === 'sp')
+  useEffect(() => {
+    if (demoMode || viewLevel !== 'sp') return;
+    supabase.from('tenants')
+      .select('id, name, status')
+      .eq('status', 'active')
+      .order('name')
+      .then(function(r) { if (r.data) setSpTenantList(r.data); });
+  }, [demoMode, viewLevel]);
 
   // Debounced email duplicate check on add form
   useEffect(() => {
@@ -191,7 +205,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     console.log('[Dedup] handleDedup clicked. demoMode=', demoMode, 'currentTenantId=', currentTenantId, 'viewLevel=', viewLevel);
     if (demoMode) { alert('Dedup is disabled in demo mode.'); return; }
 
-    var scope = currentTenantId || null;
+    var scope = currentTenantId || (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all' ? spTenantFilter : null);
     var scopeMsg = scope
       ? 'this tenant'
       : 'ALL tenants (SP admin global dedup)';
@@ -511,7 +525,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Contacts</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage contacts, segments, and CRM integrations</p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {viewLevel === 'sp' && !demoMode && (
+            <select value={spTenantFilter} onChange={e => setSpTenantFilter(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", minWidth: 220, cursor: 'pointer' }}>
+              <option value="all">🏢 All Tenants ({spTenantList.length})</option>
+              {spTenantList.map(function(t) { return <option key={t.id} value={t.id}>{t.name}</option>; })}
+            </select>
+          )}
           <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
           {!demoMode && <button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
