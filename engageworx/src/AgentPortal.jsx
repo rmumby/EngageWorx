@@ -39,8 +39,35 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
   var [demoForm, setDemoForm] = useState({ fullName: '', email: '', companyName: '', password: '' });
   var [demoLoading, setDemoLoading] = useState(false);
   var [demoResult, setDemoResult] = useState(null);
+  // Phase 2: referrals + commissions from DB
+  var [referrals, setReferrals] = useState([]);
+  var [referralEntities, setReferralEntities] = useState({});
+  var [commissionRows, setCommissionRows] = useState([]);
 
-  useEffect(function() { loadAgentData(); }, [agentTenantId]);
+  useEffect(function() { loadAgentData(); loadReferralsAndCommissions(); }, [agentTenantId]);
+
+  async function loadReferralsAndCommissions() {
+    try {
+      var r = await supabase.from('referrals').select('*').eq('referrer_id', agentTenantId).order('effective_date', { ascending: false });
+      var refs = r.data || [];
+      setReferrals(refs);
+      // Load the tenant records for every referred_entity_id so we can show names/plan/status
+      var refIds = refs.map(function(x) { return x.referred_entity_id; });
+      if (refIds.length > 0) {
+        var ents = await supabase.from('tenants').select('id, name, plan, status, entity_tier, created_at').in('id', refIds);
+        var map = {};
+        (ents.data || []).forEach(function(e) { map[e.id] = e; });
+        setReferralEntities(map);
+      }
+      var ids = refs.map(function(x) { return x.id; });
+      if (ids.length > 0) {
+        var c = await supabase.from('commissions').select('*').in('referral_id', ids).order('billing_period', { ascending: false });
+        setCommissionRows(c.data || []);
+      } else {
+        setCommissionRows([]);
+      }
+    } catch (e) { console.error('[Agent] Referral/commission load error:', e); }
+  }
 
   async function loadAgentData() {
     setLoading(true);
@@ -154,6 +181,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
     { id: 'tenants', label: 'My Clients', icon: '🏢' },
     { id: 'subagents', label: 'Sub-Agents', icon: '🤝' },
+    { id: 'referrals', label: 'My Referrals', icon: '🔗' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'resources', label: 'Resources', icon: '📚' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -359,6 +387,45 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
                       {isExpanded && saTenants.length === 0 && (
                         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', color: C.muted, fontSize: 13, textAlign: 'center' }}>No clients yet under this sub-agent</div>
                       )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* My Referrals (Phase 2) */}
+        {page === 'referrals' && (
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>My Referrals</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>{referrals.length} entities you referred</p>
+            {referrals.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>🔗</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 18, marginBottom: 6 }}>No referrals yet</div>
+                <div style={{ color: C.muted, fontSize: 13 }}>Share your referral link or ask SP admin to set <code>referred_by</code> on tenants.</div>
+              </div>
+            ) : (
+              <div style={Object.assign({}, card, { padding: 0 })}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', gap: 12, padding: '12px 18px', fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div>Referred Entity</div><div>Tier</div><div>Plan</div><div>Status</div><div>Model</div><div>Rate / Amount</div>
+                </div>
+                {referrals.map(function(r) {
+                  var ent = referralEntities[r.referred_entity_id] || {};
+                  return (
+                    <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 1fr', gap: 12, alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div>
+                        <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{ent.name || '(unknown)'}</div>
+                        <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Since {r.effective_date ? new Date(r.effective_date).toLocaleDateString() : '—'}</div>
+                      </div>
+                      <div style={{ color: C.text, fontSize: 12, textTransform: 'capitalize' }}>{r.referred_entity_type}</div>
+                      <div>{planBadge(ent.plan)}</div>
+                      <div>{statusDot(ent.status)}</div>
+                      <div style={{ color: C.text, fontSize: 12, textTransform: 'capitalize' }}>{r.commission_model}</div>
+                      <div style={{ color: '#00E676', fontWeight: 700, fontSize: 13 }}>
+                        {r.commission_model === 'percent' ? (parseFloat(r.commission_value) * 100).toFixed(1) + '%' : '$' + parseFloat(r.commission_value).toFixed(2)}
+                      </div>
                     </div>
                   );
                 })}

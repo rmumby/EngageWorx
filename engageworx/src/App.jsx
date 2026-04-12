@@ -16,6 +16,8 @@ import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import SequenceBuilder from './SequenceBuilder';
 import AgentPortal from './AgentPortal';
+import MasterAgentPortal from './MasterAgentPortal';
+import HierarchyView from './HierarchyView';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
@@ -489,7 +491,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
         const { supabase } = await import('./supabaseClient');
         const { data, error } = await supabase
           .from('tenants')
-          .select('id, name, slug, plan, status, brand_primary, brand_secondary, brand_name, channels_enabled, created_at, tenant_type, parent_tenant_id')
+          .select('*')
           .order('created_at', { ascending: false });
         if (!error && data) {
           const mapped = data.map(t => ({
@@ -519,6 +521,11 @@ function TenantManagement({ C, demoMode = false, onDrillDown }) {
             created_at: t.created_at,
             tenant_type: t.tenant_type || 'business',
             parent_tenant_id: t.parent_tenant_id,
+            entity_tier: t.entity_tier || 'tenant',
+            parent_entity_id: t.parent_entity_id,
+            referred_by: t.referred_by,
+            msp_enabled: t.msp_enabled || false,
+            letter_of_agency: t.letter_of_agency || false,
           }));
           setLiveTenants(mapped);
         }
@@ -788,8 +795,11 @@ setDemoCreating(false);
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ color: "#fff", fontWeight: 700 }}>{c.name}</span>
-                      {c.tenant_type === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
-                      {c.tenant_type === "agent" && <span style={{ background: "#FF6B3522", color: "#FF6B35", border: "1px solid #FF6B3544", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>AGENT</span>}
+                      {c.entity_tier === "super_admin" && <span style={{ background: "#00C9FF22", color: "#00C9FF", border: "1px solid #00C9FF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>SUPER ADMIN</span>}
+                      {c.entity_tier === "master_agent" && <span style={{ background: "#E040FB22", color: "#E040FB", border: "1px solid #E040FB44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>MASTER AGENT</span>}
+                      {c.entity_tier === "agent" && <span style={{ background: "#FF6B3522", color: "#FF6B35", border: "1px solid #FF6B3544", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>AGENT</span>}
+                      {c.entity_tier === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
+                      {c.msp_enabled && <span style={{ background: "#00E67622", color: "#00E676", border: "1px solid #00E67644", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>MSP</span>}
                       {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ sub-tenant</span>}
                     </div>
                     <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
@@ -884,6 +894,102 @@ setDemoCreating(false);
                         ))}
                       </div>
                     </div>
+
+                    {/* Phase 2: Hierarchy + referral */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Entity Tier</div>
+                        <select defaultValue={c.entity_tier || 'tenant'} onChange={async function(e) {
+                          var newTier = e.target.value;
+                          try {
+                            var { supabase: sb } = await import('./supabaseClient');
+                            await sb.from('tenants').update({ entity_tier: newTier }).eq('id', c.id);
+                            c.entity_tier = newTier;
+                          } catch (err) { console.error('Tier update error:', err); }
+                        }} style={inputStyleTM}>
+                          <option value="super_admin">Super Admin</option>
+                          <option value="master_agent">Master Agent</option>
+                          <option value="agent">Agent</option>
+                          <option value="csp">CSP</option>
+                          <option value="tenant">Tenant</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Referred By</div>
+                        <select defaultValue={c.referred_by || ''} onChange={async function(e) {
+                          var newRef = e.target.value || null;
+                          try {
+                            var { supabase: sb } = await import('./supabaseClient');
+                            await sb.from('tenants').update({ referred_by: newRef }).eq('id', c.id);
+                            c.referred_by = newRef;
+                          } catch (err) { console.error('Referrer update error:', err); }
+                        }} style={inputStyleTM}>
+                          <option value="">— None —</option>
+                          {liveTenants.filter(function(x) { return x.id !== c.id && (x.entity_tier === 'agent' || x.entity_tier === 'master_agent' || x.entity_tier === 'csp'); }).map(function(x) {
+                            return <option key={x.id} value={x.id}>{x.name} ({x.entity_tier})</option>;
+                          })}
+                        </select>
+                      </div>
+                      <div>
+                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Parent Entity</div>
+                        <select defaultValue={c.parent_entity_id || ''} onChange={async function(e) {
+                          var newParent = e.target.value || null;
+                          try {
+                            var { supabase: sb } = await import('./supabaseClient');
+                            await sb.from('tenants').update({ parent_entity_id: newParent }).eq('id', c.id);
+                            c.parent_entity_id = newParent;
+                          } catch (err) { console.error('Parent update error:', err); }
+                        }} style={inputStyleTM}>
+                          <option value="">— None (root) —</option>
+                          {liveTenants.filter(function(x) { return x.id !== c.id && ['super_admin','master_agent','agent','csp'].includes(x.entity_tier); }).map(function(x) {
+                            return <option key={x.id} value={x.id}>{x.name} ({x.entity_tier})</option>;
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* MSP toggle — only for Agent / Master Agent tenants */}
+                    {(c.entity_tier === 'agent' || c.entity_tier === 'master_agent') && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16, background: "rgba(0,230,118,0.04)", border: "1px solid rgba(0,230,118,0.15)", borderRadius: 10, padding: 14 }}>
+                        <div>
+                          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                            <input type="checkbox" defaultChecked={c.letter_of_agency || false} onChange={async function(e) {
+                              var val = e.target.checked;
+                              try {
+                                var { supabase: sb } = await import('./supabaseClient');
+                                await sb.from('tenants').update({ letter_of_agency: val }).eq('id', c.id);
+                                c.letter_of_agency = val;
+                                if (!val && c.msp_enabled) {
+                                  await sb.from('tenants').update({ msp_enabled: false }).eq('id', c.id);
+                                  c.msp_enabled = false;
+                                }
+                              } catch (err) { console.error('LOA update error:', err); }
+                            }} style={{ accentColor: '#00E676' }} />
+                            <div>
+                              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>Letter of Agency on file</div>
+                              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Required before enabling MSP access</div>
+                            </div>
+                          </label>
+                        </div>
+                        <div>
+                          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: c.letter_of_agency ? "pointer" : "not-allowed", opacity: c.letter_of_agency ? 1 : 0.4 }}>
+                            <input type="checkbox" defaultChecked={c.msp_enabled || false} disabled={!c.letter_of_agency} onChange={async function(e) {
+                              var val = e.target.checked;
+                              if (val && !c.letter_of_agency) { e.preventDefault(); alert('Letter of Agency must be on file first.'); return; }
+                              try {
+                                var { supabase: sb } = await import('./supabaseClient');
+                                await sb.from('tenants').update({ msp_enabled: val }).eq('id', c.id);
+                                c.msp_enabled = val;
+                              } catch (err) { console.error('MSP toggle error:', err); }
+                            }} style={{ accentColor: '#00E676' }} />
+                            <div>
+                              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>MSP Access</div>
+                              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Full drill-down into their assigned CSP/tenant portals</div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    )}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
@@ -1435,6 +1541,8 @@ function AppInner() {
     if (isAuthenticated && profile && view === "login") {
       if (profile.role === "superadmin") {
         setView("sp");
+      } else if (profile.entity_tier === "master_agent" && profile.tenant_id) {
+        setView("master_agent_" + profile.tenant_id);
       } else if (isCSP && profile.tenant_id) {
         setView("csp_" + profile.tenant_id);
       } else if (profile.tenant_type === "agent" && profile.tenant_id) {
@@ -1502,6 +1610,7 @@ function AppInner() {
 var spNavBase = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "tenants", label: "Tenant Management", icon: "🏢" },
+    { id: "hierarchy", label: "Hierarchy", icon: "🌳" },
     { id: "pipeline", label: "Pipeline", icon: "📈" },
   { id: "import", label: "Import Leads", icon: "📥" },
   { id: "sequences", label: "Sequence Roster", icon: "📋" },
@@ -1601,6 +1710,9 @@ var spNavBase = [
   if (drillDownTenant) {
     // Check tenant type — show appropriate portal
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
+    if (drillDownTenantData && drillDownTenantData.entity_tier === 'master_agent') {
+      return <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
+    }
     if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
       return <CSPPortal cspTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
     }
@@ -1878,6 +1990,12 @@ var spNavBase = [
     return <CSPPortal cspTenantId={cspTenantId} onLogout={handleLogout} profile={profile} />;
   }
 
+  // Master Agent Portal — hierarchy rollup view (checked before agent_ since it also starts with 'agent_')
+  if (view.startsWith("master_agent_")) {
+    const maTenantId = view.replace("master_agent_", "");
+    return <MasterAgentPortal masterAgentTenantId={maTenantId} onLogout={handleLogout} profile={profile} />;
+  }
+
   // Agent Portal — referral partner view
   if (view.startsWith("agent_")) {
     const agentTenantId = view.replace("agent_", "");
@@ -1974,6 +2092,7 @@ var spNavBase = [
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
+        {spPage === "hierarchy" && <HierarchyView C={C} />}
         {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} />}
         {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
         {spPage === "sequences" && <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}

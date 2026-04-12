@@ -45,10 +45,10 @@ export function AuthProvider({ children }) {
             try {
               const { data: tenantData } = await supabase
                 .from('tenants')
-                .select('tenant_type')
+                .select('tenant_type, entity_tier')
                 .eq('id', memberData.tenant_id)
                 .maybeSingle();
-              if (tenantData) profileData.tenant_type = tenantData.tenant_type;
+              if (tenantData) { profileData.tenant_type = tenantData.tenant_type; profileData.entity_tier = tenantData.entity_tier; }
             } catch (ttErr) {}
             setProfile(profileData);
             return profileData;
@@ -64,15 +64,15 @@ export function AuthProvider({ children }) {
         setProfile({ id: userId, role: 'user' });
         return null;
       }
-      // Enrich profile with tenant_type (CSP detection)
-      if (data && data.tenant_id && !data.tenant_type) {
+      // Enrich profile with tenant_type + entity_tier
+      if (data && data.tenant_id && (!data.tenant_type || !data.entity_tier)) {
         try {
           const { data: tenantData } = await supabase
             .from('tenants')
-            .select('tenant_type')
+            .select('tenant_type, entity_tier')
             .eq('id', data.tenant_id)
             .maybeSingle();
-          if (tenantData) data.tenant_type = tenantData.tenant_type;
+          if (tenantData) { data.tenant_type = tenantData.tenant_type; data.entity_tier = tenantData.entity_tier; }
         } catch (ttErr) {}
       }
       setProfile(data);
@@ -202,13 +202,17 @@ export function AuthProvider({ children }) {
   const isSuperAdmin = profile?.role === 'superadmin';
   const isCSP = profile?.tenant_type === 'csp';
   const cspTenantId = isCSP ? profile?.tenant_id : null;
+  const entityTier = profile?.entity_tier || null;
+  const isMasterAgent = entityTier === 'master_agent';
+  const isAgent = profile?.tenant_type === 'agent' && !isMasterAgent;
 
   return (
     <AuthContext.Provider value={{
       user, session, profile, loading,
       demoMode, toggleDemoMode,
       signIn, signUp, signOut, resetPassword, updatePassword,
-      authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId, passwordRecovery,
+      authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId,
+      entityTier, isMasterAgent, isAgent, passwordRecovery,
     }}>
       {children}
     </AuthContext.Provider>
