@@ -24,6 +24,8 @@ import LeadScan from './LeadScan';
 import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
 import Registration from './Registration';
+import TCRRegistration from './TCRRegistration';
+import TCRQueue from './TCRQueue';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
@@ -1254,6 +1256,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "sms-registration", label: "SMS Registration", icon: "📋" },
     { id: "branding", label: "Branding", icon: "🎨" },
   ];
 
@@ -1348,6 +1351,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
         )}
+        {page === "sms-registration" && <TCRRegistration tenantId={tenantId} C={C} />}
         {page === "branding" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
@@ -1355,7 +1359,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
           </div>
         )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && (
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "sms-registration" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -1516,7 +1520,7 @@ var spNavBase = [
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
   var spNavItems = isSuperAdmin
-    ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6))
+    ? [].concat(spNavBase.slice(0, 6), [{ id: "blog", label: "Blog Manager", icon: "📝" }], spNavBase.slice(6), [{ id: "tcr-queue", label: "TCR Queue", icon: "📋" }])
     : spNavBase;
 
   const hostname = window.location.hostname;
@@ -1985,6 +1989,7 @@ var spNavBase = [
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

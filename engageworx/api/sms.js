@@ -258,6 +258,22 @@ module.exports = async function handler(req, res) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken  = process.env.TWILIO_AUTH_TOKEN;
     if (!accountSid || !authToken) return res.status(500).json({ error: 'Twilio credentials not configured' });
+
+    // TCR gate: tenant must have sms_enabled=true to send
+    if (tenant_id) {
+      try {
+        const supabaseGate = getSupabase();
+        const gateRes = await supabaseGate.from('tenants').select('sms_enabled, tcr_status').eq('id', tenant_id).single();
+        if (gateRes.data && gateRes.data.sms_enabled !== true) {
+          return res.status(403).json({
+            error: 'SMS not enabled for this tenant. Complete A2P 10DLC registration first.',
+            tcr_status: gateRes.data.tcr_status || 'not_started',
+            code: 'SMS_NOT_ENABLED',
+          });
+        }
+      } catch (gateErr) { console.log('[SMS Gate] Check failed, blocking:', gateErr.message); return res.status(403).json({ error: 'SMS gate check failed', code: 'SMS_GATE_ERROR' }); }
+    }
+
     if (tenant_id) {
       try {
         const supabaseUsage = getSupabase();
