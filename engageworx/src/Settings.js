@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import WelcomeEmailSettings from './WelcomeEmailSettings';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -915,6 +916,12 @@ return (<div>
                 {["email", "push", "sms"].map(ch => (<div key={ch} style={{ textAlign: "center" }} onClick={() => toggleNotif(n.id, ch)}><Toggle enabled={n[ch]} /></div>))}
               </div>
             ))}
+          </div>
+
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 6px" }}>✉️ Welcome Email</h2>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>AI-personalised welcome email sent to new tenants on signup.</p>
+            <WelcomeEmailSettings C={C} tenantId={resolvedTenantId} />
           </div>
         </div>
       )}
