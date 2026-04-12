@@ -25,7 +25,6 @@ import Settings from './Settings';
 import LeadScan from './LeadScan';
 import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
-import Registration from './Registration';
 import TCRRegistration from './TCRRegistration';
 import TCRQueue from './TCRQueue';
 import LandingPage from './components/LandingPage';
@@ -1448,7 +1447,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />}
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} />}
         {page === "sequences" && <SequenceBuilder C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "sequenceroster" && <SequenceRoster C={C} currentTenantId={tenantId} demoMode={false} />}
@@ -2106,7 +2104,6 @@ var spNavBase = [
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
-        {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
