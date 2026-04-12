@@ -1455,7 +1455,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
-          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "api", "webhooks", "security"]} />
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
         )}
         {page === "sms-registration" && <TCRRegistration tenantId={tenantId} C={C} />}
         {page === "branding" && (
@@ -1624,7 +1624,7 @@ var spNavBase = [
   { id: "lead-scan", label: "Lead Scan", icon: "📲" },
   { id: "demo", label: "Demo Mode", icon: "🎯" },
     { id: "analytics", label: "Global Analytics", icon: "📊" },
-    { id: "api", label: "API & Integrations", icon: "🔌" },
+    { id: "api", label: "APIs & Integrations", icon: "🔌" },
     { id: "registration", label: "Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
@@ -2106,10 +2106,10 @@ var spNavBase = [
         {spPage === "lead-scan" && <LeadScan C={C} demoMode={demoMode} />}
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "registration" && <Registration C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
-        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} demoMode={demoMode} />

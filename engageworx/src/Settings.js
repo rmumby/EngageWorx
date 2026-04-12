@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
-import WelcomeEmailSettings from './WelcomeEmailSettings';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -600,7 +599,7 @@ return (<div>
 </div>);
   };
 
-  const pageTitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Billing" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "API & Integrations" : "Settings";
+  const pageTitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Billing" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "APIs & Integrations" : "Settings";
   const pageSubtitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Plans, usage, invoices and top-ups" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "Integrations, API keys and webhook configuration" : "Integrations, API keys, channels, billing & team management";
 
   return (
@@ -612,16 +611,18 @@ return (<div>
 
       <div style={{ display: "flex", gap: 2, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
         {[
-          { id: "integrations", label: "Integrations", icon: "🔌" },
-          { id: "api", label: "API Keys", icon: "🔑" },
-          { id: "webhooks", label: "Webhooks", icon: "🔗" },
+          // Settings-grouped tabs (in display order)
           { id: "channels", label: "Channels", icon: "📡" },
           { id: "billing", label: "Billing", icon: "💳" },
           { id: "team", label: "Team", icon: "👥" },
           { id: "notifications", label: "Notifications", icon: "🔔" },
           { id: "security", label: "Security", icon: "🔒" },
           { id: "alerts", label: "SP Alerts", icon: "🚨" },
-{ id: "modules", label: "Modules", icon: "🧩" },
+          { id: "modules", label: "Modules", icon: "🧩" },
+          // APIs & Integrations group
+          { id: "integrations", label: "Integrations", icon: "🔌" },
+          { id: "api", label: "API Keys", icon: "🔑" },
+          { id: "webhooks", label: "Webhooks", icon: "🔗" },
         ].filter(t => !allowedTabs || allowedTabs.includes(t.id)).map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{t.icon} {t.label}</button>
         ))}
@@ -985,9 +986,6 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "welcome-email" && (
-        <WelcomeEmailSettings C={C} tenantId={resolvedTenantId} />
-      )}
       {activeTab === "modules" && (
   <div>
     <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
