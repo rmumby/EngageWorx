@@ -7,6 +7,8 @@ export default function TCRQueue({ C }) {
   var [loading, setLoading] = useState(true);
   var [selected, setSelected] = useState(null);
   var [submitting, setSubmitting] = useState(false);
+  var [checking, setChecking] = useState(false);
+  var [polling, setPolling] = useState(false);
   var [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(function() { loadSubmissions(); }, []);
@@ -41,6 +43,46 @@ export default function TCRQueue({ C }) {
     setSubmitting(false);
   }
 
+  async function handleCheckStatus(submissionId) {
+    setChecking(true);
+    try {
+      var resp = await fetch('/api/tcr?action=check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: submissionId }),
+      });
+      var data = await resp.json();
+      if (data.error) {
+        alert('Check failed: ' + data.error);
+      } else {
+        var msg = 'Brand status: ' + (data.brand_status || 'unknown');
+        if (data.brand_score) msg += '\nBrand score: ' + data.brand_score;
+        if (data.failure_reason) msg += '\nFailure: ' + data.failure_reason;
+        if (data.changed) msg += '\n\n✓ Status updated to: ' + data.new_status;
+        else msg += '\n\n(No status change)';
+        alert(msg);
+        if (data.changed) { setSelected(null); loadSubmissions(); }
+      }
+    } catch (e) { alert('Check error: ' + e.message); }
+    setChecking(false);
+  }
+
+  async function handlePollAll() {
+    if (!window.confirm('Poll Twilio for all pending submissions? This can take a moment.')) return;
+    setPolling(true);
+    try {
+      var resp = await fetch('/api/tcr?action=poll-pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      var data = await resp.json();
+      alert('Polled ' + (data.checked || 0) + ' submission(s). ' + (data.changed || 0) + ' status change(s).');
+      loadSubmissions();
+    } catch (e) { alert('Poll error: ' + e.message); }
+    setPolling(false);
+  }
+
   var filtered = submissions.filter(function(s) {
     if (filterStatus === 'all') return true;
     return s.status === filterStatus;
@@ -70,7 +112,12 @@ export default function TCRQueue({ C }) {
           <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>📋 TCR Queue</h1>
           <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>Pending A2P 10DLC registrations awaiting SP admin review + TCR submission</p>
         </div>
-        <button onClick={loadSubmissions} style={btnSec}>🔄 Refresh</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={handlePollAll} disabled={polling} style={Object.assign({}, btnSec, { opacity: polling ? 0.6 : 1 })}>
+            {polling ? '⏳ Polling...' : '📡 Poll Twilio Now'}
+          </button>
+          <button onClick={loadSubmissions} style={btnSec}>🔄 Refresh</button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -243,6 +290,11 @@ export default function TCRQueue({ C }) {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid ' + colors.border, paddingTop: 16 }}>
               <button onClick={function() { setSelected(null); }} style={btnSec}>Close</button>
+              {selected.tcr_brand_id && ['submitted','brand_pending','campaign_pending'].includes(selected.status) && (
+                <button onClick={function() { handleCheckStatus(selected.id); }} disabled={checking} style={Object.assign({}, btnSec, { opacity: checking ? 0.6 : 1 })}>
+                  {checking ? '⏳ Checking...' : '📡 Check Status'}
+                </button>
+              )}
               {(selected.status === 'pending_review' || selected.status === 'rejected') && (
                 <button onClick={function() { handleSubmitToTCR(selected.id); }} disabled={submitting} style={Object.assign({}, btnPrimary, { opacity: submitting ? 0.6 : 1 })}>
                   {submitting ? 'Submitting...' : '🚀 Submit to Twilio TCR'}

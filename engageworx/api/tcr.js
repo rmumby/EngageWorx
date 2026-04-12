@@ -304,5 +304,149 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── CHECK-STATUS: poll Twilio for one submission's brand/campaign status ─
+  if (action === 'check-status' || (action === 'poll-pending' && req.method === 'POST')) {
+    var accountSidPoll = process.env.TWILIO_ACCOUNT_SID;
+    var authTokenPoll = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSidPoll || !authTokenPoll) return res.status(500).json({ error: 'Twilio credentials not configured' });
+    var authPoll = Buffer.from(accountSidPoll + ':' + authTokenPoll).toString('base64');
+
+    async function applyStatusUpdate(sub, brandStatus, failureReason, brandScore) {
+      var isApproved = brandStatus && ['APPROVED','APPROVED_PENDING','VERIFIED'].includes(String(brandStatus).toUpperCase());
+      var isRejected = brandStatus && ['FAILED','REJECTED'].includes(String(brandStatus).toUpperCase());
+      if (!isApproved && !isRejected) return { changed: false, status: sub.status };
+
+      var sgMail;
+      try { sgMail = require('@sendgrid/mail'); sgMail.setApiKey(process.env.SENDGRID_API_KEY); } catch(e) {}
+
+      if (isApproved && sub.status !== 'completed') {
+        await supabase.from('tcr_submissions').update({
+          status: 'completed', brand_score: brandScore || null, updated_at: new Date().toISOString(),
+        }).eq('id', sub.id);
+        await supabase.from('tenants').update({
+          sms_enabled: true, tcr_status: 'active', updated_at: new Date().toISOString(),
+        }).eq('id', sub.tenant_id);
+
+        if (sgMail) {
+          try {
+            await sgMail.send({
+              to: 'rob@engwx.com',
+              from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+              subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
+              html: '<h3>TCR Registration Approved (via polling)</h3>' +
+                '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
+                '<p><b>Brand SID:</b> ' + sub.tcr_brand_id + '</p>' +
+                '<p><b>Trust Score:</b> ' + (brandScore || 'N/A') + '</p>' +
+                '<p>SMS sending enabled.</p>',
+            });
+          } catch (e) {}
+          if (sub.contact_email) {
+            try {
+              await sgMail.send({
+                to: sub.contact_email,
+                from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                subject: 'Your SMS registration is approved!',
+                html: '<h3>Great news!</h3><p>Your A2P 10DLC registration has been approved by the carriers. SMS sending is now enabled on your account.</p><p><a href="https://portal.engwx.com">Log in to start sending →</a></p>',
+              });
+            } catch (e) {}
+          }
+        }
+        return { changed: true, status: 'completed' };
+      }
+
+      if (isRejected && sub.status !== 'rejected') {
+        var aiSuggestion = '';
+        try {
+          aiSuggestion = await callClaude(
+            'You are a TCR compliance expert. A 10DLC campaign registration was rejected. Explain the rejection reason in plain English and suggest specific fixes. Be concise (3-4 sentences).',
+            'Rejection reason: ' + (failureReason || 'Unknown') + '\n\nSubmission details:\nUse case: ' + (sub.use_case || '') + '\nDescription: ' + (sub.use_case_description || '') + '\nSample messages: ' + JSON.stringify(sub.sample_messages || []),
+            600
+          );
+        } catch (e) {}
+
+        await supabase.from('tcr_submissions').update({
+          status: 'rejected',
+          rejection_reason: (failureReason || 'Unknown') + (aiSuggestion ? '\n\nSuggested fix: ' + aiSuggestion : ''),
+          updated_at: new Date().toISOString(),
+        }).eq('id', sub.id);
+        await supabase.from('tenants').update({
+          tcr_status: 'rejected', updated_at: new Date().toISOString(),
+        }).eq('id', sub.tenant_id);
+
+        if (sgMail) {
+          try {
+            await sgMail.send({
+              to: 'rob@engwx.com',
+              from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+              subject: 'TCR Rejected: ' + (sub.legal_name || 'Tenant'),
+              html: '<h3>TCR Registration Rejected (via polling)</h3>' +
+                '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
+                '<p><b>Reason:</b> ' + (failureReason || 'Unknown') + '</p>' +
+                '<p><b>AI Suggestion:</b> ' + aiSuggestion + '</p>',
+            });
+          } catch (e) {}
+          if (sub.contact_email) {
+            try {
+              await sgMail.send({
+                to: sub.contact_email,
+                from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                subject: 'Action needed: SMS registration update',
+                html: '<h3>Registration Update</h3><p>Your A2P 10DLC registration needs attention. Our team is reviewing and will reach out with next steps.</p>',
+              });
+            } catch (e) {}
+          }
+        }
+        return { changed: true, status: 'rejected' };
+      }
+
+      return { changed: false, status: sub.status };
+    }
+
+    async function checkOne(sub) {
+      if (!sub.tcr_brand_id) return { id: sub.id, skipped: true, reason: 'no_brand_id' };
+      try {
+        var brandRes = await fetch('https://messaging.twilio.com/v1/a2p/BrandRegistrations/' + sub.tcr_brand_id, {
+          headers: { 'Authorization': 'Basic ' + authPoll },
+        });
+        var brandData = await brandRes.json();
+        if (!brandRes.ok) return { id: sub.id, error: brandData.message || 'Twilio brand fetch failed', twilio_status: brandRes.status };
+        var applied = await applyStatusUpdate(sub, brandData.status, brandData.failure_reason, brandData.brand_score);
+        return {
+          id: sub.id,
+          brand_status: brandData.status,
+          brand_score: brandData.brand_score,
+          failure_reason: brandData.failure_reason,
+          changed: applied.changed,
+          new_status: applied.status,
+        };
+      } catch (err) {
+        return { id: sub.id, error: err.message };
+      }
+    }
+
+    if (action === 'check-status') {
+      var checkId = body.submission_id;
+      if (!checkId) return res.status(400).json({ error: 'submission_id required' });
+      var subRes = await supabase.from('tcr_submissions').select('*').eq('id', checkId).single();
+      if (!subRes.data) return res.status(404).json({ error: 'Submission not found' });
+      var result = await checkOne(subRes.data);
+      return res.status(200).json(result);
+    }
+
+    // poll-pending: iterate all in-flight submissions
+    var pendingRes = await supabase.from('tcr_submissions').select('*')
+      .in('status', ['submitted', 'brand_pending', 'campaign_pending'])
+      .not('tcr_brand_id', 'is', null);
+    var pending = pendingRes.data || [];
+    var results = [];
+    for (var p of pending) {
+      var r = await checkOne(p);
+      results.push(r);
+    }
+    var changed = results.filter(function(r) { return r.changed; }).length;
+    console.log('[TCR Poll] Checked', results.length, 'submissions,', changed, 'status changes');
+    return res.status(200).json({ success: true, checked: results.length, changed: changed, results: results });
+  }
+
   return res.status(400).json({ error: 'Unknown action: ' + action });
 };
