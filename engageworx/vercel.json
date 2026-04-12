@@ -33,7 +33,7 @@
     },
     {
       "path": "/api/cron-tcr-poll",
-      "schedule": "0 13 * * *"
+      "schedule": "0 */2 * * *"
     }
   ],
   "rewrites": [
