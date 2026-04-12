@@ -138,6 +138,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [showImport, setShowImport] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
+  const [emailWarning, setEmailWarning] = useState(null);
+  const [dedupRunning, setDedupRunning] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
@@ -162,10 +164,63 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     fetchContacts();
   }, [demoMode, currentTenantId, viewLevel]);
 
+  // Debounced email duplicate check on add form
+  useEffect(() => {
+    if (demoMode || !currentTenantId || !newContact.email || !showAddContact) { setEmailWarning(null); return; }
+    var em = newContact.email.trim().toLowerCase();
+    if (em.length < 5 || !em.includes('@')) { setEmailWarning(null); return; }
+    var timer = setTimeout(function() {
+      fetch('/api/contacts?action=check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: currentTenantId, email: em }),
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.exists && data.matches && data.matches.length > 0) {
+            var m = data.matches[0];
+            setEmailWarning('⚠️ Contact already exists: ' + (m.first_name || '') + ' ' + (m.last_name || '') + ' (' + m.email + ')');
+          } else { setEmailWarning(null); }
+        })
+        .catch(function() {});
+    }, 400);
+    return function() { clearTimeout(timer); };
+  }, [newContact.email, showAddContact, currentTenantId, demoMode]);
+
+  const handleDedup = async () => {
+    if (demoMode || !currentTenantId) return;
+    if (!window.confirm('Find & merge duplicate contacts (same email, same tenant)?\n\nOldest record is kept. Missing fields are filled in from duplicates. Conversations and messages are redirected to the kept contact. This cannot be undone.')) return;
+    setDedupRunning(true);
+    try {
+      const resp = await fetch('/api/contacts?action=dedup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: currentTenantId }),
+      });
+      const data = await resp.json();
+      if (data.success) {
+        alert('Merged ' + data.groups_merged + ' duplicate group(s), deleted ' + data.contacts_deleted + ' record(s), redirected ' + (data.fk_rows_redirected || 0) + ' related row(s).');
+        // Refresh contacts
+        try {
+          let query = supabase.from('contacts').select('*').order('created_at', { ascending: false });
+          if (currentTenantId) query = query.eq('tenant_id', currentTenantId);
+          const { data: refreshed } = await query;
+          setContacts((refreshed || []).map(mapContact));
+        } catch (re) {}
+      } else {
+        alert('Dedup failed: ' + (data.error || 'Unknown'));
+      }
+    } catch (e) { alert('Dedup error: ' + e.message); }
+    setDedupRunning(false);
+  };
+
   const handleAddContact = async () => {
     if (!newContact.firstName || !newContact.phone) {
       alert('First name and phone are required.');
       return;
+    }
+    if (emailWarning) {
+      if (!window.confirm(emailWarning + '\n\nSave anyway? (A duplicate will be created and can be merged later.)')) return;
     }
     if (demoMode) {
       setContacts(prev => [{
@@ -431,6 +486,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
+          {!demoMode && <button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
           <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
         </div>
       </div>
@@ -568,7 +624,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       placeholder="555 123 4567" style={{ ...inputStyle, flex: 1 }} />
                   </div>
                 </div>
-                <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Email</label><input value={newContact.email} onChange={e => setNewContact(p => ({ ...p, email: e.target.value }))} placeholder="john@example.com" style={inputStyle} /></div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Email</label>
+                  <input value={newContact.email} onChange={e => setNewContact(p => ({ ...p, email: e.target.value }))} placeholder="john@example.com" style={Object.assign({}, inputStyle, emailWarning ? { borderColor: '#FFD600' } : {})} />
+                  {emailWarning && <div style={{ color: '#FFD600', fontSize: 11, marginTop: 4 }}>{emailWarning}</div>}
+                </div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Company</label><input value={newContact.company} onChange={e => setNewContact(p => ({ ...p, company: e.target.value }))} placeholder="Acme Inc" style={inputStyle} /></div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Channel</label><select value={newContact.channel_preference} onChange={e => setNewContact(p => ({ ...p, channel_preference: e.target.value }))} style={inputStyle}>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select></div>
               </div>
