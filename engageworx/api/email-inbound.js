@@ -11,6 +11,29 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 var EW_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 
+async function pauseSequencesForContact(email) {
+  try {
+    if (!email) return;
+    var leads = await supabase.from('leads').select('id').eq('email', email).limit(10);
+    if (!leads.data || leads.data.length === 0) return;
+    var ids = leads.data.map(function(l) { return l.id; });
+    var r = await supabase.from('lead_sequences').update({ status: 'paused' }).in('lead_id', ids).eq('status', 'active');
+    if (r.count > 0) console.log('[Sequences] Paused', r.count, 'enrollment(s) — email reply from', email);
+  } catch (e) { console.error('[Sequences] Pause error:', e.message); }
+}
+
+async function notifyInboundSendGrid(contactName, channel, preview) {
+  try {
+    if (!process.env.SENDGRID_API_KEY) return;
+    await sgMail.send({
+      to: 'rob@engwx.com',
+      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+      subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
+      html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
+    });
+  } catch (e) { console.error('[Notify] SendGrid error:', e.message); }
+}
+
 var EW_EMAIL_SYSTEM_PROMPT = 'You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle inbound sales and support enquiries sent to hello@engwx.com.\n\nABOUT ENGAGEWORX:\n- Platform: SMS, WhatsApp, Email, Voice, and RCS — all in one portal at portal.engwx.com\n- Pricing: Starter $99/mo, Growth $249/mo, Pro $499/mo. Enterprise: custom.\n- No platform fee — a key differentiator vs competitors like GoHighLevel\n- Built-in AI chatbot powered by Claude (Anthropic)\n- Multi-tenant white-label architecture — businesses use it directly OR resell it (CSP model)\n- Live at portal.engwx.com\n\nYOUR ROLE:\n- Reply professionally and helpfully to inbound enquiries\n- Answer questions about pricing, features, channels, and setup\n- Encourage prospects to sign up at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min\n- For partnership or reseller enquiries, highlight the white-label CSP model\n- Keep replies concise — 3-5 sentences or short paragraphs, never a wall of text\n- Never mention Twilio, SendGrid, Supabase, Vercel, or any infrastructure provider\n- Sign off as: EngageWorx Team\n\nTONE: Warm, confident, direct. Short sentences. No buzzwords.';
 
 async function getAIReply(message) {
@@ -229,6 +252,12 @@ module.exports = async function handler(req, res) {
       console.error('🔴 Live Inbox error:', inboxErr.message, inboxErr.stack);
     }
 
+    // ── Halt sequences on reply ───────────────────────────────────────────────
+    pauseSequencesForContact(senderEmail).catch(function() {});
+
+    // ── Notify admin via SendGrid ────────────────────────────────────────────
+    notifyInboundSendGrid(senderName || senderEmail, 'Email', emailBody).catch(function() {});
+
     // ── Pipeline lead ─────────────────────────────────────────────────────────
     try {
       var existingLeadResult = await supabase.from('leads').select('id').eq('email', senderEmail).limit(1);
@@ -245,6 +274,7 @@ module.exports = async function handler(req, res) {
           notes: 'Auto-created from inbound email. Subject: ' + subject,
           last_action_at: new Date().toISOString().split('T')[0],
           last_activity_at: new Date().toISOString(),
+          tenant_id: EW_TENANT_ID,
         });
         console.log('Lead auto-created for:', senderEmail);
       } else {

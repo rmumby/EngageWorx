@@ -12,6 +12,47 @@ function getSupabase() {
   );
 }
 
+// ─── HALT SEQUENCES ON REPLY ──────────────────────────────────────────────
+async function pauseSequencesForContact(supabase, contactPhone, contactEmail, tenantId) {
+  try {
+    var leadIds = [];
+    if (contactPhone) {
+      var byPhone = await supabase.from('leads').select('id').eq('phone', contactPhone).limit(10);
+      if (byPhone.data) leadIds = leadIds.concat(byPhone.data.map(function(l) { return l.id; }));
+    }
+    if (contactEmail) {
+      var byEmail = await supabase.from('leads').select('id').eq('email', contactEmail).limit(10);
+      if (byEmail.data) leadIds = leadIds.concat(byEmail.data.map(function(l) { return l.id; }));
+    }
+    if (leadIds.length === 0) return 0;
+    var unique = [...new Set(leadIds)];
+    var result = await supabase.from('lead_sequences').update({ status: 'paused' }).in('lead_id', unique).eq('status', 'active');
+    var paused = result.count || 0;
+    if (paused > 0) console.log('[Sequences] Paused', paused, 'enrollment(s) — contact replied');
+    return paused;
+  } catch (e) { console.error('[Sequences] Pause error:', e.message); return 0; }
+}
+
+// ─── INBOUND NOTIFICATION (SENDGRID) ─────────────────────────────────────
+async function notifyInboundSendGrid(contactName, channel, messagePreview) {
+  try {
+    var sgKey = process.env.SENDGRID_API_KEY;
+    if (!sgKey) return;
+    var sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(sgKey);
+    await sgMail.send({
+      to: 'rob@engwx.com',
+      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+      subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
+      html: '<h3>Inbound ' + channel + ' Message</h3>' +
+        '<p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p>' +
+        '<p><b>Channel:</b> ' + channel + '</p>' +
+        '<p><b>Preview:</b> ' + (messagePreview || '').substring(0, 300) + '</p>' +
+        '<p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
+    });
+  } catch (e) { console.error('[Notify] SendGrid error:', e.message); }
+}
+
 // ─── FORM BODY PARSER ─────────────────────────────────────────────────────
 async function parseFormBody(req) {
   return new Promise((resolve, reject) => {
@@ -365,7 +406,15 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       } else if (messageType === 'help') {
         await sendSMS(From, 'EngageWorx: For help visit engwx.com or call +1 (786) 982-7800. Reply STOP to unsubscribe. Msg & data rates may apply.', To);
       }
-      // 8. Notify inbound (non-blocking)
+      // 8. Halt sequences on reply (non-blocking)
+      var contactEmail = null;
+      try { var ce = await supabase.from('contacts').select('email').eq('id', contactId).single(); contactEmail = ce.data?.email; } catch(e) {}
+      pauseSequencesForContact(supabase, From, contactEmail, tenantId).catch(function() {});
+
+      // 9. Notify inbound (non-blocking)
+      var contactDisplayName = From;
+      try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactDisplayName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || From; } catch(e) {}
+      notifyInboundSendGrid(contactDisplayName, channel.toUpperCase(), Body).catch(function() {});
       notifyInbound(supabase, tenantId, From, Body).catch(function(err) {
         console.error('[Notify] Error:', err.message);
       });

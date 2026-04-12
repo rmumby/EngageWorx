@@ -22,7 +22,7 @@
   "crons": [
     {
       "path": "/api/cron-sequences",
-      "schedule": "0 14 * * *"
+      "schedule": "0 */4 * * *"
     },
     {
       "path": "/api/cron-signup-recovery",

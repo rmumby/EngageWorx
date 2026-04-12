@@ -13,6 +13,33 @@ function getSupabase() {
   );
 }
 
+async function pauseSequencesForContact(supabase, phone, email) {
+  try {
+    var leadIds = [];
+    if (phone) { var p = await supabase.from('leads').select('id').eq('phone', phone).limit(10); if (p.data) leadIds = leadIds.concat(p.data.map(function(l) { return l.id; })); }
+    if (email) { var e = await supabase.from('leads').select('id').eq('email', email).limit(10); if (e.data) leadIds = leadIds.concat(e.data.map(function(l) { return l.id; })); }
+    if (leadIds.length === 0) return;
+    var unique = [...new Set(leadIds)];
+    var r = await supabase.from('lead_sequences').update({ status: 'paused' }).in('lead_id', unique).eq('status', 'active');
+    if (r.count > 0) console.log('[Sequences] Paused', r.count, 'enrollment(s) — WhatsApp reply');
+  } catch (err) { console.error('[Sequences] Pause error:', err.message); }
+}
+
+async function notifyInboundSendGrid(contactName, channel, preview) {
+  try {
+    var sgKey = process.env.SENDGRID_API_KEY;
+    if (!sgKey) return;
+    var sgMail = require('@sendgrid/mail');
+    sgMail.setApiKey(sgKey);
+    await sgMail.send({
+      to: 'rob@engwx.com',
+      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+      subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
+      html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
+    });
+  } catch (err) { console.error('[Notify] SendGrid error:', err.message); }
+}
+
 async function sendWhatsApp(to, body, from, mediaUrl) {
   var accountSid = process.env.TWILIO_ACCOUNT_SID;
   var authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -409,22 +436,15 @@ module.exports = async function handler(req, res) {
             }
           }
 
-          // Notify admin
-          try {
-            var RESEND_KEY = process.env.RESEND_API_KEY;
-            if (RESEND_KEY) {
-              await fetch('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  from: 'EngageWorx <hello@engwx.com>',
-                  to: ['rob@engwx.com'],
-                  subject: 'WhatsApp from ' + cleanFrom,
-                  html: '<h3>Inbound WhatsApp</h3><p><b>From:</b> ' + cleanFrom + '</p><p><b>Message:</b> ' + messageBody + '</p>',
-                }),
-              });
-            }
-          } catch (ne) {}
+          // Halt sequences on reply
+          var contactEmail = null;
+          try { var ce = await supabase.from('contacts').select('email').eq('id', contactId).single(); contactEmail = ce.data?.email; } catch(e) {}
+          pauseSequencesForContact(supabase, cleanFrom, contactEmail).catch(function() {});
+
+          // Notify admin via SendGrid
+          var contactName = cleanFrom;
+          try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || cleanFrom; } catch(e) {}
+          notifyInboundSendGrid(contactName, 'WhatsApp', messageBody).catch(function() {});
         }
       } catch (whErr) {
         console.error('[WhatsApp] Webhook error:', whErr.message);
