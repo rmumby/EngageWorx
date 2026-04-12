@@ -173,7 +173,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     if (demoMode || viewLevel !== 'sp') return;
     supabase.from('tenants')
       .select('id, name, status')
-      .eq('status', 'active')
+      .in('status', ['active', 'trial'])
       .order('name')
       .then(function(r) { if (r.data) setSpTenantList(r.data); });
   }, [demoMode, viewLevel]);
