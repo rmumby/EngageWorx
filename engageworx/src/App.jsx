@@ -1627,7 +1627,6 @@ var spNavBase = [
     { id: "demo",             label: "Demo Mode",          icon: "🎯" },
     { id: "blog",             label: "Blog Manager",       icon: "📝", superadminOnly: true },
     { id: "api",              label: "APIs & Integrations", icon: "🔌" },
-    { id: "registration",     label: "Registration",       icon: "📋" },
     { id: "settings",         label: "Settings",           icon: "⚙️" },
   ];
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
