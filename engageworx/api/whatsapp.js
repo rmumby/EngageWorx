@@ -25,6 +25,53 @@ async function pauseSequencesForContact(supabase, phone, email) {
   } catch (err) { console.error('[Sequences] Pause error:', err.message); }
 }
 
+async function reactivateArchivedLeadsForContact(supabase, phone, email) {
+  try {
+    var matches = [];
+    if (phone) { var p = await supabase.from('leads').select('id, name, tenant_id, notes').eq('phone', phone).eq('stage', 'dormant'); if (p.data) matches = matches.concat(p.data); }
+    if (email) { var e = await supabase.from('leads').select('id, name, tenant_id, notes').eq('email', email).eq('stage', 'dormant'); if (e.data) matches = matches.concat(e.data); }
+    if (matches.length === 0) return 0;
+    var seen = {}; var unique = matches.filter(function(l) { if (seen[l.id]) return false; seen[l.id] = true; return true; });
+
+    var now = new Date().toISOString();
+    var today = new Date().toISOString().split('T')[0];
+    for (var l of unique) {
+      var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound WhatsApp received]';
+      await supabase.from('leads').update({ stage: 'inquiry', urgency: 'Hot', last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
+      try {
+        var seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%general outreach%').limit(1);
+        if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%general outreach%').limit(1);
+        if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%').limit(1);
+        if (seq.data && seq.data.length > 0) {
+          var sid = seq.data[0].id;
+          var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sid).eq('step_number', 1).single();
+          var start = new Date(); if (fs.data && fs.data.delay_days > 0) start.setDate(start.getDate() + fs.data.delay_days);
+          await supabase.from('lead_sequences').upsert({
+            tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid,
+            current_step: 0, status: 'active', enrolled_at: now, next_step_at: start.toISOString(),
+          }, { onConflict: 'lead_id,sequence_id' });
+        }
+      } catch (seqErr) {}
+    }
+
+    try {
+      var sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      await sgMail.send({
+        to: 'rob@engwx.com',
+        from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        subject: '🔄 Lead Reactivated: ' + unique.map(function(x) { return x.name; }).join(', '),
+        html: '<h3>Archived Lead Reactivated (WhatsApp inbound)</h3>' +
+          unique.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
+          '<p>Stage moved from <code>dormant</code> → <code>inquiry</code>. Enrolled in New Lead — General Outreach sequence.</p>',
+      });
+    } catch (nErr) {}
+
+    console.log('[Reactivate] Reactivated', unique.length, 'archived lead(s) via WhatsApp reply');
+    return unique.length;
+  } catch (err) { console.error('[Reactivate] Error:', err.message); return 0; }
+}
+
 async function notifyInboundSendGrid(contactName, channel, preview) {
   try {
     var sgKey = process.env.SENDGRID_API_KEY;
@@ -440,6 +487,9 @@ module.exports = async function handler(req, res) {
           var contactEmail = null;
           try { var ce = await supabase.from('contacts').select('email').eq('id', contactId).single(); contactEmail = ce.data?.email; } catch(e) {}
           pauseSequencesForContact(supabase, cleanFrom, contactEmail).catch(function() {});
+
+          // Reactivate archived leads on reply
+          reactivateArchivedLeadsForContact(supabase, cleanFrom, contactEmail).catch(function() {});
 
           // Notify admin via SendGrid
           var contactName = cleanFrom;

@@ -22,6 +22,52 @@ async function pauseSequencesForContact(email) {
   } catch (e) { console.error('[Sequences] Pause error:', e.message); }
 }
 
+async function reactivateArchivedLeadsForContact(email) {
+  try {
+    if (!email) return 0;
+    var r = await supabase.from('leads').select('id, name, tenant_id, notes').eq('email', email).eq('stage', 'dormant');
+    var matches = r.data || [];
+    if (matches.length === 0) return 0;
+
+    var now = new Date().toISOString();
+    var today = new Date().toISOString().split('T')[0];
+    for (var l of matches) {
+      var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound email received]';
+      await supabase.from('leads').update({ stage: 'inquiry', urgency: 'Hot', last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
+      try {
+        var seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%general outreach%').limit(1);
+        if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%general outreach%').limit(1);
+        if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%').limit(1);
+        if (seq.data && seq.data.length > 0) {
+          var sid = seq.data[0].id;
+          var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sid).eq('step_number', 1).single();
+          var start = new Date(); if (fs.data && fs.data.delay_days > 0) start.setDate(start.getDate() + fs.data.delay_days);
+          await supabase.from('lead_sequences').upsert({
+            tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid,
+            current_step: 0, status: 'active', enrolled_at: now, next_step_at: start.toISOString(),
+          }, { onConflict: 'lead_id,sequence_id' });
+        }
+      } catch (seqErr) {}
+    }
+
+    try {
+      if (process.env.SENDGRID_API_KEY) {
+        await sgMail.send({
+          to: 'rob@engwx.com',
+          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+          subject: '🔄 Lead Reactivated: ' + matches.map(function(x) { return x.name; }).join(', '),
+          html: '<h3>Archived Lead Reactivated (email inbound)</h3>' +
+            matches.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
+            '<p>Stage moved from <code>dormant</code> → <code>inquiry</code>. Enrolled in New Lead — General Outreach sequence.</p>',
+        });
+      }
+    } catch (nErr) {}
+
+    console.log('[Reactivate] Reactivated', matches.length, 'archived lead(s) via email reply from', email);
+    return matches.length;
+  } catch (err) { console.error('[Reactivate] Error:', err.message); return 0; }
+}
+
 async function notifyInboundSendGrid(contactName, channel, preview) {
   try {
     if (!process.env.SENDGRID_API_KEY) return;
@@ -254,6 +300,9 @@ module.exports = async function handler(req, res) {
 
     // ── Halt sequences on reply ───────────────────────────────────────────────
     pauseSequencesForContact(senderEmail).catch(function() {});
+
+    // ── Reactivate archived leads on reply ────────────────────────────────────
+    reactivateArchivedLeadsForContact(senderEmail).catch(function() {});
 
     // ── Notify admin via SendGrid ────────────────────────────────────────────
     notifyInboundSendGrid(senderName || senderEmail, 'Email', emailBody).catch(function() {});

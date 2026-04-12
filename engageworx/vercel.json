@@ -20,6 +20,9 @@
     },
     "api/cron-tcr-poll.js": {
       "maxDuration": 60
+    },
+    "api/cron-archive-leads.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -34,6 +37,10 @@
     {
       "path": "/api/cron-tcr-poll",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron-archive-leads",
+      "schedule": "0 15 * * *"
     }
   ],
   "rewrites": [
