@@ -585,6 +585,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   const [liveFlash, setLiveFlash]   = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [hideDormant, setHideDormant] = useState(true);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchLeads = async () => {
     if (demoMode) { setLeads(DEMO_LEADS); setLastSync(new Date()); setLoading(false); return; }
@@ -640,6 +641,9 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   });
 
   const filtered = sortedLeads.filter(l => {
+    // Archived tab shows ONLY archived leads; default view hides them
+    if (showArchived) { if (!l.archived) return false; }
+    else if (l.archived) return false;
     if (hideDormant && l.stage === "dormant") return false;
     if (filterType !== "All" && l.type !== filterType) return false;
     if (search) {
@@ -694,6 +698,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
             <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>Actions</button>
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
+            <button onClick={()=>setShowArchived(!showArchived)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid "+(showArchived?"rgba(245,158,11,0.4)":"rgba(255,255,255,0.08)"),background:showArchived?"rgba(245,158,11,0.15)":"rgba(255,255,255,0.03)",color:showArchived?"#fbbf24":"#475569" }}>{showArchived?"← Active Pipeline":"📦 Archived ("+leads.filter(l=>l.archived).length+")"}</button>
             <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
             <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency</button>
             <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage</button>

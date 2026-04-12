@@ -38,11 +38,11 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
   try {
     var matches = [];
     if (phone) {
-      var p = await supabase.from('leads').select('id, name, tenant_id, notes').eq('phone', phone).eq('stage', 'dormant');
+      var p = await supabase.from('leads').select('id, name, tenant_id, notes, reactivated_at').eq('phone', phone).eq('archived', true);
       if (p.data) matches = matches.concat(p.data);
     }
     if (email) {
-      var e = await supabase.from('leads').select('id, name, tenant_id, notes').eq('email', email).eq('stage', 'dormant');
+      var e = await supabase.from('leads').select('id, name, tenant_id, notes, reactivated_at').eq('email', email).eq('archived', true);
       if (e.data) matches = matches.concat(e.data);
     }
     if (matches.length === 0) return 0;
@@ -50,10 +50,18 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
 
     var now = new Date().toISOString();
     var today = new Date().toISOString().split('T')[0];
+    var dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    var notifyEligible = [];
+
     for (var l of unique) {
+      // Dedup: skip the notification if this lead was reactivated in the last 24h
+      var recentlyReactivated = l.reactivated_at && new Date(l.reactivated_at).getTime() > dayAgo;
+      if (!recentlyReactivated) notifyEligible.push(l);
+
       var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound message received]';
       await supabase.from('leads').update({
-        stage: 'inquiry', urgency: 'Hot', last_activity_at: now, last_action_at: today, notes: reactNote,
+        archived: false, stage: 'inquiry', urgency: 'Hot', reactivated_at: now,
+        last_activity_at: now, last_action_at: today, notes: reactNote,
       }).eq('id', l.id);
 
       // Enroll in New Lead — General Outreach sequence
@@ -73,19 +81,23 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
       } catch (seqErr) { console.warn('[Reactivate] Seq enrol error:', seqErr.message); }
     }
 
-    // Notify rob@engwx.com
-    try {
-      var sgMail = require('@sendgrid/mail');
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-      await sgMail.send({
-        to: 'rob@engwx.com',
-        from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-        subject: '🔄 Lead Reactivated: ' + unique.map(function(x) { return x.name; }).join(', '),
-        html: '<h3>Archived Lead Reactivated (SMS inbound)</h3>' +
-          unique.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
-          '<p>Stage moved from <code>dormant</code> → <code>inquiry</code>. Enrolled in New Lead — General Outreach sequence.</p>',
-      });
-    } catch (nErr) {}
+    // Notify rob@engwx.com — only for leads not already reactivated in the last 24h
+    if (notifyEligible.length > 0) {
+      try {
+        var sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        await sgMail.send({
+          to: 'rob@engwx.com',
+          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+          subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
+          html: '<h3>Archived Lead Reactivated (SMS inbound)</h3>' +
+            notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
+            '<p>Flipped <code>archived=true</code> → <code>false</code>. Enrolled in New Lead — General Outreach sequence.</p>',
+        });
+      } catch (nErr) {}
+    } else {
+      console.log('[Reactivate] Skipped notification — all', unique.length, 'lead(s) reactivated within the last 24h');
+    }
 
     console.log('[Reactivate] Reactivated', unique.length, 'archived lead(s) via SMS reply');
     return unique.length;

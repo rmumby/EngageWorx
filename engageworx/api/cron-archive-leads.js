@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     // 1. Find completed enrollments older than 3 days
     var enrolRes = await supabase
       .from('lead_sequences')
-      .select('id, lead_id, completed_at, tenant_id, leads(id, stage, email, phone, name, last_activity_at, notes)')
+      .select('id, lead_id, completed_at, tenant_id, leads(id, stage, archived, email, phone, name, last_activity_at, notes)')
       .eq('status', 'completed')
       .not('completed_at', 'is', null)
       .lt('completed_at', cutoff);
@@ -40,7 +40,7 @@ module.exports = async function handler(req, res) {
       checked++;
       var lead = e.leads;
       if (!lead) continue;
-      if (lead.stage === 'dormant') continue;
+      if (lead.archived === true) continue;
 
       // 2. Check for any inbound messages from this contact after sequence completion
       var hasReply = false;
@@ -70,12 +70,12 @@ module.exports = async function handler(req, res) {
 
       if (hasReply) { skippedReplied++; continue; }
 
-      // 3. Archive — set stage to dormant
+      // 3. Archive — set archived=true (leaves stage intact so pipeline history is preserved)
       try {
         var existingNotes = lead.notes || '';
         var archiveNote = '\n[Auto-archived ' + new Date().toISOString().split('T')[0] + ': no response 3 days after sequence completion]';
         await supabase.from('leads').update({
-          stage: 'dormant',
+          archived: true,
           last_activity_at: new Date().toISOString(),
           notes: existingNotes + archiveNote,
         }).eq('id', lead.id);
