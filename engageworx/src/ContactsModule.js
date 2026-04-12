@@ -436,8 +436,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       if (data.success) {
         alert(
           'Dedup complete.\n' +
-          '• Groups merged: ' + (data.groups_merged || 0) + '\n' +
+          '• Email groups merged: ' + (data.groups_merged || 0) + '\n' +
           '• Contacts deleted: ' + (data.contacts_deleted || 0) + '\n' +
+          '• Lead groups merged: ' + (data.leads_merged || 0) + '\n' +
+          '• Leads deleted: ' + (data.leads_deleted || 0) + '\n' +
           '• Related rows redirected: ' + (data.fk_rows_redirected || 0) +
           (data.tenants_processed ? '\n• Tenants processed: ' + data.tenants_processed : '') +
           (data.errors && data.errors.length > 0 ? '\n\n⚠️ ' + data.errors.length + ' error(s) — see console.' : '')
