@@ -143,6 +143,18 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   // SP admin tenant filter — only used when viewLevel === 'sp'
   const [spTenantFilter, setSpTenantFilter] = useState('all');
   const [spTenantList, setSpTenantList] = useState([]);
+  // CSV import state
+  const [importRows, setImportRows] = useState(null);         // parsed rows (array of objects)
+  const [importDedupAction, setImportDedupAction] = useState('skip'); // 'skip' | 'allow'
+  const [importTagsInput, setImportTagsInput] = useState('');
+  const [importSequenceId, setImportSequenceId] = useState('');
+  const [importCampaignId, setImportCampaignId] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
+  const [importResult, setImportResult] = useState(null);
+  const [availableSequences, setAvailableSequences] = useState([]);
+  const [availableCampaigns, setAvailableCampaigns] = useState([]);
+  const [existingEmailSet, setExistingEmailSet] = useState(new Set());
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
@@ -200,6 +212,198 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     }, 400);
     return function() { clearTimeout(timer); };
   }, [newContact.email, showAddContact, currentTenantId, demoMode]);
+
+  // ── CSV IMPORT HELPERS ────────────────────────────────────────────────
+  function parseCSVLine(line) {
+    var out = []; var cur = ''; var inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var ch = line[i];
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; continue; }
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === ',' && !inQ) { out.push(cur); cur = ''; continue; }
+      cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+  function parseCSVText(text) {
+    var lines = text.split(/\r?\n/).filter(function(l) { return l.trim().length > 0; });
+    if (lines.length < 2) return { headers: [], rows: [] };
+    var headers = parseCSVLine(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
+    var rows = [];
+    for (var i = 1; i < lines.length; i++) {
+      var values = parseCSVLine(lines[i]);
+      var row = {};
+      headers.forEach(function(h, idx) { row[h] = (values[idx] || '').trim(); });
+      rows.push(row);
+    }
+    return { headers: headers, rows: rows };
+  }
+
+  function scopedTenantId() {
+    return currentTenantId || (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all' ? spTenantFilter : null);
+  }
+
+  function handleDownloadTemplate() {
+    var csv =
+      'first_name,last_name,email,phone,company,tags\n' +
+      'John,Doe,john.doe@example.com,+15551234567,Acme Corp,VIP;Sales\n' +
+      'Jane,Smith,jane.smith@example.com,+15559876543,Retail Inc,Returning';
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'contacts_template.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleFileSelected(file) {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) { alert('Please select a .csv file.'); return; }
+
+    var tid = scopedTenantId();
+    if (!tid) {
+      alert('No tenant context. ' + (viewLevel === 'sp' ? 'Select a specific tenant from the filter dropdown before importing.' : 'Open a tenant portal to import.'));
+      return;
+    }
+
+    // Load existing emails for dedup preview (one shot, cached in Set)
+    try {
+      var existing = await supabase.from('contacts').select('email').eq('tenant_id', tid).not('email', 'is', null);
+      var set = new Set();
+      (existing.data || []).forEach(function(c) { if (c.email) set.add(c.email.toLowerCase().trim()); });
+      setExistingEmailSet(set);
+    } catch (e) { console.warn('[Import] Existing email fetch failed:', e.message); setExistingEmailSet(new Set()); }
+
+    // Load available sequences + campaigns for the assignment dropdowns
+    try {
+      var sres = await supabase.from('sequences').select('id, name').eq('tenant_id', tid).eq('status', 'active').order('name');
+      setAvailableSequences(sres.data || []);
+    } catch (e) { setAvailableSequences([]); }
+    try {
+      var cres = await supabase.from('campaigns').select('id, name').eq('tenant_id', tid).order('created_at', { ascending: false }).limit(50);
+      setAvailableCampaigns(cres.data || []);
+    } catch (e) { setAvailableCampaigns([]); }
+
+    // Parse the file
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var parsed = parseCSVText(String(ev.target.result || ''));
+      if (parsed.rows.length === 0) { alert('No rows found in CSV. Make sure the first line is headers and there is at least one data row.'); return; }
+      setImportRows(parsed.rows);
+      setImportResult(null);
+      setImportProgress({ current: 0, total: parsed.rows.length });
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleRunImport() {
+    if (!importRows || importRows.length === 0) return;
+    var tid = scopedTenantId();
+    if (!tid) { alert('No tenant context.'); return; }
+
+    setImporting(true);
+    setImportResult(null);
+    var imported = 0, skipped = 0, failed = 0;
+    var importedIds = [];
+    var importedEmails = [];
+
+    var extraTags = importTagsInput.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    var campaignName = availableCampaigns.find(function(c) { return c.id === importCampaignId; });
+    var campaignTag = campaignName ? ('campaign:' + campaignName.name) : null;
+
+    for (var i = 0; i < importRows.length; i++) {
+      var r = importRows[i];
+      setImportProgress({ current: i, total: importRows.length });
+
+      try {
+        var em = (r.email || '').trim().toLowerCase();
+        if (em && existingEmailSet.has(em) && importDedupAction === 'skip') { skipped++; continue; }
+
+        var rowTags = (r.tags || '').split(/[,;]/).map(function(t) { return t.trim(); }).filter(Boolean);
+        var tags = [].concat(rowTags, extraTags, campaignTag ? [campaignTag] : []);
+
+        var contact = {
+          tenant_id: tid,
+          first_name: r.first_name || r.firstname || null,
+          last_name: r.last_name || r.lastname || null,
+          email: em || null,
+          phone: r.phone || null,
+          company: r.company || null,
+          tags: tags.length > 0 ? tags : null,
+          status: 'active',
+          source: 'csv_import',
+        };
+
+        var ins = await supabase.from('contacts').insert(contact).select('id, email').single();
+        if (ins.error) { failed++; console.warn('[Import] Insert error row', i, ins.error.message); continue; }
+        imported++;
+        if (ins.data) { importedIds.push(ins.data.id); if (ins.data.email) importedEmails.push(ins.data.email); }
+        if (em) existingEmailSet.add(em);
+      } catch (e) { failed++; console.warn('[Import] Row error', i, e.message); }
+    }
+    setImportProgress({ current: importRows.length, total: importRows.length });
+
+    // Optional: enrol imported contacts in a sequence
+    // Flow: for each email, find-or-create a lead, then upsert lead_sequences.
+    var enrolled = 0;
+    if (importSequenceId && importedEmails.length > 0) {
+      try {
+        var seqStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', importSequenceId).eq('step_number', 1).single();
+        var delayDays = (seqStep.data && seqStep.data.delay_days) ? seqStep.data.delay_days : 0;
+        var startIso = new Date(Date.now() + delayDays * 24 * 60 * 60 * 1000).toISOString();
+
+        for (var j = 0; j < importedEmails.length; j++) {
+          var email = importedEmails[j];
+          try {
+            // Find matching lead
+            var leadRes = await supabase.from('leads').select('id').eq('tenant_id', tid).eq('email', email).limit(1);
+            var leadId = (leadRes.data && leadRes.data[0]) ? leadRes.data[0].id : null;
+            if (!leadId) {
+              // Create a minimal lead from the contact
+              var contactRow = importRows.find(function(x) { return (x.email || '').trim().toLowerCase() === email; }) || {};
+              var name = ((contactRow.first_name || '') + ' ' + (contactRow.last_name || '')).trim() || email;
+              var newLead = await supabase.from('leads').insert({
+                tenant_id: tid, name: name, email: email, company: contactRow.company || '',
+                type: 'Direct Business', urgency: 'Warm', stage: 'inquiry', source: 'csv_import',
+                last_action_at: new Date().toISOString().split('T')[0], last_activity_at: new Date().toISOString(),
+              }).select('id').single();
+              if (newLead.data) leadId = newLead.data.id;
+            }
+            if (leadId) {
+              await supabase.from('lead_sequences').upsert({
+                tenant_id: tid, lead_id: leadId, sequence_id: importSequenceId,
+                current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: startIso,
+              }, { onConflict: 'lead_id,sequence_id' });
+              enrolled++;
+            }
+          } catch (le) { console.warn('[Import] Enrol error for', email, le.message); }
+        }
+      } catch (seqErr) { console.warn('[Import] Sequence lookup error:', seqErr.message); }
+    }
+
+    setImporting(false);
+    setImportResult({ imported: imported, skipped: skipped, failed: failed, enrolled: enrolled, campaign_tagged: campaignTag ? imported : 0 });
+
+    // Refresh contacts list
+    try {
+      let refreshQ = supabase.from('contacts').select('*').order('created_at', { ascending: false });
+      if (currentTenantId) refreshQ = refreshQ.eq('tenant_id', currentTenantId);
+      else if (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all') refreshQ = refreshQ.eq('tenant_id', spTenantFilter);
+      const { data: refreshed } = await refreshQ;
+      setContacts((refreshed || []).map(mapContact));
+    } catch (re) {}
+  }
+
+  function handleCloseImport() {
+    setShowImport(false);
+    setImportRows(null);
+    setImportResult(null);
+    setImportProgress({ current: 0, total: 0 });
+    setImportTagsInput('');
+    setImportSequenceId('');
+    setImportCampaignId('');
+    setImportDedupAction('skip');
+  }
 
   const handleDedup = async () => {
     console.log('[Dedup] handleDedup clicked. demoMode=', demoMode, 'currentTenantId=', currentTenantId, 'viewLevel=', viewLevel);
@@ -532,7 +736,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               {spTenantList.map(function(t) { return <option key={t.id} value={t.id}>{t.name}</option>; })}
             </select>
           )}
-          <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import</button>
+          <button onClick={handleDownloadTemplate} style={btnSecondary}>📄 Download Template</button>
+          <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import CSV</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
           {!demoMode && <button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
           <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
@@ -565,21 +770,145 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
       {activeTab === "contacts" && (
         <>
-          {showImport && (
+          {showImport && (() => {
+            var dupeCount = importRows ? importRows.filter(function(r) { var em = (r.email || '').trim().toLowerCase(); return em && existingEmailSet.has(em); }).length : 0;
+            var newCount = importRows ? importRows.length - dupeCount : 0;
+            var canImport = importRows && importRows.length > 0 && !importing && !importResult;
+            return (
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Import Contacts</h3>
-                <button onClick={() => setShowImport(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Import Contacts from CSV</h3>
+                <button onClick={handleCloseImport} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
-              <div style={{ padding: "40px", textAlign: "center", border: "2px dashed rgba(255,255,255,0.1)", borderRadius: 12, marginBottom: 16 }}>
-                <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
-                <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Drop your CSV file here</div>
-                <div style={{ color: C.muted, fontSize: 13, marginBottom: 12 }}>or click to browse</div>
-                <button style={{ ...btnPrimary, fontSize: 12 }}>Choose File</button>
-              </div>
-              <div style={{ color: C.muted, fontSize: 12 }}>Required columns: <span style={{ color: "#fff" }}>first_name, last_name, email</span> · Optional: phone, company</div>
+
+              {/* Step 1: File picker */}
+              {!importRows && !importResult && (
+                <div>
+                  <label style={{ display: "block", padding: 40, textAlign: "center", border: "2px dashed rgba(255,255,255,0.15)", borderRadius: 12, marginBottom: 12, cursor: "pointer" }}>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
+                    <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Choose a CSV file</div>
+                    <div style={{ color: C.muted, fontSize: 13 }}>Expected columns: first_name, last_name, email, phone, company, tags</div>
+                    <input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={function(e) { handleFileSelected(e.target.files[0]); }} />
+                  </label>
+                  <div style={{ color: C.muted, fontSize: 12 }}>💡 Not sure of the format? Click <b>📄 Download Template</b> in the header above.</div>
+                </div>
+              )}
+
+              {/* Step 2: Preview + assignment */}
+              {importRows && !importing && !importResult && (
+                <div>
+                  <div style={{ display: "flex", gap: 16, marginBottom: 16, padding: "12px 16px", background: "rgba(0,201,255,0.05)", borderRadius: 10, border: "1px solid rgba(0,201,255,0.2)" }}>
+                    <div><div style={{ color: C.muted, fontSize: 11 }}>TOTAL ROWS</div><div style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>{importRows.length}</div></div>
+                    <div><div style={{ color: C.muted, fontSize: 11 }}>NEW</div><div style={{ color: "#00E676", fontSize: 20, fontWeight: 800 }}>{newCount}</div></div>
+                    <div><div style={{ color: C.muted, fontSize: 11 }}>DUPLICATES</div><div style={{ color: "#FFD600", fontSize: 20, fontWeight: 800 }}>{dupeCount}</div></div>
+                    <div style={{ flex: 1 }} />
+                    <div>
+                      <div style={{ color: C.muted, fontSize: 11, marginBottom: 4 }}>DUPLICATE ACTION</div>
+                      <select value={importDedupAction} onChange={function(e) { setImportDedupAction(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12 }}>
+                        <option value="skip">Skip duplicates</option>
+                        <option value="allow">Allow duplicates</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Preview table — first 5 rows */}
+                  <div style={{ overflowX: "auto", marginBottom: 16 }}>
+                    <div style={{ color: C.muted, fontSize: 11, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Preview (first 5 rows)</div>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+                          {["first_name","last_name","email","phone","company","tags"].map(function(h) { return <th key={h} style={{ padding: "6px 10px", textAlign: "left", color: C.muted, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, border: "1px solid rgba(255,255,255,0.06)" }}>{h}</th>; })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importRows.slice(0, 5).map(function(r, idx) {
+                          var em = (r.email || '').trim().toLowerCase();
+                          var isDupe = em && existingEmailSet.has(em);
+                          return (
+                            <tr key={idx} style={{ background: isDupe ? "rgba(255,214,0,0.06)" : "transparent" }}>
+                              {["first_name","last_name","email","phone","company","tags"].map(function(h) { return <td key={h} style={{ padding: "6px 10px", color: "#fff", border: "1px solid rgba(255,255,255,0.06)" }}>{r[h] || '—'}{h === 'email' && isDupe ? <span style={{ color: '#FFD600', marginLeft: 6, fontSize: 10 }}>⚠ exists</span> : null}</td>; })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Assignment panel */}
+                  <div style={{ padding: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, marginBottom: 16 }}>
+                    <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Optional: Tag & Assign</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                      <div>
+                        <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Add Tags (comma separated)</label>
+                        <input value={importTagsInput} onChange={function(e) { setImportTagsInput(e.target.value); }} placeholder="e.g. Trade Show, Q2 Leads" style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Enrol in Sequence</label>
+                        <select value={importSequenceId} onChange={function(e) { setImportSequenceId(e.target.value); }} style={inputStyle}>
+                          <option value="">— None —</option>
+                          {availableSequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Tag for Campaign</label>
+                        <select value={importCampaignId} onChange={function(e) { setImportCampaignId(e.target.value); }} style={inputStyle}>
+                          <option value="">— None —</option>
+                          {availableCampaigns.map(function(c) { return <option key={c.id} value={c.id}>{c.name}</option>; })}
+                        </select>
+                      </div>
+                    </div>
+                    {importCampaignId && <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>Campaign assignment adds a tag <code>campaign:&lt;name&gt;</code> to each contact — filter by that tag inside the campaign's audience.</div>}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                    <button onClick={function() { setImportRows(null); }} style={btnSecondary}>← Choose Different File</button>
+                    <button onClick={handleRunImport} disabled={!canImport} style={{ ...btnPrimary, opacity: canImport ? 1 : 0.5, cursor: canImport ? 'pointer' : 'not-allowed' }}>🚀 Import {newCount} Contact{newCount === 1 ? '' : 's'}</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Progress */}
+              {importing && (
+                <div style={{ padding: 24, textAlign: "center" }}>
+                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Importing… {importProgress.current} / {importProgress.total}</div>
+                  <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, height: 8, overflow: "hidden", marginBottom: 8 }}>
+                    <div style={{ width: (importProgress.total > 0 ? (100 * importProgress.current / importProgress.total) : 0) + '%', height: "100%", background: `linear-gradient(90deg, ${C.primary}, #00E676)`, transition: "width 0.2s" }} />
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 12 }}>Inserting rows and redirecting FK references. Don't close this tab.</div>
+                </div>
+              )}
+
+              {/* Step 4: Summary */}
+              {importResult && (
+                <div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
+                    <div style={{ background: "rgba(0,230,118,0.08)", border: "1px solid rgba(0,230,118,0.3)", borderRadius: 10, padding: 14, textAlign: "center" }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: "#00E676" }}>{importResult.imported}</div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>Imported</div>
+                    </div>
+                    <div style={{ background: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.3)", borderRadius: 10, padding: 14, textAlign: "center" }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: "#FFD600" }}>{importResult.skipped}</div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>Skipped (dupes)</div>
+                    </div>
+                    <div style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 10, padding: 14, textAlign: "center" }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: "#FF3B30" }}>{importResult.failed}</div>
+                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>Failed</div>
+                    </div>
+                  </div>
+                  {(importResult.enrolled > 0 || importResult.campaign_tagged > 0) && (
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>
+                      {importResult.enrolled > 0 && <span>✓ Enrolled {importResult.enrolled} in sequence · </span>}
+                      {importResult.campaign_tagged > 0 && <span>✓ Tagged {importResult.campaign_tagged} for campaign</span>}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                    <button onClick={handleCloseImport} style={btnPrimary}>Done</button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {showAddContact && (
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
