@@ -5,6 +5,7 @@ import ContactsModule from './ContactsModule';
 import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 import Settings from './Settings';
+import BrandingEditor from './BrandingEditor';
 import PipelineDashboard from './components/PipelineDashboard';
 
 function getCSPColors() {
@@ -215,6 +216,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
     { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
+    { id: 'branding',     label: 'Branding',            icon: '🎨', always: true },
     { id: 'settings',     label: 'Settings',            icon: '⚙️', always: true },
   ];
 
@@ -539,6 +541,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
+
+        {page === 'branding' && (
+          <div style={{ padding: '32px 36px', maxWidth: 900 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Edit your own portal branding, or drill into a tenant from Tenant Management to edit theirs.</p>
+            <BrandingEditor entityId={cspTenantId} actor={{ tenantId: cspTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
+          </div>
+        )}
 
         {page === 'settings' && (
   <Settings

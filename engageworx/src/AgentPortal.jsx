@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import BrandingEditor from './BrandingEditor';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 var MASTER_RATE = 0.20;
@@ -184,6 +185,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
     { id: 'referrals', label: 'My Referrals', icon: '🔗' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'resources', label: 'Resources', icon: '📚' },
+    { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -577,6 +579,15 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
                 <button onClick={copyLink} style={btnPrimary}>Copy</button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Branding */}
+        {page === 'branding' && (
+          <div style={{ maxWidth: 900 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your agent portal branding. To edit branding for tenants under you, ask SP admin to enable MSP Access.</p>
+            <BrandingEditor entityId={agentTenantId} actor={{ tenantId: agentTenantId, entityTier: 'agent', isSuperAdmin: false, mspEnabled: !!(agentInfo && agentInfo.msp_enabled), loaOnFile: !!(agentInfo && agentInfo.letter_of_agency) }} C={C} />
           </div>
         )}
 

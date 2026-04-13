@@ -27,6 +27,7 @@ import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
 import TCRRegistration from './TCRRegistration';
 import TCRQueue from './TCRQueue';
+import BrandingEditor from './BrandingEditor';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
@@ -989,6 +990,16 @@ setDemoCreating(false);
                         </div>
                       </div>
                     )}
+
+                    {/* Branding — SP admin can edit any tenant's branding inline */}
+                    <div style={{ marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12, fontWeight: 700 }}>🎨 Branding</div>
+                      <BrandingEditor
+                        entityId={c.id}
+                        actor={{ tenantId: null, entityTier: 'super_admin', isSuperAdmin: true, mspEnabled: true, loaOnFile: true }}
+                        C={C}
+                      />
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
@@ -1457,10 +1468,10 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         {page === "sms-registration" && <TCRRegistration tenantId={tenantId} C={C} />}
         {page === "branding" && (
-          <div style={{ padding: "32px 36px" }}>
+          <div style={{ padding: "32px 36px", maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
-            <TenantBrandSettings tenantId={tenantId} tenant={tenant} C={C} />
+            <BrandingEditor entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
           </div>
         )}
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "sms-registration" && (

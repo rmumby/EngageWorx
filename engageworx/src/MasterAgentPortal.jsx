@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import BrandingEditor from './BrandingEditor';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 
@@ -97,6 +98,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
     { id: 'agents', label: 'My Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
+    { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
@@ -313,6 +315,14 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {page === 'branding' && (
+          <div style={{ maxWidth: 900 }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your master agent portal branding. Editing sub-agent or tenant branding requires MSP Access (Letter of Agency).</p>
+            <BrandingEditor entityId={masterAgentTenantId} actor={{ tenantId: masterAgentTenantId, entityTier: 'master_agent', isSuperAdmin: false, mspEnabled: !!(info && info.msp_enabled), loaOnFile: !!(info && info.letter_of_agency) }} C={C} />
           </div>
         )}
 
