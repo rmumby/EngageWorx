@@ -23,6 +23,47 @@ async function pauseSequencesForContact(email) {
 }
 
 // ─── AI EMAIL INTELLIGENCE — match + analyze + action ────────────────────
+async function resolveTenantForSender(senderEmail) {
+  var sender = (senderEmail || '').toLowerCase().trim();
+  if (!sender) return null;
+  try {
+    var c = await supabase.from('contacts').select('tenant_id').ilike('email', sender).limit(1).maybeSingle();
+    if (c.data && c.data.tenant_id) return c.data.tenant_id;
+  } catch(e) {}
+  try {
+    var l = await supabase.from('leads').select('tenant_id').ilike('email', sender).limit(1).maybeSingle();
+    if (l.data && l.data.tenant_id) return l.data.tenant_id;
+  } catch(e) {}
+  try {
+    var domain = sender.split('@')[1] || '';
+    if (domain) {
+      var t = await supabase.from('tenants').select('id').or('custom_domain.ilike.%' + domain + '%,website_url.ilike.%' + domain + '%').limit(1).maybeSingle();
+      if (t.data) return t.data.id;
+    }
+  } catch(e) {}
+  return null;
+}
+
+async function checkSpam(tenantId, senderEmail, subject) {
+  if (!tenantId) return { spam: false };
+  try {
+    var t = await supabase.from('tenants').select('blocked_domains, blocked_keywords').eq('id', tenantId).maybeSingle();
+    var domains = (t.data && Array.isArray(t.data.blocked_domains)) ? t.data.blocked_domains : [];
+    var keywords = (t.data && Array.isArray(t.data.blocked_keywords)) ? t.data.blocked_keywords : [];
+    var s = (senderEmail || '').toLowerCase();
+    var subj = (subject || '').toLowerCase();
+    for (var i = 0; i < domains.length; i++) {
+      var d = String(domains[i] || '').toLowerCase().trim();
+      if (d && s.indexOf(d) !== -1) return { spam: true, matched: 'domain:' + d };
+    }
+    for (var j = 0; j < keywords.length; j++) {
+      var k = String(keywords[j] || '').toLowerCase().trim();
+      if (k && subj.indexOf(k) !== -1) return { spam: true, matched: 'keyword:' + k };
+    }
+  } catch (e) { console.warn('[Spam] check error:', e.message); }
+  return { spam: false };
+}
+
 async function analyzeAndActionEmail(ctx) {
   // ctx: { senderEmail, senderName, subject, body, conversationId }
   try {
@@ -364,6 +405,41 @@ module.exports = async function handler(req, res) {
     if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
 
     console.log('Processing email from:', senderEmail, 'subject:', subject);
+
+    // ── Per-tenant spam filter ────────────────────────────────────────────────
+    var spamTenantId = await resolveTenantForSender(senderEmail);
+    var spamCheck = await checkSpam(spamTenantId, senderEmail, subject);
+    if (spamCheck.spam) {
+      console.log('🚫 Spam detected:', spamCheck.matched, 'from:', senderEmail);
+      try {
+        var tid = spamTenantId;
+        var nameParts2 = (senderName || '').split(' ');
+        var firstName2 = nameParts2[0] || senderEmail.split('@')[0];
+        var lastName2 = nameParts2.slice(1).join(' ') || '';
+        var contactId2 = null;
+        var ec = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tid).limit(1);
+        if (ec.data && ec.data.length > 0) contactId2 = ec.data[0].id;
+        else {
+          var nc = await supabase.from('contacts').insert({ tenant_id: tid, first_name: firstName2, last_name: lastName2, email: senderEmail, status: 'spam' }).select().single();
+          contactId2 = nc.data ? nc.data.id : null;
+        }
+        var convId2 = null;
+        if (contactId2) {
+          var nconv = await supabase.from('conversations').insert({
+            tenant_id: tid, contact_id: contactId2, channel: 'email', status: 'spam',
+            subject: subject, last_message_at: new Date().toISOString(), unread_count: 0,
+          }).select().single();
+          convId2 = nconv.data ? nconv.data.id : null;
+          if (convId2) {
+            await supabase.from('messages').insert({
+              tenant_id: tid, conversation_id: convId2, contact_id: contactId2, channel: 'email',
+              direction: 'inbound', sender_type: 'contact', body: emailBody, status: 'spam',
+            });
+          }
+        }
+      } catch (spamErr) { console.warn('[Spam] log error:', spamErr.message); }
+      return res.status(200).json({ spam: true, matched: spamCheck.matched });
+    }
 
     // ── Generate AI reply ────────────────────────────────────────────────────
     var aiReply = null;

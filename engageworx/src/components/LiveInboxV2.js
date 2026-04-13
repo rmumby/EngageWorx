@@ -570,7 +570,7 @@ useEffect(() => {
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
     // "All" hides resolved conversations; "Resolved" shows only resolved
-    if (filterStatus === "all" && conv.status === "resolved") return false;
+    if (filterStatus === "all" && (conv.status === "resolved" || conv.status === "spam")) return false;
     if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
@@ -644,11 +644,12 @@ useEffect(() => {
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
-              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved").length },
+              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
               { id: "active", label: "Active", count: activeCount },
               { id: "waiting", label: "Waiting", count: waitingCount },
               { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
               { id: "resolved", label: "Resolved", count: conversations.filter(c => c.status === "resolved").length },
+              { id: "spam", label: "Spam", count: conversations.filter(c => c.status === "spam").length },
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
@@ -1061,6 +1062,26 @@ useEffect(() => {
                       if (supabase) supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
                         setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
                         setSelectedConv(null);
+                      });
+                    }
+                  }},
+                  { label: "Mark as Spam", icon: "🛡️", action: function() {
+                    var senderAddr = ((selectedConv.contact && selectedConv.contact.email) || '').toLowerCase().trim();
+                    var domain = senderAddr.split('@')[1] || '';
+                    var tId = selectedConv.tenant_id || currentTenantId;
+                    if (!window.confirm('Mark this conversation as spam' + (domain ? ' and block "' + domain + '" for future messages' : '') + '?')) return;
+                    if (!supabase) return;
+                    supabase.from('conversations').update({ status: 'spam' }).eq('id', selectedConv.id).then(function() {
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: 'spam' }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: 'spam' }) : c; }); });
+                    });
+                    if (domain && tId) {
+                      supabase.from('tenants').select('blocked_domains').eq('id', tId).maybeSingle().then(function(r) {
+                        var existing = (r.data && Array.isArray(r.data.blocked_domains)) ? r.data.blocked_domains : [];
+                        if (existing.indexOf(domain) === -1) {
+                          var next = existing.concat([domain]);
+                          supabase.from('tenants').update({ blocked_domains: next }).eq('id', tId);
+                        }
                       });
                     }
                   }},

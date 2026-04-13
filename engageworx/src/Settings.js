@@ -285,6 +285,12 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [digestTimezone, setDigestTimezone] = useState('America/New_York');
   const [digestScheduleSaving, setDigestScheduleSaving] = useState(false);
   const [digestScheduleSaved, setDigestScheduleSaved] = useState(false);
+  const [blockedDomains, setBlockedDomains] = useState([]);
+  const [blockedKeywords, setBlockedKeywords] = useState([]);
+  const [newBlockedDomain, setNewBlockedDomain] = useState('');
+  const [newBlockedKeyword, setNewBlockedKeyword] = useState('');
+  const [emailFilterSaving, setEmailFilterSaving] = useState(false);
+  const [emailFilterSaved, setEmailFilterSaved] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -550,6 +556,50 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   };
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
+
+  // Per-tenant email filtering (channels tab)
+  useEffect(() => {
+    if (activeTab !== 'channels' || demoMode || !resolvedTenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('blocked_domains, blocked_keywords').eq('id', resolvedTenantId).maybeSingle();
+        if (data) {
+          setBlockedDomains(Array.isArray(data.blocked_domains) ? data.blocked_domains : []);
+          setBlockedKeywords(Array.isArray(data.blocked_keywords) ? data.blocked_keywords : []);
+        }
+      } catch (e) {}
+    })();
+  }, [activeTab, demoMode, resolvedTenantId]);
+  const saveEmailFilters = async (nextDomains, nextKeywords) => {
+    if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
+    const domains = nextDomains || blockedDomains;
+    const keywords = nextKeywords || blockedKeywords;
+    setEmailFilterSaving(true);
+    try {
+      await supabase.from('tenants').update({ blocked_domains: domains, blocked_keywords: keywords }).eq('id', resolvedTenantId);
+      setBlockedDomains(domains);
+      setBlockedKeywords(keywords);
+      setEmailFilterSaved(true);
+      setTimeout(() => setEmailFilterSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setEmailFilterSaving(false);
+  };
+  const addBlockedDomain = () => {
+    const v = (newBlockedDomain || '').trim().toLowerCase();
+    if (!v || blockedDomains.includes(v)) { setNewBlockedDomain(''); return; }
+    const next = blockedDomains.concat([v]);
+    setNewBlockedDomain('');
+    saveEmailFilters(next, null);
+  };
+  const removeBlockedDomain = (d) => saveEmailFilters(blockedDomains.filter(x => x !== d), null);
+  const addBlockedKeyword = () => {
+    const v = (newBlockedKeyword || '').trim();
+    if (!v || blockedKeywords.includes(v)) { setNewBlockedKeyword(''); return; }
+    const next = blockedKeywords.concat([v]);
+    setNewBlockedKeyword('');
+    saveEmailFilters(null, next);
+  };
+  const removeBlockedKeyword = (k) => saveEmailFilters(null, blockedKeywords.filter(x => x !== k));
 
   // Per-tenant AI digest email + Calendly
   useEffect(() => {
@@ -924,6 +974,53 @@ return (<div>
                   </div>
                 );
               })}
+              <div style={Object.assign({}, card, { borderLeft: '4px solid #FF6B6B' })}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 22 }}>🛡️</span>
+                  <div>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Email Filtering</div>
+                    <div style={{ color: C.muted, fontSize: 11 }}>Automatically mark inbound email from these domains or with these subject keywords as spam.</div>
+                  </div>
+                  {emailFilterSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>✓ Saved</span>}
+                  {emailFilterSaving && <span style={{ color: C.muted, fontSize: 12, marginLeft: 'auto' }}>Saving…</span>}
+                </div>
+
+                <div style={{ marginTop: 16 }}>
+                  <label style={label}>Blocked domains / senders</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, minHeight: 32 }}>
+                    {blockedDomains.length === 0 && <span style={{ color: C.muted, fontSize: 12 }}>No domains blocked.</span>}
+                    {blockedDomains.map(d => (
+                      <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.3)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: '#FF6B6B', fontWeight: 600 }}>
+                        {d}
+                        <button onClick={() => removeBlockedDomain(d)} disabled={emailFilterSaving} style={{ background: 'none', border: 'none', color: '#FF6B6B', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input value={newBlockedDomain} onChange={e => setNewBlockedDomain(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addBlockedDomain(); } }} placeholder="e.g. linkedin.com or noreply@" style={Object.assign({}, inputStyle, { flex: 1 })} />
+                    <button onClick={addBlockedDomain} disabled={!newBlockedDomain.trim() || emailFilterSaving} style={Object.assign({}, btnSec, { padding: '8px 14px', fontSize: 12 })}>+ Add</button>
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Matches anywhere in the sender address (e.g. <code>linkedin.com</code> blocks jobs@linkedin.com; <code>noreply@</code> blocks any noreply@ address).</div>
+                </div>
+
+                <div style={{ marginTop: 18 }}>
+                  <label style={label}>Blocked subject keywords</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, minHeight: 32 }}>
+                    {blockedKeywords.length === 0 && <span style={{ color: C.muted, fontSize: 12 }}>No keywords blocked.</span>}
+                    {blockedKeywords.map(k => (
+                      <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.3)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: '#FFD600', fontWeight: 600 }}>
+                        {k}
+                        <button onClick={() => removeBlockedKeyword(k)} disabled={emailFilterSaving} style={{ background: 'none', border: 'none', color: '#FFD600', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input value={newBlockedKeyword} onChange={e => setNewBlockedKeyword(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addBlockedKeyword(); } }} placeholder="e.g. crypto, unsubscribe, winner" style={Object.assign({}, inputStyle, { flex: 1 })} />
+                    <button onClick={addBlockedKeyword} disabled={!newBlockedKeyword.trim() || emailFilterSaving} style={Object.assign({}, btnSec, { padding: '8px 14px', fontSize: 12 })}>+ Add</button>
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Case-insensitive match on the email subject. Any matching keyword marks the message as spam.</div>
+                </div>
+              </div>
             </div>
           )}
         </div>

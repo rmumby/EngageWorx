@@ -547,7 +547,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
     // "All" hides resolved conversations; "Resolved" shows only resolved
-    if (filterStatus === "all" && conv.status === "resolved") return false;
+    if (filterStatus === "all" && (conv.status === "resolved" || conv.status === "spam")) return false;
     if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
@@ -620,11 +620,12 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
-              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved").length },
+              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
               { id: "active", label: "Active", count: activeCount },
               { id: "waiting", label: "Waiting", count: waitingCount },
               { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
               { id: "resolved", label: "Resolved", count: conversations.filter(c => c.status === "resolved").length },
+              { id: "spam", label: "Spam", count: conversations.filter(c => c.status === "spam").length },
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
