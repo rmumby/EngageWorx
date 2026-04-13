@@ -18,6 +18,8 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [editDraft, setEditDraft] = useState('');
   var [sending, setSending] = useState(null);
   var [delayOpenFor, setDelayOpenFor] = useState(null);
+  var [customPickerFor, setCustomPickerFor] = useState(null);
+  var [customValue, setCustomValue] = useState('');
 
   useEffect(function() { load(); }, [currentTenantId]);
 
@@ -56,7 +58,14 @@ export default function EmailDigest({ C, currentTenantId }) {
       { id: '4h',   label: 'In 4 hours', ts: new Date(now + 4 * 3600000).toISOString() },
       { id: '8h',   label: 'In 8 hours', ts: new Date(now + 8 * 3600000).toISOString() },
       { id: 'tmr',  label: 'Tomorrow 9am', ts: tomorrow9.toISOString() },
+      { id: 'custom', label: '📅 Custom date/time…', ts: '__custom__' },
     ];
+  }
+
+  function defaultCustomValue() {
+    var d = new Date(Date.now() + 60 * 60000);
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
   }
 
   async function scheduleAction(a, ts) {
@@ -260,10 +269,33 @@ export default function EmailDigest({ C, currentTenantId }) {
                         <div style={{ position: 'relative' }}>
                           <button onClick={function() { setDelayOpenFor(delayOpenFor === a.id ? null : a.id); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: '8px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}>⏱️ Send in…</button>
                           {delayOpenFor === a.id && (
-                            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#0f172a', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: 4, zIndex: 50, minWidth: 150, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+                            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#0f172a', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: 4, zIndex: 50, minWidth: 200, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
                               {delayOptions().map(function(opt) {
-                                return <button key={opt.id} onClick={function() { scheduleAction(a, opt.ts); }} style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', padding: '8px 10px', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, textAlign: 'left', borderRadius: 6 }} onMouseEnter={function(e) { e.target.style.background = 'rgba(99,102,241,0.15)'; }} onMouseLeave={function(e) { e.target.style.background = 'transparent'; }}>{opt.label}</button>;
+                                return <button key={opt.id} onClick={function() {
+                                  if (opt.ts === '__custom__') {
+                                    setCustomPickerFor(a.id);
+                                    setCustomValue(defaultCustomValue());
+                                  } else {
+                                    scheduleAction(a, opt.ts);
+                                  }
+                                }} style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', padding: '8px 10px', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, textAlign: 'left', borderRadius: 6 }} onMouseEnter={function(e) { e.target.style.background = 'rgba(99,102,241,0.15)'; }} onMouseLeave={function(e) { e.target.style.background = 'transparent'; }}>{opt.label}</button>;
                               })}
+                              {customPickerFor === a.id && (
+                                <div style={{ borderTop: '1px solid rgba(99,102,241,0.25)', marginTop: 4, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  <input type="datetime-local" value={customValue} onChange={function(e) { setCustomValue(e.target.value); }} style={{ background: '#1e293b', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12, fontFamily: 'inherit' }} />
+                                  <div style={{ display: 'flex', gap: 6 }}>
+                                    <button onClick={function() {
+                                      if (!customValue) return;
+                                      var d = new Date(customValue);
+                                      if (isNaN(d.getTime())) { alert('Invalid date/time.'); return; }
+                                      if (d.getTime() <= Date.now()) { alert('Pick a future date/time.'); return; }
+                                      setCustomPickerFor(null);
+                                      scheduleAction(a, d.toISOString());
+                                    }} style={{ flex: 1, background: 'rgba(99,102,241,0.25)', border: '1px solid rgba(99,102,241,0.55)', borderRadius: 6, padding: '6px 10px', color: '#c7d2fe', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Confirm</button>
+                                    <button onClick={function() { setCustomPickerFor(null); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 10px', color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>Cancel</button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
