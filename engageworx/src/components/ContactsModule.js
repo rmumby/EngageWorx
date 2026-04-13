@@ -134,36 +134,84 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         const channelsSet = new Set();
         (convos || []).forEach(cv => { if (cv.channel) channelsSet.add(String(cv.channel).toLowerCase()); });
 
-        let messages = [];
+        // Union: messages linked by conversation_id OR directly by contact_id.
+        // The contact_id path catches messages that weren't written with a conversation_id.
+        const msgMap = {};
+        const pushMsgs = (rows) => { (rows || []).forEach(m => { if (m && m.id) msgMap[m.id] = m; }); };
         if (convoIds.length > 0) {
-          const { data: msgs } = await supabase.from('messages').select('id, body, channel, direction, sender_type, status, created_at, conversation_id').in('conversation_id', convoIds).order('created_at', { ascending: false }).limit(200);
-          messages = msgs || [];
-          messages.forEach(m => { if (m.channel) channelsSet.add(String(m.channel).toLowerCase()); });
+          const { data: msgsByConv } = await supabase.from('messages')
+            .select('id, body, channel, direction, sender_type, status, created_at, conversation_id, contact_id')
+            .in('conversation_id', convoIds)
+            .order('created_at', { ascending: false }).limit(500);
+          pushMsgs(msgsByConv);
         }
+        const { data: msgsByContact } = await supabase.from('messages')
+          .select('id, body, channel, direction, sender_type, status, created_at, conversation_id, contact_id')
+          .eq('contact_id', contactId)
+          .order('created_at', { ascending: false }).limit(500);
+        pushMsgs(msgsByContact);
+        const messages = Object.values(msgMap).sort((a, b) => {
+          const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return tb - ta;
+        });
+        messages.forEach(m => { if (m.channel) channelsSet.add(String(m.channel).toLowerCase()); });
 
-        const sent = messages.filter(m => m.direction === 'outbound' || m.sender_type === 'agent' || m.sender_type === 'ai' || m.sender_type === 'bot').length;
-        const received = messages.filter(m => m.direction === 'inbound' || m.sender_type === 'contact').length;
-        const opened = messages.filter(m => ['opened', 'clicked', 'delivered_opened'].includes(String(m.status || '').toLowerCase())).length;
-        const clicked = messages.filter(m => ['clicked'].includes(String(m.status || '').toLowerCase())).length;
+        const isOutbound = (m) => {
+          const d = String(m.direction || '').toLowerCase();
+          const st = String(m.sender_type || '').toLowerCase();
+          if (d === 'outbound' || d === 'out' || d === 'sent') return true;
+          if (['agent', 'ai', 'bot', 'user', 'tenant', 'operator', 'system'].includes(st)) return true;
+          return false;
+        };
+        const isInbound = (m) => {
+          const d = String(m.direction || '').toLowerCase();
+          const st = String(m.sender_type || '').toLowerCase();
+          if (d === 'inbound' || d === 'in' || d === 'received') return true;
+          if (st === 'contact' || st === 'customer' || st === 'lead') return true;
+          return false;
+        };
+        const outboundMsgs = messages.filter(isOutbound);
+        const sent = outboundMsgs.length;
+        const received = messages.filter(isInbound).length;
+        const norm = (s) => String(s || '').toLowerCase();
+        const opened = outboundMsgs.filter(m => ['opened', 'clicked', 'delivered_opened', 'read'].includes(norm(m.status))).length;
+        const clicked = outboundMsgs.filter(m => norm(m.status) === 'clicked').length;
         const openRate = sent > 0 ? Math.round((opened / sent) * 100) : 0;
         const clickRate = sent > 0 ? Math.round((clicked / sent) * 100) : 0;
 
+        // LTV: sum lead value across any lead tied to this contact via pipeline_lead_id, contact_id, or email
         let ltv = 0;
         try {
-          const leadQuery = supabase.from('leads').select('*');
-          const { data: leadRows } = selectedContact.email
-            ? await leadQuery.eq('email', selectedContact.email).limit(25)
-            : await leadQuery.eq('contact_id', contactId).limit(25);
-          (leadRows || []).forEach(l => {
-            const v = Number(l.value || l.deal_value || l.amount || l.estimated_value || 0);
+          const leadIdSet = new Set();
+          const leadRows = [];
+          const ingest = (rows) => (rows || []).forEach(l => {
+            if (l && l.id && !leadIdSet.has(l.id)) { leadIdSet.add(l.id); leadRows.push(l); }
+          });
+
+          const pipelineLeadId = selectedContact.pipelineLeadId || selectedContact.pipeline_lead_id;
+          if (pipelineLeadId) {
+            const { data } = await supabase.from('leads').select('*').eq('id', pipelineLeadId).limit(1);
+            ingest(data);
+          }
+          {
+            const { data } = await supabase.from('leads').select('*').eq('contact_id', contactId).limit(25);
+            ingest(data);
+          }
+          if (selectedContact.email) {
+            const { data } = await supabase.from('leads').select('*').ilike('email', selectedContact.email).limit(25);
+            ingest(data);
+          }
+          leadRows.forEach(l => {
+            const v = Number(l.estimated_value || l.deal_value || l.value || l.amount || l.contract_value || l.mrr || 0);
             if (!isNaN(v)) ltv += v;
           });
-        } catch (e) {}
+        } catch (e) { console.warn('LTV calc error:', e.message); }
 
         const CHANNEL_ICON_MAP = { sms: '📱', email: '📧', whatsapp: '💬', voice: '📞', rcs: '💬', web: '🌐', facebook: '📘', instagram: '📸' };
         const STATUS_COLORS = { sent: '#00C9FF', delivered: '#00E676', opened: '#FFD600', clicked: '#E040FB', failed: '#F44336' };
         const activities = messages.slice(0, 25).map(m => {
-          const isOut = m.direction === 'outbound' || m.sender_type === 'agent' || m.sender_type === 'ai' || m.sender_type === 'bot';
+          const isOut = isOutbound(m);
           const label = (isOut ? 'Sent' : 'Received') + ' ' + (m.channel ? String(m.channel).toUpperCase() : 'message');
           return {
             icon: CHANNEL_ICON_MAP[String(m.channel || '').toLowerCase()] || (isOut ? '📤' : '📥'),
@@ -228,6 +276,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           notes: '',
           customFields: c.custom_fields || {},
           tenant_id: c.tenant_id,
+          pipeline_lead_id: c.pipeline_lead_id || null,
         }));
         setContacts(mapped);
       } catch (err) {
