@@ -120,6 +120,76 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(0);
   const pageSize = 15;
+  const [detailStats, setDetailStats] = useState(null);
+
+  // Fetch real engagement stats + activity timeline when opening contact detail
+  useEffect(() => {
+    if (demoMode || !selectedContact || view !== 'detail') { setDetailStats(null); return; }
+    var contactId = selectedContact.id;
+    var cancelled = false;
+    (async () => {
+      try {
+        const { data: convos } = await supabase.from('conversations').select('id, channel').eq('contact_id', contactId);
+        const convoIds = (convos || []).map(cv => cv.id);
+        const channelsSet = new Set();
+        (convos || []).forEach(cv => { if (cv.channel) channelsSet.add(String(cv.channel).toLowerCase()); });
+
+        let messages = [];
+        if (convoIds.length > 0) {
+          const { data: msgs } = await supabase.from('messages').select('id, body, channel, direction, sender_type, status, created_at, conversation_id').in('conversation_id', convoIds).order('created_at', { ascending: false }).limit(200);
+          messages = msgs || [];
+          messages.forEach(m => { if (m.channel) channelsSet.add(String(m.channel).toLowerCase()); });
+        }
+
+        const sent = messages.filter(m => m.direction === 'outbound' || m.sender_type === 'agent' || m.sender_type === 'ai' || m.sender_type === 'bot').length;
+        const received = messages.filter(m => m.direction === 'inbound' || m.sender_type === 'contact').length;
+        const opened = messages.filter(m => ['opened', 'clicked', 'delivered_opened'].includes(String(m.status || '').toLowerCase())).length;
+        const clicked = messages.filter(m => ['clicked'].includes(String(m.status || '').toLowerCase())).length;
+        const openRate = sent > 0 ? Math.round((opened / sent) * 100) : 0;
+        const clickRate = sent > 0 ? Math.round((clicked / sent) * 100) : 0;
+
+        let ltv = 0;
+        try {
+          const leadQuery = supabase.from('leads').select('*');
+          const { data: leadRows } = selectedContact.email
+            ? await leadQuery.eq('email', selectedContact.email).limit(25)
+            : await leadQuery.eq('contact_id', contactId).limit(25);
+          (leadRows || []).forEach(l => {
+            const v = Number(l.value || l.deal_value || l.amount || l.estimated_value || 0);
+            if (!isNaN(v)) ltv += v;
+          });
+        } catch (e) {}
+
+        const CHANNEL_ICON_MAP = { sms: '📱', email: '📧', whatsapp: '💬', voice: '📞', rcs: '💬', web: '🌐', facebook: '📘', instagram: '📸' };
+        const STATUS_COLORS = { sent: '#00C9FF', delivered: '#00E676', opened: '#FFD600', clicked: '#E040FB', failed: '#F44336' };
+        const activities = messages.slice(0, 25).map(m => {
+          const isOut = m.direction === 'outbound' || m.sender_type === 'agent' || m.sender_type === 'ai' || m.sender_type === 'bot';
+          const label = (isOut ? 'Sent' : 'Received') + ' ' + (m.channel ? String(m.channel).toUpperCase() : 'message');
+          return {
+            icon: CHANNEL_ICON_MAP[String(m.channel || '').toLowerCase()] || (isOut ? '📤' : '📥'),
+            color: STATUS_COLORS[String(m.status || '').toLowerCase()] || (isOut ? '#00C9FF' : '#00E676'),
+            label: label,
+            details: (m.body || '').slice(0, 140),
+            date: m.created_at ? new Date(m.created_at) : new Date(),
+          };
+        });
+
+        if (!cancelled) setDetailStats({
+          channels: Array.from(channelsSet),
+          messagesSent: sent,
+          messagesReceived: received,
+          openRate: openRate,
+          clickRate: clickRate,
+          ltv: ltv,
+          activities: activities,
+        });
+      } catch (err) {
+        console.warn('Contact detail fetch error:', err.message);
+        if (!cancelled) setDetailStats({ channels: [], messagesSent: 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0, activities: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedContact, view, demoMode]);
 
   // Fetch live contacts from Supabase
   useEffect(() => {
@@ -397,7 +467,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   // ═══════════════════════════════════════════════════════════════════════════
   if (view === "detail" && selectedContact) {
     const c = selectedContact;
-    const activities = generateActivity(c);
+    const liveStats = detailStats;
+    const channelsList = liveStats ? liveStats.channels : (c.channels || []);
+    const messagesSent = liveStats ? liveStats.messagesSent : (c.messagesSent || 0);
+    const messagesReceived = liveStats ? liveStats.messagesReceived : (c.messagesReceived || 0);
+    const openRate = liveStats ? liveStats.openRate : (c.openRate || 0);
+    const clickRate = liveStats ? liveStats.clickRate : (c.clickRate || 0);
+    const ltv = liveStats ? liveStats.ltv : (c.ltv || 0);
+    const activities = liveStats ? liveStats.activities : generateActivity(c);
 
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
@@ -471,9 +548,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Channels</h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {c.channels.map(ch => (
+                {channelsList.length === 0 ? (
+                  <div style={{ color: C.muted, fontSize: 12 }}>No activity yet</div>
+                ) : channelsList.map(ch => (
                   <div key={ch} style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.primary, fontWeight: 600 }}>
-                    {CHANNEL_ICONS[ch]} {ch}
+                    {CHANNEL_ICONS[ch] || CHANNEL_ICONS[String(ch).toUpperCase()] || '📨'} {String(ch).toUpperCase()}
                   </div>
                 ))}
               </div>
@@ -482,11 +561,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Engagement Stats</h3>
               {[
-                { label: "Messages Sent", value: c.messagesSent, color: C.primary },
-                { label: "Messages Received", value: c.messagesReceived, color: "#00E676" },
-                { label: "Open Rate", value: `${c.openRate}%`, color: "#00C9FF" },
-                { label: "Click Rate", value: `${c.clickRate}%`, color: "#E040FB" },
-                { label: "Lifetime Value", value: `$${c.ltv.toLocaleString()}`, color: "#FFD600" },
+                { label: "Messages Sent", value: messagesSent, color: C.primary },
+                { label: "Messages Received", value: messagesReceived, color: "#00E676" },
+                { label: "Open Rate", value: `${openRate}%`, color: "#00C9FF" },
+                { label: "Click Rate", value: `${clickRate}%`, color: "#E040FB" },
+                { label: "Lifetime Value", value: `$${(ltv || 0).toLocaleString()}`, color: "#FFD600" },
               ].map(s => (
                 <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <span style={{ color: C.muted, fontSize: 13 }}>{s.label}</span>

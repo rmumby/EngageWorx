@@ -12,7 +12,7 @@ var DARK = {
 
 var LIGHT = {
   bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6',
-  text: '#111827', muted: '#4B5563',
+  text: '#1a1a1a', muted: '#444444',
   primary: '#0077B6', accent: '#7C3AED',
   inputBg: '#FFFFFF', inputBorder: '#9CA3AF',
   cardBg: '#FFFFFF', cardBorder: '#D1D9E6',
@@ -93,9 +93,9 @@ export function ThemeProvider({ children }) {
 
       /* Force all text to be dark unless it's a primary/accent/status color */
       body, body * {
-        --lm-text: #111827;
-        --lm-muted: #4B5563;
-        --lm-label: #6B7280;
+        --lm-text: #1a1a1a;
+        --lm-muted: #444444;
+        --lm-label: #666666;
         --lm-bg: #F0F2F5;
         --lm-surface: #FFFFFF;
         --lm-border: #D1D9E6;
@@ -112,7 +112,7 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #111827 !important; }
+      { color: #1a1a1a !important; }
 
       /* Portal text colors → dark */
       div[style*="color: #E8F4FD"], span[style*="color: #E8F4FD"],
@@ -121,28 +121,28 @@ export function ThemeProvider({ children }) {
       div[style*="color: #FFF0E8"], div[style*="color: #E8FFF2"], div[style*="color: #EDE8FF"],
       h1[style*="color: #E8F4FD"], h2[style*="color: #E8F4FD"], h3[style*="color: #E8F4FD"],
       p[style*="color: #E8F4FD"]
-      { color: #111827 !important; }
+      { color: #1a1a1a !important; }
 
       /* Muted text → readable gray */
       div[style*="color: #6B8BAE"], span[style*="color: #6B8BAE"],
       div[style*="color:#6B8BAE"], span[style*="color:#6B8BAE"],
       p[style*="color: #6B8BAE"], button[style*="color: #6B8BAE"],
       div[style*="color: #8B6B55"], div[style*="color: #4B8B65"], div[style*="color: #6B5B8B"]
-      { color: #4B5563 !important; }
+      { color: #444444 !important; }
 
       /* Semi-transparent white text (labels, subtitles) */
       [style*="rgba(255, 255, 255, 0.4)"], [style*="rgba(255,255,255,0.4)"]
-      { color: #6B7280 !important; }
+      { color: #666666 !important; }
       [style*="rgba(255, 255, 255, 0.5)"], [style*="rgba(255,255,255,0.5)"]
-      { color: #6B7280 !important; }
+      { color: #666666 !important; }
       [style*="rgba(255, 255, 255, 0.6)"], [style*="rgba(255,255,255,0.6)"]
-      { color: #4B5563 !important; }
+      { color: #444444 !important; }
       [style*="rgba(255, 255, 255, 0.7)"], [style*="rgba(255,255,255,0.7)"]
-      { color: #374151 !important; }
+      { color: #333333 !important; }
       [style*="rgba(255, 255, 255, 0.8)"], [style*="rgba(255,255,255,0.8)"]
-      { color: #1F2937 !important; }
+      { color: #1a1a1a !important; }
       [style*="rgba(255, 255, 255, 0.9)"], [style*="rgba(255,255,255,0.9)"]
-      { color: #111827 !important; }
+      { color: #1a1a1a !important; }
 
       /* ═══ BACKGROUNDS ═══ */
       /* Main dark backgrounds → light */
@@ -175,11 +175,11 @@ export function ThemeProvider({ children }) {
 
       /* Dark input backgrounds */
       [style*="background: rgba(0, 0, 0, 0.3)"], [style*="background: rgba(0,0,0,0.3)"]
-      { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #111827 !important; }
+      { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #1a1a1a !important; }
       [style*="background: rgba(0, 0, 0, 0.2)"], [style*="background: rgba(0,0,0,0.2)"]
-      { background: #F9FAFB !important; color: #111827 !important; }
+      { background: #F9FAFB !important; color: #1a1a1a !important; }
       [style*="background: rgba(0, 0, 0, 0.4)"], [style*="background: rgba(0,0,0,0.4)"]
-      { background: #FFFFFF !important; color: #111827 !important; }
+      { background: #FFFFFF !important; color: #1a1a1a !important; }
 
       /* ═══ BORDERS ═══ */
       [style*="border: 1px solid #182440"], [style*="border-color: #182440"],
@@ -208,13 +208,13 @@ export function ThemeProvider({ children }) {
       [style*="border-top: 1px solid rgba(255, 255, 255, 0.06)"],
       [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #D1D9E6 !important; }
       [style*="color: rgba(255, 255, 255, 0.25)"],
-      [style*="color: rgba(255,255,255,0.25)"] { color: #9CA3AF !important; }
+      [style*="color: rgba(255,255,255,0.25)"] { color: #666666 !important; }
       [style*="color: rgba(255, 255, 255, 0.3)"],
-      [style*="color: rgba(255,255,255,0.3)"] { color: #6B7280 !important; }
+      [style*="color: rgba(255,255,255,0.3)"] { color: #666666 !important; }
 
       /* ═══ FORM ELEMENTS ═══ */
       select, input, textarea {
-        color: #111827 !important;
+        color: #1a1a1a !important;
         background: #FFFFFF !important;
         border-color: #9CA3AF !important;
       }
@@ -234,14 +234,14 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #111827 !important; }
+      { color: #1a1a1a !important; }
 
       /* Force readable text everywhere via broad selectors */
-      [style*="color: rgb(255, 255, 255)"] { color: #111827 !important; }
-      [style*="color: rgb(232, 244, 253)"] { color: #111827 !important; }
-      [style*="color: rgb(226, 232, 240)"] { color: #111827 !important; }
-      [style*="color: rgb(107, 139, 174)"] { color: #4B5563 !important; }
-      [style*="color: rgb(107, 91, 139)"] { color: #4B5563 !important; }
+      [style*="color: rgb(255, 255, 255)"] { color: #1a1a1a !important; }
+      [style*="color: rgb(232, 244, 253)"] { color: #1a1a1a !important; }
+      [style*="color: rgb(226, 232, 240)"] { color: #1a1a1a !important; }
+      [style*="color: rgb(107, 139, 174)"] { color: #444444 !important; }
+      [style*="color: rgb(107, 91, 139)"] { color: #444444 !important; }
 
       /* ═══ TABLE OVERRIDES ═══ */
       table { border-color: #D1D9E6 !important; }
@@ -255,7 +255,7 @@ export function ThemeProvider({ children }) {
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #F0F2F5; }
       ::-webkit-scrollbar-thumb { background: #9CA3AF; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: #6B7280; }
+      ::-webkit-scrollbar-thumb:hover { background: #666666; }
 
       /* ═══ PLACEHOLDER TEXT ═══ */
       ::placeholder { color: #9CA3AF !important; opacity: 1 !important; }
@@ -277,11 +277,11 @@ export function ThemeProvider({ children }) {
         var c = cs.color;
         var bg = cs.backgroundColor;
         // White/near-white text → dark
-        if (c === 'rgb(255, 255, 255)' || c === 'rgb(232, 244, 253)' || c === 'rgb(226, 232, 240)' || c === 'rgb(255, 240, 232)' || c === 'rgb(232, 255, 242)' || c === 'rgb(237, 232, 255)') el.style.setProperty('color', '#111827', 'important');
+        if (c === 'rgb(255, 255, 255)' || c === 'rgb(232, 244, 253)' || c === 'rgb(226, 232, 240)' || c === 'rgb(255, 240, 232)' || c === 'rgb(232, 255, 242)' || c === 'rgb(237, 232, 255)') el.style.setProperty('color', '#1a1a1a', 'important');
         // Muted text
-        if (c === 'rgb(107, 139, 174)' || c === 'rgb(139, 107, 85)' || c === 'rgb(75, 139, 101)' || c === 'rgb(107, 91, 139)') el.style.setProperty('color', '#4B5563', 'important');
+        if (c === 'rgb(107, 139, 174)' || c === 'rgb(139, 107, 85)' || c === 'rgb(75, 139, 101)' || c === 'rgb(107, 91, 139)') el.style.setProperty('color', '#444444', 'important');
         // Semi-transparent white
-        if (c && c.startsWith('rgba(255, 255, 255,')) { var a = parseFloat(c.split(',')[3]); if (a < 0.5) el.style.setProperty('color', '#6B7280', 'important'); else el.style.setProperty('color', '#111827', 'important'); }
+        if (c && c.startsWith('rgba(255, 255, 255,')) { var a = parseFloat(c.split(',')[3]); if (a < 0.5) el.style.setProperty('color', '#666666', 'important'); else el.style.setProperty('color', '#1a1a1a', 'important'); }
         // Dark bgs
         if (bg === 'rgb(8, 13, 26)' || bg === 'rgb(5, 8, 16)' || bg === 'rgb(10, 13, 20)' || bg === 'rgb(12, 10, 16)' || bg === 'rgb(8, 13, 16)' || bg === 'rgb(10, 8, 16)') el.style.setProperty('background-color', '#F0F2F5', 'important');
         if (bg === 'rgb(13, 20, 37)' || bg === 'rgb(13, 18, 32)' || bg === 'rgb(20, 16, 24)' || bg === 'rgb(13, 21, 24)' || bg === 'rgb(17, 14, 28)') el.style.setProperty('background-color', '#FFFFFF', 'important');
