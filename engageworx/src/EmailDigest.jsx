@@ -78,6 +78,21 @@ export default function EmailDigest({ C }) {
   var today = new Date().toISOString().split('T')[0];
   var todayItems = items.filter(function(i) { return (i.created_at || '').startsWith(today); });
   var filtered = filter === 'all' ? items : items.filter(function(i) { return i.status === filter; });
+  // Split by source
+  var inboundItems = filtered.filter(function(i) { return i.source !== 'stale_lead'; });
+  var staleItems = filtered.filter(function(i) { return i.source === 'stale_lead'; });
+  var pendingStale = staleItems.filter(function(i) { return i.status === 'pending'; });
+
+  async function bulkApproveStale() {
+    if (pendingStale.length === 0) return;
+    if (!window.confirm('Approve and execute ' + pendingStale.length + ' stale lead action(s)?')) return;
+    setSending('bulk');
+    for (var a of pendingStale) {
+      try { await executeAction(a); } catch (e) { console.error('Bulk approve error:', a.id, e); }
+    }
+    setSending(null);
+    load();
+  }
 
   var stats = {
     processed: todayItems.length,
@@ -137,8 +152,36 @@ export default function EmailDigest({ C }) {
           <div style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>No emails in this view</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {filtered.map(function(a) {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {staleItems.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>🔄 Stale Lead Actions <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {staleItems.length}</span></h2>
+                {pendingStale.length > 0 && (
+                  <button onClick={bulkApproveStale} disabled={sending === 'bulk'} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: sending === 'bulk' ? 0.6 : 1 }}>
+                    {sending === 'bulk' ? '⏳ Approving…' : '✅ Approve all ' + pendingStale.length}
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {staleItems.map(function(a) { return renderActionCard(a); })}
+              </div>
+            </div>
+          )}
+          {inboundItems.length > 0 && (
+            <div>
+              {staleItems.length > 0 && <h2 style={{ color: '#fff', margin: '0 0 10px', fontSize: 18, fontWeight: 800 }}>📨 Inbound Emails <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {inboundItems.length}</span></h2>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {inboundItems.map(function(a) { return renderActionCard(a); })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  function renderActionCard(a) {
             var style = ACTION_STYLE[a.claude_action] || ACTION_STYLE.no_action;
             var editing = editingId === a.id;
             return (
@@ -195,9 +238,5 @@ export default function EmailDigest({ C }) {
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  }
 }

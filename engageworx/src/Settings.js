@@ -273,6 +273,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
     notify_on_csp_upgraded: true,
     notify_on_csp_payment: true,
   });
+  const [staleMode, setStaleMode] = useState('supervised'); // 'supervised' | 'autonomous'
+  const [staleModeSaving, setStaleModeSaving] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -538,6 +540,28 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   };
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
+
+  // Stale lead outreach mode (supervised | autonomous)
+  useEffect(() => {
+    if (activeTab !== 'alerts' || demoMode) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('sp_settings').select('value').eq('tenant_id', SP_TENANT_ID).eq('key', 'stale_lead_outreach').maybeSingle();
+        if (data && data.value && data.value.mode) setStaleMode(data.value.mode);
+      } catch (e) {}
+    })();
+  }, [activeTab, demoMode]);
+  const saveStaleMode = async (mode) => {
+    setStaleModeSaving(true);
+    try {
+      await supabase.from('sp_settings').upsert({
+        tenant_id: SP_TENANT_ID, key: 'stale_lead_outreach',
+        value: { mode: mode }, updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,key' });
+      setStaleMode(mode);
+    } catch (e) { alert('Error: ' + e.message); }
+    setStaleModeSaving(false);
+  };
 
   const connectCalendly = async () => {
   if (!calendlyToken) return alert('Please enter your Calendly Personal Access Token');
@@ -989,6 +1013,29 @@ return (<div>
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Stale Lead Outreach mode */}
+          <div style={{ ...card, maxWidth: 560, marginTop: 20 }}>
+            <h3 style={{ color: '#fff', fontSize: 15, margin: '0 0 4px' }}>🔄 Stale Lead Outreach</h3>
+            <p style={{ color: C.muted, fontSize: 12, margin: '0 0 14px' }}>How Claude handles the daily stale-lead re-engagement pass (leads with no activity in 7+ days).</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[
+                { id: 'supervised',  label: '👁️ Supervised',  desc: 'Claude drafts. You approve in AI Email Digest.' },
+                { id: 'autonomous',  label: '🤖 Autonomous',   desc: 'Claude executes immediately. You see the digest.' },
+              ].map(opt => (
+                <div key={opt.id} onClick={() => !staleModeSaving && saveStaleMode(opt.id)} style={{
+                  flex: 1, padding: 14, borderRadius: 10, cursor: staleModeSaving ? 'wait' : 'pointer',
+                  background: staleMode === opt.id ? C.primary + '15' : 'rgba(255,255,255,0.03)',
+                  border: '1px solid ' + (staleMode === opt.id ? C.primary + '55' : 'rgba(255,255,255,0.08)'),
+                  opacity: staleModeSaving ? 0.6 : 1, textAlign: 'center',
+                }}>
+                  <div style={{ color: staleMode === opt.id ? C.primary : '#fff', fontWeight: 700, fontSize: 13 }}>{opt.label}</div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 4, lineHeight: 1.4 }}>{opt.desc}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>Default: Supervised. Switch to Autonomous only after you trust Claude's output (usually post-CPExpo).</div>
           </div>
         </div>
       )}
