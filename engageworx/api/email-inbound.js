@@ -22,6 +22,136 @@ async function pauseSequencesForContact(email) {
   } catch (e) { console.error('[Sequences] Pause error:', e.message); }
 }
 
+// ─── AI EMAIL INTELLIGENCE — match + analyze + action ────────────────────
+async function analyzeAndActionEmail(ctx) {
+  // ctx: { senderEmail, senderName, subject, body, conversationId }
+  try {
+    var sender = (ctx.senderEmail || '').toLowerCase().trim();
+    if (!sender) return;
+
+    // 1. Match: contact, lead, tenant
+    var match = { contactId: null, leadId: null, tenantId: null, leadStage: null };
+    try {
+      var c = await supabase.from('contacts').select('id, tenant_id, pipeline_lead_id').ilike('email', sender).limit(1).maybeSingle();
+      if (c.data) { match.contactId = c.data.id; match.tenantId = c.data.tenant_id; match.leadId = c.data.pipeline_lead_id; }
+    } catch(e) {}
+    try {
+      if (!match.leadId) {
+        var l = await supabase.from('leads').select('id, tenant_id, stage').ilike('email', sender).limit(1).maybeSingle();
+        if (l.data) { match.leadId = l.data.id; match.tenantId = match.tenantId || l.data.tenant_id; match.leadStage = l.data.stage; }
+      } else {
+        var lr = await supabase.from('leads').select('stage').eq('id', match.leadId).maybeSingle();
+        if (lr.data) match.leadStage = lr.data.stage;
+      }
+    } catch(e) {}
+    try {
+      if (!match.tenantId) {
+        var domain = sender.split('@')[1] || '';
+        if (domain) {
+          var t = await supabase.from('tenants').select('id').or('custom_domain.ilike.%' + domain + '%,website_url.ilike.%' + domain + '%').limit(1).maybeSingle();
+          if (t.data) match.tenantId = t.data.id;
+        }
+      }
+    } catch(e) {}
+
+    // 2. Last 3 interactions for this contact
+    var history = [];
+    if (match.contactId) {
+      try {
+        var msgs = await supabase.from('messages').select('direction, channel, body, created_at').eq('contact_id', match.contactId).order('created_at', { ascending: false }).limit(3);
+        history = (msgs.data || []).reverse().map(function(m) {
+          return '[' + (m.direction === 'inbound' ? 'FROM CONTACT' : 'TO CONTACT') + ' · ' + m.channel + ' · ' + (m.created_at || '').substring(0, 10) + ']\n' + (m.body || '').substring(0, 400);
+        }).join('\n\n');
+      } catch(e) {}
+    }
+
+    // 3. Claude analysis
+    var systemPrompt = 'You are EngageWorx sales ops AI. Analyze an inbound email and decide ONE action.' +
+      '\n\nPricing: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom.' +
+      '\nFeatures: SMS, WhatsApp, Email, Voice, RCS, AI chatbot, CSP white-label, commissions.' +
+      '\nReturn STRICT JSON: {"action": "advance_stage"|"enroll_sequence"|"review"|"auto_reply"|"no_action", "reasoning": "1-2 sentences", "summary": "body in 1 sentence", "reply_draft": "text if auto_reply else null", "new_stage": "stage id if advance_stage else null", "sequence_name": "name to enroll else null"}' +
+      '\n\nStages: inquiry, demo_shared, sandbox_shared, opportunity, package_selection, go_live, customer, dormant.' +
+      '\nUse auto_reply ONLY for simple factual questions answerable from pricing/features above. Everything else → review with a suggested reply_draft.';
+
+    var prompt = 'Email from: ' + sender + (ctx.senderName ? ' (' + ctx.senderName + ')' : '') +
+      '\nSubject: ' + (ctx.subject || '') +
+      '\nCurrent pipeline stage: ' + (match.leadStage || 'none') +
+      '\n\nBody:\n' + (ctx.body || '').substring(0, 2000) +
+      (history ? '\n\n---- Recent interactions ----\n' + history : '') +
+      '\n\nReturn JSON only.';
+
+    var decision = { action: 'review', reasoning: 'Claude unavailable', summary: (ctx.body || '').substring(0, 200), reply_draft: null, new_stage: null, sequence_name: null };
+    try {
+      var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
+      });
+      var aiData = await aiRes.json();
+      var txt = (aiData.content || []).find(function(b) { return b.type === 'text'; })?.text || '';
+      var m = txt.match(/\{[\s\S]*\}/);
+      if (m) decision = Object.assign(decision, JSON.parse(m[0]));
+    } catch (aiErr) { console.warn('[EmailAI] Claude error:', aiErr.message); }
+
+    // 4. Store in email_actions
+    var ins = await supabase.from('email_actions').insert({
+      contact_id: match.contactId, lead_id: match.leadId, tenant_id: match.tenantId,
+      email_from: sender, email_subject: ctx.subject || null,
+      email_body_summary: decision.summary || (ctx.body || '').substring(0, 200),
+      claude_action: decision.action || 'review',
+      claude_reasoning: decision.reasoning || null,
+      claude_reply_draft: decision.reply_draft || null,
+      action_payload: { new_stage: decision.new_stage, sequence_name: decision.sequence_name },
+      status: 'pending',
+    }).select('id').single();
+    var actionId = ins.data ? ins.data.id : null;
+
+    // 5. Auto-execute if Claude chose auto_reply (email/WhatsApp only, not SMS)
+    if (decision.action === 'auto_reply' && decision.reply_draft) {
+      try {
+        if (process.env.SENDGRID_API_KEY) {
+          var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
+          await sgMail.send({
+            to: sender,
+            from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+            subject: replySubj,
+            text: decision.reply_draft,
+            html: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>',
+          });
+          if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+        }
+      } catch (seErr) { console.warn('[EmailAI] Auto-reply send error:', seErr.message); }
+    }
+
+    // 6. Auto-execute stage advance if lead exists
+    if (decision.action === 'advance_stage' && match.leadId && decision.new_stage) {
+      try {
+        await supabase.from('leads').update({ stage: decision.new_stage, last_activity_at: new Date().toISOString() }).eq('id', match.leadId);
+        if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+      } catch (stErr) { console.warn('[EmailAI] Stage advance error:', stErr.message); }
+    }
+
+    // 7. Auto-enroll sequence if Claude named one
+    if (decision.action === 'enroll_sequence' && match.leadId && decision.sequence_name && match.tenantId) {
+      try {
+        var seq = await supabase.from('sequences').select('id').eq('tenant_id', match.tenantId).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
+        if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
+        if (seq.data) {
+          var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
+          var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
+          await supabase.from('lead_sequences').upsert({
+            tenant_id: match.tenantId, lead_id: match.leadId, sequence_id: seq.data.id,
+            current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
+          }, { onConflict: 'lead_id,sequence_id' });
+          if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+        }
+      } catch (seqErr) { console.warn('[EmailAI] Sequence enrol error:', seqErr.message); }
+    }
+
+    console.log('[EmailAI] Processed', sender, 'action:', decision.action, 'matched contact/lead/tenant:', !!match.contactId, !!match.leadId, !!match.tenantId);
+  } catch (err) { console.error('[EmailAI] analyzeAndActionEmail error:', err.message); }
+}
+
 async function tryQualifyProspect(email, replyBody, channel) {
   try {
     if (!email) return 0;
@@ -368,6 +498,9 @@ module.exports = async function handler(req, res) {
 
     // ── Qualify unqualified prospects on reply ────────────────────────────────
     tryQualifyProspect(senderEmail, emailBody, 'Email').catch(function() {});
+
+    // ── AI Email Intelligence — Claude analysis + action ──────────────────────
+    analyzeAndActionEmail({ senderEmail: senderEmail, senderName: senderName, subject: subject, body: emailBody, conversationId: conversationId }).catch(function() {});
 
     // ── Notify admin via SendGrid ────────────────────────────────────────────
     notifyInboundSendGrid(senderName || senderEmail, 'Email', emailBody).catch(function() {});

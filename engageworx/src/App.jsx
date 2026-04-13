@@ -28,6 +28,7 @@ import SequenceRoster from './SequenceRoster';
 import TCRRegistration from './TCRRegistration';
 import TCRQueue from './TCRQueue';
 import BrandingEditor from './BrandingEditor';
+import EmailDigest from './EmailDigest';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
@@ -1639,6 +1640,12 @@ var spNavBase = [
     { id: "settings",         label: "Settings",           icon: "⚙️" },
   ];
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
+  if (isSuperAdmin) {
+    // Insert AI Email Digest before Settings
+    var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
+    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: 'AI Email Digest', icon: '📧' });
+    else spNavItems.push({ id: 'email-digest', label: 'AI Email Digest', icon: '📧' });
+  }
 
   const hostname = window.location.hostname;
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
@@ -2116,6 +2123,7 @@ var spNavBase = [
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
+        {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
