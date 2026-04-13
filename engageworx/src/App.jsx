@@ -29,6 +29,8 @@ import TCRRegistration from './TCRRegistration';
 import TCRQueue from './TCRQueue';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
+import AUPModal from './AUPModal';
+import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
@@ -1754,6 +1756,11 @@ var spNavBase = [
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
 
+  // AUP gate — first-login block for authenticated tenant users (not superadmin)
+  if (isAuthenticated && profile && profile.tenant_id && profile.aup_accepted === false && !isSuperAdmin) {
+    return <AUPModal tenantId={profile.tenant_id} onAccepted={function() { window.location.reload(); }} onSignOut={handleLogout} />;
+  }
+
   // Password recovery screen
   if (passwordRecovery && isAuthenticated) {
     return (
@@ -2125,17 +2132,39 @@ var spNavBase = [
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "hierarchy" && <HierarchyView C={C} />}
-        {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />}
+        {spPage === "pipeline" && (isSuperAdmin || profile?.aup_accepted
+          ? <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />
+          : <FeatureGate featureName="Pipeline" C={C} requirements={{ met: false, steps: [{ title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted }] }} />)}
         {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
-        {spPage === "sequences" && <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}
-        {spPage === "sequence-builder" && <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}
+        {spPage === "sequences" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
+          ? <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />
+          : <FeatureGate featureName="Sequence Roster" C={C} requirements={{ met: false, steps: [
+              { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
+              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
+            ] }} />)}
+        {spPage === "sequence-builder" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
+          ? <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />
+          : <FeatureGate featureName="Sequence Builder" C={C} requirements={{ met: false, steps: [
+              { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
+              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
+            ] }} />)}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
         {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
-        {spPage === "lead-scan" && <LeadScan C={C} demoMode={demoMode} />}
+        {spPage === "lead-scan" && (isSuperAdmin || (profile?.aup_accepted && profile?.kyc_status === 'approved')
+          ? <LeadScan C={C} demoMode={demoMode} />
+          : <div>
+              {profile?.aup_accepted && profile?.kyc_status !== 'approved' && profile?.tenant_id && (
+                <div style={{ padding: '32px 40px 0' }}><KycStartBanner tenantId={profile.tenant_id} email={user?.email} C={C} /></div>
+              )}
+              <FeatureGate featureName="Lead Scan" C={C} requirements={{ met: false, steps: [
+                { title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted },
+                { title: 'Identity verification (KYC)', description: 'Stripe Identity check — prevents abuse of Lead Scan.', done: profile?.kyc_status === 'approved' },
+              ] }} />
+            </div>)}
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}

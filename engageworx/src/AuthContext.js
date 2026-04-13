@@ -45,10 +45,16 @@ export function AuthProvider({ children }) {
             try {
               const { data: tenantData } = await supabase
                 .from('tenants')
-                .select('tenant_type, entity_tier')
+                .select('tenant_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
                 .eq('id', memberData.tenant_id)
                 .maybeSingle();
-              if (tenantData) { profileData.tenant_type = tenantData.tenant_type; profileData.entity_tier = tenantData.entity_tier; }
+              if (tenantData) {
+                profileData.tenant_type = tenantData.tenant_type;
+                profileData.entity_tier = tenantData.entity_tier;
+                profileData.aup_accepted = !!tenantData.aup_accepted;
+                profileData.kyc_status = tenantData.kyc_status || 'unverified';
+                profileData.sms_enabled = !!tenantData.sms_enabled;
+              }
             } catch (ttErr) {}
             setProfile(profileData);
             return profileData;
@@ -69,10 +75,16 @@ export function AuthProvider({ children }) {
         try {
           const { data: tenantData } = await supabase
             .from('tenants')
-            .select('tenant_type, entity_tier')
+            .select('tenant_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
             .eq('id', data.tenant_id)
             .maybeSingle();
-          if (tenantData) { data.tenant_type = tenantData.tenant_type; data.entity_tier = tenantData.entity_tier; }
+          if (tenantData) {
+            data.tenant_type = tenantData.tenant_type;
+            data.entity_tier = tenantData.entity_tier;
+            data.aup_accepted = !!tenantData.aup_accepted;
+            data.kyc_status = tenantData.kyc_status || 'unverified';
+            data.sms_enabled = !!tenantData.sms_enabled;
+          }
         } catch (ttErr) {}
       }
       setProfile(data);

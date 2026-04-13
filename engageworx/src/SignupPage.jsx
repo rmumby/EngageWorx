@@ -68,6 +68,7 @@ export default function SignupPage({ onBack }) {
     password: "",
     confirmPassword: "",
     businessName: "",
+    website: "",
     brandColor: "#0ea5e9",
     logoUrl: "",
     twilioAccountSid: "",
@@ -75,6 +76,35 @@ export default function SignupPage({ onBack }) {
     twilioPhoneNumber: "",
     teamEmails: "",
   });
+
+  // Blocked personal email domains — must use a business email
+  const PERSONAL_DOMAINS = [
+    'gmail.com', 'googlemail.com',
+    'yahoo.com', 'yahoo.co.uk', 'ymail.com',
+    'hotmail.com', 'hotmail.co.uk',
+    'outlook.com', 'outlook.co.uk',
+    'icloud.com', 'me.com', 'mac.com',
+    'aol.com',
+    'protonmail.com', 'proton.me', 'pm.me',
+    'live.com', 'live.co.uk',
+    'msn.com',
+    'mail.com', 'gmx.com', 'gmx.us',
+    'yandex.com', 'yandex.ru',
+    'zoho.com',
+  ];
+
+  function isPersonalEmail(email) {
+    if (!email || !email.includes('@')) return false;
+    var domain = email.split('@')[1].toLowerCase().trim();
+    return PERSONAL_DOMAINS.includes(domain);
+  }
+
+  function isValidUrl(str) {
+    if (!str) return false;
+    var s = str.trim();
+    try { var u = new URL(s.startsWith('http') ? s : 'https://' + s); return !!u.hostname && u.hostname.includes('.'); }
+    catch (e) { return false; }
+  }
 
   // Check if returning from Stripe checkout success
   useEffect(() => {
@@ -118,6 +148,7 @@ export default function SignupPage({ onBack }) {
           data: {
             business_name: form.businessName,
             company_name: form.businessName,
+            website: form.website,
             brand_color: form.brandColor,
             logo_url: form.logoUrl || null,
             team_emails: form.teamEmails || "",
@@ -343,6 +374,8 @@ export default function SignupPage({ onBack }) {
                     if (!form.email || !form.password) return setError("Please fill all fields");
                     if (form.password !== form.confirmPassword) return setError("Passwords don't match");
                     if (form.password.length < 8) return setError("Password must be at least 8 characters");
+                    if (isPersonalEmail(form.email)) return setError("Personal email domains (Gmail, Yahoo, Hotmail, etc.) aren't accepted. Please use your business email address.");
+                    if (!form.email.includes('@') || !form.email.split('@')[1].includes('.')) return setError("Please enter a valid email address.");
                     setError(""); setStep(2);
                   }}>Continue →</button>
                   <p style={styles.loginLink}>Already have an account? <button onClick={() => { if (onBack) onBack(); }} style={{ ...styles.link, background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Sign in</button></p>
@@ -358,6 +391,11 @@ export default function SignupPage({ onBack }) {
                     <label style={styles.label}>Business name</label>
                     <input style={styles.input} value={form.businessName}
                       onChange={e => update("businessName", e.target.value)} placeholder="Acme Corporation" />
+                  </div>
+                  <div style={styles.field}>
+                    <label style={styles.label}>Business website</label>
+                    <input style={styles.input} value={form.website}
+                      onChange={e => update("website", e.target.value)} placeholder="https://acme.com" />
                   </div>
                   <div style={styles.field}>
                     <label style={styles.label}>Brand color</label>
@@ -377,7 +415,9 @@ export default function SignupPage({ onBack }) {
                   <div style={styles.btnRow}>
                     <button style={styles.btnBack} onClick={() => setStep(1)}>← Back</button>
                     <button style={styles.btn} onClick={() => {
-                      if (!form.businessName) return setError("Business name is required");
+                      if (!form.businessName || !form.businessName.trim()) return setError("Business name is required.");
+                      if (!form.website || !form.website.trim()) return setError("Business website is required.");
+                      if (!isValidUrl(form.website)) return setError("Please enter a valid website URL (e.g. https://acme.com).");
                       setError(""); setStep(3);
                     }}>Continue →</button>
                   </div>

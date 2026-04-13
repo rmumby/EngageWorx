@@ -226,6 +226,19 @@ module.exports = async function handler(req, res) {
           console.log('[Stripe] User already has tenant, skipping creation');
         } else {
           var slug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+
+          // Pull business_name + website from the auth user's metadata so the
+          // signup values persist onto the tenant row.
+          var suppliedWebsite = null, suppliedBusinessName = null;
+          try {
+            var ulist = await supabase.auth.admin.listUsers();
+            var u = (ulist.data && ulist.data.users) ? ulist.data.users.find(function(x) { return x.email === email; }) : null;
+            if (u && u.user_metadata) {
+              suppliedWebsite = u.user_metadata.website || null;
+              suppliedBusinessName = u.user_metadata.business_name || null;
+            }
+          } catch (umErr) {}
+
           var tenantResult = await supabase.from('tenants').insert({
             name: companyName,
             slug: slug,
@@ -233,6 +246,8 @@ module.exports = async function handler(req, res) {
             status: 'active',
             brand_primary: '#00C9FF',
             brand_name: companyName,
+            business_name: suppliedBusinessName || companyName,
+            website_url: suppliedWebsite,
             channels_enabled: ['sms', 'email', 'whatsapp'],
           }).select().single();
 
