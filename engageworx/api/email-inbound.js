@@ -486,6 +486,26 @@ module.exports = async function handler(req, res) {
       console.error('SendGrid error:', sgErr.message);
     }
 
+    // ── Portal-user guard ─────────────────────────────────────────────────────
+    // If the sender is an existing portal user (CSP/agent/team member/tenant owner),
+    // don't spin up a pipeline contact + conversation. Log and bail.
+    try {
+      var portalMatch = null;
+      var lowerSender = (senderEmail || '').toLowerCase().trim();
+      if (lowerSender) {
+        var up = await supabase.from('user_profiles').select('id, email').ilike('email', lowerSender).maybeSingle();
+        if (up.data && up.data.id) portalMatch = { source: 'user_profiles', email: up.data.email };
+        if (!portalMatch) {
+          var td = await supabase.from('tenants').select('id, name').ilike('digest_email', lowerSender).limit(1).maybeSingle();
+          if (td.data) portalMatch = { source: 'digest_email', tenant: td.data.name };
+        }
+      }
+      if (portalMatch) {
+        console.log('🛡️ Skipping inbound — sender is a portal user:', senderEmail, portalMatch);
+        return res.status(200).json({ skipped: 'portal_user', sender: senderEmail, match: portalMatch });
+      }
+    } catch (pgErr) { console.warn('[Inbound] Portal-user check error:', pgErr.message); }
+
     // ── Live Inbox ────────────────────────────────────────────────────────────
     try {
       console.log('🔵 Inbox block started');

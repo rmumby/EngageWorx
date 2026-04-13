@@ -303,9 +303,21 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
     setImporting(true);
     setImportResult(null);
-    var imported = 0, skipped = 0, failed = 0;
+    var imported = 0, skipped = 0, failed = 0, portalSkipped = 0;
     var importedIds = [];
     var importedEmails = [];
+
+    // Master SP only: preload portal-user emails so we don't import CSP partners / agents / members as pipeline contacts
+    var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+    var portalEmailSet = new Set();
+    if (tid === SP_TENANT_ID) {
+      try {
+        var up = await supabase.from('user_profiles').select('email');
+        (up.data || []).forEach(function(u) { if (u.email) portalEmailSet.add(String(u.email).trim().toLowerCase()); });
+        var td = await supabase.from('tenants').select('digest_email');
+        (td.data || []).forEach(function(t) { if (t.digest_email) portalEmailSet.add(String(t.digest_email).trim().toLowerCase()); });
+      } catch (pe) { console.warn('[Import] Portal-user preload error:', pe.message); }
+    }
 
     var extraTags = importTagsInput.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
     var campaignName = availableCampaigns.find(function(c) { return c.id === importCampaignId; });
@@ -318,6 +330,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       try {
         var em = (r.email || '').trim().toLowerCase();
         if (em && existingEmailSet.has(em) && importDedupAction === 'skip') { skipped++; continue; }
+        if (em && portalEmailSet.has(em)) { portalSkipped++; continue; }
 
         var rowTags = (r.tags || '').split(/[,;]/).map(function(t) { return t.trim(); }).filter(Boolean);
         var tags = [].concat(rowTags, extraTags, campaignTag ? [campaignTag] : []);
@@ -382,7 +395,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     }
 
     setImporting(false);
-    setImportResult({ imported: imported, skipped: skipped, failed: failed, enrolled: enrolled, campaign_tagged: campaignTag ? imported : 0 });
+    setImportResult({ imported: imported, skipped: skipped, failed: failed, enrolled: enrolled, campaign_tagged: campaignTag ? imported : 0, portal_skipped: portalSkipped });
 
     // Refresh contacts list
     try {
@@ -901,6 +914,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>
                       {importResult.enrolled > 0 && <span>✓ Enrolled {importResult.enrolled} in sequence · </span>}
                       {importResult.campaign_tagged > 0 && <span>✓ Tagged {importResult.campaign_tagged} for campaign</span>}
+                    </div>
+                  )}
+                  {importResult.portal_skipped > 0 && (
+                    <div style={{ background: 'rgba(255,107,107,0.08)', border: '1px solid rgba(255,107,107,0.3)', borderRadius: 10, padding: 12, marginBottom: 12, color: '#FF6B6B', fontSize: 12 }}>
+                      🛡️ {importResult.portal_skipped} row{importResult.portal_skipped !== 1 ? 's' : ''} skipped — email matches portal users (CSP partners, agents, or team members).
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
