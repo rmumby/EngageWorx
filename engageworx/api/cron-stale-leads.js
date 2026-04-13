@@ -17,6 +17,22 @@ function getSupabase() {
   );
 }
 
+async function resolveRecipient(supabase, tenantId) {
+  if (!tenantId) return { email: 'rob@engwx.com', tenantName: null };
+  try {
+    var t = await supabase.from('tenants').select('digest_email, name').eq('id', tenantId).maybeSingle();
+    if (t.data && t.data.digest_email && t.data.digest_email.trim()) return { email: t.data.digest_email.trim(), tenantName: t.data.name };
+    for (var role of ['owner', 'admin']) {
+      var m = await supabase.from('tenant_members').select('user_id').eq('tenant_id', tenantId).eq('role', role).eq('status', 'active').limit(1).maybeSingle();
+      if (m.data && m.data.user_id) {
+        var p = await supabase.from('user_profiles').select('email').eq('id', m.data.user_id).maybeSingle();
+        if (p.data && p.data.email) return { email: p.data.email, tenantName: (t.data || {}).name };
+      }
+    }
+    return { email: 'rob@engwx.com', tenantName: (t.data || {}).name };
+  } catch (e) { return { email: 'rob@engwx.com', tenantName: null }; }
+}
+
 async function getMode(supabase) {
   try {
     var r = await supabase.from('sp_settings').select('value').eq('tenant_id', SP_TENANT_ID).eq('key', 'stale_lead_outreach').maybeSingle();
@@ -110,6 +126,7 @@ module.exports = async function handler(req, res) {
 
     var leads = leadsRes.data || [];
     var analysed = 0, actioned = 0, pending = 0;
+    var createdByTenant = {}; // tenant_id → [{ lead, decision, status }]
 
     for (var lead of leads) {
       // Skip if we already logged a stale_lead action for this lead in the last 5 days
@@ -149,10 +166,55 @@ module.exports = async function handler(req, res) {
       }
 
       await supabase.from('email_actions').insert(row);
+      var bucket = lead.tenant_id || '_orphan';
+      if (!createdByTenant[bucket]) createdByTenant[bucket] = [];
+      createdByTenant[bucket].push({ lead: lead, decision: decision, status: row.status, daysStale: daysStale });
     }
 
-    console.log('[Cron] Stale leads done.', 'candidates:', leads.length, 'analysed:', analysed, 'actioned:', actioned, 'pending:', pending);
-    return res.status(200).json({ success: true, mode: mode, candidates: leads.length, analysed: analysed, actioned: actioned, pending: pending });
+    // Per-tenant summary email
+    var digestsSent = 0;
+    if (process.env.SENDGRID_API_KEY && Object.keys(createdByTenant).length > 0) {
+      var sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+      for (var tenantKey in createdByTenant) {
+        var items = createdByTenant[tenantKey];
+        var r = tenantKey === '_orphan' ? { email: 'rob@engwx.com', tenantName: null } : await resolveRecipient(supabase, tenantKey);
+        var rowsHtml = items.map(function(x) {
+          var actionLabel = x.decision.action === 'auto_reply' ? '✉️ Personal email' : x.decision.action === 'enroll_sequence' ? '📤 Enrol in "' + (x.decision.sequence_name || '?') + '"' : '—';
+          var statusLabel = x.status === 'actioned' ? '<span style="color:#059669;font-weight:700;">✓ Sent</span>' : '<span style="color:#d97706;font-weight:700;">⏳ Pending your approval</span>';
+          return '<tr>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;"><div style="font-weight:700;color:#1e293b;">' + (x.lead.name || '(no name)') + '</div><div style="color:#64748b;font-size:11px;margin-top:2px;">' + (x.lead.company || '') + ' · ' + (x.lead.stage || '') + ' · ' + x.daysStale + ' days stale</div></td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;">' + actionLabel + '<br>' + statusLabel + '</td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-style:italic;">' + (x.decision.reasoning || '') + '</td>' +
+          '</tr>';
+        }).join('');
+        var html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f8fafc;padding:20px;">' +
+          '<div style="max-width:780px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;">' +
+          '<div style="background:linear-gradient(135deg,#6366f1,#E040FB);color:#fff;padding:20px;border-radius:10px;margin-bottom:20px;">' +
+            '<div style="font-size:22px;font-weight:900;">🔄 Stale Lead Outreach' + (r.tenantName ? ' — ' + r.tenantName : '') + '</div>' +
+            '<div style="font-size:13px;opacity:0.9;margin-top:4px;">' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · mode: ' + mode + '</div>' +
+          '</div>' +
+          '<p style="color:#475569;font-size:13px;line-height:1.6;">' + items.length + ' stale lead(s) analysed today. ' +
+          (mode === 'autonomous' ? 'Autonomous mode: Claude already actioned these. Summary below.' : 'Supervised mode: open AI Email Digest to approve.') + '</p>' +
+          '<table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><tr style="background:#f1f5f9;"><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Lead</th><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Action</th><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Reasoning</th></tr>' + rowsHtml + '</table>' +
+          '<div style="text-align:center;margin-top:20px;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#E040FB);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Review in AI Email Digest →</a></div>' +
+          '</div></body></html>';
+        try {
+          await sgMail.send({
+            to: r.email,
+            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            subject: '🔄 Stale Lead Outreach' + (r.tenantName ? ' — ' + r.tenantName : '') + ' · ' + items.length + ' analysed',
+            html: html,
+          });
+          digestsSent++;
+          console.log('[Cron] Stale digest sent to', r.email, '(tenant:', tenantKey + ')');
+        } catch (sErr) { console.warn('[Cron] Stale digest send error:', sErr.message); }
+      }
+    }
+
+    console.log('[Cron] Stale leads done.', 'candidates:', leads.length, 'analysed:', analysed, 'actioned:', actioned, 'pending:', pending, 'digests:', digestsSent);
+    return res.status(200).json({ success: true, mode: mode, candidates: leads.length, analysed: analysed, actioned: actioned, pending: pending, digests_sent: digestsSent });
   } catch (err) {
     console.error('[Cron] Stale leads error:', err.message);
     return res.status(500).json({ error: err.message });

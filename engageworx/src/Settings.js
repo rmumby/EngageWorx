@@ -275,6 +275,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   });
   const [staleMode, setStaleMode] = useState('supervised'); // 'supervised' | 'autonomous'
   const [staleModeSaving, setStaleModeSaving] = useState(false);
+  const [digestEmail, setDigestEmail] = useState('');
+  const [digestEmailSaving, setDigestEmailSaving] = useState(false);
+  const [digestEmailSaved, setDigestEmailSaved] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -540,6 +543,28 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   };
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
+
+  // Per-tenant AI digest email
+  useEffect(() => {
+    if (activeTab !== 'notifications' || demoMode || !resolvedTenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('digest_email').eq('id', resolvedTenantId).maybeSingle();
+        if (data) setDigestEmail(data.digest_email || '');
+      } catch (e) {}
+    })();
+  }, [activeTab, demoMode, resolvedTenantId]);
+  const saveDigestEmail = async () => {
+    if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
+    setDigestEmailSaving(true);
+    try {
+      const trimmed = (digestEmail || '').trim();
+      await supabase.from('tenants').update({ digest_email: trimmed || null }).eq('id', resolvedTenantId);
+      setDigestEmailSaved(true);
+      setTimeout(() => setDigestEmailSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setDigestEmailSaving(false);
+  };
 
   // Stale lead outreach mode (supervised | autonomous)
   useEffect(() => {
@@ -927,6 +952,23 @@ return (<div>
       {activeTab === "notifications" && (
         <div>
           <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Notification Preferences</h2>
+
+          {/* Per-tenant AI digest recipient */}
+          <div style={Object.assign({}, card, { marginBottom: 20 })}>
+            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Daily AI digest delivered to</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input type="email" value={digestEmail} onChange={e => setDigestEmail(e.target.value)} placeholder="your@email.com" style={Object.assign({}, inputStyle, { flex: 1 })} />
+              <button onClick={saveDigestEmail} disabled={digestEmailSaving || !resolvedTenantId} style={Object.assign({}, btnPrimary, { opacity: (digestEmailSaving || !resolvedTenantId) ? 0.5 : 1 })}>
+                {digestEmailSaving ? 'Saving…' : 'Save'}
+              </button>
+              {digestEmailSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
+            </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+              If left blank, the digest is sent to the tenant owner's email (as recorded in tenant_members).
+              Covers both the inbound AI Email Digest (8am ET) and the daily stale-lead outreach summary (9am ET).
+            </div>
+          </div>
+
           <div style={card}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 80px", gap: 8, padding: "0 0 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 8 }}>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Event</div>
