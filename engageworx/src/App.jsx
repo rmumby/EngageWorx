@@ -1543,7 +1543,11 @@ function AppInner() {
   }, [isSuperAdmin, demoMode, demoInitialized]);
   const [view, setView] = useState("login");
   const [selectedRole, setSelectedRole] = useState(null);
-  const [drillDownTenant, setDrillDownTenant] = useState(null);
+  const [drillDownStack, setDrillDownStack] = useState([]);
+  const drillDownTenant = drillDownStack.length > 0 ? drillDownStack[drillDownStack.length - 1] : null;
+  const pushDrill = function(id) { setDrillDownStack(function(s) { return s.concat([id]); }); };
+  const popDrill = function() { setDrillDownStack(function(s) { return s.slice(0, -1); }); };
+  const jumpDrill = function(idx) { setDrillDownStack(function(s) { return s.slice(0, idx); }); };
   const [spPage, setSpPage] = useState("dashboard");
   const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode);
   const [newPassword, setNewPassword] = useState("");
@@ -1759,18 +1763,36 @@ var spNavBase = [
   }
 
   if (drillDownTenant) {
-    // Check tenant type — show appropriate portal
+    var crumbLabel = function(id) {
+      var t = liveTenants.find(function(x) { return x.id === id; });
+      return t ? (t.name || t.company || 'Tenant') : 'Tenant';
+    };
+    var breadcrumb = (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#0a0d14', borderBottom: '1px solid #1a2030', fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: '#8899aa', flexWrap: 'wrap' }}>
+        <span onClick={function() { setDrillDownStack([]); }} style={{ cursor: 'pointer', color: '#7C4DFF', fontWeight: 600 }}>SP Admin</span>
+        {drillDownStack.map(function(id, idx) {
+          var isLast = idx === drillDownStack.length - 1;
+          return (
+            <span key={id + ':' + idx} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: '#445566' }}>›</span>
+              <span onClick={isLast ? undefined : function() { jumpDrill(idx + 1); }} style={{ cursor: isLast ? 'default' : 'pointer', color: isLast ? '#e8f0f8' : '#7C4DFF', fontWeight: 600 }}>{crumbLabel(id)}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
+    var inner;
     if (drillDownTenantData && drillDownTenantData.entity_tier === 'master_agent') {
-      return <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
+      inner = <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
+    } else if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
+      inner = <CSPPortal cspTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
+    } else if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
+      inner = <AgentPortal agentTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
+    } else {
+      inner = <CustomerPortal tenantId={drillDownTenant} onBack={popDrill} liveTenants={liveTenants} />;
     }
-    if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
-      return <CSPPortal cspTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
-    }
-    if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
-      return <AgentPortal agentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
-    }
-    return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
+    return <div>{breadcrumb}{inner}</div>;
   }
 
   // AUP gate — first-login block for authenticated tenant users (not superadmin)
@@ -2049,13 +2071,13 @@ var spNavBase = [
   // Master Agent Portal — hierarchy rollup view (checked before agent_ since it also starts with 'agent_')
   if (view.startsWith("master_agent_")) {
     const maTenantId = view.replace("master_agent_", "");
-    return <MasterAgentPortal masterAgentTenantId={maTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
+    return <MasterAgentPortal masterAgentTenantId={maTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
   }
 
   // Agent Portal — referral partner view
   if (view.startsWith("agent_")) {
     const agentTenantId = view.replace("agent_", "");
-    return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
+    return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
   }
 
   // Service Provider portal
@@ -2146,9 +2168,9 @@ var spNavBase = [
       </div>
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
-        {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
-        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
-        {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
+        {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
+        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={pushDrill} />}
+        {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={pushDrill} />}
         {spPage === "pipeline" && (isSuperAdmin || profile?.aup_accepted
           ? <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />
           : <FeatureGate featureName="Pipeline" C={C} requirements={{ met: false, steps: [{ title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted }] }} />)}
