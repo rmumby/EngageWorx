@@ -6,6 +6,7 @@ import SequenceBuilder from './SequenceBuilder';
 import LiveInbox from './components/LiveInboxV2';
 import Settings from './Settings';
 import BrandingEditor from './BrandingEditor';
+import EmailDigest from './EmailDigest';
 import PipelineDashboard from './components/PipelineDashboard';
 
 function getCSPColors() {
@@ -216,6 +217,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
     { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
+    { id: 'email-digest', label: 'AI Email Digest',     icon: '📧', always: true },
     { id: 'branding',     label: 'Branding',            icon: '🎨', always: true },
     { id: 'settings',     label: 'Settings',            icon: '⚙️', always: true },
   ];
@@ -541,6 +543,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
+
+        {page === 'email-digest' && <EmailDigest C={C} currentTenantId={cspTenantId} />}
 
         {page === 'branding' && (
           <div style={{ padding: '32px 36px', maxWidth: 900 }}>

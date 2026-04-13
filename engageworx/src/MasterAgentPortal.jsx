@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import BrandingEditor from './BrandingEditor';
+import EmailDigest from './EmailDigest';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 
@@ -98,6 +99,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
     { id: 'agents', label: 'My Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
+    { id: 'email-digest', label: 'AI Email Digest', icon: '📧' },
     { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
@@ -322,6 +324,8 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
             </div>
           </div>
         )}
+
+        {page === 'email-digest' && <EmailDigest C={C} currentTenantId={masterAgentTenantId} />}
 
         {page === 'branding' && (
           <div style={{ maxWidth: 900 }}>

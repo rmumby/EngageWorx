@@ -9,7 +9,7 @@ var ACTION_STYLE = {
   no_action:       { label: 'No Action',       color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
 };
 
-export default function EmailDigest({ C }) {
+export default function EmailDigest({ C, currentTenantId }) {
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -17,14 +17,17 @@ export default function EmailDigest({ C }) {
   var [editingId, setEditingId] = useState(null);
   var [editDraft, setEditDraft] = useState('');
   var [sending, setSending] = useState(null);
+  var [delayOpenFor, setDelayOpenFor] = useState(null);
 
-  useEffect(function() { load(); }, []);
+  useEffect(function() { load(); }, [currentTenantId]);
 
   async function load() {
     setLoading(true);
     try {
       var cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      var r = await supabase.from('email_actions').select('*').gte('created_at', cutoff).order('created_at', { ascending: false });
+      var q = supabase.from('email_actions').select('*').gte('created_at', cutoff).order('created_at', { ascending: false });
+      if (currentTenantId) q = q.eq('tenant_id', currentTenantId);
+      var r = await q;
       setItems(r.data || []);
     } catch (e) { console.error('[Digest] Load error:', e.message); }
     setLoading(false);
@@ -41,6 +44,36 @@ export default function EmailDigest({ C }) {
       await supabase.from('email_actions').update({ status: 'dismissed' }).eq('id', id);
       load();
     } catch (e) { alert('Error: ' + e.message); }
+  }
+
+  function delayOptions() {
+    var now = Date.now();
+    var tomorrow9 = new Date(); tomorrow9.setDate(tomorrow9.getDate() + 1); tomorrow9.setHours(9, 0, 0, 0);
+    return [
+      { id: 'now',  label: 'Send Now',   ts: null },
+      { id: '1h',   label: 'In 1 hour',  ts: new Date(now + 1 * 3600000).toISOString() },
+      { id: '2h',   label: 'In 2 hours', ts: new Date(now + 2 * 3600000).toISOString() },
+      { id: '4h',   label: 'In 4 hours', ts: new Date(now + 4 * 3600000).toISOString() },
+      { id: '8h',   label: 'In 8 hours', ts: new Date(now + 8 * 3600000).toISOString() },
+      { id: 'tmr',  label: 'Tomorrow 9am', ts: tomorrow9.toISOString() },
+    ];
+  }
+
+  async function scheduleAction(a, ts) {
+    setSending(a.id);
+    try {
+      if (!ts) { await executeAction(a); setDelayOpenFor(null); return; }
+      // If the user edited the draft, persist it first
+      var patch = { scheduled_at: ts };
+      if (editingId === a.id && editDraft && editDraft !== a.claude_reply_draft) {
+        patch.claude_reply_draft = editDraft;
+      }
+      await supabase.from('email_actions').update(patch).eq('id', a.id);
+      setDelayOpenFor(null);
+      setEditingId(null);
+      load();
+    } catch (e) { alert('Error: ' + e.message); }
+    setSending(null);
   }
 
   async function executeAction(a) {
@@ -224,8 +257,21 @@ export default function EmailDigest({ C }) {
                         {(a.claude_action === 'auto_reply' || a.claude_action === 'review') && (
                           <button onClick={function() { setEditingId(editing ? null : a.id); setEditDraft(a.claude_reply_draft || ''); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{editing ? 'Cancel Edit' : '✏️ Edit & Send'}</button>
                         )}
+                        <div style={{ position: 'relative' }}>
+                          <button onClick={function() { setDelayOpenFor(delayOpenFor === a.id ? null : a.id); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: '8px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}>⏱️ Send in…</button>
+                          {delayOpenFor === a.id && (
+                            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#0f172a', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: 4, zIndex: 50, minWidth: 150, boxShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+                              {delayOptions().map(function(opt) {
+                                return <button key={opt.id} onClick={function() { scheduleAction(a, opt.ts); }} style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', padding: '8px 10px', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, textAlign: 'left', borderRadius: 6 }} onMouseEnter={function(e) { e.target.style.background = 'rgba(99,102,241,0.15)'; }} onMouseLeave={function(e) { e.target.style.background = 'transparent'; }}>{opt.label}</button>;
+                              })}
+                            </div>
+                          )}
+                        </div>
                         <button onClick={function() { markDismissed(a.id); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 12px', color: colors.muted, cursor: 'pointer', fontSize: 12 }}>👁️ Dismiss</button>
                       </>
+                    )}
+                    {a.scheduled_at && a.status === 'pending' && (
+                      <div style={{ fontSize: 10, color: '#a5b4fc', marginTop: 4, textAlign: 'right', fontStyle: 'italic' }}>⏱️ Scheduled {new Date(a.scheduled_at).toLocaleString()}</div>
                     )}
                     {(a.contact_id || a.lead_id || a.tenant_id) && (
                       <div style={{ fontSize: 10, color: colors.muted, marginTop: 6, textAlign: 'right' }}>

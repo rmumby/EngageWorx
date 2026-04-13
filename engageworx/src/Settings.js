@@ -278,6 +278,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [digestEmail, setDigestEmail] = useState('');
   const [digestEmailSaving, setDigestEmailSaving] = useState(false);
   const [digestEmailSaved, setDigestEmailSaved] = useState(false);
+  const [calendlyUrl, setCalendlyUrl] = useState('');
+  const [calendlyUrlSaving, setCalendlyUrlSaving] = useState(false);
+  const [calendlyUrlSaved, setCalendlyUrlSaved] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -544,16 +547,30 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
 
-  // Per-tenant AI digest email
+  // Per-tenant AI digest email + Calendly
   useEffect(() => {
     if (activeTab !== 'notifications' || demoMode || !resolvedTenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('digest_email').eq('id', resolvedTenantId).maybeSingle();
-        if (data) setDigestEmail(data.digest_email || '');
+        const { data } = await supabase.from('tenants').select('digest_email, calendly_url').eq('id', resolvedTenantId).maybeSingle();
+        if (data) {
+          setDigestEmail(data.digest_email || '');
+          setCalendlyUrl(data.calendly_url || '');
+        }
       } catch (e) {}
     })();
   }, [activeTab, demoMode, resolvedTenantId]);
+  const saveCalendlyUrl = async () => {
+    if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
+    setCalendlyUrlSaving(true);
+    try {
+      const trimmed = (calendlyUrl || '').trim();
+      await supabase.from('tenants').update({ calendly_url: trimmed || null }).eq('id', resolvedTenantId);
+      setCalendlyUrlSaved(true);
+      setTimeout(() => setCalendlyUrlSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setCalendlyUrlSaving(false);
+  };
   const saveDigestEmail = async () => {
     if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
     setDigestEmailSaving(true);
@@ -966,6 +983,21 @@ return (<div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
               If left blank, the digest is sent to the tenant owner's email (as recorded in tenant_members).
               Covers both the inbound AI Email Digest (8am ET) and the daily stale-lead outreach summary (9am ET).
+            </div>
+          </div>
+
+          {/* Calendly link */}
+          <div style={Object.assign({}, card, { marginBottom: 20 })}>
+            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Calendly link</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input type="url" value={calendlyUrl} onChange={e => setCalendlyUrl(e.target.value)} placeholder="https://calendly.com/your-username/30min" style={Object.assign({}, inputStyle, { flex: 1 })} />
+              <button onClick={saveCalendlyUrl} disabled={calendlyUrlSaving || !resolvedTenantId} style={Object.assign({}, btnPrimary, { opacity: (calendlyUrlSaving || !resolvedTenantId) ? 0.5 : 1 })}>
+                {calendlyUrlSaving ? 'Saving…' : 'Save'}
+              </button>
+              {calendlyUrlSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
+            </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+              Claude appends this as a booking CTA when drafting auto-reply or review emails. Leave blank to omit.
             </div>
           </div>
 

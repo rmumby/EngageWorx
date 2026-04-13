@@ -93,6 +93,18 @@ async function analyzeAndActionEmail(ctx) {
       if (m) decision = Object.assign(decision, JSON.parse(m[0]));
     } catch (aiErr) { console.warn('[EmailAI] Claude error:', aiErr.message); }
 
+    // 3b. If the matched tenant has a Calendly link set, append a booking CTA
+    //     to any Claude-drafted reply (auto_reply or review).
+    if (decision.reply_draft && match.tenantId) {
+      try {
+        var tInfo = await supabase.from('tenants').select('calendly_url').eq('id', match.tenantId).maybeSingle();
+        var cu = tInfo.data && tInfo.data.calendly_url ? tInfo.data.calendly_url.trim() : '';
+        if (cu && decision.reply_draft.indexOf(cu) === -1) {
+          decision.reply_draft = decision.reply_draft.trimEnd() + '\n\nYou can book a time with me here: ' + cu;
+        }
+      } catch (cErr) {}
+    }
+
     // 4. Store in email_actions
     var ins = await supabase.from('email_actions').insert({
       contact_id: match.contactId, lead_id: match.leadId, tenant_id: match.tenantId,

@@ -1020,6 +1020,23 @@ setDemoCreating(false);
                         }} style={{ background: "rgba(0,201,255,0.15)", border: "1px solid rgba(0,201,255,0.35)", borderRadius: 8, padding: "0 14px", color: "#00C9FF", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Save</button>
                       </div>
                     </div>
+
+                    {/* Calendly — SP admin overrides */}
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>📅 Calendly Link</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input type="url" defaultValue={c.calendly_url || ''} placeholder="https://calendly.com/.../30min  (appended to Claude reply drafts)" data-field={"calendly_url_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1 })} />
+                        <button onClick={async function(e) {
+                          var val = (document.querySelector('[data-field="calendly_url_' + c.id + '"]') || {}).value || '';
+                          try {
+                            var { supabase: sb } = await import('./supabaseClient');
+                            var res = await sb.from('tenants').update({ calendly_url: val.trim() || null }).eq('id', c.id);
+                            if (res.error) alert('Error: ' + res.error.message);
+                            else { c.calendly_url = val.trim() || null; e.target.textContent = '✓ Saved'; setTimeout(function() { e.target.textContent = 'Save'; }, 1500); }
+                          } catch (err) { alert('Error: ' + err.message); }
+                        }} style={{ background: "rgba(0,201,255,0.15)", border: "1px solid rgba(0,201,255,0.35)", borderRadius: 8, padding: "0 14px", color: "#00C9FF", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>Save</button>
+                      </div>
+                    </div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Message Limit</div>
