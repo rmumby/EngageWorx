@@ -225,7 +225,29 @@ module.exports = async function handler(req, res) {
         '&from=' + encodeURIComponent(body.From || '') +
         '&to=' + encodeURIComponent(body.To || '');
 
-      if (hasIVR && isBusinessHours(config)) {
+      // ── Per-tenant voice behavior flags ──
+      var autoAnswer = String(config.auto_answer || '').toLowerCase() === 'enabled';
+      var blockAfterHours = String(config.block_after_hours || '').toLowerCase() === 'enabled';
+      var ringTimeout = parseInt(config.ring_timeout_seconds, 10);
+      if (!ringTimeout || isNaN(ringTimeout) || ringTimeout < 1) ringTimeout = 20;
+      var withinHours = isBusinessHours(config);
+
+      var voicemailUrl = '/api/twilio-voice?action=voicemail&tenant=' + tenantId;
+
+      // After-hours → straight to voicemail if blocking is enabled
+      if (blockAfterHours && !withinHours) {
+        return res.status(200).end(twiml('<Redirect>' + voicemailUrl + '</Redirect>'));
+      }
+
+      // Auto-answer disabled → simulate ring then roll to voicemail (no human line to dial in AI-only mode)
+      if (!autoAnswer && !hasIVR) {
+        return res.status(200).end(twiml(
+          '<Pause length="' + ringTimeout + '"/>' +
+          '<Redirect>' + voicemailUrl + '</Redirect>'
+        ));
+      }
+
+      if (hasIVR && withinHours) {
         // ── IVR mode for tenants with department routing ──
         var menuOptions = departments.filter(function(d) { return d.name; }).map(function(d) {
           return 'Press ' + d.digit + ' ' + (d.description || 'for ' + d.name);
@@ -386,6 +408,31 @@ module.exports = async function handler(req, res) {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // VOICEMAIL — Play greeting and record message
+    // ═══════════════════════════════════════════════════════════════
+    if (action === 'voicemail') {
+      var vmInTenantId = req.query.tenant || 'c1bc59a8-5235-4921-9755-02514b574387';
+      var vmInCfg = {};
+      try {
+        var vmInVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmInTenantId).eq('channel', 'voice').single();
+        vmInCfg = (vmInVc.data && vmInVc.data.config_encrypted) ? vmInVc.data.config_encrypted : {};
+      } catch(e) {}
+      var vmInVoice = 'Polly.Joanna';
+      if (vmInCfg.tts_voice) { var vmInVm = String(vmInCfg.tts_voice).match(/Polly\.\w+/); if (vmInVm) vmInVoice = vmInVm[0]; }
+      var vmGreeting = vmInCfg.voicemail_greeting ||
+        "You've reached our voicemail. Please leave your name, number, and a short message after the tone, and we'll get back to you shortly.";
+      try { await supabase.from('calls').update({ disposition: 'voicemail' }).eq('call_sid', body.CallSid); } catch(e) {}
+      return res.status(200).end(twiml(
+        say(vmGreeting, vmInVoice) +
+        '<Record action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + vmInTenantId + '"' +
+        ' method="POST" maxLength="120" playBeep="true" trim="trim-silence"' +
+        ' transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + vmInTenantId + '"/>' +
+        say('We did not receive a recording. Goodbye.', vmInVoice) +
+        '<Hangup/>'
+      ));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // VOICEMAIL-COMPLETE — Recording finished
     // ═══════════════════════════════════════════════════════════════
     if (action === 'voicemail-complete') {
@@ -402,15 +449,24 @@ module.exports = async function handler(req, res) {
       } catch(e) { console.warn('Call update error:', e.message); }
 
       try {
-        var vmEmail = 'rob@engwx.com';
+        var vmRecipients = [];
         var sendVmEmail = true;
         if (vmTenantId) {
           var vmVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmTenantId).eq('channel', 'voice').single();
-          if (vmVc.data && vmVc.data.config_encrypted) {
-            if (vmVc.data.config_encrypted.voicemail_email) vmEmail = vmVc.data.config_encrypted.voicemail_email;
-            if (vmVc.data.config_encrypted.send_transcript_email === 'Disabled') sendVmEmail = false;
+          var vmCfg = (vmVc.data && vmVc.data.config_encrypted) ? vmVc.data.config_encrypted : {};
+          if (vmCfg.send_transcript_email === 'Disabled') sendVmEmail = false;
+          if (vmCfg.voicemail_email) {
+            String(vmCfg.voicemail_email).split(/[,;]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(e) { if (vmRecipients.indexOf(e) === -1) vmRecipients.push(e); });
+          }
+          if (String(vmCfg.voicemail_notify_digest || '').toLowerCase() === 'enabled') {
+            try {
+              var vmT = await supabase.from('tenants').select('digest_email').eq('id', vmTenantId).maybeSingle();
+              var digestEmail = vmT.data && vmT.data.digest_email ? String(vmT.data.digest_email).trim() : '';
+              if (digestEmail && vmRecipients.indexOf(digestEmail) === -1) vmRecipients.push(digestEmail);
+            } catch(e) {}
           }
         }
+        if (vmRecipients.length === 0) vmRecipients.push('rob@engwx.com');
         var RESEND_KEY = process.env.RESEND_API_KEY;
         if (RESEND_KEY && sendVmEmail) {
           var callerNum = body.From || 'Unknown';
@@ -422,7 +478,7 @@ module.exports = async function handler(req, res) {
           await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: 'EngageWorx <hello@engwx.com>', to: [vmEmail], subject: 'New voice message from ' + callerNum, html: vmHtml }),
+            body: JSON.stringify({ from: 'EngageWorx <hello@engwx.com>', to: vmRecipients, subject: 'New voice message from ' + callerNum, html: vmHtml }),
           });
         }
       } catch(emailErr) { console.error('Voicemail email error:', emailErr.message); }
@@ -444,15 +500,24 @@ module.exports = async function handler(req, res) {
       if (txText) {
         try { await supabase.from('calls').update({ transcript: txText }).eq('call_sid', txCallSid); } catch(e) {}
         try {
-          var txEmail = 'rob@engwx.com';
+          var txRecipients = [];
           var sendTxEmail = true;
           if (txTenantId) {
             var txVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', txTenantId).eq('channel', 'voice').single();
-            if (txVc.data && txVc.data.config_encrypted) {
-              if (txVc.data.config_encrypted.voicemail_email) txEmail = txVc.data.config_encrypted.voicemail_email;
-              if (txVc.data.config_encrypted.send_transcript_email === 'Disabled') sendTxEmail = false;
+            var txCfg = (txVc.data && txVc.data.config_encrypted) ? txVc.data.config_encrypted : {};
+            if (txCfg.send_transcript_email === 'Disabled') sendTxEmail = false;
+            if (txCfg.voicemail_email) {
+              String(txCfg.voicemail_email).split(/[,;]/).map(function(s) { return s.trim(); }).filter(Boolean).forEach(function(e) { if (txRecipients.indexOf(e) === -1) txRecipients.push(e); });
+            }
+            if (String(txCfg.voicemail_notify_digest || '').toLowerCase() === 'enabled') {
+              try {
+                var txT = await supabase.from('tenants').select('digest_email').eq('id', txTenantId).maybeSingle();
+                var txDigest = txT.data && txT.data.digest_email ? String(txT.data.digest_email).trim() : '';
+                if (txDigest && txRecipients.indexOf(txDigest) === -1) txRecipients.push(txDigest);
+              } catch(e) {}
             }
           }
+          if (txRecipients.length === 0) txRecipients.push('rob@engwx.com');
           var txCallerNum = 'Unknown';
           try {
             var txCall = await supabase.from('calls').select('from_number').eq('call_sid', txCallSid).single();
@@ -466,7 +531,7 @@ module.exports = async function handler(req, res) {
             await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Authorization': 'Bearer ' + TX_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ from: 'EngageWorx <hello@engwx.com>', to: [txEmail], subject: 'Voice call transcript from ' + txCallerNum, html: txHtml }),
+              body: JSON.stringify({ from: 'EngageWorx <hello@engwx.com>', to: txRecipients, subject: 'Voice call transcript from ' + txCallerNum, html: txHtml }),
             });
           }
         } catch(emailErr) { console.error('Transcript email error:', emailErr.message); }
