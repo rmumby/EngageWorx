@@ -281,6 +281,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calendlyUrlSaving, setCalendlyUrlSaving] = useState(false);
   const [calendlyUrlSaved, setCalendlyUrlSaved] = useState(false);
+  const [digestSendTime, setDigestSendTime] = useState('08:00');
+  const [digestTimezone, setDigestTimezone] = useState('America/New_York');
+  const [digestScheduleSaving, setDigestScheduleSaving] = useState(false);
+  const [digestScheduleSaved, setDigestScheduleSaved] = useState(false);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -552,10 +556,12 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
     if (activeTab !== 'notifications' || demoMode || !resolvedTenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('digest_email, calendly_url').eq('id', resolvedTenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('digest_email, calendly_url, digest_send_time, digest_timezone').eq('id', resolvedTenantId).maybeSingle();
         if (data) {
           setDigestEmail(data.digest_email || '');
           setCalendlyUrl(data.calendly_url || '');
+          setDigestSendTime(data.digest_send_time || '08:00');
+          setDigestTimezone(data.digest_timezone || 'America/New_York');
         }
       } catch (e) {}
     })();
@@ -570,6 +576,20 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
       setTimeout(() => setCalendlyUrlSaved(false), 2000);
     } catch (e) { alert('Error: ' + e.message); }
     setCalendlyUrlSaving(false);
+  };
+  const saveDigestSchedule = async () => {
+    if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
+    if (!/^\d{1,2}:\d{2}$/.test(digestSendTime || '')) { alert('Time must be in HH:MM format (e.g. 08:00).'); return; }
+    setDigestScheduleSaving(true);
+    try {
+      await supabase.from('tenants').update({
+        digest_send_time: digestSendTime,
+        digest_timezone: digestTimezone || 'America/New_York',
+      }).eq('id', resolvedTenantId);
+      setDigestScheduleSaved(true);
+      setTimeout(() => setDigestScheduleSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setDigestScheduleSaving(false);
   };
   const saveDigestEmail = async () => {
     if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
@@ -982,7 +1002,38 @@ return (<div>
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
               If left blank, the digest is sent to the tenant owner's email (as recorded in tenant_members).
-              Covers both the inbound AI Email Digest (8am ET) and the daily stale-lead outreach summary (9am ET).
+              Covers both the inbound AI Email Digest and the daily stale-lead outreach summary.
+            </div>
+          </div>
+
+          {/* Daily digest send time */}
+          <div style={Object.assign({}, card, { marginBottom: 20 })}>
+            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Daily digest send time</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="time" value={digestSendTime} onChange={e => setDigestSendTime(e.target.value)} style={Object.assign({}, inputStyle, { width: 140 })} />
+              <select value={digestTimezone} onChange={e => setDigestTimezone(e.target.value)} style={Object.assign({}, inputStyle, { flex: 1, minWidth: 200 })}>
+                <option value="America/New_York">America/New_York (ET)</option>
+                <option value="America/Chicago">America/Chicago (CT)</option>
+                <option value="America/Denver">America/Denver (MT)</option>
+                <option value="America/Phoenix">America/Phoenix (AZ)</option>
+                <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
+                <option value="America/Anchorage">America/Anchorage (AK)</option>
+                <option value="Pacific/Honolulu">Pacific/Honolulu (HI)</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Europe/Paris">Europe/Paris</option>
+                <option value="Europe/Berlin">Europe/Berlin</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+                <option value="Asia/Singapore">Asia/Singapore</option>
+                <option value="Australia/Sydney">Australia/Sydney</option>
+                <option value="UTC">UTC</option>
+              </select>
+              <button onClick={saveDigestSchedule} disabled={digestScheduleSaving || !resolvedTenantId} style={Object.assign({}, btnPrimary, { opacity: (digestScheduleSaving || !resolvedTenantId) ? 0.5 : 1 })}>
+                {digestScheduleSaving ? 'Saving…' : 'Save'}
+              </button>
+              {digestScheduleSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
+            </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+              Your digest will be sent daily at this time. Applies to both the inbound AI digest and stale-lead outreach summary (stale leads are sent one hour after the digest).
             </div>
           </div>
 

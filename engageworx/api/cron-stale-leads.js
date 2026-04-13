@@ -1,10 +1,31 @@
 // api/cron-stale-leads.js — Daily stale lead outreach analysis
-// Schedule: 13:00 UTC (9am EDT / 8am EST)
+// Schedule: every hour on the hour. Each tenant fires one hour after their
+// digest_send_time (so the stale-lead summary lands shortly after the digest).
 // Finds qualified leads with no activity in 7+ days, asks Claude what to do,
 // stores the recommendation in email_actions. Supervised mode (default) lets
-// Rob approve via the AI Email Digest. Autonomous mode fires immediately.
+// the tenant approve via the AI Email Digest. Autonomous mode fires immediately.
 
 var { createClient } = require('@supabase/supabase-js');
+
+function tenantLocalHour(tz) {
+  try {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: tz || 'UTC', hour: '2-digit', hour12: false }).formatToParts(new Date());
+    var h = parts.find(function(p) { return p.type === 'hour'; });
+    return h ? parseInt(h.value, 10) % 24 : null;
+  } catch (e) { return null; }
+}
+function parseHour(timeStr) {
+  if (!timeStr) return null;
+  var m = /^(\d{1,2}):/.exec(timeStr);
+  return m ? parseInt(m[1], 10) : null;
+}
+function shouldFireForTenant(tenant, offsetHours) {
+  var configured = parseHour(tenant.digest_send_time || '08:00');
+  if (configured === null) return false;
+  var local = tenantLocalHour(tenant.digest_timezone || 'America/New_York');
+  if (local === null) return false;
+  return local === ((configured + (offsetHours || 0) + 24) % 24);
+}
 
 var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
 var STALE_DAYS = 7;
@@ -113,18 +134,36 @@ module.exports = async function handler(req, res) {
   var supabase = getSupabase();
   var mode = await getMode(supabase);
   var cutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
-  console.log('[Cron] Stale leads started. mode:', mode, 'cutoff:', cutoff);
+  var utcHour = new Date().getUTCHours();
+  console.log('[Cron] Stale leads started. mode:', mode, 'cutoff:', cutoff, 'UTC hour:', utcHour);
 
   try {
-    var leadsRes = await supabase.from('leads')
+    // Determine which tenants should fire this hour (configured digest hour + 1)
+    var tenantsRes = await supabase.from('tenants').select('id, digest_send_time, digest_timezone');
+    var allTenants = tenantsRes.data || [];
+    var firingIds = {};
+    allTenants.forEach(function(t) { if (shouldFireForTenant(t, 1)) firingIds[t.id] = true; });
+    var firingCount = Object.keys(firingIds).length;
+    console.log('[Cron] Stale-leads firing tenants this hour:', firingCount, '/', allTenants.length);
+    var fireOrphans = utcHour === 13; // default 9am ET fallback for null-tenant leads
+    if (firingCount === 0 && !fireOrphans) {
+      return res.status(200).json({ success: true, skipped: true, utc_hour: utcHour, reason: 'No tenants scheduled for stale-leads this hour' });
+    }
+
+    var leadsQuery = supabase.from('leads')
       .select('id, name, company, email, phone, stage, urgency, notes, tenant_id, last_activity_at, created_at')
       .eq('qualified', true)
       .eq('archived', false)
       .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
       .lt('last_activity_at', cutoff)
-      .limit(100);
-
-    var leads = leadsRes.data || [];
+      .limit(200);
+    var leadsRes = await leadsQuery;
+    var allLeads = leadsRes.data || [];
+    var leads = allLeads.filter(function(l) {
+      if (l.tenant_id) return !!firingIds[l.tenant_id];
+      return fireOrphans;
+    });
+    console.log('[Cron] Stale candidates after tenant filter:', leads.length, '/', allLeads.length);
     var analysed = 0, actioned = 0, pending = 0;
     var createdByTenant = {}; // tenant_id → [{ lead, decision, status }]
 

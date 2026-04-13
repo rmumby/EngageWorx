@@ -1,9 +1,29 @@
 // api/cron-email-digest.js — Per-tenant daily AI email digest
-// Schedule: 12:00 UTC (= 8am EDT, 7am EST)
-// Groups email_actions from last 24h by tenant_id, sends each tenant's
-// digest to their configured digest_email (or owner, or rob@engwx.com).
+// Schedule: every hour on the hour. Each tenant fires when their configured
+// digest_send_time (local to digest_timezone) matches the current local hour.
+// Orphan/untenanted actions fire at 12:00 UTC as a fallback.
 
 var { createClient } = require('@supabase/supabase-js');
+
+function tenantLocalHour(tz) {
+  try {
+    var parts = new Intl.DateTimeFormat('en-US', { timeZone: tz || 'UTC', hour: '2-digit', hour12: false }).formatToParts(new Date());
+    var h = parts.find(function(p) { return p.type === 'hour'; });
+    return h ? parseInt(h.value, 10) % 24 : null;
+  } catch (e) { return null; }
+}
+function parseHour(timeStr) {
+  if (!timeStr) return null;
+  var m = /^(\d{1,2}):/.exec(timeStr);
+  return m ? parseInt(m[1], 10) : null;
+}
+function shouldFireForTenant(tenant, offsetHours) {
+  var configured = parseHour(tenant.digest_send_time || '08:00');
+  if (configured === null) return false;
+  var local = tenantLocalHour(tenant.digest_timezone || 'America/New_York');
+  if (local === null) return false;
+  return local === ((configured + (offsetHours || 0)) % 24);
+}
 
 function getSupabase() {
   return createClient(
@@ -90,22 +110,40 @@ module.exports = async function handler(req, res) {
 
   var supabase = getSupabase();
   var dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  console.log('[Cron] Email digest window:', dayAgo, '→ now');
+  var utcHour = new Date().getUTCHours();
+  console.log('[Cron] Email digest window:', dayAgo, '→ now. UTC hour:', utcHour);
 
   try {
+    // Determine which tenants should fire this hour
+    var tenantsRes = await supabase.from('tenants').select('id, name, digest_send_time, digest_timezone, digest_email');
+    var allTenants = tenantsRes.data || [];
+    var firingIds = {};
+    allTenants.forEach(function(t) { if (shouldFireForTenant(t, 0)) firingIds[t.id] = true; });
+    var firingCount = Object.keys(firingIds).length;
+    console.log('[Cron] Tenants firing this hour:', firingCount, '/', allTenants.length);
+
     var actionsRes = await supabase.from('email_actions')
       .select('id, email_from, email_subject, email_body_summary, claude_action, claude_reasoning, claude_reply_draft, status, contact_id, lead_id, tenant_id, source, created_at')
       .gte('created_at', dayAgo)
       .order('created_at', { ascending: false });
     var actions = actionsRes.data || [];
 
-    // Group by tenant_id (null tenants bucketed under '_orphan' → rob@engwx.com)
+    // Group by tenant_id — only include tenants firing this hour.
+    // Orphaned (null tenant) actions fire at 12:00 UTC as a fallback.
     var byTenant = {};
     actions.forEach(function(a) {
-      var key = a.tenant_id || '_orphan';
-      if (!byTenant[key]) byTenant[key] = [];
-      byTenant[key].push(a);
+      if (a.tenant_id) {
+        if (!firingIds[a.tenant_id]) return;
+        if (!byTenant[a.tenant_id]) byTenant[a.tenant_id] = [];
+        byTenant[a.tenant_id].push(a);
+      } else if (utcHour === 12) {
+        if (!byTenant._orphan) byTenant._orphan = [];
+        byTenant._orphan.push(a);
+      }
     });
+    if (firingCount === 0 && !byTenant._orphan) {
+      return res.status(200).json({ success: true, skipped: true, utc_hour: utcHour, reason: 'No tenants scheduled for this hour' });
+    }
 
     var sgMail = null;
     if (process.env.SENDGRID_API_KEY) {
