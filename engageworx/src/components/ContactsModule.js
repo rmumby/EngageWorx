@@ -292,6 +292,46 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       }
       console.log('tenantUUID resolved:', tenantUUID, 'from:', currentTenantId);
 
+      // Warn if adding a portal user (CSP/agent/member/tenant owner) as a contact in the master SP tenant
+      const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+      if (tenantUUID === SP_TENANT_ID && newContact.email) {
+        const email = newContact.email.trim().toLowerCase();
+        let portalMatch = null;
+        try {
+          const { data: prof } = await supabase.from('user_profiles').select('id, email').ilike('email', email).maybeSingle();
+          if (prof && prof.id) {
+            const { data: membership } = await supabase.from('tenant_members').select('tenant_id, role').eq('user_id', prof.id).eq('status', 'active').limit(1).maybeSingle();
+            if (membership) {
+              const { data: memberTenant } = await supabase.from('tenants').select('name, tenant_type, entity_tier').eq('id', membership.tenant_id).maybeSingle();
+              portalMatch = {
+                role: membership.role,
+                tenantName: (memberTenant && memberTenant.name) || 'a tenant',
+                tenantType: (memberTenant && (memberTenant.entity_tier || memberTenant.tenant_type)) || 'tenant',
+              };
+            }
+          }
+          if (!portalMatch) {
+            const { data: ownerTenant } = await supabase.from('tenants').select('id, name, tenant_type, entity_tier').ilike('digest_email', email).limit(1).maybeSingle();
+            if (ownerTenant) {
+              portalMatch = {
+                role: 'digest recipient',
+                tenantName: ownerTenant.name || 'a tenant',
+                tenantType: ownerTenant.entity_tier || ownerTenant.tenant_type || 'tenant',
+              };
+            }
+          }
+        } catch (e) { console.warn('Portal-user check error:', e.message); }
+        if (portalMatch) {
+          const confirmed = window.confirm(
+            '⚠️ This email already belongs to a portal user.\n\n' +
+            email + ' is the ' + portalMatch.role + ' of "' + portalMatch.tenantName + '" (' + portalMatch.tenantType + ').\n\n' +
+            'Adding portal users (CSP partners, agents, team members) as pipeline contacts is usually a mistake.\n\n' +
+            'Continue anyway?'
+          );
+          if (!confirmed) return;
+        }
+      }
+
       const { error } = await supabase.from("contacts").insert({
         first_name: newContact.firstName,
         last_name: newContact.lastName,
