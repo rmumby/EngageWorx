@@ -568,7 +568,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
   );
 }
 
-export default function PipelineDashboard({ C, tenantId, demoMode }) {
+export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin }) {
   var bg = C ? C.bg : '#070d1a';
   var surface = C ? C.surface : 'rgba(255,255,255,0.04)';
   var text = C ? C.text : '#f1f5f9';
@@ -586,6 +586,10 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   const [showActions, setShowActions] = useState(false);
   const [hideDormant, setHideDormant] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
+  const [viewMode, setViewMode] = useState('active'); // 'active' | 'prospects' | 'archived'
+  const [validateOpen, setValidateOpen] = useState(false);
+  const [validateBusy, setValidateBusy] = useState(null);
+  const [qualSeqStep, setQualSeqStep] = useState({}); // lead_id → current_step
 
   const fetchLeads = async () => {
     if (demoMode) { setLeads(DEMO_LEADS); setLastSync(new Date()); setLoading(false); return; }
@@ -641,9 +645,13 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
   });
 
   const filtered = sortedLeads.filter(l => {
-    // Archived tab shows ONLY archived leads; default view hides them
-    if (showArchived) { if (!l.archived) return false; }
-    else if (l.archived) return false;
+    // 3-way view: active (qualified, not archived) / prospects (unqualified, not archived) / archived
+    if (viewMode === 'archived') { if (!l.archived) return false; }
+    else if (viewMode === 'prospects') { if (l.archived || l.qualified === true) return false; }
+    else { // 'active'
+      if (l.archived) return false;
+      if (l.qualified === false) return false;
+    }
     if (hideDormant && l.stage === "dormant") return false;
     if (filterType !== "All" && l.type !== filterType) return false;
     if (search) {
@@ -698,7 +706,21 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
             <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>Actions</button>
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
-            <button onClick={()=>setShowArchived(!showArchived)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid "+(showArchived?"rgba(245,158,11,0.4)":"rgba(255,255,255,0.08)"),background:showArchived?"rgba(245,158,11,0.15)":"rgba(255,255,255,0.03)",color:showArchived?"#fbbf24":"#475569" }}>{showArchived?"← Active Pipeline":"📦 Archived ("+leads.filter(l=>l.archived).length+")"}</button>
+            <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+              {[
+                { id: "active",    label: "✅ Active",    count: leads.filter(l => !l.archived && l.qualified !== false).length },
+                { id: "prospects", label: "📥 Prospects", count: leads.filter(l => !l.archived && l.qualified === false).length },
+                { id: "archived",  label: "📦 Archived",  count: leads.filter(l => l.archived).length },
+              ].map((tab, i) => (
+                <button key={tab.id} onClick={() => { setViewMode(tab.id); setShowArchived(tab.id === 'archived'); }} style={{
+                  padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
+                  border: "none", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                  background: viewMode === tab.id ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.03)",
+                  color: viewMode === tab.id ? "#a5b4fc" : "#475569",
+                }}>{tab.label} ({tab.count})</button>
+              ))}
+            </div>
+            {isSuperAdmin && <button onClick={() => setValidateOpen(true)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(99,102,241,0.4)",background:"rgba(99,102,241,0.15)",color:"#a5b4fc",marginLeft:4 }}>🔍 Validate Existing</button>}
             <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
             <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency</button>
             <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage</button>
@@ -785,6 +807,135 @@ export default function PipelineDashboard({ C, tenantId, demoMode }) {
       )}
 
       {selected && <Modal lead={selected} tenantId={tenantId} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} />}
+
+      {validateOpen && <ValidateExistingModal
+        leads={leads.filter(function(l) { return !l.archived && l.qualified === false; })}
+        tenantId={tenantId}
+        busy={validateBusy}
+        setBusy={setValidateBusy}
+        onClose={function() { setValidateOpen(false); }}
+        onRefresh={function() { fetchLeads(); }}
+      />}
+    </div>
+  );
+}
+
+// ── Validate Existing modal — SP admin only ────────────────────────────────
+function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefresh }) {
+  var [selection, setSelection] = useState({});
+  async function markAsReal(lead) {
+    setBusy('real_' + lead.id);
+    try {
+      await supabase.from('leads').update({ qualified: true, prospect_stage: null, stage: 'inquiry' }).eq('id', lead.id);
+      await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', lead.id).eq('status', 'active');
+      onRefresh();
+    } catch(e) { alert('Error: ' + e.message); }
+    setBusy(null);
+  }
+  async function archiveLead(lead) {
+    setBusy('arch_' + lead.id);
+    try {
+      await supabase.from('leads').update({ archived: true }).eq('id', lead.id);
+      onRefresh();
+    } catch(e) { alert('Error: ' + e.message); }
+    setBusy(null);
+  }
+  async function sendQualSeq(lead) {
+    setBusy('seq_' + lead.id);
+    try {
+      var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%').limit(1);
+      if (!seqRes.data || seqRes.data.length === 0) { alert('No Contact Qualification sequence found. Create one in the master SP tenant first.'); setBusy(null); return; }
+      var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqRes.data[0].id).eq('step_number', 1).single();
+      var delay = (fs.data && fs.data.delay_days) || 0;
+      var nextAt = new Date(Date.now() + delay * 86400000).toISOString();
+      await supabase.from('lead_sequences').upsert({
+        tenant_id: lead.tenant_id, lead_id: lead.id, sequence_id: seqRes.data[0].id,
+        current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
+      }, { onConflict: 'lead_id,sequence_id' });
+      onRefresh();
+    } catch(e) { alert('Error: ' + e.message); }
+    setBusy(null);
+  }
+  async function bulk(action) {
+    var ids = Object.keys(selection).filter(function(k) { return selection[k]; });
+    if (ids.length === 0) { alert('Select at least one lead first.'); return; }
+    if (!window.confirm(action.replace('_', ' ').toUpperCase() + ' ' + ids.length + ' lead(s)?')) return;
+    setBusy('bulk');
+    try {
+      if (action === 'archive') {
+        await supabase.from('leads').update({ archived: true }).in('id', ids);
+      } else if (action === 'send_seq') {
+        for (var id of ids) { var ld = leads.find(function(l) { return l.id === id; }); if (ld) await sendQualSeqInner(ld); }
+      }
+      onRefresh();
+      setSelection({});
+    } catch(e) { alert('Error: ' + e.message); }
+    setBusy(null);
+  }
+  async function sendQualSeqInner(lead) {
+    var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%').limit(1);
+    if (!seqRes.data || seqRes.data.length === 0) return;
+    var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqRes.data[0].id).eq('step_number', 1).single();
+    var delay = (fs.data && fs.data.delay_days) || 0;
+    var nextAt = new Date(Date.now() + delay * 86400000).toISOString();
+    await supabase.from('lead_sequences').upsert({
+      tenant_id: lead.tenant_id, lead_id: lead.id, sequence_id: seqRes.data[0].id,
+      current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
+    }, { onConflict: 'lead_id,sequence_id' });
+  }
+  var allSelected = leads.length > 0 && leads.every(function(l) { return selection[l.id]; });
+  return (
+    <div onClick={function(e) { if (e.target === e.currentTarget) onClose(); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, width: '100%', maxWidth: 900, maxHeight: '88vh', overflowY: 'auto', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div>
+            <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 800 }}>🔍 Validate Existing Leads</h2>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{leads.length} unqualified, unarchived lead(s) awaiting review</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+
+        {leads.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <button onClick={function() { bulk('send_seq'); }} disabled={busy === 'bulk'} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '6px 12px', color: '#a5b4fc', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📤 Send Sequence to Selected</button>
+            <button onClick={function() { bulk('archive'); }} disabled={busy === 'bulk'} style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '6px 12px', color: '#fbbf24', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>📦 Archive Selected</button>
+            <div style={{ flex: 1 }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+              <input type="checkbox" checked={allSelected} onChange={function() {
+                if (allSelected) setSelection({});
+                else { var all = {}; leads.forEach(function(l) { all[l.id] = true; }); setSelection(all); }
+              }} /> Select all
+            </label>
+          </div>
+        )}
+
+        {leads.length === 0 ? (
+          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>✅ No unqualified leads to review.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {leads.map(function(l) {
+              var sel = !!selection[l.id];
+              return (
+                <div key={l.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid ' + (sel ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.06)'), borderRadius: 8, padding: '10px 14px', display: 'grid', gridTemplateColumns: '30px 1fr 140px 140px', gap: 12, alignItems: 'center' }}>
+                  <input type="checkbox" checked={sel} onChange={function(e) { setSelection(function(p) { return Object.assign({}, p, { [l.id]: e.target.checked }); }); }} />
+                  <div>
+                    <div style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 700 }}>{l.name || '(no name)'}</div>
+                    <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>
+                      {l.company ? l.company + ' · ' : ''}{l.email || 'no email'}{l.phone ? ' · ' + l.phone : ' · no phone'}
+                    </div>
+                    {l.notes && <div style={{ color: '#475569', fontSize: 11, marginTop: 4, fontStyle: 'italic', maxWidth: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.notes}</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={function() { markAsReal(l); }} disabled={busy === 'real_' + l.id} style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 5, padding: '5px 8px', color: '#34d399', fontSize: 11, fontWeight: 700, cursor: 'pointer', flex: 1 }}>{busy === 'real_' + l.id ? '...' : '✓ Real'}</button>
+                    <button onClick={function() { sendQualSeq(l); }} disabled={busy === 'seq_' + l.id} style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 5, padding: '5px 8px', color: '#a5b4fc', fontSize: 11, fontWeight: 700, cursor: 'pointer', flex: 1 }}>{busy === 'seq_' + l.id ? '...' : '📤 Send'}</button>
+                  </div>
+                  <button onClick={function() { archiveLead(l); }} disabled={busy === 'arch_' + l.id} style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 5, padding: '5px 10px', color: '#fbbf24', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{busy === 'arch_' + l.id ? '...' : '📦 Archive'}</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

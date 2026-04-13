@@ -2090,7 +2090,7 @@ var spNavBase = [
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "hierarchy" && <HierarchyView C={C} />}
-        {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} />}
+        {spPage === "pipeline" && <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />}
         {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
         {spPage === "sequences" && <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}
         {spPage === "sequence-builder" && <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />}

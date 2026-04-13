@@ -33,6 +33,73 @@ async function pauseSequencesForContact(supabase, contactPhone, contactEmail, te
   } catch (e) { console.error('[Sequences] Pause error:', e.message); return 0; }
 }
 
+// ─── QUALIFY UNQUALIFIED PROSPECTS ON INBOUND ────────────────────────────
+async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
+  try {
+    var matches = [];
+    if (phone) {
+      var p = await supabase.from('leads').select('id, name, phone, email, tenant_id, qualified').eq('phone', phone).eq('qualified', false);
+      if (p.data) matches = matches.concat(p.data);
+    }
+    if (email) {
+      var e = await supabase.from('leads').select('id, name, phone, email, tenant_id, qualified').eq('email', email).eq('qualified', false);
+      if (e.data) matches = matches.concat(e.data);
+    }
+    if (matches.length === 0) return 0;
+    var seen = {}; var unique = matches.filter(function(l) { if (seen[l.id]) return false; seen[l.id] = true; return true; });
+
+    // Claude extraction — name + phone from the reply
+    var extracted = { name: null, phone: null };
+    try {
+      var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001', max_tokens: 200,
+          system: 'Extract sender info from prospect replies. Return STRICT JSON only: {"name": "full name" or null, "phone": "phone" or null}. No other text.',
+          messages: [{ role: 'user', content: 'Reply message: ' + (replyBody || '') + '\n\nExtract the sender\'s name (if mentioned) and phone number (if mentioned). Return JSON.' }],
+        }),
+      });
+      var aiData = await aiRes.json();
+      var text = (aiData.content || []).find(function(b) { return b.type === 'text'; })?.text || '';
+      var m = text.match(/\{[\s\S]*\}/);
+      if (m) extracted = JSON.parse(m[0]);
+    } catch (aiErr) { console.warn('[Qualify] Claude error:', aiErr.message); }
+
+    var now = new Date().toISOString();
+    for (var l of unique) {
+      var upd = { qualified: true, stage: 'inquiry', urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
+      if (extracted.name && (!l.name || l.name === 'Unknown' || l.name === '')) upd.name = extracted.name;
+      if (extracted.phone && !l.phone) upd.phone = extracted.phone;
+      await supabase.from('leads').update(upd).eq('id', l.id);
+
+      // Cancel qualification sequence enrollment (any tenant-scoped or master-SP qualification sequence)
+      try {
+        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%');
+        if (seqs.data && seqs.data.length > 0) {
+          var sids = seqs.data.map(function(s) { return s.id; });
+          await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', l.id).in('sequence_id', sids).eq('status', 'active');
+        }
+      } catch (sErr) {}
+
+      // Notify rob@engwx.com
+      try {
+        var sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        var qualName = upd.name || l.name || 'Prospect';
+        await sgMail.send({
+          to: 'rob@engwx.com',
+          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+          subject: '✅ ' + qualName + ' just qualified from ' + channel,
+          html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p><p><b>Lead ID:</b> <code>' + l.id + '</code></p>',
+        });
+      } catch (nErr) {}
+    }
+    console.log('[Qualify] Qualified', unique.length, 'prospect(s) via', channel);
+    return unique.length;
+  } catch (err) { console.error('[Qualify] Error:', err.message); return 0; }
+}
+
 // ─── REACTIVATE ARCHIVED LEADS ON INBOUND ─────────────────────────────────
 async function reactivateArchivedLeadsForContact(supabase, phone, email) {
   try {
@@ -500,6 +567,9 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
 
       // 8b. Reactivate archived leads on reply
       reactivateArchivedLeadsForContact(supabase, From, contactEmail).catch(function() {});
+
+      // 8c. Qualify unqualified prospects on reply
+      tryQualifyProspect(supabase, From, contactEmail, Body, 'SMS').catch(function() {});
 
       // 9. Notify inbound (non-blocking)
       var contactDisplayName = From;
