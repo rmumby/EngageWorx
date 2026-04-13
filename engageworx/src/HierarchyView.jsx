@@ -9,7 +9,7 @@ var TIER_STYLE = {
   tenant:       { label: 'TENANT',       bg: '#6B8BAE22', color: '#6B8BAE', border: '#6B8BAE44', icon: '📇' },
 };
 
-export default function HierarchyView({ C }) {
+export default function HierarchyView({ C, onDrillDown }) {
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
   var [allTenants, setAllTenants] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -54,6 +54,9 @@ export default function HierarchyView({ C }) {
             <div style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>{t.plan || 'no plan'} · {t.status || 'inactive'}{kids.length > 0 ? ' · ' + kids.length + ' descendant(s)' : ''}</div>
           </div>
           <span style={{ background: style.bg, color: style.color, border: '1px solid ' + style.border, borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>{style.label}</span>
+          {onDrillDown && t.entity_tier !== 'super_admin' && (
+            <button onClick={function(ev) { ev.stopPropagation(); onDrillDown(t.id); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.35)', borderRadius: 6, padding: '4px 10px', color: '#00C9FF', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginLeft: 8, whiteSpace: 'nowrap' }}>View Portal →</button>
+          )}
         </div>
         {isOpen && kids.map(function(k) { return renderNode(k, depth + 1); })}
       </div>

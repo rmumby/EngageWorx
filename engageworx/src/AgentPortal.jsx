@@ -18,7 +18,7 @@ function getColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#FFD600', accent: '#FF6B35', text: '#E8F4FD', muted: '#6B8BAE' };
 }
 
-export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }) {
+export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
   var C = getColors();
   var [page, setPage] = useState('dashboard');
   var [agentInfo, setAgentInfo] = useState(null);
@@ -323,12 +323,14 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile }
                 {directTenants.map(function(t) {
                   var mrr = PLAN_MRR[t.plan] || 0;
                   var comm = t.status === 'active' ? mrr * MASTER_RATE : 0;
-                  return <div key={t.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px 140px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (t.status === 'active' ? '#00E676' : '#FFD600') })}>
+                  var canOpenPortal = agentInfo && agentInfo.msp_enabled && agentInfo.letter_of_agency && onOpenTenantPortal;
+                  return <div key={t.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: canOpenPortal ? '1fr 100px 100px 100px 140px 120px' : '1fr 120px 120px 120px 140px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (t.status === 'active' ? '#00E676' : '#FFD600') })}>
                     <div><div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{t.name}</div><div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Since {new Date(t.created_at).toLocaleDateString()}</div></div>
                     <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>Plan</div>{planBadge(t.plan)}</div>
                     <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>Status</div>{statusDot(t.status)}</div>
                     <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', marginBottom: 3 }}>MRR</div><div style={{ color: '#fff', fontWeight: 700 }}>${mrr}</div></div>
                     <div style={{ textAlign: 'right' }}><div style={{ color: '#00E676', fontWeight: 800, fontSize: 16 }}>${comm.toFixed(0)}/mo</div><div style={{ color: C.muted, fontSize: 10 }}>20% commission</div></div>
+                    {canOpenPortal && <div style={{ textAlign: 'right' }}><button onClick={function() { onOpenTenantPortal(t.id); }} style={{ background: 'rgba(0,201,255,0.15)', border: '1px solid rgba(0,201,255,0.4)', borderRadius: 8, padding: '8px 12px', color: '#00C9FF', fontWeight: 700, cursor: 'pointer', fontSize: 11 }}>🔓 View Portal</button></div>}
                   </div>;
                 })}
               </div>

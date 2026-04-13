@@ -1745,13 +1745,13 @@ var spNavBase = [
     // Check tenant type — show appropriate portal
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
     if (drillDownTenantData && drillDownTenantData.entity_tier === 'master_agent') {
-      return <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
+      return <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
     }
     if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
       return <CSPPortal cspTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
     }
     if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
-      return <AgentPortal agentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} />;
+      return <AgentPortal agentTenantId={drillDownTenant} onBack={function() { setDrillDownTenant(null); }} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
     }
     return <CustomerPortal tenantId={drillDownTenant} onBack={() => setDrillDownTenant(null)} liveTenants={liveTenants} />;
   }
@@ -2032,13 +2032,13 @@ var spNavBase = [
   // Master Agent Portal — hierarchy rollup view (checked before agent_ since it also starts with 'agent_')
   if (view.startsWith("master_agent_")) {
     const maTenantId = view.replace("master_agent_", "");
-    return <MasterAgentPortal masterAgentTenantId={maTenantId} onLogout={handleLogout} profile={profile} />;
+    return <MasterAgentPortal masterAgentTenantId={maTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
   }
 
   // Agent Portal — referral partner view
   if (view.startsWith("agent_")) {
     const agentTenantId = view.replace("agent_", "");
-    return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} />;
+    return <AgentPortal agentTenantId={agentTenantId} onLogout={handleLogout} profile={profile} onOpenTenantPortal={function(id) { setDrillDownTenant(id); }} />;
   }
 
   // Service Provider portal
@@ -2131,7 +2131,7 @@ var spNavBase = [
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={(id) => setDrillDownTenant(id)} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
-        {spPage === "hierarchy" && <HierarchyView C={C} />}
+        {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={function(id) { setDrillDownTenant(id); }} />}
         {spPage === "pipeline" && (isSuperAdmin || profile?.aup_accepted
           ? <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />
           : <FeatureGate featureName="Pipeline" C={C} requirements={{ met: false, steps: [{ title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted }] }} />)}

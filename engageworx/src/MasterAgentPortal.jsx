@@ -18,7 +18,7 @@ function statusDot(status) {
   return <span style={{ color: color, fontWeight: 700, fontSize: 12 }}>{status === 'active' ? '● Active' : status === 'trial' ? '◐ Trial' : '○ ' + (status || 'inactive')}</span>;
 }
 
-export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBack, profile }) {
+export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
   var C = getColors();
   var [page, setPage] = useState('dashboard');
   var [info, setInfo] = useState(null);
@@ -251,7 +251,12 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
                         <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>ACTIVE</div><div style={{ color: '#00E676', fontWeight: 700 }}>{t.filter(function(x) { return x.status === 'active'; }).length}</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>MRR</div><div style={{ color: '#00E676', fontWeight: 700 }}>${mrr.toLocaleString()}</div></div>
                         <div style={{ textAlign: 'center' }}><div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>MY OVERRIDE</div><div style={{ color: C.accent, fontWeight: 700 }}>${myCommission.toFixed(0)}</div><div style={{ fontSize: 9, color: C.muted }}>{override ? (parseFloat(override.override_percent) * 100).toFixed(1) + '%' : '5%'}</div></div>
-                        <div style={{ textAlign: 'right' }}><button onClick={function() { setDrillAgent(a.id); }} style={btnSec}>View →</button></div>
+                        <div style={{ textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button onClick={function() { setDrillAgent(a.id); }} style={btnSec}>View →</button>
+                          {info && info.msp_enabled && info.letter_of_agency && onOpenTenantPortal && (
+                            <button onClick={function() { onOpenTenantPortal(a.id); }} style={Object.assign({}, btnPrimary, { padding: '8px 12px', fontSize: 11 })}>🔓 Open Portal</button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
