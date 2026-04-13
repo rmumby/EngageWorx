@@ -8,6 +8,9 @@ import Settings from './Settings';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
 import PipelineDashboard from './components/PipelineDashboard';
+import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
+import AnalyticsDashboard from './AnalyticsDashboard';
+import CampaignsModule from './CampaignsModule';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -471,25 +474,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'contacts' && <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'pipeline' && (
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📈 Pipeline</h1>
-            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📈</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Pipeline coming to CSP portal.</div>
-            </div>
-          </div>
-        )}
+        {page === 'pipeline' && <PipelineDashboard C={C} currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'helpdesk' && (
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎫 Help Desk</h1>
-            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🎫</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Help Desk coming to CSP portal in next update.</div>
-            </div>
-          </div>
-        )}
+        {page === 'helpdesk' && <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} />}
 
         {page === 'blog' && (
           <div>
@@ -511,36 +498,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
         )}
 
-        {page === 'campaigns' && (
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🚀 Campaigns</h1>
-            <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>🚀</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>Partner-level campaigns coming in next update.</div>
-            </div>
-          </div>
-        )}
+        {page === 'campaigns' && <CampaignsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'analytics' && (
-          <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📊 Analytics</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Usage and performance across all tenants</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 28 }}>
-              {[
-                { label: 'Total Messages', value: totalMessages.toLocaleString(), color: C.primary, icon: '💬' },
-                { label: 'SMS Sent', value: totalSms.toLocaleString(), color: '#00E676', icon: '📱' },
-                { label: 'WhatsApp Sent', value: totalWhatsapp.toLocaleString(), color: '#25D366', icon: '📲' },
-                { label: 'Email Sent', value: totalEmail.toLocaleString(), color: '#FF6B35', icon: '📧' },
-              ].map(function(s, i) {
-                return <div key={i} style={Object.assign({}, card, { textAlign: 'center' })}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-                  <div style={{ color: s.color, fontSize: 28, fontWeight: 800 }}>{s.value}</div>
-                  <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{s.label}</div>
-                </div>;
-              })}
-            </div>
-          </div>
-        )}
+        {page === 'analytics' && <AnalyticsDashboard C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
 

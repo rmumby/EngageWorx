@@ -1407,6 +1407,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
     { id: "sequences", label: "Sequence Builder", icon: "📝" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+    { id: "email-digest", label: "AI Email Digest", icon: "📧" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "branding", label: "Branding", icon: "🎨" },
     { id: "sms-registration", label: "SMS Registration", icon: "📋" },
@@ -1494,6 +1495,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} />}
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
+        {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} />}
         {page === "sequences" && <SequenceBuilder C={C} currentTenantId={tenantId} demoMode={false} />}

@@ -97,7 +97,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
 
   var navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
-    { id: 'agents', label: 'My Agents', icon: '🤝' },
+    { id: 'agents', label: 'Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'email-digest', label: 'AI Email Digest', icon: '📧' },
     { id: 'branding', label: 'Branding', icon: '🎨' },
