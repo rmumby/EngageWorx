@@ -235,13 +235,23 @@ export default function LeadScan({ C, demoMode = false }) {
       var data = await resp.json();
       if (data.success && data.contact) {
         var parsed = data.contact;
+        var extraLines = [];
+        if (parsed.website) extraLines.push('Website: ' + parsed.website);
+        if (parsed.linkedin_url) extraLines.push('LinkedIn: ' + parsed.linkedin_url);
         setForm(function(prev) {
+          var mergedNotes = prev.notes || '';
+          extraLines.forEach(function(line) {
+            if (mergedNotes.indexOf(line) === -1) {
+              mergedNotes = mergedNotes ? (mergedNotes + '\n' + line) : line;
+            }
+          });
           return Object.assign({}, prev, {
             name: parsed.name || prev.name,
             company: parsed.company || prev.company,
             email: parsed.email || prev.email,
             phone: parsed.phone || prev.phone,
             title: parsed.title || prev.title,
+            notes: mergedNotes,
           });
         });
       } else {
@@ -395,6 +405,15 @@ export default function LeadScan({ C, demoMode = false }) {
               <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.6, marginTop: 3 }}>Photo of badge · AI extracts contact info</div>
             </div>
             <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
+          </label>
+
+          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(224,64,251,0.4)', background: 'rgba(224,64,251,0.08)', color: '#f1f5f9', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
+            <span style={{ fontSize: 28, flexShrink: 0 }}>{aiReading ? '⏳' : '📷'}</span>
+            <div style={{ flex: 1 }}>
+              <div>Upload Card</div>
+              <div style={{ fontSize: 12, fontWeight: 400, opacity: 0.6, marginTop: 3 }}>Blinq · HiHello · LinkedIn · photo of a card</div>
+            </div>
+            <input type="file" accept="image/*" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
           </label>
 
           <button onClick={function() { setMode('manual'); resetForm(); }} style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#f1f5f9', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
