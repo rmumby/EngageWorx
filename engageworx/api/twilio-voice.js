@@ -241,10 +241,15 @@ module.exports = async function handler(req, res) {
       var departments = config.departments || [];
       var hasIVR = departments.some(function(d) { return d.number && d.number.trim(); });
 
-      var aiUrl = '/api/twilio-voice?action=ai-reply&tenant=' + tenantId +
+      // Build URLs. In TwiML, `&` must be `&amp;` — a raw `&` makes Twilio's parser
+      // reject the response, which shows up to the caller as a silent disconnect
+      // after 1-2 rings. Use absolute URLs for extra safety.
+      var portalBase = process.env.PORTAL_URL || 'https://portal.engwx.com';
+      var aiUrl = portalBase + '/api/twilio-voice?action=ai-reply&tenant=' + tenantId +
         '&callSid=' + encodeURIComponent(body.CallSid || '') +
         '&from=' + encodeURIComponent(body.From || '') +
         '&to=' + encodeURIComponent(body.To || '');
+      var aiUrlXml = aiUrl.replace(/&/g, '&amp;');
 
       // ── Per-tenant voice behavior flags ──
       var autoAnswer = String(config.auto_answer || '').toLowerCase() === 'enabled';
@@ -253,19 +258,36 @@ module.exports = async function handler(req, res) {
       if (!ringTimeout || isNaN(ringTimeout) || ringTimeout < 1) ringTimeout = 20;
       var withinHours = isBusinessHours(config);
 
-      var voicemailUrl = '/api/twilio-voice?action=voicemail&tenant=' + tenantId;
+      var voicemailUrl = portalBase + '/api/twilio-voice?action=voicemail&tenant=' + tenantId;
+      var voicemailUrlXml = voicemailUrl.replace(/&/g, '&amp;');
+
+      var sendTwiml = function(xmlBody, label) {
+        var response = twiml(xmlBody);
+        console.log('[Voice TwiML:' + label + ']', 'to=', body.To, 'from=', body.From, '→', response);
+        return res.status(200).end(response);
+      };
 
       // After-hours → straight to voicemail if blocking is enabled
       if (blockAfterHours && !withinHours) {
-        return res.status(200).end(twiml('<Redirect>' + voicemailUrl + '</Redirect>'));
+        // Play a brief greeting before redirect so caller never hears dead air,
+        // and never returns empty TwiML if the redirect target somehow fails.
+        var afterHoursVoice = defaultVoiceFor(body.To);
+        return sendTwiml(
+          say('Thank you for calling. Please hold while we connect you to voicemail.', afterHoursVoice) +
+          '<Redirect>' + voicemailUrlXml + '</Redirect>',
+          'after-hours-voicemail'
+        );
       }
 
       // Auto-answer disabled → simulate ring then roll to voicemail (no human line to dial in AI-only mode)
       if (!autoAnswer && !hasIVR) {
-        return res.status(200).end(twiml(
-          '<Pause length="' + ringTimeout + '"/>' +
-          '<Redirect>' + voicemailUrl + '</Redirect>'
-        ));
+        // Pause is measured in seconds; cap at 60 so Twilio does not complain.
+        var pauseLen = Math.min(Math.max(ringTimeout, 1), 60);
+        return sendTwiml(
+          '<Pause length="' + pauseLen + '"/>' +
+          '<Redirect>' + voicemailUrlXml + '</Redirect>',
+          'ring-then-voicemail'
+        );
       }
 
       if (hasIVR && withinHours) {
@@ -275,13 +297,15 @@ module.exports = async function handler(req, res) {
         }).join('. ');
         var ivrPrompt = recordingNotice + (config.greeting || 'Thank you for calling.') + ' ' + menuOptions + '. Or hold for our AI assistant.';
 
-        return res.status(200).end(twiml(
-          '<Gather numDigits="1" timeout="6" action="/api/twilio-voice?action=route&amp;tenant=' + tenantId + '" method="POST">' +
+        var routeUrl = portalBase + '/api/twilio-voice?action=route&tenant=' + tenantId;
+        return sendTwiml(
+          '<Gather numDigits="1" timeout="6" action="' + routeUrl.replace(/&/g, '&amp;') + '" method="POST">' +
           say(ivrPrompt, voice) +
           '</Gather>' +
           // No digit → AI
-          gather(aiUrl, voice, 'How can I help you today?', 'demo, pricing, help, book, schedule')
-        ));
+          gather(aiUrlXml, voice, 'How can I help you today?', 'demo, pricing, help, book, schedule'),
+          'ivr'
+        );
       }
 
       // ── AI mode — EngageWorx default, or any tenant without IVR ──
@@ -289,9 +313,10 @@ module.exports = async function handler(req, res) {
       var greeting = config.greeting ||
         ('Hi there! Thanks for calling EngageWorx. I\'m ' + agentName + ', your AI assistant. How can I help you today?');
 
-      return res.status(200).end(twiml(
-        gather(aiUrl, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help')
-      ));
+      return sendTwiml(
+        gather(aiUrlXml, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help'),
+        'ai-answer'
+      );
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -438,20 +463,26 @@ module.exports = async function handler(req, res) {
       try {
         var vmInVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmInTenantId).eq('channel', 'voice').single();
         vmInCfg = (vmInVc.data && vmInVc.data.config_encrypted) ? vmInVc.data.config_encrypted : {};
-      } catch(e) {}
+      } catch(e) { console.warn('[Voicemail] config lookup:', e.message); }
       var vmInVoice = defaultVoiceFor(body.To);
       if (vmInCfg.tts_voice) { var vmInVm = String(vmInCfg.tts_voice).match(/Polly\.[\w-]+/); if (vmInVm) vmInVoice = vmInVm[0]; }
-      var vmGreeting = vmInCfg.voicemail_greeting ||
+      // Always have a greeting — fall back hard if the tenant has not configured one
+      var vmGreeting = (vmInCfg.voicemail_greeting && String(vmInCfg.voicemail_greeting).trim()) ||
         "You've reached our voicemail. Please leave your name, number, and a short message after the tone, and we'll get back to you shortly.";
       try { await supabase.from('calls').update({ disposition: 'voicemail' }).eq('call_sid', body.CallSid); } catch(e) {}
-      return res.status(200).end(twiml(
+      var vmPortalBase = process.env.PORTAL_URL || 'https://portal.engwx.com';
+      var vmRecordAction = vmPortalBase + '/api/twilio-voice?action=voicemail-complete&tenant=' + vmInTenantId;
+      var vmTranscribeCb = vmPortalBase + '/api/twilio-voice?action=transcription&tenant=' + vmInTenantId;
+      var vmResponse = twiml(
         say(vmGreeting, vmInVoice) +
-        '<Record action="/api/twilio-voice?action=voicemail-complete&amp;tenant=' + vmInTenantId + '"' +
-        ' method="POST" maxLength="120" playBeep="true" trim="trim-silence"' +
-        ' transcribe="true" transcribeCallback="/api/twilio-voice?action=transcription&amp;tenant=' + vmInTenantId + '"/>' +
+        '<Record action="' + vmRecordAction.replace(/&/g, '&amp;') + '"' +
+        ' method="POST" maxLength="120" playBeep="true" trim="trim-silence" finishOnKey="#"' +
+        ' transcribe="true" transcribeCallback="' + vmTranscribeCb.replace(/&/g, '&amp;') + '"/>' +
         say('We did not receive a recording. Goodbye.', vmInVoice) +
         '<Hangup/>'
-      ));
+      );
+      console.log('[Voice TwiML:voicemail]', 'tenant=', vmInTenantId, 'to=', body.To, '→', vmResponse);
+      return res.status(200).end(vmResponse);
     }
 
     // ═══════════════════════════════════════════════════════════════
