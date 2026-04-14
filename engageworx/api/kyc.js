@@ -103,9 +103,11 @@ module.exports = async function handler(req, res) {
         }).eq('id', tenant.id);
         if (sgMail) {
           try {
+            var _sigK1 = require('./_email-signature');
+            var sigK1 = await _sigK1.getSignature(supabase, { tenantId: tenant.id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
             await sgMail.send({
               to: 'rob@engwx.com',
-              from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+              from: { email: 'notifications@engwx.com', name: sigK1.fromName || 'EngageWorx' },
               subject: '🪪 KYC Approved: ' + tenant.name,
               html: '<h3>Identity verified via Stripe Identity</h3><p><b>Tenant:</b> ' + tenant.name + '</p><p>Lead Scan is now unlocked for this tenant.</p>',
             });
@@ -121,9 +123,11 @@ module.exports = async function handler(req, res) {
         if (sgMail) {
           try {
             var lastErr = (verSession.last_error && verSession.last_error.reason) || 'unknown';
+            var _sigK2 = require('./_email-signature');
+            var sigK2 = await _sigK2.getSignature(supabase, { tenantId: tenant.id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
             await sgMail.send({
               to: 'rob@engwx.com',
-              from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+              from: { email: 'notifications@engwx.com', name: sigK2.fromName || 'EngageWorx' },
               subject: '⚠️ KYC Rejected: ' + tenant.name,
               html: '<h3>Identity verification rejected</h3><p><b>Tenant:</b> ' + tenant.name + '</p><p><b>Reason:</b> ' + lastErr + '</p><p>Review in Tenant Management; may need manual override.</p>',
             });

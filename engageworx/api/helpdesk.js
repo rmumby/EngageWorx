@@ -220,9 +220,11 @@ async function runAIResponse(ticket, latestMessage, history) {
             '</div>' +
             '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Ticket →</a>' +
             '</div></div>';
+          var _sigH = require('./_email-signature');
+          var sigH = await _sigH.getSignature(supabase, { tenantId: ticket.tenant_id || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
           await sgMail.send({
             to: notifyEmails,
-            from: { email: 'hello@engwx.com', name: 'EngageWorx Help Desk' },
+            from: { email: 'hello@engwx.com', name: sigH.fromName || 'EngageWorx Help Desk' },
             subject: '🚨 AI Escalation: ' + tn + ' — ' + ticket.subject,
             text: 'Ticket ' + tn + ' escalated by AI.\n\nSubject: ' + ticket.subject + '\nFrom: ' + (ticket.submitter_name || ticket.submitter_email || 'Unknown') + '\nReason: ' + cleanText.substring(0, 300) + '\n\nView: ' + portalUrl,
             html: escalHtml,
@@ -408,9 +410,11 @@ async function escalateTicket(req, res) {
       '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Ticket in Portal →</a>' +
       '</div></div>';
 
+    var _sigE = require('./_email-signature');
+    var sigE = await _sigE.getSignature(supabase, { tenantId: (ticketDetails && ticketDetails.tenant_id) || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
     await sgMail.send({
       to: notifyEmails,
-      from: { email: 'hello@engwx.com', name: 'EngageWorx Help Desk' },
+      from: { email: 'hello@engwx.com', name: sigE.fromName || 'EngageWorx Help Desk' },
       subject: '🚨 Escalation: ' + tn + ' — ' + subj,
       text: 'Ticket ' + tn + ' has been escalated.\n\nSubject: ' + subj + '\nFrom: ' + fromName + '\nReason: ' + (reason || 'Manual escalation') + '\n\nView in portal: ' + portalUrl,
       html: html,

@@ -164,9 +164,11 @@ module.exports = async function handler(req, res) {
 
       if (sgMail) {
         try {
+          var _sigD = require('./_email-signature');
+          var sigDig = await _sigD.getSignature(supabase, { tenantId: tenantId || null, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
           await sgMail.send({
             to: to,
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            from: { email: 'notifications@engwx.com', name: sigDig.fromName || 'EngageWorx' },
             subject: subject,
             html: html,
           });

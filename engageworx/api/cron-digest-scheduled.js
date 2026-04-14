@@ -33,13 +33,16 @@ async function executeAction(supabase, a) {
       var sgMail = require('@sendgrid/mail');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       var subj = (a.email_subject || '').startsWith('Re:') ? a.email_subject : 'Re: ' + (a.email_subject || 'your message');
+      var _sig = require('./_email-signature');
+      var sigInfo = await _sig.getSignature(supabase, { tenantId: a.tenant_id || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+      var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + a.claude_reply_draft.replace(/</g, '&lt;') + '</div>';
       await sgMail.send({
         to: a.email_from,
-        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+        from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
         replyTo: 'hello@engwx.com',
         subject: subj,
-        text: a.claude_reply_draft,
-        html: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + a.claude_reply_draft.replace(/</g, '&lt;') + '</div>',
+        text: _sig.composeTextBody(a.claude_reply_draft, sigInfo.closingLine, sigInfo.fromName),
+        html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
       });
       return true;
     }

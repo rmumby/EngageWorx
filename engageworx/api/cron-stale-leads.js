@@ -97,13 +97,16 @@ async function executeAction(supabase, lead, decision) {
       if (process.env.SENDGRID_API_KEY) {
         var sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        var _sig = require('./_email-signature');
+        var sigInfo = await _sig.getSignature(supabase, { tenantId: lead.tenant_id, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'followup' });
+        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g, '&lt;') + '</div>';
         await sgMail.send({
           to: lead.email,
-          from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+          from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
           replyTo: 'hello@engwx.com',
           subject: 'Checking in',
-          text: decision.reply_draft,
-          html: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g, '&lt;') + '</div>',
+          text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName),
+          html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
         });
         return true;
       }
@@ -240,9 +243,11 @@ module.exports = async function handler(req, res) {
           '<div style="text-align:center;margin-top:20px;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#E040FB);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Review in AI Email Digest →</a></div>' +
           '</div></body></html>';
         try {
+          var _sigS = require('./_email-signature');
+          var sigSumInfo = await _sigS.getSignature(supabase, { tenantId: tenantKey === '_orphan' ? null : tenantKey, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
           await sgMail.send({
             to: r.email,
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+            from: { email: 'notifications@engwx.com', name: sigSumInfo.fromName || 'EngageWorx' },
             subject: '🔄 Stale Lead Outreach' + (r.tenantName ? ' — ' + r.tenantName : '') + ' · ' + items.length + ' analysed',
             html: html,
           });
