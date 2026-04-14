@@ -32,6 +32,7 @@ import EmailDigest from './EmailDigest';
 import CustomerSuccessDashboard from './CustomerSuccessDashboard';
 import PlatformUpdates from './PlatformUpdates';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
+import SupportRequestForm from './SupportRequestForm';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1515,7 +1516,14 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
-        {page === "support" && <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} />}
+        {page === "support" && (
+          <div>
+            <div style={{ padding: '24px 32px 0' }}>
+              <SupportRequestForm tenantId={tenantId} userEmail={cpAuth && cpAuth.user ? cpAuth.user.email : null} userName={cpAuth && cpAuth.profile ? cpAuth.profile.full_name : null} C={C} />
+            </div>
+            <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} />
+          </div>
+        )}
         {page === "sequences" && <SequenceBuilder C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "sequenceroster" && <SequenceRoster C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}

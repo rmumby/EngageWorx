@@ -12,6 +12,7 @@ import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
+import SupportRequestForm from './SupportRequestForm';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -491,7 +492,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'pipeline' && <PipelineDashboard C={C} currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'helpdesk' && <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} />}
+        {page === 'helpdesk' && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <SupportRequestForm tenantId={cspTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
+            </div>
+            <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} />
+          </div>
+        )}
 
         {page === 'blog' && (
           <div>
