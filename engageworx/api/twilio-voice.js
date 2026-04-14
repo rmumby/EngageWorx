@@ -6,6 +6,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
 );
 
+// ─── Default voice per locale ─────────────────────────────────────────────────
+// US-based Polly voices (Joanna/Matthew) don't pronounce UK English well and can
+// fail outright on UK-accent locales. Pick a region-appropriate default based on
+// the called number's country code.
+function defaultVoiceFor(toNumber) {
+  var n = String(toNumber || '').replace(/[\s\-\(\)]/g, '');
+  if (n.indexOf('+44') === 0) return 'Polly.Amy-Neural';   // UK English
+  if (n.indexOf('+61') === 0) return 'Polly.Olivia-Neural'; // Australian English
+  if (n.indexOf('+353') === 0) return 'Polly.Amy-Neural';  // Ireland → closest neural UK voice
+  return 'Polly.Joanna';                                   // US English (default)
+}
+
 // ─── XML helpers ──────────────────────────────────────────────────────────────
 function twiml(body) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response>' + body + '</Response>';
@@ -18,7 +30,7 @@ function escapeXml(str) {
 function say(text, voice) {
   var cleanVoice = 'Polly.Joanna';
   if (voice && typeof voice === 'string') {
-    var m = voice.match(/Polly\.\w+/);
+    var m = voice.match(/Polly\.[\w-]+/);
     if (m) cleanVoice = m[0];
   }
   return '<Say voice="' + cleanVoice + '">' + escapeXml(text) + '</Say>';
@@ -212,8 +224,8 @@ module.exports = async function handler(req, res) {
       // Default to SP tenant
       if (!tenantId) tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
 
-      var voice = 'Polly.Joanna';
-      if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.\w+/); if (vm) voice = vm[0]; }
+      var voice = defaultVoiceFor(body.To);
+      if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.[\w-]+/); if (vm) voice = vm[0]; }
 
       var recordingNotice = (config.recording_enabled !== 'Disabled') ? 'This call may be recorded. ' : '';
 
@@ -295,8 +307,8 @@ module.exports = async function handler(req, res) {
       // Get TTS voice for this tenant
       var rVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', replyTenantId).eq('channel', 'voice').single();
       var rConfig = (rVc.data && rVc.data.config_encrypted) ? rVc.data.config_encrypted : {};
-      var rVoice = 'Polly.Joanna';
-      if (rConfig.tts_voice) { var rvm = String(rConfig.tts_voice).match(/Polly\.\w+/); if (rvm) rVoice = rvm[0]; }
+      var rVoice = defaultVoiceFor(replyTo);
+      if (rConfig.tts_voice) { var rvm = String(rConfig.tts_voice).match(/Polly\.[\w-]+/); if (rvm) rVoice = rvm[0]; }
 
       var nextUrl = '/api/twilio-voice?action=ai-reply&tenant=' + replyTenantId +
         '&callSid=' + encodeURIComponent(replyCallSid) +
@@ -358,8 +370,8 @@ module.exports = async function handler(req, res) {
         var vc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', routeTenantId).eq('channel', 'voice').single();
         routeConfig = (vc.data && vc.data.config_encrypted) ? vc.data.config_encrypted : {};
       }
-      var routeVoice = 'Polly.Joanna';
-      if (routeConfig.tts_voice) { var rvm2 = String(routeConfig.tts_voice).match(/Polly\.\w+/); if (rvm2) routeVoice = rvm2[0]; }
+      var routeVoice = defaultVoiceFor(body.To);
+      if (routeConfig.tts_voice) { var rvm2 = String(routeConfig.tts_voice).match(/Polly\.[\w-]+/); if (rvm2) routeVoice = rvm2[0]; }
       var depts = routeConfig.departments || [];
       var dept = depts.find(function(d) { return d.digit === digits; });
 
@@ -410,8 +422,8 @@ module.exports = async function handler(req, res) {
         '&callSid=' + encodeURIComponent(dialCallSid || '') +
         '&from=' + encodeURIComponent(body.From || '') +
         '&to=' + encodeURIComponent(body.To || '');
-      var dialVoice = 'Polly.Joanna';
-      if (dialConfig.tts_voice) { var dvm = String(dialConfig.tts_voice).match(/Polly\.\w+/); if (dvm) dialVoice = dvm[0]; }
+      var dialVoice = defaultVoiceFor(body.To);
+      if (dialConfig.tts_voice) { var dvm = String(dialConfig.tts_voice).match(/Polly\.[\w-]+/); if (dvm) dialVoice = dvm[0]; }
       return res.status(200).end(twiml(
         gather(aiUrl3, dialVoice, 'Sorry, that line is unavailable. I\'m ' + (await getAgentName(dialTenantId)) + ', our AI assistant. How can I help you?', 'demo, pricing, help')
       ));
@@ -427,8 +439,8 @@ module.exports = async function handler(req, res) {
         var vmInVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmInTenantId).eq('channel', 'voice').single();
         vmInCfg = (vmInVc.data && vmInVc.data.config_encrypted) ? vmInVc.data.config_encrypted : {};
       } catch(e) {}
-      var vmInVoice = 'Polly.Joanna';
-      if (vmInCfg.tts_voice) { var vmInVm = String(vmInCfg.tts_voice).match(/Polly\.\w+/); if (vmInVm) vmInVoice = vmInVm[0]; }
+      var vmInVoice = defaultVoiceFor(body.To);
+      if (vmInCfg.tts_voice) { var vmInVm = String(vmInCfg.tts_voice).match(/Polly\.[\w-]+/); if (vmInVm) vmInVoice = vmInVm[0]; }
       var vmGreeting = vmInCfg.voicemail_greeting ||
         "You've reached our voicemail. Please leave your name, number, and a short message after the tone, and we'll get back to you shortly.";
       try { await supabase.from('calls').update({ disposition: 'voicemail' }).eq('call_sid', body.CallSid); } catch(e) {}
@@ -494,7 +506,7 @@ module.exports = async function handler(req, res) {
       } catch(emailErr) { console.error('Voicemail email error:', emailErr.message); }
 
       return res.status(200).end(twiml(
-        say('Thank you for your message. Someone will get back to you shortly. Goodbye.', 'Polly.Joanna') +
+        say('Thank you for your message. Someone will get back to you shortly. Goodbye.', defaultVoiceFor(body.To)) +
         '<Hangup/>'
       ));
     }
