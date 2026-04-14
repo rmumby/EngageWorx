@@ -121,6 +121,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [page, setPage] = useState(0);
   const pageSize = 15;
   const [detailStats, setDetailStats] = useState(null);
+  const [showMerge, setShowMerge] = useState(false);
+  const [mergePrimaryId, setMergePrimaryId] = useState(null);
+  const [mergeChoices, setMergeChoices] = useState({}); // { field: contactId }
+  const [merging, setMerging] = useState(false);
 
   // Fetch real engagement stats + activity timeline when opening contact detail
   useEffect(() => {
@@ -490,6 +494,91 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       console.warn('Bulk delete error:', err.message);
     }
     setDeleting(false);
+  };
+
+  const openMergeModal = () => {
+    if (selectedContacts.length < 2) { alert('Select at least 2 contacts to merge.'); return; }
+    const chosen = contacts.filter(c => selectedContacts.includes(c.id));
+    const primary = chosen.slice().sort((a, b) => (a.created?.getTime() || 0) - (b.created?.getTime() || 0))[0];
+    setMergePrimaryId(primary.id);
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'company', 'channels', 'tags'];
+    const initialChoices = {};
+    fields.forEach(f => {
+      const withValue = chosen.find(c => {
+        const v = c[f];
+        if (Array.isArray(v)) return v.length > 0;
+        return v && String(v).trim();
+      });
+      initialChoices[f] = (withValue || primary).id;
+    });
+    setMergeChoices(initialChoices);
+    setShowMerge(true);
+  };
+
+  const mergedPreview = () => {
+    if (!mergePrimaryId) return null;
+    const chosen = contacts.filter(c => selectedContacts.includes(c.id));
+    const primary = chosen.find(c => c.id === mergePrimaryId) || chosen[0];
+    if (!primary) return null;
+    const out = Object.assign({}, primary);
+    ['firstName', 'lastName', 'email', 'phone', 'company', 'channels', 'tags'].forEach(f => {
+      const src = chosen.find(c => c.id === mergeChoices[f]);
+      if (src) out[f] = src[f];
+    });
+    return out;
+  };
+
+  const handleMergeConfirm = async () => {
+    if (demoMode) { alert('Merge is disabled in demo mode.'); return; }
+    if (!mergePrimaryId) return;
+    const chosen = contacts.filter(c => selectedContacts.includes(c.id));
+    const primary = chosen.find(c => c.id === mergePrimaryId);
+    if (!primary) return;
+    const losers = chosen.filter(c => c.id !== mergePrimaryId).map(c => c.id);
+    if (losers.length === 0) { setShowMerge(false); return; }
+    const merged = mergedPreview();
+    setMerging(true);
+    try {
+      // 1. Update primary
+      await supabase.from('contacts').update({
+        first_name: merged.firstName || null,
+        last_name: merged.lastName || null,
+        email: merged.email || null,
+        phone: merged.phone || null,
+        company: merged.company || null,
+        tags: Array.isArray(merged.tags) ? merged.tags : null,
+        channel_preference: Array.isArray(merged.channels) && merged.channels.length > 0 ? merged.channels[0] : null,
+      }).eq('id', mergePrimaryId);
+
+      // 2. Reassign FK references (best-effort; missing columns fail silently per table)
+      const reassign = async (table, column) => {
+        try { await supabase.from(table).update({ [column]: mergePrimaryId }).in(column, losers); } catch (e) { console.warn('[Merge] ' + table + '.' + column + ' reassign skipped:', e.message); }
+      };
+      await reassign('conversations', 'contact_id');
+      await reassign('messages', 'contact_id');
+      await reassign('leads', 'contact_id');
+      await reassign('lead_sequences', 'contact_id');
+      await reassign('email_actions', 'contact_id');
+      await reassign('support_tickets', 'contact_id');
+      await reassign('calls', 'contact_id');
+
+      // 3. Delete losers
+      await supabase.from('contacts').delete().in('id', losers);
+
+      // 4. Refresh local state
+      setContacts(prev => prev.filter(c => !losers.includes(c.id)).map(c => c.id === mergePrimaryId ? Object.assign({}, c, {
+        firstName: merged.firstName, lastName: merged.lastName, email: merged.email,
+        phone: merged.phone, company: merged.company, tags: merged.tags, channels: merged.channels,
+      }) : c));
+      setSelectedContacts([]);
+      setShowMerge(false);
+      setMergePrimaryId(null);
+      setMergeChoices({});
+    } catch (err) {
+      console.error('[Merge] error:', err.message);
+      alert('Merge failed: ' + err.message);
+    }
+    setMerging(false);
   };
 
   const segment = SEGMENTS.find(s => s.id === selectedSegment) || SEGMENTS[0];
@@ -885,10 +974,89 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Campaign</button>
               <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
+              {selectedContacts.length >= 2 && (
+                <button onClick={openMergeModal} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#E040FB", borderColor: "rgba(224,64,251,0.35)" }}>🔀 Merge Selected</button>
+              )}
               {<button onClick={handleBulkDelete} disabled={deleting} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#FF3B30", borderColor: "rgba(255,59,48,0.3)" }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>}
               <button onClick={() => setSelectedContacts([])} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, marginLeft: "auto" }}>Clear</button>
             </div>
           )}
+
+          {/* Merge Modal */}
+          {showMerge && (() => {
+            const chosen = contacts.filter(c => selectedContacts.includes(c.id));
+            const merged = mergedPreview() || {};
+            const FIELDS = [
+              { key: 'firstName', label: 'First Name' },
+              { key: 'lastName',  label: 'Last Name' },
+              { key: 'email',     label: 'Email' },
+              { key: 'phone',     label: 'Phone' },
+              { key: 'company',   label: 'Company' },
+              { key: 'channels',  label: 'Channels', array: true },
+              { key: 'tags',      label: 'Tags', array: true },
+            ];
+            return (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => !merging && setShowMerge(false)}>
+                <div onClick={e => e.stopPropagation()} style={{ background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 14, padding: 24, maxWidth: 900, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                    <h3 style={{ color: '#fff', margin: 0, fontSize: 18 }}>🔀 Merge {chosen.length} contacts</h3>
+                    <button onClick={() => setShowMerge(false)} disabled={merging} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 6, fontWeight: 700 }}>Primary contact (record that survives)</label>
+                    <select value={mergePrimaryId || ''} onChange={e => setMergePrimaryId(e.target.value)} style={Object.assign({}, inputStyle, { width: '100%' })}>
+                      {chosen.map(c => (
+                        <option key={c.id} value={c.id}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.phone} · created {c.created ? c.created.toLocaleDateString() : '—'}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
+                    {FIELDS.map(f => (
+                      <div key={f.key} style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 12, background: 'rgba(255,255,255,0.02)' }}>
+                        <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>{f.label}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(' + Math.min(chosen.length, 3) + ', 1fr)', gap: 8 }}>
+                          {chosen.map(c => {
+                            const v = c[f.key];
+                            const display = f.array ? (Array.isArray(v) ? v.join(', ') : '') : (v || '');
+                            const isPicked = mergeChoices[f.key] === c.id;
+                            return (
+                              <label key={c.id} style={{ display: 'flex', gap: 8, padding: 8, borderRadius: 8, cursor: 'pointer', background: isPicked ? 'rgba(224,64,251,0.12)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (isPicked ? 'rgba(224,64,251,0.45)' : 'rgba(255,255,255,0.06)') }}>
+                                <input type="radio" name={'merge-' + f.key} checked={isPicked} onChange={() => setMergeChoices(prev => Object.assign({}, prev, { [f.key]: c.id }))} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ color: '#fff', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }}>{display || <span style={{ color: C.muted, fontStyle: 'italic' }}>(empty)</span>}</div>
+                                  <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.phone}</div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Preview — merged result</div>
+                    <div style={{ color: '#fff', fontSize: 13, lineHeight: 1.7 }}>
+                      <div><strong>{[merged.firstName, merged.lastName].filter(Boolean).join(' ') || '(no name)'}</strong></div>
+                      <div style={{ color: C.muted }}>{merged.email || '—'} · {merged.phone || '—'} · {merged.company || '—'}</div>
+                      <div style={{ color: C.muted, fontSize: 11 }}>Channels: {(merged.channels || []).join(', ') || '—'} · Tags: {(merged.tags || []).join(', ') || '—'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(255,59,48,0.08)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: 10, marginBottom: 16, color: '#FF6B6B', fontSize: 12 }}>
+                    ⚠️ The other {chosen.length - 1} contact{chosen.length - 1 !== 1 ? 's' : ''} will be deleted. Their conversations, messages, leads, and sequence enrolments will be reassigned to the primary contact.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setShowMerge(false)} disabled={merging} style={btnSecondary}>Cancel</button>
+                    <button onClick={handleMergeConfirm} disabled={merging} style={Object.assign({}, btnPrimary, { background: 'linear-gradient(135deg,#E040FB,#A855F7)', color: '#fff' })}>{merging ? 'Merging…' : 'Confirm Merge'}</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Table */}
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
