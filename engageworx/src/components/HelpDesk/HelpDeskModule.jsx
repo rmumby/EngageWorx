@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../ThemeContext';
 import { DEMO_TICKETS } from '../../demoFixtures';
+import { supabase } from '../../supabaseClient';
 
 const STATUS_CONFIG = {
   open:      { label: 'Open',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
@@ -392,6 +393,111 @@ function HelpDeskStats({ tickets, stats, colors, onBack }) {
   );
 }
 
+// ── Auto-Triage Panel (SP Admin only) ───────────────────────────────────────
+function AutoTriagePanel({ colors, onBack }) {
+  var [rows, setRows] = useState([]);
+  var [loading, setLoading] = useState(true);
+  var [filter, setFilter] = useState('all');
+
+  useEffect(function() {
+    (async function() {
+      setLoading(true);
+      try {
+        var r = await supabase.from('support_triage').select('*, ticket:ticket_id(subject, status), tenant:tenant_id(name)').order('created_at', { ascending: false }).limit(200);
+        setRows(r.data || []);
+      } catch (e) { console.warn('[Triage panel] load:', e.message); }
+      setLoading(false);
+    })();
+  }, []);
+
+  var stats = {
+    total: rows.length,
+    auto_resolved: rows.filter(function(r) { return r.fix_applied; }).length,
+    user_guidance: rows.filter(function(r) { return r.classification === 'USER_ERROR'; }).length,
+    escalated: rows.filter(function(r) { return r.escalated_to_rob; }).length,
+    config_issues: rows.filter(function(r) { return r.classification === 'CONFIG_ISSUE'; }).length,
+  };
+  var fixable = rows.filter(function(r) { return r.classification === 'CONFIG_ISSUE'; });
+  var fixRate = fixable.length ? Math.round((fixable.filter(function(r) { return r.fix_applied; }).length / fixable.length) * 100) : 0;
+
+  var filtered = rows.filter(function(r) {
+    if (filter === 'all') return true;
+    if (filter === 'resolved') return r.fix_applied || r.classification === 'USER_ERROR';
+    if (filter === 'escalated') return r.escalated_to_rob;
+    return r.classification === filter;
+  });
+
+  var CLASS_BADGE = {
+    CONFIG_ISSUE: { color: '#0ea5e9', bg: 'rgba(14,165,233,0.12)', label: '🔧 Config' },
+    CODE_BUG:     { color: '#dc2626', bg: 'rgba(220,38,38,0.12)', label: '🐛 Code bug' },
+    USER_ERROR:   { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: '💡 User guidance' },
+    UNKNOWN:      { color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', label: '❓ Unknown' },
+  };
+
+  var card = { background: colors.surface, border: '1px solid ' + colors.border, borderRadius: 12, padding: 16 };
+  var btn = { background: colors.surface, border: '1px solid ' + colors.border, borderRadius: 8, padding: '6px 12px', color: colors.text, cursor: 'pointer', fontSize: 12, fontWeight: 600 };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: colors.bg, color: colors.text, overflow: 'auto' }}>
+      <div style={{ padding: '20px 24px 12px', borderBottom: '1px solid ' + colors.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>🤖 Auto-Triage</div>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>Claude-classified tickets + auto-fix outcomes</div>
+        </div>
+        <button onClick={onBack} style={btn}>← Back</button>
+      </div>
+
+      <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12 }}>
+        <div style={card}><div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>Total</div><div style={{ fontSize: 24, fontWeight: 800, color: colors.text, marginTop: 6 }}>{stats.total}</div></div>
+        <div style={card}><div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>Auto-resolved</div><div style={{ fontSize: 24, fontWeight: 800, color: '#10b981', marginTop: 6 }}>{stats.auto_resolved}</div></div>
+        <div style={card}><div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>User guidance</div><div style={{ fontSize: 24, fontWeight: 800, color: '#06b6d4', marginTop: 6 }}>{stats.user_guidance}</div></div>
+        <div style={card}><div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>Escalated</div><div style={{ fontSize: 24, fontWeight: 800, color: '#d97706', marginTop: 6 }}>{stats.escalated}</div></div>
+        <div style={card}><div style={{ fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6 }}>Fix success rate</div><div style={{ fontSize: 24, fontWeight: 800, color: '#a855f7', marginTop: 6 }}>{fixRate}%</div></div>
+      </div>
+
+      <div style={{ padding: '0 24px 12px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {[['all','All'],['resolved','✅ Resolved'],['escalated','🚨 Escalated'],['CONFIG_ISSUE','🔧 Config'],['CODE_BUG','🐛 Code bug'],['USER_ERROR','💡 User'],['UNKNOWN','❓ Unknown']].map(function(f) {
+          var active = filter === f[0];
+          return <button key={f[0]} onClick={function() { setFilter(f[0]); }} style={Object.assign({}, btn, { background: active ? 'rgba(99,102,241,0.2)' : colors.surface, color: active ? '#a5b4fc' : colors.text, borderColor: active ? 'rgba(99,102,241,0.5)' : colors.border })}>{f[1]}</button>;
+        })}
+      </div>
+
+      <div style={{ padding: '0 24px 24px' }}>
+        {loading ? <div style={{ padding: 40, textAlign: 'center', color: colors.textMuted }}>Loading…</div> : filtered.length === 0 ? <div style={{ padding: 40, textAlign: 'center', color: colors.textMuted }}>No triage rows match.</div> : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {filtered.map(function(r) {
+              var badge = CLASS_BADGE[r.classification] || CLASS_BADGE.UNKNOWN;
+              return (
+                <div key={r.id} style={Object.assign({}, card, { padding: 14 })}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ background: badge.bg, color: badge.color, border: '1px solid ' + badge.color + '66', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{badge.label}</span>
+                        {r.fix_applied && <span style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.5)', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>✓ Auto-fixed</span>}
+                        {r.escalated_to_rob && <span style={{ background: 'rgba(217,119,6,0.15)', color: '#d97706', border: '1px solid rgba(217,119,6,0.5)', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>🚨 Escalated</span>}
+                        {typeof r.confidence === 'number' && <span style={{ color: colors.textMuted, fontSize: 10 }}>confidence {Math.round(r.confidence * 100)}%</span>}
+                      </div>
+                      <div style={{ color: colors.text, fontWeight: 600, fontSize: 14, marginTop: 6 }}>{r.ticket && r.ticket.subject ? r.ticket.subject : '(ticket removed)'}</div>
+                      <div style={{ color: colors.textMuted, fontSize: 11, marginTop: 2 }}>{r.tenant && r.tenant.name ? r.tenant.name : '—'} · {new Date(r.created_at).toLocaleString()}</div>
+                    </div>
+                  </div>
+                  {r.reasoning && <div style={{ color: colors.text, fontSize: 12, marginTop: 10, padding: '8px 10px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 6, fontStyle: 'italic', lineHeight: 1.5 }}>🤖 {r.reasoning}</div>}
+                  {r.fix_details && r.fix_details.fixes && (
+                    <div style={{ color: '#10b981', fontSize: 11, marginTop: 8, fontFamily: 'monospace' }}>Fixes applied: {r.fix_details.fixes.join(', ')}</div>
+                  )}
+                  {r.escalation_diagnosis && (
+                    <div style={{ color: colors.text, fontSize: 12, marginTop: 8, padding: '8px 10px', background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)', borderRadius: 6, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{r.escalation_diagnosis}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Module ────────────────────────────────────────────────────────────
 export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, demoMode }) {
   var { theme } = useTheme();
@@ -484,6 +590,10 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
     <HelpDeskStats tickets={tickets} stats={stats} colors={colors} onBack={function() { setView('list'); }} />
   );
 
+  if (view === 'triage') return (
+    <AutoTriagePanel colors={colors} onBack={function() { setView('list'); }} />
+  );
+
   // ── List View ────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
@@ -493,6 +603,7 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
           <div style={{ fontSize: 13, color: textMuted, marginTop: 2 }}>AI handles 90%+ of tickets automatically</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {isSPAdmin && <button onClick={function() { setView('triage'); }} style={btnStyle(surface, border, text)}>🤖 Auto-Triage</button>}
           <button onClick={function() { setView('stats'); }} style={btnStyle(surface, border, text)}>📊 Stats</button>
           <button onClick={function() { setView('new'); }} style={btnStyle(accent, 'transparent', '#fff', true)}>+ New Ticket</button>
         </div>

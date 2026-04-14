@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
+import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
+import SupportRequestForm from './SupportRequestForm';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 var MASTER_RATE = 0.20;
@@ -187,6 +189,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
     { id: 'referrals', label: 'My Referrals', icon: '🔗' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'resources', label: 'Resources', icon: '📚' },
+    { id: 'helpdesk', label: 'Help Desk', icon: '🎫' },
     { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' },
     { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
@@ -591,6 +594,14 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
         )}
 
         {/* AI Email Digest */}
+        {page === 'helpdesk' && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <SupportRequestForm tenantId={agentTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
+            </div>
+            <HelpDeskModule tenantId={agentTenantId} userRole="tenant" C={C} />
+          </div>
+        )}
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={agentTenantId} />}
 
         {/* Branding */}
