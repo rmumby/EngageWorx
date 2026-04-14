@@ -1398,6 +1398,17 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const cpTheme = useTheme();
   const C = getThemedColors(tenant.colors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
+  const [agentName, setAgentName] = useState('Aria');
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
+        const n = data && data.agent_name ? String(data.agent_name).trim() : '';
+        if (n) setAgentName(n);
+      } catch (e) {}
+    })();
+  }, [tenantId]);
   const navItems = [
     { id: "dashboard", label: "Platform Overview", icon: "⊞" },
     { id: "inbox", label: "Live Inbox", icon: "💬" },
@@ -1407,7 +1418,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "flows", label: "Flow Builder", icon: "⚡" },
     { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
     { id: "sequences", label: "Sequence Builder", icon: "📝" },
-    { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+    { id: "chatbot", label: agentName || 'Aria', icon: "🤖" },
     { id: "email-digest", label: "AI Omnichannel Digest", icon: "📡" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "branding", label: "Branding", icon: "🎨" },
@@ -1552,6 +1563,16 @@ function AppInner() {
   const popDrill = function() { setDrillDownStack(function(s) { return s.slice(0, -1); }); };
   const jumpDrill = function(idx) { setDrillDownStack(function(s) { return s.slice(0, idx); }); };
   const [spPage, setSpPage] = useState("dashboard");
+  const [spAgentName, setSpAgentName] = useState('Aria');
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387').limit(1).maybeSingle();
+        const n = data && data.agent_name ? String(data.agent_name).trim() : '';
+        if (n) setSpAgentName(n);
+      } catch (e) {}
+    })();
+  }, []);
   const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -1673,7 +1694,7 @@ var spNavBase = [
     { id: "contacts",         label: "Contacts",           icon: "👥" },
     { id: "inbox",            label: "Live Inbox",         icon: "💬" },
     { id: "helpdesk",         label: "Help Desk",          icon: "🎫" },
-    { id: "chatbot",          label: "AI Chatbot",         icon: "🤖" },
+    { id: "chatbot",          label: spAgentName || 'Aria', icon: "🤖" },
     { id: "flows",            label: "Flow Builder",       icon: "⚡" },
     { id: "analytics",        label: "Global Analytics",   icon: "📊" },
     { id: "customer-success", label: "Customer Success",   icon: "📊", superadminOnly: true },

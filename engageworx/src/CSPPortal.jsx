@@ -20,6 +20,17 @@ var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
+  var [agentName, setAgentName] = useState('Aria');
+  useEffect(function() {
+    if (!cspTenantId) return;
+    (async function() {
+      try {
+        var r = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', cspTenantId).limit(1).maybeSingle();
+        var n = r.data && r.data.agent_name ? String(r.data.agent_name).trim() : '';
+        if (n) setAgentName(n);
+      } catch (e) {}
+    })();
+  }, [cspTenantId]);
   var C = Object.assign({}, getCSPColors(), brandColors);
 
   useEffect(function() {
@@ -215,7 +226,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'campaigns',    label: 'Campaigns',           icon: '🚀', always: true },
     { id: 'pipeline',     label: 'Pipeline',            icon: '📈', module: 'pipeline' },
     { id: 'sequences',    label: 'Sequences',           icon: '📧', module: 'sequences' },
-    { id: 'ai-studio',    label: 'AI Chatbot',          icon: '🤖', always: true },
+    { id: 'ai-studio',    label: agentName || 'Aria',   icon: '🤖', always: true },
     { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
@@ -255,7 +266,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       { id: 'tenant_inbox', label: 'Live Inbox', icon: '💬' },
       { id: 'tenant_contacts', label: 'Contacts', icon: '👥' },
       { id: 'tenant_campaigns', label: 'Campaigns', icon: '🚀' },
-      { id: 'tenant_ai', label: 'AI Chatbot', icon: '🤖' },
+      { id: 'tenant_ai', label: agentName || 'Aria', icon: '🤖' },
       { id: 'tenant_sequences', label: 'Sequences', icon: '📧' },
       { id: 'tenant_analytics', label: 'Analytics', icon: '📊' },
       { id: 'tenant_settings', label: 'Settings', icon: '⚙️' },

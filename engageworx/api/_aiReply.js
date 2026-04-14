@@ -51,7 +51,7 @@ async function getTenantAIConfig(supabase, tenantId) {
     return {
       businessName: tenant?.name || 'EngageWorx',
       industry: tenant?.industry || 'communications',
-      systemPrompt: chatbot?.system_prompt || 'You are Eva, the AI assistant for EngageWorx. Be helpful and concise.',
+      systemPrompt: chatbot?.system_prompt || ('You are ' + (chatbot?.agent_name || 'Aria') + ', the AI assistant for ' + (tenant?.name || 'EngageWorx') + '. Be helpful and concise.'),
       personality: chatbot?.personality_preset || 'friendly and professional',
       fallbackMessage: chatbot?.fallback_message || 'Thanks for reaching out! Our team will be in touch shortly.',
       channelsActive: chatbot?.channels_active || ['sms', 'whatsapp', 'email'],
@@ -61,7 +61,7 @@ async function getTenantAIConfig(supabase, tenantId) {
     console.warn('[AI] Tenant config lookup failed:', e.message);
     return {
       businessName: 'EngageWorx',
-      systemPrompt: 'You are Eva, the AI assistant for EngageWorx. Keep replies under 160 characters. Be helpful and concise. Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo. Website: engwx.com. Phone: +1 (786) 982-7800.',
+      systemPrompt: 'You are Aria, the AI assistant for EngageWorx. Keep replies under 160 characters. Be helpful and concise. Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo. Website: engwx.com. Phone: +1 (786) 982-7800.',
       fallbackMessage: 'Thanks for reaching out! Visit engwx.com or call +1 (786) 982-7800.',
       channelsActive: ['sms', 'whatsapp', 'email'],
       maxTokens: 160,

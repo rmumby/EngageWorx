@@ -76,7 +76,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [enableMarkdown, setEnableMarkdown] = useState(true);
   const [fallbackMsg, setFallbackMsg] = useState("I'm not sure I understand. Let me connect you with a human agent who can help.");
   const [systemPrompt, setSystemPrompt] = useState("You are a helpful customer support assistant for EngageWorx, a multi-channel communications platform. Be friendly, accurate, and concise. Always try to resolve the customer's issue, and escalate to a human agent if needed.");
-  const [aiConfig, setAiConfig] = useState({ agentName: "Eva", businessInfo: "", aiEnabled: true, channels: { sms: true, whatsapp: true, email: true, voice: true } });
+  const [aiConfig, setAiConfig] = useState({ agentName: "Aria", businessInfo: "", aiEnabled: true, channels: { sms: true, whatsapp: true, email: true, voice: true } });
   const [configLoading, setConfigLoading] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
   const [configError, setConfigError] = useState(null);
@@ -100,7 +100,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         const { supabase } = await import('./supabaseClient');
         const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
         if (!error && data && data.length > 0) {
-          var merged = { agentName: "Eva", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
+          var merged = { agentName: "Aria", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
           data.forEach(function(cfg) {
             var c = cfg.config_encrypted || {};
             if (c.ai_agent_name) merged.agentName = c.ai_agent_name;
@@ -290,7 +290,7 @@ saveAIConfig(newSources);
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>AI Chatbot</h1>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>🤖 {aiConfig.agentName || botName || 'Aria'} <span style={{ color: C.muted, fontSize: 14, fontWeight: 500 }}>· AI assistant</span></h1>
               <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Configure personality, knowledge, and escalation rules</p>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -349,7 +349,7 @@ saveAIConfig(newSources);
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Agent Name</div>
-                        <input value={aiConfig.agentName} onChange={function(e) { setAiConfig(Object.assign({}, aiConfig, { agentName: e.target.value })); }} placeholder="Eva" style={inputStyle} />
+                        <input value={aiConfig.agentName} onChange={function(e) { setAiConfig(Object.assign({}, aiConfig, { agentName: e.target.value })); }} placeholder="Aria" style={inputStyle} />
                         <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>This is what your AI agent calls itself on calls and in messages</div>
                       </div>
                       <div>

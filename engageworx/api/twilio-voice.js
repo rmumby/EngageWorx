@@ -1,4 +1,4 @@
-// /api/twilio-voice.js — EngageWorx Voice System with AI (Eva)
+// /api/twilio-voice.js — EngageWorx Voice System with configurable AI assistant
 const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
@@ -82,12 +82,21 @@ async function getChatbotConfig(tenantId) {
   } catch(e) { return null; }
 }
 
-// ─── Call AI (Eva) ────────────────────────────────────────────────────────────
+async function getAgentName(tenantId) {
+  if (!tenantId) return 'Aria';
+  try {
+    var r = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
+    var name = r.data && r.data.agent_name ? String(r.data.agent_name).trim() : '';
+    return name || 'Aria';
+  } catch (e) { return 'Aria'; }
+}
+
+// ─── Call AI ──────────────────────────────────────────────────────────────────
 async function callAI(userMessage, conversationHistory, chatbotConfig) {
   try {
     var systemPrompt = (chatbotConfig && chatbotConfig.system_prompt)
       ? chatbotConfig.system_prompt
-      : 'You are Eva, a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.';
+      : ('You are ' + ((chatbotConfig && chatbotConfig.agent_name) || 'Aria') + ', a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.');
 
     var knowledgeBase = (chatbotConfig && chatbotConfig.knowledge_base) ? chatbotConfig.knowledge_base : '';
     if (knowledgeBase) systemPrompt += '\n\nKnowledge base:\n' + knowledgeBase;
@@ -264,8 +273,9 @@ module.exports = async function handler(req, res) {
       }
 
       // ── AI mode — EngageWorx default, or any tenant without IVR ──
+      var agentName = await getAgentName(tenantId);
       var greeting = config.greeting ||
-        'Hi there! Thanks for calling EngageWorx. I\'m Eva, your AI assistant. How can I help you today?';
+        ('Hi there! Thanks for calling EngageWorx. I\'m ' + agentName + ', your AI assistant. How can I help you today?');
 
       return res.status(200).end(twiml(
         gather(aiUrl, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help')
@@ -403,7 +413,7 @@ module.exports = async function handler(req, res) {
       var dialVoice = 'Polly.Joanna';
       if (dialConfig.tts_voice) { var dvm = String(dialConfig.tts_voice).match(/Polly\.\w+/); if (dvm) dialVoice = dvm[0]; }
       return res.status(200).end(twiml(
-        gather(aiUrl3, dialVoice, 'Sorry, that line is unavailable. I\'m Eva, our AI assistant. How can I help you?', 'demo, pricing, help')
+        gather(aiUrl3, dialVoice, 'Sorry, that line is unavailable. I\'m ' + (await getAgentName(dialTenantId)) + ', our AI assistant. How can I help you?', 'demo, pricing, help')
       ));
     }
 
