@@ -35,6 +35,9 @@
     },
     "api/cron-usage-alerts.js": {
       "maxDuration": 60
+    },
+    "api/cron-weekly-update.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -69,6 +72,10 @@
     {
       "path": "/api/cron-usage-alerts",
       "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron-weekly-update",
+      "schedule": "0 14 * * 1"
     }
   ],
   "rewrites": [
