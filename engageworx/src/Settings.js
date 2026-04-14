@@ -296,6 +296,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [newBlockedKeyword, setNewBlockedKeyword] = useState('');
   const [emailFilterSaving, setEmailFilterSaving] = useState(false);
   const [emailFilterSaved, setEmailFilterSaved] = useState(false);
+  const [tenantUsage, setTenantUsage] = useState(null);
   const [alertsLoading, setAlertsLoading] = useState(true);
   const [alertsSaving, setAlertsSaving] = useState(false);
   const [calendlyToken, setCalendlyToken] = useState('');
@@ -561,6 +562,17 @@ const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, 
   };
 
   useEffect(() => { if (activeTab === 'alerts') loadAlertConfig(); }, [activeTab]);
+
+  // Per-tenant usage for billing tab
+  useEffect(() => {
+    if (activeTab !== 'billing' || demoMode || !resolvedTenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('plan, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, contacts_count, soft_capped').eq('id', resolvedTenantId).maybeSingle();
+        if (data) setTenantUsage(data);
+      } catch (e) {}
+    })();
+  }, [activeTab, demoMode, resolvedTenantId]);
 
   // Per-tenant email filtering (channels tab)
   useEffect(() => {
@@ -1046,6 +1058,48 @@ return (<div>
               <div style={{ textAlign: "right" }}><div style={{ color: "#fff", fontSize: 28, fontWeight: 800 }}>{currentPlanInfo.price}<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div><button onClick={() => setShowUpgradeModal(true)} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button><button onClick={handleManageBilling} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6, marginLeft: 6 }}>Manage Billing</button></div>
             </div>
           </div>
+          {tenantUsage && (() => {
+            const LIMITS = {
+              Starter:    { sms: 1000,  whatsapp: 1000,  email: 5000,   ai: 500,   voice: 200 },
+              Growth:     { sms: 5000,  whatsapp: 5000,  email: 25000,  ai: 2500,  voice: 1000 },
+              Pro:        { sms: 20000, whatsapp: 20000, email: 100000, ai: 10000, voice: 4000 },
+              Enterprise: { sms: 999999, whatsapp: 999999, email: 999999, ai: 999999, voice: 999999 },
+            };
+            const plan = tenantUsage.plan || 'Starter';
+            const lim = LIMITS[plan] || LIMITS.Starter;
+            const rows = [
+              { label: 'SMS sent', used: tenantUsage.sms_used || 0, cap: lim.sms, icon: '📱' },
+              { label: 'WhatsApp sent', used: tenantUsage.whatsapp_used || 0, cap: lim.whatsapp, icon: '💬' },
+              { label: 'Email sent', used: tenantUsage.email_used || 0, cap: lim.email, icon: '📧' },
+              { label: 'AI interactions', used: tenantUsage.ai_interactions_used || 0, cap: lim.ai, icon: '🤖' },
+              { label: 'Voice minutes', used: tenantUsage.voice_minutes_used || 0, cap: lim.voice, icon: '📞' },
+            ];
+            return (
+              <div style={{ ...card, marginBottom: 20, borderLeft: '4px solid #00C9FF' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <h3 style={{ color: '#fff', margin: 0, fontSize: 15 }}>Usage This Period</h3>
+                  {tenantUsage.soft_capped && <span style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.35)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⚠️ Soft cap in effect</span>}
+                </div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {rows.map(r => {
+                    const pct = Math.min(100, Math.round((r.used / Math.max(r.cap, 1)) * 100));
+                    const col = pct >= 90 ? '#dc2626' : pct >= 75 ? '#d97706' : '#10b981';
+                    return (
+                      <div key={r.label}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{r.icon} {r.label}</span>
+                          <span style={{ color: col, fontSize: 12, fontWeight: 700 }}>{r.used.toLocaleString()} / {r.cap >= 999999 ? '∞' : r.cap.toLocaleString()} ({pct}%)</span>
+                        </div>
+                        <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: pct + '%', height: '100%', background: col, transition: 'width 0.3s' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
           <div style={{ ...card, marginBottom: 20, borderLeft: "4px solid #FFD600" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><div><h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div></div><span style={{ fontSize: 24 }}>📲</span></div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>

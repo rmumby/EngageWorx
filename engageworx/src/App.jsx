@@ -29,6 +29,7 @@ import TCRRegistration from './TCRRegistration';
 import TCRQueue from './TCRQueue';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
+import CustomerSuccessDashboard from './CustomerSuccessDashboard';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1675,6 +1676,7 @@ var spNavBase = [
     { id: "chatbot",          label: "AI Chatbot",         icon: "🤖" },
     { id: "flows",            label: "Flow Builder",       icon: "⚡" },
     { id: "analytics",        label: "Global Analytics",   icon: "📊" },
+    { id: "customer-success", label: "Customer Success",   icon: "📊", superadminOnly: true },
     { id: "tcr-queue",        label: "TCR Queue",          icon: "📋", superadminOnly: true },
     { id: "demo",             label: "Demo Mode",          icon: "🎯" },
     { id: "blog",             label: "Blog Manager",       icon: "📝", superadminOnly: true },
@@ -2208,6 +2210,7 @@ var spNavBase = [
             </div>)}
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
+        {spPage === "customer-success" && isSuperAdmin && <CustomerSuccessDashboard C={C} onDrillDown={pushDrill} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}

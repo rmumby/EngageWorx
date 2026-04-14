@@ -173,6 +173,10 @@ async function analyzeAndActionEmail(ctx) {
             html: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>',
           });
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+          try {
+            var _eum = require('./_usage-meter');
+            _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
+          } catch (mErr) {}
         }
       } catch (seErr) { console.warn('[EmailAI] Auto-reply send error:', seErr.message); }
     }

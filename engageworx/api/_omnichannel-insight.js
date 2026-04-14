@@ -50,6 +50,8 @@ async function recentHistory(supabase, contactId) {
   } catch (e) { return ''; }
 }
 
+var _usage = require('./_usage-meter');
+
 async function askClaude(channel, context) {
   var systemPrompt = 'You are EngageWorx sales ops AI. Analyze an inbound ' + channel + ' interaction and decide ONE action.' +
     '\n\nPricing: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom.' +
@@ -72,6 +74,17 @@ async function askClaude(channel, context) {
     var text = txt ? txt.text : '';
     var m = text.match(/\{[\s\S]*\}/);
     if (m) decision = Object.assign(decision, JSON.parse(m[0]));
+    // Meter Claude usage
+    try {
+      var usage = aiData.usage || {};
+      _usage.logAiUsage(context.supabase, {
+        tenant_id: context.tenantId,
+        model: 'claude-haiku-4-5-20251001',
+        input_tokens: usage.input_tokens || 0,
+        output_tokens: usage.output_tokens || 0,
+        feature: 'omnichannel_digest',
+      });
+    } catch (uErr) {}
   } catch (e) { /* fall through to default */ }
   return decision;
 }
@@ -96,7 +109,7 @@ async function logInboundInsight(params) {
       (history ? '\n\n---- Recent interactions ----\n' + history : '') +
       '\n\nReturn JSON only.';
 
-    var decision = await askClaude(channel, { prompt: prompt, body: body });
+    var decision = await askClaude(channel, { prompt: prompt, body: body, supabase: supabase, tenantId: match.tenantId });
 
     var source = channel === 'email' ? 'inbound_email' : (channel + '_inbound');
 

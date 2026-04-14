@@ -530,6 +530,12 @@ module.exports = async function handler(req, res) {
                     if (outboundErr) console.error('[WhatsApp] AI reply save error:', outboundErr.message);
                     else console.log('[WhatsApp] AI reply saved to Live Inbox');
 
+                    // Usage meter: increment outbound WhatsApp counter
+                    try {
+                      var _wuu = require('./_usage-meter');
+                      _wuu.incrementTenantCounter(supabase, tenantId, 'whatsapp_used', 1);
+                    } catch (mErr) {}
+
                     // Update conversation status
                     await supabase.from('conversations').update({
                       last_message_at: new Date().toISOString(),

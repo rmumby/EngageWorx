@@ -32,6 +32,9 @@
     },
     "api/cron-digest-scheduled.js": {
       "maxDuration": 60
+    },
+    "api/cron-usage-alerts.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -62,6 +65,10 @@
     {
       "path": "/api/cron-digest-scheduled",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron-usage-alerts",
+      "schedule": "15 * * * *"
     }
   ],
   "rewrites": [

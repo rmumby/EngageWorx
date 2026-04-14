@@ -624,6 +624,13 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
                 sender_type: 'bot', metadata: { from: To, to: From }, created_at: new Date().toISOString(),
               });
             } catch (e) { console.log('[AI] Message save failed:', e.message); }
+
+            // Usage meter: increment outbound counter for this tenant
+            try {
+              var _usage = require('./_usage-meter');
+              var col = channel === 'whatsapp' ? 'whatsapp_used' : 'sms_used';
+              _usage.incrementTenantCounter(supabase, tenantId, col, 1);
+            } catch (mErr) {}
           }
         } catch (aiErr) {
           console.error('[AI] Error:', aiErr.message);

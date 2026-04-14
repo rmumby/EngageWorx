@@ -570,6 +570,19 @@ module.exports = async function handler(req, res) {
         if (callStatus === 'no-answer' || callStatus === 'busy') updates.disposition = 'abandoned';
       }
       try { await supabase.from('calls').update(updates).eq('call_sid', statusCallSid); } catch(e) {}
+
+      // Usage meter: accumulate voice minutes on call completion
+      if (callStatus === 'completed' && body.CallDuration) {
+        try {
+          var callRow = await supabase.from('calls').select('tenant_id').eq('call_sid', statusCallSid).maybeSingle();
+          var vTid = callRow.data && callRow.data.tenant_id;
+          if (vTid) {
+            var minutes = Math.ceil(parseInt(body.CallDuration) / 60);
+            var _vum = require('./_usage-meter');
+            _vum.incrementTenantCounter(supabase, vTid, 'voice_minutes_used', minutes);
+          }
+        } catch (mErr) { console.warn('[Voice] usage meter error:', mErr.message); }
+      }
       return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response/>');
     }
 
