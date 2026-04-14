@@ -45,11 +45,17 @@ async function getSignature(supabase, params) {
   try {
     var r = await supabase.from('chatbot_configs').select('email_from_name, email_team_from_name, email_signature_first, email_signature_reply, email_team_signature_first, email_team_signature_reply').eq('tenant_id', tenantId).limit(1).maybeSingle();
     var cfg = r.data || {};
+    // Brand-aware fallback: pull tenant.brand_name / business_name / name when signature fields are empty
+    var brandName = null;
+    try {
+      var tr = await supabase.from('tenants').select('name, brand_name, business_name').eq('id', tenantId).maybeSingle();
+      if (tr.data) brandName = (tr.data.brand_name || tr.data.business_name || tr.data.name || '').trim() || null;
+    } catch (be) {}
     if (team) {
-      result.fromName = (cfg.email_team_from_name || '').trim() || result.fromName;
+      result.fromName = (cfg.email_team_from_name || '').trim() || (brandName ? brandName + ' Team' : result.fromName);
       result.signatureHtml = (isFirstTouch ? cfg.email_team_signature_first : cfg.email_team_signature_reply) || cfg.email_team_signature_first || '';
     } else {
-      result.fromName = (cfg.email_from_name || '').trim() || result.fromName;
+      result.fromName = (cfg.email_from_name || '').trim() || brandName || result.fromName;
       result.signatureHtml = (isFirstTouch ? cfg.email_signature_first : cfg.email_signature_reply) || cfg.email_signature_first || '';
     }
   } catch (e) {}

@@ -271,6 +271,21 @@ module.exports = async function handler(req, res) {
       // Create user profile
       await supabase.from('user_profiles').upsert({ id: userId, email: email, tenant_id: tenant.id, role: 'admin', company_name: companyName, full_name: fullName });
 
+      // Seed chatbot_configs with brand-aware signature defaults (only if no row exists yet)
+      try {
+        var brand = (tenant.brand_name || tenant.business_name || companyName || 'Your Business').trim();
+        var existingCfg = await supabase.from('chatbot_configs').select('id, email_from_name, email_team_from_name').eq('tenant_id', tenant.id).maybeSingle();
+        var patch = {};
+        if (!existingCfg.data) {
+          patch = { tenant_id: tenant.id, email_from_name: brand, email_team_from_name: brand + ' Team' };
+          await supabase.from('chatbot_configs').insert(patch);
+        } else {
+          if (!existingCfg.data.email_from_name) patch.email_from_name = brand;
+          if (!existingCfg.data.email_team_from_name) patch.email_team_from_name = brand + ' Team';
+          if (Object.keys(patch).length > 0) await supabase.from('chatbot_configs').update(patch).eq('tenant_id', tenant.id);
+        }
+      } catch (seedErr) { console.warn('[CSP] Signature seed failed:', seedErr.message); }
+
       // Notify SP admin — read alert email from sp_settings
       try {
         var RESEND_KEY = process.env.RESEND_API_KEY;
