@@ -501,7 +501,11 @@ module.exports = async function handler(req, res) {
     try {
       var portalMatch = null;
       var lowerSender = (senderEmail || '').toLowerCase().trim();
-      if (lowerSender) {
+      var INTERNAL_ADDRS = ['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com'];
+      if (lowerSender && INTERNAL_ADDRS.indexOf(lowerSender) !== -1) {
+        portalMatch = { source: 'internal', email: lowerSender };
+      }
+      if (lowerSender && !portalMatch) {
         var up = await supabase.from('user_profiles').select('id, email').ilike('email', lowerSender).maybeSingle();
         if (up.data && up.data.id) portalMatch = { source: 'user_profiles', email: up.data.email };
         if (!portalMatch) {

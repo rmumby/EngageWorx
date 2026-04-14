@@ -54,7 +54,7 @@ export default function LeadScan({ C, demoMode = false }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [mode, setMode]               = useState('home');
-  var [form, setForm]               = useState({ name: '', company: '', email: '', phone: '', title: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
+  var [form, setForm]               = useState({ name: '', company: '', email: '', phone: '', title: '', linkedinUrl: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
   var [saving, setSaving]           = useState(false);
   var [saved, setSaved]             = useState(null);
   var [error, setError]             = useState('');
@@ -77,7 +77,7 @@ export default function LeadScan({ C, demoMode = false }) {
   }, [demoMode]);
 
   function resetForm() {
-    setForm({ name: '', company: '', email: '', phone: '', title: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
+    setForm({ name: '', company: '', email: '', phone: '', title: '', linkedinUrl: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
     setError('');
     setSaved(null);
   }
@@ -157,6 +157,7 @@ export default function LeadScan({ C, demoMode = false }) {
           phone: form.phone || null,
           title: form.title || null,
           company_name: form.company || null,
+          linkedin_url: (form.linkedinUrl || '').trim() || null,
           pipeline_lead_id: leadId,
           tenant_id: SP_TENANT_ID,
           status: 'active',
@@ -235,22 +236,18 @@ export default function LeadScan({ C, demoMode = false }) {
       var data = await resp.json();
       if (data.success && data.contact) {
         var parsed = data.contact;
-        var extraLines = [];
-        if (parsed.website) extraLines.push('Website: ' + parsed.website);
-        if (parsed.linkedin_url) extraLines.push('LinkedIn: ' + parsed.linkedin_url);
         setForm(function(prev) {
           var mergedNotes = prev.notes || '';
-          extraLines.forEach(function(line) {
-            if (mergedNotes.indexOf(line) === -1) {
-              mergedNotes = mergedNotes ? (mergedNotes + '\n' + line) : line;
-            }
-          });
+          if (parsed.website && mergedNotes.indexOf('Website:') === -1) {
+            mergedNotes = mergedNotes ? (mergedNotes + '\nWebsite: ' + parsed.website) : ('Website: ' + parsed.website);
+          }
           return Object.assign({}, prev, {
             name: parsed.name || prev.name,
             company: parsed.company || prev.company,
             email: parsed.email || prev.email,
             phone: parsed.phone || prev.phone,
             title: parsed.title || prev.title,
+            linkedinUrl: parsed.linkedin_url || prev.linkedinUrl,
             notes: mergedNotes,
           });
         });

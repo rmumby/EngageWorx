@@ -103,6 +103,7 @@ function mapContact(c) {
     email: c.email || '',
     phone: c.phone || '',
     company: c.company || '',
+    linkedinUrl: c.linkedin_url || '',
     status: c.status || 'subscribed',
     tags: c.tags || [],
     channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
@@ -250,9 +251,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   function handleDownloadTemplate() {
     var csv =
-      'first_name,last_name,email,phone,company,tags\n' +
-      'John,Doe,john.doe@example.com,+15551234567,Acme Corp,VIP;Sales\n' +
-      'Jane,Smith,jane.smith@example.com,+15559876543,Retail Inc,Returning';
+      'first_name,last_name,email,phone,company,tags,linkedin_url\n' +
+      'John,Doe,john.doe@example.com,+15551234567,Acme Corp,VIP;Sales,https://linkedin.com/in/johndoe\n' +
+      'Jane,Smith,jane.smith@example.com,+15559876543,Retail Inc,Returning,';
     var blob = new Blob([csv], { type: 'text/csv' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -313,7 +314,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
     // Master SP only: preload portal-user emails so we don't import CSP partners / agents / members as pipeline contacts
     var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-    var portalEmailSet = new Set();
+    var portalEmailSet = new Set(['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com']);
     if (tid === SP_TENANT_ID) {
       try {
         var up = await supabase.from('user_profiles').select('email');
@@ -346,6 +347,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           email: em || null,
           phone: r.phone || null,
           company: r.company || null,
+          linkedin_url: (r.linkedin_url || r.linkedinurl || '').trim() || null,
           tags: tags.length > 0 ? tags : null,
           status: 'active',
           source: 'csv_import',
@@ -484,6 +486,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       alert('First name and phone are required.');
       return;
     }
+    const INTERNAL_EMAILS = ['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com'];
+    if ((newContact.email || '').trim() && INTERNAL_EMAILS.indexOf(newContact.email.trim().toLowerCase()) !== -1) {
+      alert('That email address is an internal EngageWorx address and cannot be added as a contact.');
+      return;
+    }
     if (emailWarning) {
       if (!window.confirm(emailWarning + '\n\nSave anyway? (A duplicate will be created and can be merged later.)')) return;
     }
@@ -498,7 +505,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         messagesSent: 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0,
         city: "", state: "", notes: "", customFields: {},
       }, ...prev]);
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
       return;
     }
@@ -510,6 +517,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         email: newContact.email || null,
         phone: newContact.phone,
         company: newContact.company || null,
+        linkedin_url: (newContact.linkedinUrl || '').trim() || null,
         status: newContact.status,
         channel_preference: newContact.channel_preference.toLowerCase(),
         source: 'manual',
@@ -521,7 +529,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         .order('created_at', { ascending: false });
       if (fetchError) throw fetchError;
       setContacts((data || []).map(mapContact));
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" });
       setShowAddContact(false);
     } catch (err) {
       console.error('Add contact error:', err);
@@ -767,11 +775,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
               ) : (
-                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📞", label: "Phone", value: c.phone }, { icon: "🏢", label: "Company", value: c.company }, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].map(item => (
+                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📞", label: "Phone", value: c.phone }, { icon: "🏢", label: "Company", value: c.company }, { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true }, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].map(item => (
                   <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
-                    <span style={{ color: "#fff", fontSize: 13, flex: 1, wordBreak: "break-all" }}>{item.value}</span>
+                    <span style={{ color: "#fff", fontSize: 13, flex: 1, wordBreak: "break-all" }}>
+                      {item.isLink && item.value ? <a href={item.value} target="_blank" rel="noopener noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{item.value}</a> : (item.value || '')}
+                    </span>
                   </div>
                 ))
               )}
@@ -1023,7 +1033,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Add Contact</h3>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label><input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} /></div>
@@ -1116,10 +1126,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   {emailWarning && <div style={{ color: '#FFD600', fontSize: 11, marginTop: 4 }}>{emailWarning}</div>}
                 </div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Company</label><input value={newContact.company} onChange={e => setNewContact(p => ({ ...p, company: e.target.value }))} placeholder="Acme Inc" style={inputStyle} /></div>
+                <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>LinkedIn URL</label><input value={newContact.linkedinUrl} onChange={e => setNewContact(p => ({ ...p, linkedinUrl: e.target.value }))} placeholder="https://linkedin.com/in/..." style={inputStyle} /></div>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Channel</label><select value={newContact.channel_preference} onChange={e => setNewContact(p => ({ ...p, channel_preference: e.target.value }))} style={inputStyle}>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select></div>
               </div>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", status: "subscribed", channel_preference: "SMS" }); }} style={btnSecondary}>Cancel</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" }); }} style={btnSecondary}>Cancel</button>
                 <button onClick={handleAddContact} style={btnPrimary}>Save Contact</button>
               </div>
             </div>

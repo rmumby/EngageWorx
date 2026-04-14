@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
+import PlatformUpdatesBell from './PlatformUpdatesBell';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 var MASTER_RATE = 0.20;
@@ -238,7 +239,10 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="agent" />
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
           {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
           <span onClick={doLogout} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>

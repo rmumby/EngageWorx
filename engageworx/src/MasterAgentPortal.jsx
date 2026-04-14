@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
+import PlatformUpdatesBell from './PlatformUpdatesBell';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 
@@ -167,7 +168,10 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
         </div>
       </div>
 
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s' }}>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="master_agent" />
+        </div>
         {/* Dashboard */}
         {page === 'dashboard' && (
           <div>

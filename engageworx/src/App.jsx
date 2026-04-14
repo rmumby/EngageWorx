@@ -30,6 +30,8 @@ import TCRQueue from './TCRQueue';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
 import CustomerSuccessDashboard from './CustomerSuccessDashboard';
+import PlatformUpdates from './PlatformUpdates';
+import PlatformUpdatesBell from './PlatformUpdatesBell';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1379,6 +1381,7 @@ function TenantBrandSettings({ tenantId, tenant, C }) {
 
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
 function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
+  const cpAuth = useAuth();
   const [cpSidebarOpen, setCpSidebarOpen] = useState(false);
   const [cpIsMobile, setCpIsMobile] = useState(window.innerWidth < 768);
   const [cpSidebarCollapsed, setCpSidebarCollapsed] = useState(false);
@@ -1480,7 +1483,10 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0 }}>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+          <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
+        </div>
         {page === "dashboard" && (
           <div style={{ padding: "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
@@ -1698,6 +1704,7 @@ var spNavBase = [
     { id: "flows",            label: "Flow Builder",       icon: "⚡" },
     { id: "analytics",        label: "Global Analytics",   icon: "📊" },
     { id: "customer-success", label: "Customer Success",   icon: "📊", superadminOnly: true },
+    { id: "platform-updates", label: "Platform Updates",   icon: "📢", superadminOnly: true },
     { id: "tcr-queue",        label: "TCR Queue",          icon: "📋", superadminOnly: true },
     { id: "demo",             label: "Demo Mode",          icon: "🎯" },
     { id: "blog",             label: "Blog Manager",       icon: "📝", superadminOnly: true },
@@ -2193,6 +2200,9 @@ var spNavBase = [
       </div>
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+          <PlatformUpdatesBell userId={profile?.id} audience="sp" />
+        </div>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={pushDrill} />}
         {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={pushDrill} />}
@@ -2232,6 +2242,7 @@ var spNavBase = [
         {spPage === "demo" && <MobileDemo C={C} onExit={function() { setSpPage('dashboard'); }} />}
         {spPage === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "customer-success" && isSuperAdmin && <CustomerSuccessDashboard C={C} onDrillDown={pushDrill} />}
+        {spPage === "platform-updates" && isSuperAdmin && <PlatformUpdates C={C} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}

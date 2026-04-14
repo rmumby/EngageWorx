@@ -11,6 +11,7 @@ import PipelineDashboard from './components/PipelineDashboard';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
+import PlatformUpdatesBell from './PlatformUpdatesBell';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -477,7 +478,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease' }}>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
+        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
           {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
           <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
