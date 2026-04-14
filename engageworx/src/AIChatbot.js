@@ -92,6 +92,54 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [selectedDemo, setSelectedDemo] = useState(null);
   const previewEndRef = useRef(null);
 
+  // Email signatures (per-tenant, stored on chatbot_configs)
+  const [sigFromName, setSigFromName] = useState('Rob Mumby');
+  const [sigFirst, setSigFirst] = useState('');
+  const [sigReply, setSigReply] = useState('');
+  const [teamSigFromName, setTeamSigFromName] = useState('The EngageWorx Team');
+  const [teamSigFirst, setTeamSigFirst] = useState('');
+  const [teamSigReply, setTeamSigReply] = useState('');
+  const [sigSaving, setSigSaving] = useState(false);
+  const [sigSaved, setSigSaved] = useState(false);
+
+  useEffect(() => {
+    if (!currentTenantId || demoMode) return;
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).maybeSingle();
+        if (data) {
+          if (data.email_from_name) setSigFromName(data.email_from_name);
+          if (data.email_signature_first) setSigFirst(data.email_signature_first);
+          if (data.email_signature_reply) setSigReply(data.email_signature_reply);
+          if (data.email_team_from_name) setTeamSigFromName(data.email_team_from_name);
+          if (data.email_team_signature_first) setTeamSigFirst(data.email_team_signature_first);
+          if (data.email_team_signature_reply) setTeamSigReply(data.email_team_signature_reply);
+        }
+      } catch (e) {}
+    })();
+  }, [currentTenantId, demoMode]);
+
+  const saveSignatures = async () => {
+    if (!currentTenantId) { alert('No tenant context.'); return; }
+    setSigSaving(true);
+    try {
+      const { supabase } = await import('./supabaseClient');
+      await supabase.from('chatbot_configs').upsert({
+        tenant_id: currentTenantId,
+        email_from_name: sigFromName || null,
+        email_signature_first: sigFirst || null,
+        email_signature_reply: sigReply || null,
+        email_team_from_name: teamSigFromName || null,
+        email_team_signature_first: teamSigFirst || null,
+        email_team_signature_reply: teamSigReply || null,
+      }, { onConflict: 'tenant_id' });
+      setSigSaved(true);
+      setTimeout(() => setSigSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setSigSaving(false);
+  };
+
   useEffect(() => {
     if (!currentTenantId || demoMode) return;
     (async () => {
@@ -393,6 +441,52 @@ saveAIConfig(newSources);
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
                       <span style={{ color: C.muted, fontSize: 11 }}>{(aiConfig.businessInfo || "").length} characters</span>
                       <span style={{ color: C.muted, fontSize: 11 }}>Used across all channels — voice, WhatsApp, SMS, and email</span>
+                    </div>
+                  </div>
+
+                  <div style={card}>
+                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Used in every outbound email. <strong>First</strong> signature is used for new outreach / sequence step 1. <strong>Reply</strong> signature is used for replies and sequence steps 2+. Claude adds a contextual closing line (e.g. "Looking forward to connecting!") above the signature HTML automatically.</div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      {/* Personal */}
+                      <div style={{ background: "rgba(0,201,255,0.04)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 10, padding: 14 }}>
+                        <div style={{ color: "#00C9FF", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🧑 Personal (rob@engwx.com)</div>
+                        <label style={label}>From name</label>
+                        <input value={sigFromName} onChange={e => setSigFromName(e.target.value)} style={inputStyle} />
+                        <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
+                        <textarea value={sigFirst} onChange={e => setSigFirst(e.target.value)} rows={8} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
+                        <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
+                          <iframe title="sig-first" srcDoc={sigFirst} style={{ width: '100%', height: 200, border: 0, background: '#fff' }} />
+                        </div>
+                        <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>Reply signature (HTML)</label>
+                        <textarea value={sigReply} onChange={e => setSigReply(e.target.value)} rows={6} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
+                        <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
+                          <iframe title="sig-reply" srcDoc={sigReply} style={{ width: '100%', height: 120, border: 0, background: '#fff' }} />
+                        </div>
+                      </div>
+
+                      {/* Team / AI */}
+                      <div style={{ background: "rgba(224,64,251,0.04)", border: "1px solid rgba(224,64,251,0.2)", borderRadius: 10, padding: 14 }}>
+                        <div style={{ color: "#E040FB", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🤖 Team / Aria (hello@engwx.com)</div>
+                        <label style={label}>From name</label>
+                        <input value={teamSigFromName} onChange={e => setTeamSigFromName(e.target.value)} style={inputStyle} />
+                        <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
+                        <textarea value={teamSigFirst} onChange={e => setTeamSigFirst(e.target.value)} rows={8} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
+                        <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
+                          <iframe title="team-sig-first" srcDoc={teamSigFirst} style={{ width: '100%', height: 200, border: 0, background: '#fff' }} />
+                        </div>
+                        <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>Reply signature (HTML)</label>
+                        <textarea value={teamSigReply} onChange={e => setTeamSigReply(e.target.value)} rows={6} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
+                        <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
+                          <iframe title="team-sig-reply" srcDoc={teamSigReply} style={{ width: '100%', height: 120, border: 0, background: '#fff' }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14 }}>
+                      <button onClick={saveSignatures} disabled={sigSaving || !currentTenantId} style={Object.assign({}, btnPrimary, { opacity: (sigSaving || !currentTenantId) ? 0.5 : 1 })}>{sigSaving ? 'Saving…' : 'Save Signatures'}</button>
+                      {sigSaved && <span style={{ color: "#00E676", fontSize: 13, fontWeight: 600 }}>✓ Saved — will be used on next outbound email</span>}
                     </div>
                   </div>
 

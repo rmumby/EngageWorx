@@ -165,12 +165,16 @@ async function analyzeAndActionEmail(ctx) {
       try {
         if (process.env.SENDGRID_API_KEY) {
           var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
+          var _sig = require('./_email-signature');
+          // hello@ is a team address, and an inbound auto-reply is always a reply → not first touch
+          var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+          var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
           await sgMail.send({
             to: sender,
-            from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+            from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
             subject: replySubj,
-            text: decision.reply_draft,
-            html: '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>',
+            text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName),
+            html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
           });
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
           try {

@@ -53,23 +53,22 @@ async function sendStep(supabase, step, lead, tenant) {
       }
     } catch(e) {}
 
-    var html =
+    var _sig = require('./_email-signature');
+    var isFirstStep = !step.step_number || step.step_number <= 1;
+    var closingKind = isFirstStep ? 'first' : 'followup';
+    var sigInfo = await _sig.getSignature(supabase, { tenantId: tenant.id, fromEmail: emailConfig.from, isFirstTouch: isFirstStep, closingKind: closingKind });
+
+    var bodyHtml =
       '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 16px;">' +
-      '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>' +
-      '<div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;text-align:center;">' +
-      '<div style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:14px;padding:6px 12px;border-radius:6px;margin-bottom:8px;">EW</div><br>' +
-      '<div style="font-weight:700;color:#1e293b;font-size:13px;">Rob Mumby</div>' +
-      '<div style="color:#64748b;font-size:12px;">Founder & CEO, EngageWorx</div>' +
-      '<div style="margin-top:6px;font-size:12px;"><a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> | <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a></div>' +
-      '<div style="margin-top:12px;font-size:11px;color:#94a3b8;">Reply STOP to unsubscribe from these emails.</div>' +
-      '</div></div>';
+      '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
+    var bodyClose = '</div>';
 
     await sgMail.send({
       to: lead.email,
-      from: { email: emailConfig.from, name: emailConfig.fromName },
+      from: { email: emailConfig.from, name: sigInfo.fromName || emailConfig.fromName },
       subject: step.subject || 'Following up from EngageWorx',
-      text: body + '\n\nRob Mumby\nFounder & CEO, EngageWorx\n+1 (786) 982-7800\nengwx.com',
-      html: html,
+      text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
+      html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
     });
     console.log('[Sequences] Email sent to:', lead.email, 'step:', step.step_number);
     return true;
