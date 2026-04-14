@@ -571,6 +571,16 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       // 8c. Qualify unqualified prospects on reply
       tryQualifyProspect(supabase, From, contactEmail, Body, 'SMS').catch(function() {});
 
+      // 8d. Omnichannel digest: log Claude analysis to email_actions
+      try {
+        var oi = require('./_omnichannel-insight');
+        oi.logInboundInsight({
+          supabase: supabase, channel: 'sms',
+          senderEmail: contactEmail, senderPhone: From,
+          senderName: null, subject: null, body: Body,
+        }).catch(function() {});
+      } catch (oiErr) { console.warn('[SMS] digest log error:', oiErr.message); }
+
       // 9. Notify inbound (non-blocking)
       var contactDisplayName = From;
       try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactDisplayName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || From; } catch(e) {}

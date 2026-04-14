@@ -154,8 +154,9 @@ async function analyzeAndActionEmail(ctx) {
       claude_action: decision.action || 'review',
       claude_reasoning: decision.reasoning || null,
       claude_reply_draft: decision.reply_draft || null,
-      action_payload: { new_stage: decision.new_stage, sequence_name: decision.sequence_name },
+      action_payload: { channel: 'email', new_stage: decision.new_stage, sequence_name: decision.sequence_name },
       status: 'pending',
+      source: 'inbound_email',
     }).select('id').single();
     var actionId = ins.data ? ins.data.id : null;
 

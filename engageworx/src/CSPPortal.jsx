@@ -220,7 +220,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
     { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
-    { id: 'email-digest', label: 'AI Email Digest',     icon: '📧', always: true },
+    { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡', always: true },
     { id: 'branding',     label: 'Branding',            icon: '🎨', always: true },
     { id: 'settings',     label: 'Settings',            icon: '⚙️', always: true },
   ];

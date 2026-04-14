@@ -186,7 +186,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
     { id: 'referrals', label: 'My Referrals', icon: '🔗' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'resources', label: 'Resources', icon: '📚' },
-    { id: 'email-digest', label: 'AI Email Digest', icon: '📧' },
+    { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' },
     { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];

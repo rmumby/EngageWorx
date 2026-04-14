@@ -499,6 +499,24 @@ module.exports = async function handler(req, res) {
 
       if (txText) {
         try { await supabase.from('calls').update({ transcript: txText }).eq('call_sid', txCallSid); } catch(e) {}
+
+        // Omnichannel digest: Claude analysis of transcript → email_actions
+        try {
+          var callRow = await supabase.from('calls').select('from_number, duration_seconds, recording_url').eq('call_sid', txCallSid).maybeSingle();
+          var callerNum = (callRow.data && callRow.data.from_number) || '';
+          var durationSec = (callRow.data && callRow.data.duration_seconds) || null;
+          var recordingUrl = (callRow.data && callRow.data.recording_url) || null;
+          var oi = require('./_omnichannel-insight');
+          oi.logInboundInsight({
+            supabase: supabase, channel: 'voice',
+            senderEmail: null, senderPhone: callerNum,
+            senderName: null,
+            subject: 'Voicemail from ' + (callerNum || 'Unknown'),
+            body: txText,
+            extra: { duration: durationSec, recording_url: recordingUrl, call_sid: txCallSid },
+          }).catch(function() {});
+        } catch (oiErr) { console.warn('[Voice] digest log error:', oiErr.message); }
+
         try {
           var txRecipients = [];
           var sendTxEmail = true;

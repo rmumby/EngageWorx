@@ -149,8 +149,8 @@ export default function EmailDigest({ C, currentTenantId }) {
     <div style={{ padding: '32px 40px', minHeight: '100vh', background: colors.bg, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>📧 AI Email Digest</h1>
-          <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>Claude-analyzed inbound emails with recommended actions</p>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>📡 AI Omnichannel Digest</h1>
+          <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>Claude-analyzed inbound email, WhatsApp, SMS, and voice with recommended actions</p>
         </div>
         <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄 Refresh</button>
       </div>
@@ -223,14 +223,36 @@ export default function EmailDigest({ C, currentTenantId }) {
     </div>
   );
 
+  function channelMeta(a) {
+    var ch = (a.action_payload && a.action_payload.channel) || '';
+    if (!ch) {
+      var s = a.source || '';
+      if (s === 'inbound_email') ch = 'email';
+      else if (s === 'whatsapp_inbound') ch = 'whatsapp';
+      else if (s === 'sms_inbound') ch = 'sms';
+      else if (s === 'voice_inbound') ch = 'voice';
+      else if (s === 'stale_lead') ch = 'lead';
+    }
+    var map = {
+      email:    { icon: '📧', label: 'Email',    color: '#0ea5e9' },
+      whatsapp: { icon: '💬', label: 'WhatsApp', color: '#25D366' },
+      sms:      { icon: '📱', label: 'SMS',      color: '#00E676' },
+      voice:    { icon: '📞', label: 'Voice',    color: '#FFD600' },
+      lead:     { icon: '🔄', label: 'Stale Lead', color: '#6366f1' },
+    };
+    return map[ch] || { icon: '📨', label: 'Inbound', color: '#94a3b8' };
+  }
+
   function renderActionCard(a) {
             var style = ACTION_STYLE[a.claude_action] || ACTION_STYLE.no_action;
             var editing = editingId === a.id;
+            var ch = channelMeta(a);
             return (
               <div key={a.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + style.color })}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px', gap: 16 }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                      <span style={{ background: ch.color + '22', color: ch.color, border: '1px solid ' + ch.color + '55', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{ch.icon} {ch.label}</span>
                       <span style={{ background: style.bg, color: style.color, border: '1px solid ' + style.color + '44', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{style.label}</span>
                       <span style={{ color: colors.muted, fontSize: 11 }}>{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</span>
                       {a.status === 'actioned' && <span style={{ color: '#10b981', fontSize: 11, fontWeight: 700 }}>✓ Actioned</span>}

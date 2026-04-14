@@ -557,6 +557,16 @@ module.exports = async function handler(req, res) {
           // Qualify unqualified prospects on reply
           tryQualifyProspect(supabase, cleanFrom, contactEmail, messageBody, 'WhatsApp').catch(function() {});
 
+          // Omnichannel digest: run Claude analysis and log to email_actions
+          try {
+            var oi = require('./_omnichannel-insight');
+            oi.logInboundInsight({
+              supabase: supabase, channel: 'whatsapp',
+              senderEmail: contactEmail, senderPhone: cleanFrom,
+              senderName: null, subject: null, body: messageBody,
+            }).catch(function() {});
+          } catch (oiErr) { console.warn('[WhatsApp] digest log error:', oiErr.message); }
+
           // Notify admin via SendGrid
           var contactName = cleanFrom;
           try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || cleanFrom; } catch(e) {}

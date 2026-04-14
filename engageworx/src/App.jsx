@@ -1407,7 +1407,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
     { id: "sequences", label: "Sequence Builder", icon: "📝" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "email-digest", label: "AI Email Digest", icon: "📧" },
+    { id: "email-digest", label: "AI Omnichannel Digest", icon: "📡" },
     { id: "analytics", label: "Analytics", icon: "📊" },
     { id: "branding", label: "Branding", icon: "🎨" },
     { id: "sms-registration", label: "SMS Registration", icon: "📋" },
@@ -1685,8 +1685,8 @@ var spNavBase = [
   if (isSuperAdmin) {
     // Insert AI Email Digest before Settings
     var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
-    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: 'AI Email Digest', icon: '📧' });
-    else spNavItems.push({ id: 'email-digest', label: 'AI Email Digest', icon: '📧' });
+    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' });
+    else spNavItems.push({ id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' });
   }
 
   const hostname = window.location.hostname;
