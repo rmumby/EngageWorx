@@ -446,57 +446,58 @@ if (!tenantId) {
     if (demoMode) { setChannelConfigs({}); setChannelsLoading(false); return; }
     setChannelsLoading(true);
     try {
-      let tenantId = currentTenantId;
-if (!tenantId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
-    tenantId = profile?.tenant_id;
-  }
-}
+      // Drilled-in SP admin must respect the drilled tenant id — never fall back to
+      // user_profiles.tenant_id, which would silently load master SP data.
+      const tenantId = resolvedTenantId || currentTenantId;
+      if (!tenantId) { setChannelConfigs({}); setChannelsLoading(false); return; }
       const { data, error } = await supabase.from("channel_configs").select("*").eq("tenant_id", tenantId);
       if (!error && data) { const map = {}; data.forEach(c => { map[c.channel] = c; }); setChannelConfigs(map); }
     } catch (err) { console.error("Failed to load channel configs:", err); }
     setChannelsLoading(false);
   };
-  useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab]);
+  // Re-run whenever the tab is opened OR the resolved tenant changes (e.g. SP drilled into a CSP)
+  useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab, resolvedTenantId, currentTenantId]);
 
   const saveChannelConfig = async (channelId, config, enabled) => {
     setChannelSaving(channelId);
-    let tenantId = currentTenantId;
-if (!tenantId) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    const { data: profile } = await supabase.from('user_profiles').select('tenant_id').eq('id', user.id).single();
-    tenantId = profile?.tenant_id;
-  }
-}
-    if (!tenantId) { setChannelSaving(null); return alert("No tenant found"); }
-    const existing = channelConfigs[channelId];
-    // Always read fresh from DB before merging — never trust React state for existing credentials
-let existingConfig = {};
-try {
-  const { data: freshConfig } = await supabase
-    .from('channel_configs')
-    .select('config_encrypted')
-    .eq('tenant_id', tenantId)
-    .eq('channel', channelId)
-    .maybeSingle();
-  existingConfig = freshConfig?.config_encrypted || existing?.config_encrypted || {};
-} catch(e) {
-  existingConfig = existing?.config_encrypted || {};
-}
-const newConfig = config !== undefined ? config : existingConfig;
-const newEnabled = enabled !== undefined ? enabled : (existing?.enabled || false);
-// Only merge fields that have actual values — never overwrite existing with blank
-const filteredNew = Object.fromEntries(
-  Object.entries(newConfig).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
-);
-const mergedConfig = { ...existingConfig, ...filteredNew };
-const payload = { tenant_id: tenantId, channel: channelId, enabled: newEnabled, config_encrypted: mergedConfig, status: newEnabled ? "connected" : "disconnected", updated_at: new Date().toISOString() };
+    // Strict tenant scoping — only the drilled/resolved tenant; no fallback to the signed-in user's tenant.
+    const tenantId = resolvedTenantId || currentTenantId;
+    if (!tenantId) { setChannelSaving(null); return alert("No tenant context — refusing to save channel config."); }
+
+    // Always look up the existing row by (tenant_id, channel) — never trust React state's `existing.id`,
+    // which can point at a different tenant's row if the user just drilled in.
+    let existingRow = null;
+    try {
+      const { data: fresh } = await supabase
+        .from('channel_configs')
+        .select('id, config_encrypted, enabled')
+        .eq('tenant_id', tenantId)
+        .eq('channel', channelId)
+        .maybeSingle();
+      existingRow = fresh || null;
+    } catch (e) { /* fall through to insert */ }
+
+    const existingConfig = (existingRow && existingRow.config_encrypted) || {};
+    const newConfig = config !== undefined ? config : existingConfig;
+    const newEnabled = enabled !== undefined ? enabled : !!(existingRow && existingRow.enabled);
+    // Only merge fields that have actual values — never overwrite existing with blank
+    const filteredNew = Object.fromEntries(
+      Object.entries(newConfig).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
+    );
+    const mergedConfig = { ...existingConfig, ...filteredNew };
+    const payload = {
+      tenant_id: tenantId, channel: channelId, enabled: newEnabled,
+      config_encrypted: mergedConfig,
+      status: newEnabled ? "connected" : "disconnected",
+      updated_at: new Date().toISOString(),
+    };
     let error;
-    if (existing) { ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existing.id)); }
-    else { ({ error } = await supabase.from("channel_configs").insert(payload)); }
+    if (existingRow && existingRow.id) {
+      // Scope the update by BOTH id AND tenant_id as a defence-in-depth check.
+      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existingRow.id).eq("tenant_id", tenantId));
+    } else {
+      ({ error } = await supabase.from("channel_configs").insert(payload));
+    }
     if (error) alert("Error saving: " + error.message); else loadChannelConfigs();
     setChannelSaving(null);
   };
@@ -983,7 +984,7 @@ return (<div>
                         })()}
                         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                           <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
-                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { saveChannelConfig(ch.id, configData, isEnabled).then(() => { supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).eq("tenant_id", _tid).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
                         </div>
                       </>
                     )}
