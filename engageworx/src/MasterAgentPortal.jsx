@@ -354,7 +354,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
             <div style={{ marginBottom: 16 }}>
               <SupportRequestForm tenantId={masterAgentTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
             </div>
-            <HelpDeskModule tenantId={masterAgentTenantId} userRole="tenant" C={C} />
+            <HelpDeskModule tenantId={masterAgentTenantId} userRole="tenant" C={C} demoMode={false} />
           </div>
         )}
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={masterAgentTenantId} />}

@@ -519,7 +519,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             <div style={{ marginBottom: 16 }}>
               <SupportRequestForm tenantId={cspTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
             </div>
-            <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} />
+            <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} demoMode={false} />
           </div>
         )}
 

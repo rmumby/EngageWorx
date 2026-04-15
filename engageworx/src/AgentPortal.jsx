@@ -616,7 +616,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
             <div style={{ marginBottom: 16 }}>
               <SupportRequestForm tenantId={agentTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
             </div>
-            <HelpDeskModule tenantId={agentTenantId} userRole="tenant" C={C} />
+            <HelpDeskModule tenantId={agentTenantId} userRole="tenant" C={C} demoMode={false} />
           </div>
         )}
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={agentTenantId} />}

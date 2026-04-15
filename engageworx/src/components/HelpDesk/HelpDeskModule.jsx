@@ -499,7 +499,7 @@ function AutoTriagePanel({ colors, onBack }) {
 }
 
 // ── Main Module ────────────────────────────────────────────────────────────
-export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, demoMode }) {
+export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, demoMode = false }) {
   var { theme } = useTheme();
   var isDark = C ? C.bg === '#080d1a' || C.bg?.includes('0d') || C.text === '#E8F4FD' : theme === 'dark';
   var colors = getColors(isDark ? 'dark' : 'light');
@@ -518,7 +518,7 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
   useEffect(function() { loadTickets(); }, [filter.status, filter.priority, filter.search, demoMode]);
 
   async function loadTickets() {
-    if (demoMode) {
+    if (demoMode === true) {
       var demoResolved = DEMO_TICKETS.filter(function(t) { return ['resolved','closed'].includes(t.status); });
       var demoAi = demoResolved.filter(function(t) { return t.ai_handled; });
       setTickets(DEMO_TICKETS);
@@ -532,6 +532,9 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
       setLoading(false);
       return;
     }
+    // Live mode — always start clean so no demo fixtures leak from a prior render
+    setTickets([]);
+    setStats({ total: 0, open: 0, escalated: 0, ai_resolved: 0, resolution_rate: 0 });
     setLoading(true);
     var params = 'action=list_tickets&limit=200';
     if (tenantId && !isSPAdmin) params += '&tenant_id=' + tenantId;

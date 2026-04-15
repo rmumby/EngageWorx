@@ -567,16 +567,58 @@ module.exports = async function handler(req, res) {
       if (lowerSender && INTERNAL_ADDRS.indexOf(lowerSender) !== -1) {
         portalMatch = { source: 'internal', email: lowerSender };
       }
+      var memberTenantId = null;
+      var memberProfileId = null;
       if (lowerSender && !portalMatch) {
-        var up = await supabase.from('user_profiles').select('id, email').ilike('email', lowerSender).maybeSingle();
-        if (up.data && up.data.id) portalMatch = { source: 'user_profiles', email: up.data.email };
+        var up = await supabase.from('user_profiles').select('id, email, tenant_id').ilike('email', lowerSender).maybeSingle();
+        if (up.data && up.data.id) {
+          portalMatch = { source: 'user_profiles', email: up.data.email };
+          memberProfileId = up.data.id;
+          memberTenantId = up.data.tenant_id;
+          // If user_profiles.tenant_id is missing, find the primary tenant_members row
+          if (!memberTenantId) {
+            try {
+              var mm = await supabase.from('tenant_members').select('tenant_id').eq('user_id', up.data.id).eq('status', 'active').limit(1).maybeSingle();
+              if (mm.data) memberTenantId = mm.data.tenant_id;
+            } catch (e) {}
+          }
+        }
         if (!portalMatch) {
           var td = await supabase.from('tenants').select('id, name').ilike('digest_email', lowerSender).limit(1).maybeSingle();
-          if (td.data) portalMatch = { source: 'digest_email', tenant: td.data.name };
+          if (td.data) { portalMatch = { source: 'digest_email', tenant: td.data.name }; memberTenantId = td.data.id; }
         }
       }
       if (portalMatch) {
-        console.log('🛡️ Skipping inbound — sender is a portal user:', senderEmail, portalMatch);
+        // Portal users writing to hello@/rob@engwx.com are asking for support, not generating leads.
+        // Turn the email into a support_tickets row, then trigger auto-triage.
+        if (memberTenantId) {
+          try {
+            var ticketIns = await supabase.from('support_tickets').insert({
+              tenant_id: memberTenantId,
+              subject: subject || '(no subject)',
+              description: emailBody,
+              submitter_email: senderEmail,
+              submitter_name: senderName || senderEmail,
+              category: 'general',
+              priority: 'normal',
+              status: 'triaging',
+              source_channel: 'email',
+            }).select('id').single();
+            var newTicketId = ticketIns.data && ticketIns.data.id;
+            console.log('🎫 Support ticket created from portal-user email:', newTicketId, 'tenant:', memberTenantId);
+            if (newTicketId) {
+              // Fire-and-forget triage
+              var portalBase = process.env.PORTAL_URL || 'https://portal.engwx.com';
+              fetch(portalBase + '/api/support-triage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticket_id: newTicketId, tenant_id: memberTenantId }),
+              }).catch(function() {});
+            }
+            return res.status(200).json({ routed: 'support_ticket', ticket_id: newTicketId, tenant: memberTenantId });
+          } catch (tErr) { console.warn('[Inbound] Support ticket create error:', tErr.message); }
+        }
+        console.log('🛡️ Skipping inbound — portal user with no resolvable tenant:', senderEmail, portalMatch);
         return res.status(200).json({ skipped: 'portal_user', sender: senderEmail, match: portalMatch });
       }
     } catch (pgErr) { console.warn('[Inbound] Portal-user check error:', pgErr.message); }
