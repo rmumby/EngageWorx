@@ -1053,7 +1053,7 @@ return (<div>
                 <WhatsAppTemplatesTab tenantId={resolvedTenantId} C={C} />
               )}
               {resolvedTenantId && !demoMode && (
-                <PolandCarrierCard tenantId={resolvedTenantId} C={C} />
+                <PolandCarrierCard tenantId={resolvedTenantId} C={C} isSPAdmin={viewLevel === 'sp'} />
               )}
               <div style={Object.assign({}, card, { borderLeft: '4px solid #FF6B6B' })}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>

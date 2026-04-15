@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
-var CARRIER_TYPES = [
-  { id: 'http_webhook', label: 'HTTP Webhook (REST API)' },
-  { id: 'twilio_sip',   label: 'Twilio SIP Trunk' },
-  { id: 'direct_smpp',  label: 'Direct SMPP (carrier)' },
-  { id: 'direct_sip',   label: 'Direct SIP (carrier)' },
+// Tenant-facing labels hide the underlying transport. SP Admin sees the real names.
+var CARRIER_TYPES_TENANT = [
+  { id: 'http_webhook', label: 'API Connection' },
+  { id: 'twilio_sip',   label: 'Cloud Gateway' },
+  { id: 'direct_smpp',  label: 'Direct Connection' },
+  { id: 'direct_sip',   label: 'SIP Connection' },
+];
+var CARRIER_TYPES_SP = [
+  { id: 'http_webhook', label: 'API Connection (HTTP Webhook / REST)' },
+  { id: 'twilio_sip',   label: 'Cloud Gateway (Twilio SIP Trunk)' },
+  { id: 'direct_smpp',  label: 'Direct Connection (SMPP)' },
+  { id: 'direct_sip',   label: 'SIP Connection (Direct SIP)' },
 ];
 
-export default function PolandCarrierCard({ tenantId, C }) {
+export default function PolandCarrierCard({ tenantId, C, isSPAdmin }) {
   var colors = C || { primary: '#dc2626', muted: '#6B8BAE' };
   var [cfg, setCfg] = useState(null);
   var [loading, setLoading] = useState(true);
@@ -100,17 +107,30 @@ export default function PolandCarrierCard({ tenantId, C }) {
         </label>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div><label style={label}>Carrier name</label><input value={form.carrier_name} onChange={function(e) { setForm(Object.assign({}, form, { carrier_name: e.target.value })); }} placeholder="Orange Polska, Plus, Play, T-Mobile…" style={inputStyle} /></div>
-        <div><label style={label}>Phone number (E.164)</label><input value={form.phone_number} onChange={function(e) { setForm(Object.assign({}, form, { phone_number: e.target.value })); }} placeholder="+48732080851" style={inputStyle} /></div>
-        <div><label style={label}>Country code</label><input value={form.country_code} onChange={function(e) { setForm(Object.assign({}, form, { country_code: e.target.value })); }} style={inputStyle} /></div>
-        <div><label style={label}>Carrier type</label><select value={form.carrier_type} onChange={function(e) { setForm(Object.assign({}, form, { carrier_type: e.target.value })); }} style={inputStyle}>{CARRIER_TYPES.map(function(c) { return <option key={c.id} value={c.id}>{c.label}</option>; })}</select></div>
-        <div style={{ gridColumn: 'span 2' }}><label style={label}>Outbound API endpoint</label><input value={form.outbound_endpoint} onChange={function(e) { setForm(Object.assign({}, form, { outbound_endpoint: e.target.value })); }} placeholder="https://carrier-api.example.pl/sms" style={inputStyle} /></div>
-        <div><label style={label}>API key</label><input type="password" value={form.api_key} onChange={function(e) { setForm(Object.assign({}, form, { api_key: e.target.value })); }} style={inputStyle} /></div>
-        <div><label style={label}>API secret</label><input type="password" value={form.api_secret} onChange={function(e) { setForm(Object.assign({}, form, { api_secret: e.target.value })); }} style={inputStyle} /></div>
-        <div><label style={label}>Username</label><input value={form.username} onChange={function(e) { setForm(Object.assign({}, form, { username: e.target.value })); }} style={inputStyle} /></div>
-        <div><label style={label}>Password</label><input type="password" value={form.password} onChange={function(e) { setForm(Object.assign({}, form, { password: e.target.value })); }} style={inputStyle} /></div>
-      </div>
+      {(function() {
+        var carrierTypes = isSPAdmin ? CARRIER_TYPES_SP : CARRIER_TYPES_TENANT;
+        var connectionLabel = isSPAdmin ? 'Connection ID (API Key)' : 'Connection ID';
+        var secretLabel = isSPAdmin ? 'Connection Secret (API Secret)' : 'Connection Secret';
+        var endpointLabel = isSPAdmin ? 'Gateway Endpoint (Outbound API URL)' : 'Gateway Endpoint';
+        var typeLabel = isSPAdmin ? 'Connection type (carrier_type)' : 'Connection type';
+        // Twilio SIP path uses Twilio's standard Messages API endpoint — no custom URL needed.
+        var showEndpoint = form.carrier_type !== 'twilio_sip';
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div><label style={label}>Carrier name</label><input value={form.carrier_name} onChange={function(e) { setForm(Object.assign({}, form, { carrier_name: e.target.value })); }} placeholder="Orange Polska, Plus, Play, T-Mobile…" style={inputStyle} /></div>
+            <div><label style={label}>Phone number (E.164)</label><input value={form.phone_number} onChange={function(e) { setForm(Object.assign({}, form, { phone_number: e.target.value })); }} placeholder="+48732080851" style={inputStyle} /></div>
+            <div><label style={label}>Country code</label><input value={form.country_code} onChange={function(e) { setForm(Object.assign({}, form, { country_code: e.target.value })); }} style={inputStyle} /></div>
+            <div><label style={label}>{typeLabel}</label><select value={form.carrier_type} onChange={function(e) { setForm(Object.assign({}, form, { carrier_type: e.target.value })); }} style={inputStyle}>{carrierTypes.map(function(c) { return <option key={c.id} value={c.id}>{c.label}</option>; })}</select></div>
+            {showEndpoint && (
+              <div style={{ gridColumn: 'span 2' }}><label style={label}>{endpointLabel}</label><input value={form.outbound_endpoint} onChange={function(e) { setForm(Object.assign({}, form, { outbound_endpoint: e.target.value })); }} placeholder="https://carrier-api.example.pl/sms" style={inputStyle} /></div>
+            )}
+            <div><label style={label}>{connectionLabel}</label><input type="password" value={form.api_key} onChange={function(e) { setForm(Object.assign({}, form, { api_key: e.target.value })); }} style={inputStyle} /></div>
+            <div><label style={label}>{secretLabel}</label><input type="password" value={form.api_secret} onChange={function(e) { setForm(Object.assign({}, form, { api_secret: e.target.value })); }} style={inputStyle} /></div>
+            <div><label style={label}>Username</label><input value={form.username} onChange={function(e) { setForm(Object.assign({}, form, { username: e.target.value })); }} style={inputStyle} /></div>
+            <div><label style={label}>Password</label><input type="password" value={form.password} onChange={function(e) { setForm(Object.assign({}, form, { password: e.target.value })); }} style={inputStyle} /></div>
+          </div>
+        );
+      })()}
 
       <div style={{ marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 8 }}>
         <div style={{ color: colors.muted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>📥 Inbound webhook URL — paste this in your carrier portal</div>
