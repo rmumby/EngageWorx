@@ -8,6 +8,9 @@ export default function SequenceBuilder({ C, currentTenantId }) {
 
   var [sequences, setSequences] = useState([]);
   var [selectedSeq, setSelectedSeq] = useState(null);
+  var [editingId, setEditingId] = useState(null);
+  var [editingName, setEditingName] = useState('');
+  var [renameSaving, setRenameSaving] = useState(false);
   var [steps, setSteps] = useState([]);
   var [loading, setLoading] = useState(true);
   var [saving, setSaving] = useState(false);
@@ -33,6 +36,34 @@ export default function SequenceBuilder({ C, currentTenantId }) {
   }
 
   useEffect(function() { loadSequences(); }, [currentTenantId]);
+
+  function startRename(seq, e) {
+    if (e) { e.stopPropagation(); }
+    setEditingId(seq.id);
+    setEditingName(seq.name || '');
+  }
+  function cancelRename() {
+    setEditingId(null);
+    setEditingName('');
+  }
+  async function saveRename(seq) {
+    var trimmed = (editingName || '').trim();
+    if (!trimmed) { alert('Sequence name cannot be empty.'); return; }
+    if (trimmed === seq.name) { cancelRename(); return; }
+    var dupe = sequences.find(function(s) {
+      return s.id !== seq.id && (s.name || '').trim().toLowerCase() === trimmed.toLowerCase();
+    });
+    if (dupe) { alert('Another sequence in this tenant is already named "' + trimmed + '".'); return; }
+    setRenameSaving(true);
+    try {
+      var { error } = await supabase.from('sequences').update({ name: trimmed }).eq('id', seq.id).eq('tenant_id', currentTenantId);
+      if (error) throw error;
+      setSequences(function(prev) { return prev.map(function(s) { return s.id === seq.id ? Object.assign({}, s, { name: trimmed }) : s; }); });
+      if (selectedSeq && selectedSeq.id === seq.id) setSelectedSeq(Object.assign({}, selectedSeq, { name: trimmed }));
+      cancelRename();
+    } catch (e) { alert('Rename failed: ' + e.message); }
+    setRenameSaving(false);
+  }
 
   function selectSequence(seq) {
     setSelectedSeq(seq);
@@ -205,11 +236,39 @@ setSteps(aiSteps.map(function(s, i) {
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {sequences.map(function(s) {
               var isSelected = selectedSeq && selectedSeq.id === s.id;
+              var isEditing = editingId === s.id;
+              if (isEditing) {
+                return (
+                  <div key={s.id} style={{ marginBottom: 6, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + colors.primary + '66', background: colors.primary + '12' }}>
+                    <input
+                      autoFocus
+                      value={editingName}
+                      onChange={function(e) { setEditingName(e.target.value); }}
+                      onKeyDown={function(e) {
+                        if (e.key === 'Enter') { e.preventDefault(); saveRename(s); }
+                        if (e.key === 'Escape') { e.preventDefault(); cancelRename(); }
+                      }}
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '6px 8px', color: '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }}
+                    />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <button onClick={function() { saveRename(s); }} disabled={renameSaving} style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: 'none', background: colors.primary, color: '#000', fontWeight: 700, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: renameSaving ? 0.5 : 1 }}>{renameSaving ? '…' : 'Save'}</button>
+                      <button onClick={cancelRename} disabled={renameSaving} style={{ flex: 1, padding: '5px 8px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: 'transparent', color: '#94a3b8', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                    </div>
+                  </div>
+                );
+              }
               return (
-                <button key={s.id} onClick={function() { selectSequence(s); }} style={{ width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 8, border: '1px solid ' + (isSelected ? colors.primary + '44' : 'rgba(255,255,255,0.06)'), background: isSelected ? colors.primary + '15' : 'rgba(255,255,255,0.02)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', marginBottom: 6, display: 'block' }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
-                  <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{(s.sequence_steps || []).length} steps</div>
-                </button>
+                <div key={s.id} style={{ position: 'relative', marginBottom: 6 }}>
+                  <button onClick={function() { selectSequence(s); }} style={{ width: '100%', textAlign: 'left', padding: '10px 30px 10px 12px', borderRadius: 8, border: '1px solid ' + (isSelected ? colors.primary + '44' : 'rgba(255,255,255,0.06)'), background: isSelected ? colors.primary + '15' : 'rgba(255,255,255,0.02)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', display: 'block' }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{(s.sequence_steps || []).length} steps</div>
+                  </button>
+                  <button
+                    title="Rename sequence"
+                    onClick={function(e) { startRename(s, e); }}
+                    style={{ position: 'absolute', top: 8, right: 6, background: 'transparent', border: 'none', color: isSelected ? colors.primary : '#475569', cursor: 'pointer', fontSize: 13, padding: '4px 6px', borderRadius: 4 }}
+                  >✏️</button>
+                </div>
               );
             })}
           </div>
