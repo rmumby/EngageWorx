@@ -36,7 +36,7 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
     { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
     { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome.", rows: 6 },
-    { key: "api_key", label: "Email API Key (SP only)", type: "password", spOnly: true },
+    { key: "api_key", label: "SendGrid API Key", type: "password", hint: "Get your API key from sendgrid.com → Settings → API Keys. Create a key with Full Access or Restricted Access (Mail Send)." },
     { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
   ]},
   { id: "whatsapp", label: "WhatsApp for Business", icon: "📱", color: "#25D366", fields: [
