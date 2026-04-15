@@ -23,6 +23,27 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   useEffect(function() { load(); }, [currentTenantId]);
 
+  var [trackingGap, setTrackingGap] = useState(null);
+  useEffect(function() {
+    if (!currentTenantId) return;
+    (async function() {
+      try {
+        var t = await supabase.from('tenants').select('email_tracking_slug, email_tracking_remind').eq('id', currentTenantId).maybeSingle();
+        if (!t.data || t.data.email_tracking_remind === false) { setTrackingGap(null); return; }
+        var sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        var outbound = await supabase.from('messages').select('id').eq('tenant_id', currentTenantId).eq('channel', 'email').eq('direction', 'outbound').contains('metadata', { source: 'bcc_tracking' }).gte('created_at', sevenDaysAgo).limit(1);
+        var inbound = await supabase.from('email_actions').select('id, email_from').eq('tenant_id', currentTenantId).eq('source', 'inbound_email').gte('created_at', sevenDaysAgo).limit(5);
+        var inboundCount = (inbound.data || []).length;
+        var outboundCount = (outbound.data || []).length;
+        if (inboundCount > 0 && outboundCount === 0) {
+          setTrackingGap({ slug: t.data.email_tracking_slug, inboundCount: inboundCount, sample: inbound.data[0] && inbound.data[0].email_from });
+        } else {
+          setTrackingGap(null);
+        }
+      } catch (e) {}
+    })();
+  }, [currentTenantId]);
+
   async function load() {
     setLoading(true);
     try {
@@ -154,6 +175,16 @@ export default function EmailDigest({ C, currentTenantId }) {
         </div>
         <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄 Refresh</button>
       </div>
+
+      {trackingGap && trackingGap.slug && (
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 14, background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 10, marginBottom: 18 }}>
+          <div style={{ fontSize: 22 }}>💡</div>
+          <div style={{ flex: 1, color: '#cbd5e1', fontSize: 13, lineHeight: 1.6 }}>
+            <strong style={{ color: '#0ea5e9' }}>Tracking tip —</strong> you received {trackingGap.inboundCount} reply{trackingGap.inboundCount === 1 ? '' : 'ies'} in the last 7 days{trackingGap.sample ? ' (latest from ' + trackingGap.sample + ')' : ''} but none of your outbound emails were tracked. Add <code style={{ color: '#0ea5e9', background: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>track+{trackingGap.slug}@engwx.com</code> to your BCC to see the full thread.
+            <a href="#" onClick={function(e) { e.preventDefault(); window.location.href = '/?page=settings&tab=channels'; }} style={{ color: '#0ea5e9', marginLeft: 8, fontWeight: 700 }}>Setup →</a>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         {[

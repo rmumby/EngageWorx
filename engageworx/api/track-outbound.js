@@ -60,13 +60,24 @@ module.exports = async function handler(req, res) {
     var senderEmail = ((fromRaw.match(/<([^>]+)>/) || [])[1] || fromRaw).trim().toLowerCase();
     var emailBody = (text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()).substring(0, 4000);
 
-    // Identify the tenant by matching sender against user_profiles or tenants.digest_email.
-    // This is the CRM user (e.g. Rob) who BCC'd the tracker, not the customer recipient.
+    // Identify the tenant. Preferred: the BCC address `track+{slug}@engwx.com` embeds the
+    // tenant's unique slug so we don't rely on sender matching. Fall back to user_profiles /
+    // digest_email lookup for the legacy `track@engwx.com` alias or edge cases.
     var tenantId = null;
-    try {
-      var up = await supabase.from('user_profiles').select('id, tenant_id').ilike('email', senderEmail).maybeSingle();
-      if (up.data && up.data.tenant_id) tenantId = up.data.tenant_id;
-    } catch (e) {}
+    var allRecipientsRaw = [body.to, body.cc, body.bcc, body.envelope].filter(Boolean).join(' ').toLowerCase();
+    var slugMatch = allRecipientsRaw.match(/track\+([a-z0-9]{4,})@engwx\.com/);
+    if (slugMatch) {
+      try {
+        var ts = await supabase.from('tenants').select('id').eq('email_tracking_slug', slugMatch[1]).maybeSingle();
+        if (ts.data) tenantId = ts.data.id;
+      } catch (e) {}
+    }
+    if (!tenantId) {
+      try {
+        var up = await supabase.from('user_profiles').select('id, tenant_id').ilike('email', senderEmail).maybeSingle();
+        if (up.data && up.data.tenant_id) tenantId = up.data.tenant_id;
+      } catch (e) {}
+    }
     if (!tenantId) {
       try {
         var td = await supabase.from('tenants').select('id').ilike('digest_email', senderEmail).maybeSingle();
@@ -80,7 +91,7 @@ module.exports = async function handler(req, res) {
 
     // Primary recipient = first To address that isn't a tracking alias
     var recipients = parseAddrList(toHeader).concat(parseAddrList(ccHeader))
-      .filter(function(e) { return e !== senderEmail && e.indexOf('track@') !== 0 && e.indexOf('bcc@') !== 0; });
+      .filter(function(e) { return e !== senderEmail && e.indexOf('track@') !== 0 && e.indexOf('track+') !== 0 && e.indexOf('bcc@') !== 0; });
     if (recipients.length === 0) {
       return res.status(200).json({ skipped: 'no_recipient' });
     }

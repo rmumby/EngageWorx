@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import EmailTrackingInstructions from './EmailTrackingInstructions';
 
 var STEPS = [
   { id: 1, label: 'Welcome' },
@@ -252,6 +253,15 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           Skip for now
         </label>
         {skipEmail && <div style={{ marginTop: 8, padding: 10, background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 8, color: '#d97706', fontSize: 12 }}>⚠️ Email auto-reply won't work until you configure this in Settings → Channels → Email.</div>}
+
+        <div style={{ marginTop: 22, padding: 16, background: 'rgba(0,201,255,0.04)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📧 Outbound email tracking (optional)</div>
+            <span style={{ color: primaryColor, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Power feature</span>
+          </div>
+          <p style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>BCC your personal tracking address on any email you send from Gmail / Outlook / Apple Mail, and the thread shows up in Live Inbox so Aria can see the context when your contact replies. You can set this up now or later in Settings.</p>
+          <EmailTrackingInstructions tenantId={tenantId} C={{ primary: primaryColor, accent: accentColor, muted: '#94a3b8' }} />
+        </div>
       </div>
     );
   }

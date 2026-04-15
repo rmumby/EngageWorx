@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
 import WelcomeEmailSettings from './WelcomeEmailSettings';
+import EmailTrackingInstructions from './EmailTrackingInstructions';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -234,6 +235,48 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Outbound email tracking card (per-tenant BCC alias + reminder toggle) ──
+function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
+  const [remind, setRemind] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(function() {
+    if (!tenantId) return;
+    (async function() {
+      try {
+        const { data } = await supabase.from('tenants').select('email_tracking_remind').eq('id', tenantId).maybeSingle();
+        if (data && typeof data.email_tracking_remind === 'boolean') setRemind(data.email_tracking_remind);
+      } catch (e) {}
+      setLoaded(true);
+    })();
+  }, [tenantId]);
+  async function toggle() {
+    const next = !remind;
+    setRemind(next);
+    try { await supabase.from('tenants').update({ email_tracking_remind: next }).eq('id', tenantId); } catch (e) {}
+  }
+  return (
+    <div style={Object.assign({}, card, { borderLeft: '4px solid #0ea5e9' })}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <span style={{ fontSize: 22 }}>📧</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Outbound Email Tracking</div>
+          <div style={{ color: C.muted, fontSize: 12 }}>BCC this address on any email you send from Gmail / Outlook / Apple Mail to log the thread in Live Inbox. Aria sees the full context when your contact replies.</div>
+        </div>
+      </div>
+      <EmailTrackingInstructions tenantId={tenantId} C={C} />
+      {loaded && (
+        <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, cursor: 'pointer', padding: '10px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
+          <input type="checkbox" checked={remind} onChange={toggle} />
+          <div>
+            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Remind me to BCC on emails</div>
+            <div style={{ color: C.muted, fontSize: 11 }}>Shows a banner in the AI Digest when a contact replies but no outbound email was tracked.</div>
+          </div>
+        </label>
       )}
     </div>
   );
@@ -992,6 +1035,9 @@ return (<div>
                   </div>
                 );
               })}
+              {resolvedTenantId && !demoMode && (
+                <OutboundTrackingCard tenantId={resolvedTenantId} C={C} card={card} btnSec={btnSec} />
+              )}
               <div style={Object.assign({}, card, { borderLeft: '4px solid #FF6B6B' })}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 22 }}>🛡️</span>
