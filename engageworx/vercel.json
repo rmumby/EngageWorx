@@ -38,6 +38,9 @@
     },
     "api/cron-weekly-update.js": {
       "maxDuration": 60
+    },
+    "api/cron-health-check.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
@@ -76,6 +79,10 @@
     {
       "path": "/api/cron-weekly-update",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/cron-health-check",
+      "schedule": "0 14 * * *"
     }
   ],
   "rewrites": [
