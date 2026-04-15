@@ -99,9 +99,34 @@ async function aiReplyForSms(tenantId, lang, body) {
 
 // Send via carrier (per-config carrier_type dispatches to a different transport)
 async function sendOutboundSms(cfg, to, body) {
-  var payload = { to: to, body: body, from: cfg.phone_number };
   try {
-    if (cfg.carrier_type === 'http_webhook' || cfg.carrier_type === 'twilio_sip') {
+    // Twilio SIP trunk → Programmable Messaging API.
+    // Credential layout in poland_carrier_configs:
+    //   api_key    = Twilio Account SID  (ACxxxxxxxx…)
+    //   api_secret = Twilio Auth Token
+    //   outbound_endpoint = optional override; defaults to standard Twilio Messages endpoint.
+    if (cfg.carrier_type === 'twilio_sip') {
+      var sid = cfg.api_key;
+      var token = cfg.api_secret;
+      if (!sid || !token) return { ok: false, error: 'twilio_sip needs api_key (Account SID) and api_secret (Auth Token)' };
+      var url = cfg.outbound_endpoint || ('https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json');
+      var params = new URLSearchParams();
+      params.append('To', to);
+      params.append('From', cfg.phone_number);
+      params.append('Body', body);
+      var twr = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Basic ' + Buffer.from(sid + ':' + token).toString('base64'),
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      var twData = await twr.json().catch(function() { return null; });
+      return { ok: twr.ok, status: twr.status, sid: twData && twData.sid, body: twData };
+    }
+    if (cfg.carrier_type === 'http_webhook') {
+      var payload = { to: to, body: body, from: cfg.phone_number };
       var headers = { 'Content-Type': 'application/json' };
       if (cfg.api_key) headers['Authorization'] = 'Bearer ' + cfg.api_key;
       if (cfg.username && cfg.password) headers['Authorization'] = 'Basic ' + Buffer.from(cfg.username + ':' + cfg.password).toString('base64');
@@ -110,7 +135,8 @@ async function sendOutboundSms(cfg, to, body) {
     }
     if (cfg.carrier_type === 'direct_smpp' || cfg.carrier_type === 'direct_sip') {
       // SMPP/SIP require persistent connections — proxy out to a worker service URL configured in outbound_endpoint.
-      var r2 = await fetch(cfg.outbound_endpoint || '', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': cfg.api_key || '' }, body: JSON.stringify(payload) });
+      var smPayload = { to: to, body: body, from: cfg.phone_number };
+      var r2 = await fetch(cfg.outbound_endpoint || '', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': cfg.api_key || '' }, body: JSON.stringify(smPayload) });
       return { ok: r2.ok, status: r2.status, body: await r2.text().catch(function() { return ''; }) };
     }
   } catch (e) { return { ok: false, error: e.message }; }
@@ -126,15 +152,30 @@ module.exports = async function handler(req, res) {
     // ── INBOUND SMS ────────────────────────────────────────────────────────
     if (action === 'sms-inbound') {
       var body = req.body || {};
-      // Carrier-agnostic field extraction
+      // Twilio sends application/x-www-form-urlencoded — Vercel parses it into req.body
+      // when Content-Type is correct. Detect Twilio by the presence of MessageSid/AccountSid.
+      var isTwilio = !!(body.MessageSid || body.AccountSid || body.SmsMessageSid);
+
+      // Carrier-agnostic field extraction (Twilio + generic webhook)
       var from = body.from || body.From || body.msisdn || body.sender || '';
       var to = body.to || body.To || body.recipient || body.destination || '';
       var text = body.text || body.Body || body.message || body.content || '';
 
+      function twilioReply(xml) {
+        res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+        return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response>' + (xml || '') + '</Response>');
+      }
+
       var cfg = await matchTenantByNumber(supabase, to);
       if (!cfg) {
         console.warn('[Poland] no tenant matched for to:', to);
+        if (isTwilio) return twilioReply('');
         return res.status(200).json({ skipped: 'no_tenant', to: to });
+      }
+      // If config is twilio_sip but the inbound request isn't from Twilio (or vice versa),
+      // log it but continue — useful during testing across both transports.
+      if (cfg.carrier_type === 'twilio_sip' && !isTwilio) {
+        console.warn('[Poland] cfg expects Twilio but no MessageSid in payload — proceeding anyway');
       }
 
       var contactId = await ensureContact(supabase, cfg.tenant_id, from);
@@ -167,6 +208,9 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      // Twilio expects a TwiML response (empty <Response/> is fine since we send the AI reply
+      // out-of-band via the Twilio Messages API in sendOutboundSms).
+      if (isTwilio) return twilioReply('');
       return res.status(200).json({ success: true, language: lang, conversation_id: conversationId });
     }
 
