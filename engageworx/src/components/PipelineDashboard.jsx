@@ -587,6 +587,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   const [hideDormant, setHideDormant] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState('active'); // 'active' | 'prospects' | 'archived'
+  const [groupBy, setGroupBy] = useState('stage'); // 'stage' | 'company'
   const [validateOpen, setValidateOpen] = useState(false);
   const [validateBusy, setValidateBusy] = useState(null);
   const [qualSeqStep, setQualSeqStep] = useState({}); // lead_id → current_step
@@ -720,6 +721,16 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                 }}>{tab.label} ({tab.count})</button>
               ))}
             </div>
+            <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", marginLeft: 4 }}>
+              {[{ id: 'stage', label: '📋 Stage' }, { id: 'company', label: '🏢 Company' }].map(function(g, i) {
+                return <button key={g.id} onClick={function() { setGroupBy(g.id); }} style={{
+                  padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  border: 'none', borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                  background: groupBy === g.id ? 'rgba(224,64,251,0.18)' : 'rgba(255,255,255,0.03)',
+                  color: groupBy === g.id ? '#E040FB' : '#475569',
+                }}>{g.label}</button>;
+              })}
+            </div>
             {isSuperAdmin && <button onClick={() => setValidateOpen(true)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(99,102,241,0.4)",background:"rgba(99,102,241,0.15)",color:"#a5b4fc",marginLeft:4 }}>🔍 Validate Existing</button>}
             <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
             <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency</button>
@@ -784,6 +795,57 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
 
       {loading ? (
         <div style={{ display:"flex",alignItems:"center",justifyContent:"center",height:"300px",color:"#334155",fontSize:"14px" }}>Connecting...</div>
+      ) : groupBy === 'company' ? (
+        (function() {
+          // Group leads by company; leads without a company bucket under "_solo" and render individually.
+          var groups = {};
+          var solo = [];
+          filtered.forEach(function(l) {
+            var co = (l.company || '').trim();
+            if (!co) { solo.push(l); return; }
+            if (!groups[co]) groups[co] = [];
+            groups[co].push(l);
+          });
+          var orderedCompanies = Object.keys(groups).sort(function(a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
+          if (orderedCompanies.length === 0 && solo.length === 0) {
+            return <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>No leads to show.</div>;
+          }
+          return (
+            <div style={{ padding: '20px 28px', display: 'grid', gap: 14, background: bg }}>
+              {orderedCompanies.map(function(co) {
+                var rows = groups[co];
+                var stageCounts = {};
+                rows.forEach(function(r) { stageCounts[r.stage] = (stageCounts[r.stage] || 0) + 1; });
+                return (
+                  <div key={co} style={{ background: surface, border: '1px solid ' + border, borderRadius: 10, padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>🏢 {co}</div>
+                      <span style={{ fontSize: 11, color: '#64748b', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: 4 }}>{rows.length} {rows.length === 1 ? 'lead' : 'leads'}</span>
+                      {Object.keys(stageCounts).sort().map(function(sid) {
+                        var stage = STAGES.find(function(s) { return s.id === sid; }) || { color: '#94a3b8', label: sid, icon: '•' };
+                        return <span key={sid} style={{ fontSize: 10, fontWeight: 700, color: stage.color, background: stage.color + '18', border: '1px solid ' + stage.color + '55', padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{stage.label} · {stageCounts[sid]}</span>;
+                      })}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                      {rows.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />; })}
+                    </div>
+                  </div>
+                );
+              })}
+              {solo.length > 0 && (
+                <div style={{ background: surface, border: '1px dashed ' + border, borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8' }}>👤 Individual contacts (no company)</div>
+                    <span style={{ fontSize: 11, color: '#64748b', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: 4 }}>{solo.length}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
+                    {solo.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />; })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()
       ) : (
         <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 300px)",background:bg }}>
           {STAGES.map(stage => {
