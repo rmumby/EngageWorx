@@ -140,6 +140,53 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [mergePrimaryId, setMergePrimaryId] = useState(null);
   const [mergeChoices, setMergeChoices] = useState({});
   const [merging, setMerging] = useState(false);
+  const [detailStats, setDetailStats] = useState(null);
+
+  // Fetch real activity timeline from the database when opening a contact in live mode.
+  // In demoMode we fall back to generateActivity(c) so the fixtures still drive the demo.
+  useEffect(() => {
+    if (demoMode || !selectedContact || view !== 'detail') { setDetailStats(null); return; }
+    const contactId = selectedContact.id;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: convos } = await supabase.from('conversations').select('id, channel').eq('contact_id', contactId);
+        const convoIds = (convos || []).map(cv => cv.id);
+        const msgMap = {};
+        const push = (rows) => { (rows || []).forEach(m => { if (m && m.id) msgMap[m.id] = m; }); };
+        if (convoIds.length > 0) {
+          const { data: a } = await supabase.from('messages').select('id, body, channel, direction, sender_type, status, created_at, conversation_id, contact_id').in('conversation_id', convoIds).order('created_at', { ascending: false }).limit(500);
+          push(a);
+        }
+        const { data: b } = await supabase.from('messages').select('id, body, channel, direction, sender_type, status, created_at, conversation_id, contact_id').eq('contact_id', contactId).order('created_at', { ascending: false }).limit(500);
+        push(b);
+        const messages = Object.values(msgMap).sort((x, y) => new Date(y.created_at).getTime() - new Date(x.created_at).getTime());
+
+        const isOutbound = (m) => {
+          const d = String(m.direction || '').toLowerCase();
+          const st = String(m.sender_type || '').toLowerCase();
+          return d === 'outbound' || d === 'out' || d === 'sent' || ['agent','ai','bot','user','tenant','operator','system'].includes(st);
+        };
+        const CHANNEL_ICON = { sms: '📱', email: '📧', whatsapp: '💬', voice: '📞', rcs: '💬', web: '🌐' };
+        const STATUS_COLOR = { sent: '#00C9FF', delivered: '#00E676', opened: '#FFD600', clicked: '#E040FB', failed: '#F44336' };
+        const activities = messages.slice(0, 25).map(m => {
+          const isOut = isOutbound(m);
+          return {
+            icon: CHANNEL_ICON[String(m.channel || '').toLowerCase()] || (isOut ? '📤' : '📥'),
+            color: STATUS_COLOR[String(m.status || '').toLowerCase()] || (isOut ? '#00C9FF' : '#00E676'),
+            label: (isOut ? 'Sent' : 'Received') + ' ' + (m.channel ? String(m.channel).toUpperCase() : 'message'),
+            details: (m.body || '').slice(0, 140),
+            date: m.created_at ? new Date(m.created_at) : new Date(),
+          };
+        });
+        if (!cancelled) setDetailStats({ activities });
+      } catch (err) {
+        console.warn('Contact detail fetch error:', err.message);
+        if (!cancelled) setDetailStats({ activities: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedContact, view, demoMode]);
   const [showImport, setShowImport] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
@@ -733,7 +780,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   if (view === "detail" && selectedContact) {
     const c = selectedContact;
-    const activities = generateActivity(c);
+    // Live mode: use real DB activity (or empty while loading). Demo mode: use fixtures.
+    const activities = demoMode
+      ? generateActivity(c)
+      : (detailStats ? detailStats.activities : []);
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -808,6 +858,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Activity Timeline</h3>
                 <span style={{ color: C.muted, fontSize: 12 }}>{activities.length} events</span>
               </div>
+              {!demoMode && !detailStats && (
+                <div style={{ padding: '20px 0', color: C.muted, fontSize: 12, fontStyle: 'italic' }}>Loading real activity from the database…</div>
+              )}
+              {!demoMode && detailStats && activities.length === 0 && (
+                <div style={{ padding: '20px 0', color: C.muted, fontSize: 12 }}>No activity yet — this contact has no messages on record.</div>
+              )}
               <div style={{ position: "relative" }}>
                 <div style={{ position: "absolute", left: 15, top: 0, bottom: 0, width: 2, background: "rgba(255,255,255,0.06)" }} />
                 {activities.map((a, i) => (
