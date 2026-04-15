@@ -79,6 +79,20 @@ function useLiveData(demoMode) {
         }
       });
 
+      // Source of truth for active channels per tenant — channel_configs.enabled = true
+      const { data: chRows } = await supabase
+        .from('channel_configs')
+        .select('tenant_id, channel, enabled')
+        .eq('enabled', true);
+      const channelMap = {};
+      const CHANNEL_LABELS = { sms: 'SMS', email: 'Email', whatsapp: 'WhatsApp', voice: 'Voice', rcs: 'RCS', mms: 'MMS' };
+      (chRows || []).forEach(function(r) {
+        if (!r.tenant_id || !r.channel) return;
+        if (!channelMap[r.tenant_id]) channelMap[r.tenant_id] = [];
+        var label = CHANNEL_LABELS[String(r.channel).toLowerCase()] || r.channel.toUpperCase();
+        if (channelMap[r.tenant_id].indexOf(label) === -1) channelMap[r.tenant_id].push(label);
+      });
+
       const formatted = (tenants || []).map(t => {
         var directCount = countMap[t.id] || 0;
         var companyKey = (t.brand_name || t.name || '').toLowerCase().trim();
@@ -104,7 +118,7 @@ function useLiveData(demoMode) {
             messages: 0, revenue: 0, campaigns: 0,
             contacts: totalContacts, deliveryRate: 0, openRate: 0,
           },
-          channels: (t.channels_enabled || ['SMS', 'Email']),
+          channels: channelMap[t.id] || [],
           plan: t.plan,
           status: t.status,
           slug: t.slug,
@@ -323,7 +337,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
 }
 
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
-function TenantManagement({ C, demoMode = false, onDrillDown }) {
+function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
@@ -897,7 +911,20 @@ setDemoCreating(false);
                       <div style={{ display: "flex", gap: 6 }}>
                         {["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"].map(ch => (
                           <label key={ch} style={{ display: "flex", alignItems: "center", gap: 4, background: c.channels.includes(ch) ? `${c.brand.primary}15` : "rgba(255,255,255,0.03)", border: `1px solid ${c.channels.includes(ch) ? c.brand.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: c.channels.includes(ch) ? c.brand.primary : "rgba(255,255,255,0.4)" }}>
-                            <input type="checkbox" defaultChecked={c.channels.includes(ch)} style={{ accentColor: c.brand.primary }} /> {ch}
+                            <input type="checkbox" checked={c.channels.includes(ch)} onChange={async function(e) {
+                              var enabled = e.target.checked;
+                              var channelKey = ch.toLowerCase();
+                              try {
+                                // Find or create the channel_configs row, scoped strictly to this tenant
+                                var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', c.id).eq('channel', channelKey).maybeSingle();
+                                if (existing.data && existing.data.id) {
+                                  await supabase.from('channel_configs').update({ enabled: enabled, status: enabled ? 'connected' : 'disconnected', updated_at: new Date().toISOString() }).eq('id', existing.data.id).eq('tenant_id', c.id);
+                                } else {
+                                  await supabase.from('channel_configs').insert({ tenant_id: c.id, channel: channelKey, enabled: enabled, status: enabled ? 'connected' : 'disconnected', config_encrypted: {} });
+                                }
+                                if (refreshLiveData) refreshLiveData();
+                              } catch (err) { alert('Channel toggle failed: ' + err.message); }
+                            }} style={{ accentColor: c.brand.primary }} /> {ch}
                           </label>
                         ))}
                       </div>
@@ -2230,7 +2257,7 @@ var spNavBase = [
           <PlatformUpdatesBell userId={profile?.id} audience="sp" />
         </div>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
-        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={pushDrill} />}
+        {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={pushDrill} refreshLiveData={refreshLiveData} />}
         {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={pushDrill} />}
         {spPage === "pipeline" && (isSuperAdmin || profile?.aup_accepted
           ? <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />
