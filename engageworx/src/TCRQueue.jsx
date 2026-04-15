@@ -197,7 +197,27 @@ export default function TCRQueue({ C }) {
                       <span style={{ color: aiScore >= 80 ? '#00E676' : aiScore >= 60 ? '#FFD600' : '#FF3B30', fontWeight: 700, fontSize: 14 }}>{aiScore}</span>
                     ) : <span style={{ color: colors.muted }}>—</span>}
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {s.status === 'completed' && (
+                      <button title="Mark as featured template (Claude few-shot)" onClick={async function() {
+                        try {
+                          var r = await supabase.from('tcr_approved_templates').select('id').eq('source_submission_id', s.id).maybeSingle();
+                          if (r.data && r.data.id) {
+                            await supabase.from('tcr_approved_templates').update({ is_featured: true }).eq('id', r.data.id);
+                          } else {
+                            await supabase.from('tcr_approved_templates').insert({
+                              source_submission_id: s.id, tenant_id: s.tenant_id,
+                              use_case: s.use_case || null,
+                              campaign_description: s.use_case_description || null,
+                              sample_messages: s.sample_messages || null,
+                              opt_in_description: s.opt_in_description || null,
+                              is_featured: true,
+                            });
+                          }
+                          alert('⭐ Marked as featured template — Claude will now prioritise this in few-shot examples.');
+                        } catch (e) { alert('Error: ' + e.message); }
+                      }} style={Object.assign({}, btnSec, { background: 'rgba(245,158,11,0.15)', borderColor: 'rgba(245,158,11,0.4)', color: '#fcd34d' })}>⭐ Template</button>
+                    )}
                     <button onClick={function() { setSelected(s); }} style={btnSec}>Review</button>
                   </div>
                 </div>

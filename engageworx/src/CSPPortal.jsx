@@ -14,6 +14,7 @@ import CampaignsModule from './CampaignsModule';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
+import CSPSMSRegistration from './CSPSMSRegistration';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -245,6 +246,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'ai-studio',    label: agentName || 'AI Chatbot',   icon: '🤖', always: true },
     { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
+    { id: 'sms-registration', label: 'SMS Registration', icon: '📋', always: true },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
     { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
     { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡', always: true },
@@ -545,6 +547,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'analytics' && <AnalyticsDashboard C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
+        {page === 'sms-registration' && <CSPSMSRegistration cspTenantId={cspTenantId} C={C} />}
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
 
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={cspTenantId} />}

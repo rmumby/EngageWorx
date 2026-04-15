@@ -110,18 +110,48 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── GUIDE-FAQ: industry-specific TCR guidance for CSP "Registration Guide" tab ──
+  if (action === 'guide_faq') {
+    try {
+      var industry = (body.industry || 'general business').trim();
+      var faqSystem = 'You are a TCR / A2P 10DLC compliance expert. Write a concise FAQ tailored to the requested industry. Cover: typical use cases, common pitfalls, sample message styles that get approved, and one industry-specific example for opt-in language. 6 Q&A pairs max. Plain markdown, no preamble.';
+      var faqPrompt = 'Industry: ' + industry + '\n\nWrite a short FAQ for someone in this industry preparing their TCR campaign.';
+      var faqText = await callClaude(faqSystem, faqPrompt, 1200);
+      return res.status(200).json({ text: faqText });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   // ── GENERATE-COPY: Claude generates description + 5 sample messages ─────
   if (action === 'generate-copy') {
     try {
+      // Few-shot: pull up to 3 approved templates with a similar use_case (featured first)
+      var fewShotBlock = '';
+      try {
+        var useCase = (body.useCase || '').trim();
+        var tplQuery = supabase.from('tcr_approved_templates').select('use_case, campaign_description, sample_messages, opt_in_description, is_featured').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(3);
+        if (useCase) tplQuery = tplQuery.ilike('use_case', '%' + useCase + '%');
+        var tpls = await tplQuery;
+        if (tpls.data && tpls.data.length > 0) {
+          fewShotBlock = '\n\n=== Approved examples (learn from these) ===\n' + tpls.data.map(function(t, i) {
+            var samples = Array.isArray(t.sample_messages) ? t.sample_messages.slice(0, 5).join('\n  · ') : '(none)';
+            return '[Example ' + (i + 1) + (t.is_featured ? ' ⭐' : '') + ' · use_case: ' + (t.use_case || 'general') + ']\nDescription: ' + (t.campaign_description || '').substring(0, 400) + '\nSample messages:\n  · ' + samples;
+          }).join('\n\n') + '\n=== end examples ===';
+        }
+      } catch (tplErr) { console.warn('[TCR] few-shot lookup error:', tplErr.message); }
+
       var genSystem = 'You are a TCR compliance copywriter. Generate A2P 10DLC compliant campaign copy. ' +
         'All sample messages MUST include: opt-out language ("Reply STOP to unsubscribe"), ' +
         'business identifier, and be under 160 characters. Messages should feel authentic, not templated. ' +
-        'Return JSON: { description (string, 2-3 sentences), sampleMessages (array of exactly 5 strings) }';
+        'When approved examples are provided, model your tone and structure on them — but write FRESH copy specific to this company.' +
+        '\nReturn JSON: { description (string, 2-3 sentences), sampleMessages (array of exactly 5 strings) }';
 
       var prompt = 'Company: ' + (body.companyName || 'Unknown') +
         '\nIndustry: ' + (body.vertical || 'General') +
         '\nUse case: ' + (body.useCase || 'mixed') +
         '\nBusiness description: ' + (body.businessDescription || 'SMS messaging platform') +
+        fewShotBlock +
         '\n\nGenerate a TCR-compliant campaign description and 5 diverse sample messages for this business.';
 
       var genResult = await callClaude(genSystem, prompt, 1200);
@@ -328,6 +358,21 @@ module.exports = async function handler(req, res) {
         await supabase.from('tenants').update({
           sms_enabled: true, tcr_status: 'active', updated_at: new Date().toISOString(),
         }).eq('id', sub.tenant_id);
+
+        // Learn from this approval — persist the approved copy as a few-shot template for future generations.
+        try {
+          var existsTpl = await supabase.from('tcr_approved_templates').select('id').eq('source_submission_id', sub.id).maybeSingle();
+          if (!existsTpl.data) {
+            await supabase.from('tcr_approved_templates').insert({
+              source_submission_id: sub.id,
+              tenant_id: sub.tenant_id,
+              use_case: sub.use_case || null,
+              campaign_description: sub.use_case_description || null,
+              sample_messages: sub.sample_messages || null,
+              opt_in_description: sub.opt_in_description || null,
+            });
+          }
+        } catch (tplErr) { console.warn('[TCR] template seed error:', tplErr.message); }
 
         if (sgMail) {
           var _sigA = require('./_email-signature');
