@@ -106,13 +106,59 @@ async function analyzeAndActionEmail(ctx) {
       } catch(e) {}
     }
 
-    // 3. Claude analysis
-    var systemPrompt = 'You are EngageWorx sales ops AI. Analyze an inbound email and decide ONE action.' +
-      '\n\nPricing: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom.' +
-      '\nFeatures: SMS, WhatsApp, Email, Voice, RCS, AI chatbot, CSP white-label, commissions.' +
-      '\nReturn STRICT JSON: {"action": "advance_stage"|"enroll_sequence"|"review"|"auto_reply"|"no_action", "reasoning": "1-2 sentences", "summary": "body in 1 sentence", "reply_draft": "text if auto_reply else null", "new_stage": "stage id if advance_stage else null", "sequence_name": "name to enroll else null"}' +
+    // 3. Resolve tenant AI context — every CSP/agent/direct tenant gets their own
+    //    persona, knowledge base, and outbound email identity. The master SP only
+    //    applies when the matched tenant is the SP itself OR no tenant matched.
+    var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+    var aiCtx = {
+      agentName: 'Aria',
+      businessName: 'EngageWorx',
+      knowledgeBase: '',
+      systemPromptOverride: '',
+      fromEmail: 'hello@engwx.com',
+      fromName: 'EngageWorx',
+      replyTo: 'hello@engwx.com',
+      isMasterSP: !match.tenantId || match.tenantId === SP_TENANT_ID,
+    };
+    if (match.tenantId) {
+      try {
+        var tRow = await supabase.from('tenants').select('name, brand_name, business_name').eq('id', match.tenantId).maybeSingle();
+        if (tRow.data) aiCtx.businessName = (tRow.data.brand_name || tRow.data.business_name || tRow.data.name || aiCtx.businessName).trim();
+      } catch (e) {}
+      try {
+        var cb = await supabase.from('chatbot_configs').select('agent_name, system_prompt, knowledge_base').eq('tenant_id', match.tenantId).maybeSingle();
+        if (cb.data) {
+          if (cb.data.agent_name && cb.data.agent_name.trim()) aiCtx.agentName = cb.data.agent_name.trim();
+          if (cb.data.knowledge_base && cb.data.knowledge_base.trim()) aiCtx.knowledgeBase = cb.data.knowledge_base.trim();
+          if (cb.data.system_prompt && cb.data.system_prompt.trim()) aiCtx.systemPromptOverride = cb.data.system_prompt.trim();
+        }
+      } catch (e) {}
+      try {
+        var ec = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', match.tenantId).eq('channel', 'email').maybeSingle();
+        var cfg = ec.data && ec.data.config_encrypted ? ec.data.config_encrypted : {};
+        if (cfg.from_email && String(cfg.from_email).trim()) { aiCtx.fromEmail = String(cfg.from_email).trim(); aiCtx.replyTo = aiCtx.fromEmail; }
+        if (cfg.from_name && String(cfg.from_name).trim()) aiCtx.fromName = String(cfg.from_name).trim();
+        if (cfg.reply_to && String(cfg.reply_to).trim()) aiCtx.replyTo = String(cfg.reply_to).trim();
+      } catch (e) {}
+    }
+
+    // 3a. Build a tenant-scoped system prompt — the master SP gets EngageWorx pricing
+    //     boilerplate; other tenants get ONLY their own knowledge base.
+    var systemPrompt;
+    if (aiCtx.systemPromptOverride) {
+      systemPrompt = aiCtx.systemPromptOverride;
+    } else if (aiCtx.isMasterSP) {
+      systemPrompt = 'You are ' + aiCtx.agentName + ', the AI assistant for EngageWorx. Analyze an inbound email and decide ONE action.' +
+        '\n\nPricing: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom.' +
+        '\nFeatures: SMS, WhatsApp, Email, Voice, RCS, AI chatbot, CSP white-label, commissions.';
+    } else {
+      systemPrompt = 'You are ' + aiCtx.agentName + ', the AI assistant for ' + aiCtx.businessName + '. Analyze an inbound email and decide ONE action.' +
+        '\n\nUse only the business knowledge below to answer factual questions. If the answer is not in the knowledge base, route the ticket to review.';
+    }
+    if (aiCtx.knowledgeBase) systemPrompt += '\n\n=== Business knowledge base ===\n' + aiCtx.knowledgeBase + '\n=== end knowledge base ===';
+    systemPrompt += '\n\nReturn STRICT JSON: {"action": "advance_stage"|"enroll_sequence"|"review"|"auto_reply"|"no_action", "reasoning": "1-2 sentences", "summary": "body in 1 sentence", "reply_draft": "text if auto_reply else null", "new_stage": "stage id if advance_stage else null", "sequence_name": "name to enroll else null"}' +
       '\n\nStages: inquiry, demo_shared, sandbox_shared, opportunity, package_selection, go_live, customer, dormant.' +
-      '\nUse auto_reply ONLY for simple factual questions answerable from pricing/features above. Everything else → review with a suggested reply_draft.';
+      '\nUse auto_reply ONLY for simple factual questions answerable from the business knowledge above. Everything else → review with a suggested reply_draft.';
 
     var prompt = 'Email from: ' + sender + (ctx.senderName ? ' (' + ctx.senderName + ')' : '') +
       '\nSubject: ' + (ctx.subject || '') +
@@ -166,14 +212,15 @@ async function analyzeAndActionEmail(ctx) {
         if (process.env.SENDGRID_API_KEY) {
           var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
           var _sig = require('./_email-signature');
-          // hello@ is a team address, and an inbound auto-reply is always a reply → not first touch
-          var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+          // Send from the matched tenant's configured email identity — never hard-code hello@engwx.com.
+          var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
           var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
           await sgMail.send({
             to: sender,
-            from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
+            from: { email: aiCtx.fromEmail, name: sigInfo.fromName || aiCtx.fromName },
+            replyTo: aiCtx.replyTo,
             subject: replySubj,
-            text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName),
+            text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
             html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
           });
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
