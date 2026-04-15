@@ -85,6 +85,7 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
         {lead.billing_status === 'paid' && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#10b981", padding: "2px 7px", borderRadius: "4px", fontWeight: 700 }}>✅ Paid</span>}
         {lead.package && <span style={{ fontSize: "10px", background: "rgba(245,158,11,0.15)", color: "#fcd34d", padding: "2px 7px", borderRadius: "4px" }}>{lead.package}</span>}
         {lead.contact_count > 0 && <span style={{ fontSize: "10px", background: "rgba(16,185,129,0.15)", color: "#34d399", padding: "2px 7px", borderRadius: "4px" }}>👤 {lead.contact_count}</span>}
+        {lead.event_tag && <span style={{ fontSize: "10px", background: "rgba(224,64,251,0.15)", color: "#E040FB", padding: "2px 7px", borderRadius: "4px", fontWeight: 700 }}>🎟️ {lead.event_tag}</span>}
       </div>
       {(lead.next_action || lead.next_action_date) && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>

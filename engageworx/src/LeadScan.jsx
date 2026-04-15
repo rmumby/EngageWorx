@@ -37,6 +37,14 @@ function saveSelectedLocation(loc) {
   try { localStorage.setItem(LS_SELECTED_KEY, loc); } catch(e) {}
 }
 
+var LS_EVENT_KEY = 'engageworx.leadscan.eventTag';
+function loadEventTag() {
+  try { return localStorage.getItem(LS_EVENT_KEY) || ''; } catch(e) { return ''; }
+}
+function saveEventTag(val) {
+  try { localStorage.setItem(LS_EVENT_KEY, val || ''); } catch(e) {}
+}
+
 function parseVCard(text) {
   var result = {};
   var lines = text.split(/\r?\n/);
@@ -65,6 +73,7 @@ export default function LeadScan({ C, demoMode = false }) {
   // Location manager
   var [locations, setLocations]               = useState(loadLocations);
   var [selectedLocation, setSelectedLocation] = useState(loadSelectedLocation);
+  var [eventTag, setEventTag]                 = useState(loadEventTag);
   var [showLocationMgr, setShowLocationMgr]   = useState(false);
   var [newLocationText, setNewLocationText]   = useState('');
 
@@ -131,6 +140,7 @@ export default function LeadScan({ C, demoMode = false }) {
         stage: form.stage,
         source: selectedLocation || 'Direct',
         notes: form.notes || (form.title ? 'Title: ' + form.title : ''),
+        event_tag: (eventTag || '').trim() || null,
         last_action_at: new Date().toISOString().split('T')[0],
         last_activity_at: new Date().toISOString(),
         tenant_id: SP_TENANT_ID,
@@ -422,6 +432,18 @@ export default function LeadScan({ C, demoMode = false }) {
           </button>
         </div>
 
+        {/* Event tag — persists across scans via localStorage */}
+        <div style={{ marginTop: 22, width: '100%', maxWidth: 420 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>Event</div>
+          <input
+            value={eventTag}
+            onChange={function(e) { var v = e.target.value; setEventTag(v); saveEventTag(v); }}
+            placeholder="e.g. CPExpo 2026, HIMSS, Mobile World Congress"
+            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+          />
+          <div style={{ fontSize: 11, color: colors.muted, marginTop: 5 }}>Saved with every scan. Default remembered on this device.</div>
+        </div>
+
         {/* Sequence selector */}
         <div style={{ marginTop: 22, width: '100%', maxWidth: 420 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>Auto-Enrol in Sequence</div>
@@ -519,6 +541,16 @@ export default function LeadScan({ C, demoMode = false }) {
               </div>
               <button onClick={function() { setShowLocationMgr(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#94a3b8', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
             </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Event</label>
+            <input
+              style={inputStyle}
+              value={eventTag}
+              onChange={function(e) { var v = e.target.value; setEventTag(v); saveEventTag(v); }}
+              placeholder="e.g. CPExpo 2026"
+            />
           </div>
 
           <div>
