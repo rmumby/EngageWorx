@@ -35,15 +35,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       } catch (e) {}
     })();
   }, [cspTenantId, profile]);
-  var [agentName, setAgentName] = useState('Aria');
+  // Empty string → nav falls back to "AI Chatbot". Only populated when this CSP has actually configured an agent_name.
+  var [agentName, setAgentName] = useState('');
   useEffect(function() {
-    if (!cspTenantId) return;
+    if (!cspTenantId) { setAgentName(''); return; }
     (async function() {
       try {
         var r = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', cspTenantId).limit(1).maybeSingle();
         var n = r.data && r.data.agent_name ? String(r.data.agent_name).trim() : '';
-        if (n) setAgentName(n);
-      } catch (e) {}
+        setAgentName(n);
+      } catch (e) { setAgentName(''); }
     })();
   }, [cspTenantId]);
   var C = Object.assign({}, getCSPColors(), brandColors);
@@ -241,7 +242,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'campaigns',    label: 'Campaigns',           icon: '🚀', always: true },
     { id: 'pipeline',     label: 'Pipeline',            icon: '📈', module: 'pipeline' },
     { id: 'sequences',    label: 'Sequences',           icon: '📧', module: 'sequences' },
-    { id: 'ai-studio',    label: agentName || 'Aria',   icon: '🤖', always: true },
+    { id: 'ai-studio',    label: agentName || 'AI Chatbot',   icon: '🤖', always: true },
     { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
@@ -281,7 +282,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       { id: 'tenant_inbox', label: 'Live Inbox', icon: '💬' },
       { id: 'tenant_contacts', label: 'Contacts', icon: '👥' },
       { id: 'tenant_campaigns', label: 'Campaigns', icon: '🚀' },
-      { id: 'tenant_ai', label: agentName || 'Aria', icon: '🤖' },
+      { id: 'tenant_ai', label: agentName || 'AI Chatbot', icon: '🤖' },
       { id: 'tenant_sequences', label: 'Sequences', icon: '📧' },
       { id: 'tenant_analytics', label: 'Analytics', icon: '📊' },
       { id: 'tenant_settings', label: 'Settings', icon: '⚙️' },
@@ -388,10 +389,12 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   };
 
   if (page === 'ai-studio') {
+    // Use natural document scroll (not viewport-locked) so the AIChatbot's own
+    // header isn't clipped when this view sits inside the SP drill-down breadcrumb wrapper.
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         {topBar('AI Chatbot Studio', '🤖')}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <div style={{ flex: '1 1 auto' }}>
           <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
         </div>
       </div>
@@ -400,7 +403,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   if (page === 'sequences') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         {topBar('Sequences', '📧')}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <SequenceBuilder C={C} currentTenantId={cspTenantId} />
@@ -411,7 +414,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   if (page === 'flow-builder') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         {topBar('Flow Builder', '⚡')}
         <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
           <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} defaultTab="flows" />
@@ -422,7 +425,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   if (page === 'inbox') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {logoEl}
