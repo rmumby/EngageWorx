@@ -4,7 +4,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 
-const VERIFY_TOKEN = 'engwx-meta-webhook-2026';
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'engwx-meta-webhook-2026';
 
 function getSupabase() {
   return createClient(
