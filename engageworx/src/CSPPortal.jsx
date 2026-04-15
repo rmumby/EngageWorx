@@ -13,6 +13,7 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
+import OnboardingWizard from './OnboardingWizard';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -22,6 +23,18 @@ var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
+  var [needsOnboarding, setNeedsOnboarding] = useState(false);
+  useEffect(function() {
+    if (!cspTenantId) return;
+    var isSuper = profile && profile.role === 'superadmin';
+    if (isSuper) return;
+    (async function() {
+      try {
+        var t = await supabase.from('tenants').select('aup_accepted, onboarding_completed').eq('id', cspTenantId).maybeSingle();
+        if (t.data && t.data.aup_accepted && !t.data.onboarding_completed) setNeedsOnboarding(true);
+      } catch (e) {}
+    })();
+  }, [cspTenantId, profile]);
   var [agentName, setAgentName] = useState('Aria');
   useEffect(function() {
     if (!cspTenantId) return;
@@ -428,6 +441,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         </div>
       </div>
     );
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingWizard tenantId={cspTenantId} onComplete={function() { setNeedsOnboarding(false); }} />;
   }
 
   // ── Main layout ───────────────────────────────────────────────────────────

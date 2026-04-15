@@ -5,6 +5,7 @@ import EmailDigest from './EmailDigest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import SupportRequestForm from './SupportRequestForm';
+import OnboardingWizard from './OnboardingWizard';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 var MASTER_RATE = 0.20;
@@ -25,6 +26,18 @@ function getColors() {
 export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
   var C = getColors();
   var [page, setPage] = useState('dashboard');
+  var [needsOnboarding, setNeedsOnboarding] = useState(false);
+  useEffect(function() {
+    if (!agentTenantId) return;
+    var isSuper = profile && profile.role === 'superadmin';
+    if (isSuper) return;
+    (async function() {
+      try {
+        var t = await supabase.from('tenants').select('aup_accepted, onboarding_completed').eq('id', agentTenantId).maybeSingle();
+        if (t.data && t.data.aup_accepted && !t.data.onboarding_completed) setNeedsOnboarding(true);
+      } catch (e) {}
+    })();
+  }, [agentTenantId, profile]);
   var [agentInfo, setAgentInfo] = useState(null);
   var [directTenants, setDirectTenants] = useState([]);
   var [subAgents, setSubAgents] = useState([]);
@@ -217,6 +230,10 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
 
   function copyLink() {
     navigator.clipboard.writeText('https://engwx.com/ref/' + (agentInfo ? agentInfo.slug : ''));
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingWizard tenantId={agentTenantId} onComplete={function() { setNeedsOnboarding(false); }} />;
   }
 
   return (

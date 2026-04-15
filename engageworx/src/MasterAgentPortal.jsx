@@ -5,6 +5,7 @@ import EmailDigest from './EmailDigest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import SupportRequestForm from './SupportRequestForm';
+import OnboardingWizard from './OnboardingWizard';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 
@@ -25,6 +26,18 @@ function statusDot(status) {
 export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
   var C = getColors();
   var [page, setPage] = useState('dashboard');
+  var [needsOnboarding, setNeedsOnboarding] = useState(false);
+  useEffect(function() {
+    if (!masterAgentTenantId) return;
+    var isSuper = profile && profile.role === 'superadmin';
+    if (isSuper) return;
+    (async function() {
+      try {
+        var t = await supabase.from('tenants').select('aup_accepted, onboarding_completed').eq('id', masterAgentTenantId).maybeSingle();
+        if (t.data && t.data.aup_accepted && !t.data.onboarding_completed) setNeedsOnboarding(true);
+      } catch (e) {}
+    })();
+  }, [masterAgentTenantId, profile]);
   var [info, setInfo] = useState(null);
   var [agents, setAgents] = useState([]);
   var [agentTenantsMap, setAgentTenantsMap] = useState({});
@@ -148,6 +161,10 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
         )}
       </div>
     );
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingWizard tenantId={masterAgentTenantId} onComplete={function() { setNeedsOnboarding(false); }} />;
   }
 
   return (
