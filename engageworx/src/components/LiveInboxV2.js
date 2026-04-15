@@ -707,7 +707,11 @@ useEffect(() => {
                   {/* Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                      <span style={{ color: "#fff", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.contact.name}</span>
+                      <span style={{ color: "#fff", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {((conv.contact.phone || '').indexOf('+48') === 0 || (conv.metadata && conv.metadata.country === 'PL')) && <span title="Polska" style={{ marginRight: 4 }}>🇵🇱</span>}
+                        {conv.contact.name}
+                        {((conv.metadata && conv.metadata.language === 'pl') || (conv.contact.phone || '').indexOf('+48') === 0) && <span style={{ marginLeft: 6, background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 3, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>PL</span>}
+                      </span>
                       <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#00E676" }} />
