@@ -350,9 +350,14 @@ const [calendlyConnecting, setCalendlyConnecting] = useState(false);
 const [calendlyStatus, setCalendlyStatus] = useState(null);
 const [calendlyMessage, setCalendlyMessage] = useState('');
   // ── Resolved tenant ID (works for any logged-in user) ──────────────────
-  const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId);
+  // Always trust the explicit prop when it's present (covers SP drill-down switching tenants).
+  // Only fall back to user_profiles.tenant_id when no prop is passed (standalone tenant load).
+  const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId || null);
   useEffect(() => {
-    if (resolvedTenantId) return;
+    if (currentTenantId) {
+      setResolvedTenantId(currentTenantId);
+      return;
+    }
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -366,7 +371,7 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
         }
       } catch(e) { console.error('tenant resolve error:', e); }
     })();
-  }, []);
+  }, [currentTenantId]);
 
   const ALL_PERMISSIONS = ["messages", "contacts", "campaigns", "analytics", "webhooks", "flows", "settings"];
   const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
