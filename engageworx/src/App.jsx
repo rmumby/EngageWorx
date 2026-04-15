@@ -33,6 +33,7 @@ import CustomerSuccessDashboard from './CustomerSuccessDashboard';
 import PlatformUpdates from './PlatformUpdates';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
+import OnboardingWizard from './OnboardingWizard';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1402,6 +1403,19 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const cpTheme = useTheme();
   const C = getThemedColors(tenant.colors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed').eq('id', tenantId).maybeSingle();
+        const isSuper = cpAuth && cpAuth.profile && cpAuth.profile.role === 'superadmin';
+        if (!isSuper && data && data.aup_accepted && !data.onboarding_completed) setNeedsOnboarding(true);
+      } catch (e) {}
+      setOnboardingChecked(true);
+    })();
+  }, [tenantId, cpAuth]);
   const [agentName, setAgentName] = useState('Aria');
   useEffect(() => {
     if (!tenantId) return;
@@ -1429,6 +1443,10 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "sms-registration", label: "SMS Registration", icon: "📋" },
     { id: "settings", label: "Settings", icon: "⚙️" },
   ];
+
+  if (needsOnboarding) {
+    return <OnboardingWizard tenantId={tenantId} onComplete={() => setNeedsOnboarding(false)} />;
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>

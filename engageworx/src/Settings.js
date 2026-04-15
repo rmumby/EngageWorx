@@ -1131,6 +1131,27 @@ return (<div>
 
       {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} demoMode={demoMode} />}
 
+      {activeTab === "channels" && resolvedTenantId && !demoMode && (
+        <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>🚀 Restart Onboarding</div>
+              <div style={{ color: C.muted, fontSize: 12 }}>Re-run the 6-step setup wizard from the start.</div>
+            </div>
+            <button
+              onClick={async () => {
+                if (!window.confirm('Re-run the onboarding wizard? Your existing settings will not be deleted — you can edit or skip each step.')) return;
+                try {
+                  await supabase.from('tenants').update({ onboarding_completed: false, onboarding_step: 0 }).eq('id', resolvedTenantId);
+                  alert('Onboarding reset. Refresh the portal to see the wizard.');
+                } catch (e) { alert('Error: ' + e.message); }
+              }}
+              style={Object.assign({}, btnSec, { fontSize: 12 })}
+            >Restart wizard</button>
+          </div>
+        </div>
+      )}
+
       {showUpgradeModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setShowUpgradeModal(false)}>
           <div style={{ background: "#1A1D2E", borderRadius: 16, padding: 32, maxWidth: 720, width: "90%", maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
