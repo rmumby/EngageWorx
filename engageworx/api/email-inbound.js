@@ -443,12 +443,27 @@ module.exports = async function handler(req, res) {
     }
 
     var from        = body.from || '';
+    var toHeader    = body.to || '';
+    var ccHeader    = body.cc || '';
     var subject     = body.subject || '(no subject)';
     var text        = body.text || '';
     var html        = body.html || '';
     var senderName  = (from.match(/^([^<]+)</) || [])[1];
     senderName = senderName ? senderName.trim() : '';
     var senderEmail = (from.match(/<([^>]+)>/) || [])[1] || from.trim();
+
+    // Parse all addresses from a header line (to or cc). Returns [{name, email}].
+    function parseAddrList(header) {
+      if (!header) return [];
+      var parts = String(header).split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      return parts.map(function(raw) {
+        var n = (raw.match(/^([^<]+)</) || [])[1];
+        var e = (raw.match(/<([^>]+)>/) || [])[1] || raw;
+        return { name: (n || '').trim(), email: (e || '').trim().toLowerCase() };
+      }).filter(function(a) { return a.email && a.email.indexOf('@') !== -1; });
+    }
+    var toParticipants = parseAddrList(toHeader);
+    var ccParticipants = parseAddrList(ccHeader);
 
     // Skip bounces, auto-replies, or mail from ourselves
     var skipPatterns = ['mailer-daemon', 'postmaster', 'no-reply', 'noreply', 'engwx.com'];
@@ -576,9 +591,15 @@ module.exports = async function handler(req, res) {
       var firstName = nameParts[0] || senderEmail.split('@')[0];
       var lastName = nameParts.slice(1).join(' ') || '';
 
-      var existingContactsResult = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', EW_TENANT_ID).limit(1);
+      var _companies = require('./_companies');
+      var senderCompanyId = await _companies.ensureCompanyForContact(supabase, EW_TENANT_ID, senderEmail);
+
+      var existingContactsResult = await supabase.from('contacts').select('id, company_id').eq('email', senderEmail).eq('tenant_id', EW_TENANT_ID).limit(1);
       if (existingContactsResult.data && existingContactsResult.data.length > 0) {
         contactId = existingContactsResult.data[0].id;
+        if (senderCompanyId && !existingContactsResult.data[0].company_id) {
+          try { await supabase.from('contacts').update({ company_id: senderCompanyId }).eq('id', contactId); } catch (e) {}
+        }
       } else {
         var newContactResult = await supabase.from('contacts').insert({
           tenant_id: EW_TENANT_ID,
@@ -586,10 +607,47 @@ module.exports = async function handler(req, res) {
           last_name: lastName,
           email: senderEmail,
           status: 'active',
+          company_id: senderCompanyId || null,
         }).select().single();
         contactId = newContactResult.data ? newContactResult.data.id : null;
       }
-      console.log('📋 Contact id:', contactId);
+      console.log('📋 Contact id:', contactId, 'Company id:', senderCompanyId);
+
+      // CC / To participant contact creation — link everyone to the same conversation.
+      // Skip the sender, our own inbound address, and any portal users.
+      var allParticipants = toParticipants.concat(ccParticipants).filter(function(p, idx, arr) {
+        if (!p.email || p.email === senderEmail.toLowerCase()) return false;
+        if (p.email.indexOf('@engwx.com') !== -1) return false;
+        // De-dupe
+        return arr.findIndex(function(x) { return x.email === p.email; }) === idx;
+      });
+      var participantContactIds = [];
+      for (var pi = 0; pi < allParticipants.length; pi++) {
+        var p = allParticipants[pi];
+        try {
+          var isPortalUser = false;
+          try {
+            var up = await supabase.from('user_profiles').select('id').ilike('email', p.email).maybeSingle();
+            if (up.data && up.data.id) isPortalUser = true;
+          } catch (e) {}
+          if (isPortalUser) continue;
+          var pName = p.name || p.email.split('@')[0];
+          var pFirst = pName.split(' ')[0] || '';
+          var pLast = pName.split(' ').slice(1).join(' ') || '';
+          var pCompanyId = await _companies.ensureCompanyForContact(supabase, EW_TENANT_ID, p.email);
+          var existingP = await supabase.from('contacts').select('id').eq('email', p.email).eq('tenant_id', EW_TENANT_ID).limit(1).maybeSingle();
+          var pid = existingP.data ? existingP.data.id : null;
+          if (!pid) {
+            var ins = await supabase.from('contacts').insert({
+              tenant_id: EW_TENANT_ID, first_name: pFirst, last_name: pLast,
+              email: p.email, status: 'active', company_id: pCompanyId || null, source: 'email_cc',
+            }).select('id').single();
+            pid = ins.data ? ins.data.id : null;
+          }
+          if (pid) participantContactIds.push(pid);
+        } catch (e) { console.warn('[Inbound] participant create error:', e.message); }
+      }
+      console.log('👥 CC/To participants linked:', participantContactIds.length);
 
       // 2. Find or create conversation
       var conversationId = null;
@@ -625,7 +683,7 @@ module.exports = async function handler(req, res) {
           body: emailBody,
           status: 'delivered',
           sender_type: 'contact',
-          metadata: { from: senderEmail, to: 'hello@engwx.com', subject: subject, sender_name: senderName },
+          metadata: { from: senderEmail, to: toParticipants.map(function(p) { return p.email; }), cc: ccParticipants.map(function(p) { return p.email; }), subject: subject, sender_name: senderName, participant_contact_ids: participantContactIds },
           created_at: now,
         });
         if (inboundInsert.error) console.error('Inbound message insert error:', inboundInsert.error.message);

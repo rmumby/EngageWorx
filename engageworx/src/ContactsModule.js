@@ -122,6 +122,111 @@ function mapContact(c) {
   };
 }
 
+function CompaniesView({ C, currentTenantId, demoMode }) {
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState({ contacts: [], leads: [], loading: false });
+
+  useEffect(() => {
+    if (demoMode || !currentTenantId) { setCompanies([]); setLoading(false); return; }
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: cos } = await supabase.from('companies').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
+        const list = cos || [];
+        // Per-company contact + lead counts
+        const ids = list.map(c => c.id);
+        let counts = {};
+        if (ids.length > 0) {
+          const { data: cs } = await supabase.from('contacts').select('company_id').in('company_id', ids);
+          const { data: ls } = await supabase.from('leads').select('company_id').in('company_id', ids);
+          (cs || []).forEach(c => { counts[c.company_id] = counts[c.company_id] || { contacts: 0, leads: 0 }; counts[c.company_id].contacts++; });
+          (ls || []).forEach(l => { counts[l.company_id] = counts[l.company_id] || { contacts: 0, leads: 0 }; counts[l.company_id].leads++; });
+        }
+        setCompanies(list.map(c => Object.assign({}, c, counts[c.id] || { contacts: 0, leads: 0 })));
+      } catch (e) { console.warn('[Companies] load:', e.message); }
+      setLoading(false);
+    })();
+  }, [currentTenantId, demoMode]);
+
+  useEffect(() => {
+    if (!selected) { setDetail({ contacts: [], leads: [], loading: false }); return; }
+    setDetail(d => Object.assign({}, d, { loading: true }));
+    (async () => {
+      try {
+        const { data: cs } = await supabase.from('contacts').select('id, first_name, last_name, email, phone').eq('company_id', selected.id);
+        const { data: ls } = await supabase.from('leads').select('id, name, stage, urgency, last_activity_at, value, estimated_value, deal_value').eq('company_id', selected.id);
+        const ltv = (ls || []).reduce((s, l) => s + Number(l.estimated_value || l.deal_value || l.value || 0), 0);
+        let lastActivity = null;
+        (ls || []).forEach(l => { if (l.last_activity_at && (!lastActivity || l.last_activity_at > lastActivity)) lastActivity = l.last_activity_at; });
+        setDetail({ contacts: cs || [], leads: ls || [], ltv, lastActivity, loading: false });
+      } catch (e) { setDetail({ contacts: [], leads: [], loading: false }); }
+    })();
+  }, [selected]);
+
+  const card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 16 };
+  if (loading) return <div style={Object.assign({}, card, { textAlign: 'center', padding: 40, color: C.muted })}>Loading companies…</div>;
+  if (companies.length === 0) return <div style={Object.assign({}, card, { textAlign: 'center', padding: 40, color: C.muted })}>No companies yet — they're auto-created from contact email domains (skipping personal domains like gmail.com).</div>;
+
+  if (selected) {
+    return (
+      <div>
+        <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 13, marginBottom: 14 }}>← Back to companies</button>
+        <div style={Object.assign({}, card, { marginBottom: 16, borderLeft: `4px solid ${C.primary}` })}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <div>
+              <div style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>🏢 {selected.name}</div>
+              <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{selected.domain}{selected.website_url ? ' · ' : ''}{selected.website_url && <a href={selected.website_url} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{selected.website_url}</a>}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: '#10b981', fontSize: 22, fontWeight: 800 }}>${(detail.ltv || 0).toLocaleString()}</div>
+              <div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase' }}>LTV</div>
+            </div>
+          </div>
+          {detail.lastActivity && <div style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>Last activity: {new Date(detail.lastActivity).toLocaleString()}</div>}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={card}>
+            <div style={{ color: C.primary, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>👥 Contacts ({detail.contacts.length})</div>
+            {detail.contacts.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No contacts linked.</div> : detail.contacts.map(c => (
+              <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>
+                <div style={{ fontWeight: 600 }}>{[c.first_name, c.last_name].filter(Boolean).join(' ') || '(no name)'}</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>{c.email || c.phone || '—'}</div>
+              </div>
+            ))}
+          </div>
+          <div style={card}>
+            <div style={{ color: C.accent || '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>📈 Pipeline leads ({detail.leads.length})</div>
+            {detail.leads.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No leads yet.</div> : detail.leads.map(l => (
+              <div key={l.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>
+                <div style={{ fontWeight: 600 }}>{l.name}</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>{l.stage || '—'} · {l.urgency || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+      {companies.map(c => (
+        <div key={c.id} onClick={() => setSelected(c)} style={Object.assign({}, card, { cursor: 'pointer', transition: 'all 0.15s' })} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
+          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>🏢 {c.name}</div>
+          <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{c.domain}</div>
+          <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+            <div><div style={{ color: C.primary, fontWeight: 700, fontSize: 16 }}>{c.contacts}</div><div style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase' }}>Contacts</div></div>
+            <div><div style={{ color: C.accent || '#E040FB', fontWeight: 700, fontSize: 16 }}>{c.leads}</div><div style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase' }}>Leads</div></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [contacts, setContacts] = useState(() => demoMode ? DEMO_CONTACTS : []);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -557,6 +662,24 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       return;
     }
     try {
+      // Auto-link company from email domain (skips personal domains like gmail.com)
+      let companyId = null;
+      const email = (newContact.email || '').trim().toLowerCase();
+      if (email) {
+        const domain = email.split('@')[1] || '';
+        const PERSONAL = ['gmail.com','googlemail.com','yahoo.com','yahoo.co.uk','hotmail.com','outlook.com','live.com','icloud.com','me.com','mac.com','aol.com','protonmail.com','proton.me','msn.com','ymail.com'];
+        if (domain && PERSONAL.indexOf(domain) === -1) {
+          try {
+            const { data: hit } = await supabase.from('companies').select('id').eq('tenant_id', currentTenantId).eq('domain', domain).maybeSingle();
+            if (hit && hit.id) companyId = hit.id;
+            else {
+              const brand = newContact.company || (domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1));
+              const { data: ins } = await supabase.from('companies').insert({ tenant_id: currentTenantId, name: brand, domain: domain, website_url: 'https://' + domain }).select('id').single();
+              if (ins) companyId = ins.id;
+            }
+          } catch (e) { console.warn('[Companies] link error:', e.message); }
+        }
+      }
       const { error } = await supabase.from('contacts').insert({
         tenant_id: currentTenantId,
         first_name: newContact.firstName,
@@ -564,6 +687,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         email: newContact.email || null,
         phone: newContact.phone,
         company: newContact.company || null,
+        company_id: companyId,
         linkedin_url: (newContact.linkedinUrl || '').trim() || null,
         status: newContact.status,
         channel_preference: newContact.channel_preference.toLowerCase(),
@@ -933,10 +1057,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       </div>
 
       <div style={{ display: "flex", gap: 2, marginBottom: 20 }}>
-        {[{ id: "contacts", label: "Contacts", icon: "👥" }, { id: "segments", label: "Segments", icon: "🎯" }, { id: "crm", label: "CRM Integrations", icon: "🔗" }].map(t => (
+        {[{ id: "contacts", label: "Contacts", icon: "👥" }, { id: "companies", label: "Companies", icon: "🏢" }, { id: "segments", label: "Segments", icon: "🎯" }, { id: "crm", label: "CRM Integrations", icon: "🔗" }].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 18px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{t.icon} {t.label}</button>
         ))}
       </div>
+
+      {activeTab === "companies" && <CompaniesView C={C} currentTenantId={currentTenantId} demoMode={demoMode} />}
 
       {activeTab === "contacts" && (
         <>
