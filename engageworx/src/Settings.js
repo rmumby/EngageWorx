@@ -3,6 +3,7 @@ import { supabase } from "./supabaseClient";
 import WelcomeEmailSettings from './WelcomeEmailSettings';
 import EmailTrackingInstructions from './EmailTrackingInstructions';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
+import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -1041,6 +1042,9 @@ return (<div>
               )}
               {resolvedTenantId && !demoMode && (
                 <WhatsAppEmbeddedSignup tenantId={resolvedTenantId} C={C} appId={process.env.REACT_APP_FACEBOOK_APP_ID || ''} />
+              )}
+              {resolvedTenantId && !demoMode && (
+                <WhatsAppTemplatesTab tenantId={resolvedTenantId} C={C} />
               )}
               <div style={Object.assign({}, card, { borderLeft: '4px solid #FF6B6B' })}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
