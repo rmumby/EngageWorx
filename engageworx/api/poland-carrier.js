@@ -103,16 +103,16 @@ function isSmsCloud(endpoint) { return /smscloud\.io/i.test(endpoint || ''); }
 function plDigits(n) { return String(n || '').replace(/[^0-9]/g, ''); }
 
 async function sendViaSmsCloudGet(cfg, to, body) {
-  // Legacy GET API — used as fallback while REST API is being enabled by the carrier.
-  // GET http://api.smscloud.io/send?token=…&phone=…&text=…&senderID=…
+  // smscloud GET API. Manual encodeURIComponent on every param — URLSearchParams
+  // uses x-www-form-urlencoded which encodes ' ' as '+', and a literal '+' in the
+  // token would then be decoded server-side as a space. encodeURIComponent
+  // encodes '+' as %2B (safe) and ' ' as %20 (also safe).
   var senderID = (cfg.carrier_name || 'EngageWorx').substring(0, 11);
-  var qs = new URLSearchParams({
-    token: cfg.api_key || '',
-    phone: plDigits(to),
-    text: body,
-    senderID: senderID,
-  });
-  var url = 'http://api.smscloud.io/send?' + qs.toString();
+  var token   = encodeURIComponent(cfg.api_key || '');
+  var phone   = encodeURIComponent(plDigits(to));
+  var text    = encodeURIComponent(body || '');
+  var sender  = encodeURIComponent(senderID);
+  var url = 'http://api.smscloud.io/send?token=' + token + '&phone=' + phone + '&text=' + text + '&senderID=' + sender;
   var r = await fetch(url, { method: 'GET' });
   var raw = await r.text();
   var parsed = null;
@@ -365,7 +365,7 @@ module.exports = async function handler(req, res) {
             : '✗ smscloud.io rejected the request via ' + transport + ' (HTTP ' + probe.status + ')';
           var summary = transport === 'smscloud_rest'
             ? { method: 'POST', url: cfg.outbound_endpoint, header: 'X-Access-Token', body_shape: '[{ number: [...], senderID, text, type, delivery }]' }
-            : { method: 'GET', url: 'http://api.smscloud.io/send', query_params: ['token', 'phone (digits only, no +)', 'text (URL-encoded)', 'senderID'], note: 'Default transport. Set api_secret = "use_rest" to prefer REST API once your account has it enabled.' };
+            : { method: 'GET', url: 'http://api.smscloud.io/send', query_params: ['token (encodeURIComponent)', 'phone (digits only, no +)', 'text (encodeURIComponent — preserves +, diacritics, line breaks)', 'senderID (encodeURIComponent)'], note: 'Default transport. Set api_secret = "use_rest" to prefer REST API once your account has it enabled.' };
           return res.status(200).json({
             ok: probe.ok,
             msg: msg,
