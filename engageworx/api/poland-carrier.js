@@ -102,11 +102,40 @@ async function aiReplyForSms(tenantId, lang, body) {
 function isSmsCloud(endpoint) { return /smscloud\.io/i.test(endpoint || ''); }
 function plDigits(n) { return String(n || '').replace(/[^0-9]/g, ''); }
 
+async function sendViaSmsCloudGet(cfg, to, body) {
+  // Legacy GET API — used as fallback while REST API is being enabled by the carrier.
+  // GET http://api.smscloud.io/send?token=…&phone=…&text=…&senderID=…
+  var senderID = (cfg.carrier_name || 'EngageWorx').substring(0, 11);
+  var qs = new URLSearchParams({
+    token: cfg.api_key || '',
+    phone: plDigits(to),
+    text: body,
+    senderID: senderID,
+  });
+  var url = 'http://api.smscloud.io/send?' + qs.toString();
+  var r = await fetch(url, { method: 'GET' });
+  var raw = await r.text();
+  var parsed = null;
+  try { parsed = JSON.parse(raw); } catch (e) {}
+  return { ok: r.ok, status: r.status, body: parsed || raw, raw: raw, transport: 'smscloud_get' };
+}
+
+function smsCloudUnavailable(restResult) {
+  if (!restResult) return false;
+  var s = (typeof restResult.body === 'string' ? restResult.body : JSON.stringify(restResult.body || '')).toLowerCase();
+  if (s.indexOf('rest api is not available') !== -1) return true;
+  if (s.indexOf('rest api not available') !== -1) return true;
+  if (s.indexOf('rest is not available') !== -1) return true;
+  // Also fall back when REST returns a 4xx with no useful payload — keeps testing unblocked.
+  if (restResult.status === 400 && (!restResult.body || s === '' || s === '{}')) return true;
+  return false;
+}
+
 async function sendViaSmsCloud(cfg, to, body) {
-  var senderID = cfg.carrier_name || 'EngageWorx';
+  var senderID = (cfg.carrier_name || 'EngageWorx').substring(0, 11);
   var payload = [{
     number: [plDigits(to)],
-    senderID: senderID.substring(0, 11), // smscloud caps alphanumeric senderID at 11
+    senderID: senderID,
     text: body,
     type: 'sms',
     delivery: false,
@@ -122,7 +151,18 @@ async function sendViaSmsCloud(cfg, to, body) {
   var raw = await r.text();
   var parsed = null;
   try { parsed = JSON.parse(raw); } catch (e) {}
-  return { ok: r.ok, status: r.status, body: parsed || raw, raw: raw };
+  var restResult = { ok: r.ok, status: r.status, body: parsed || raw, raw: raw, transport: 'smscloud_rest' };
+
+  // Auto-fallback to GET API when REST is reported unavailable
+  if (!restResult.ok && smsCloudUnavailable(restResult)) {
+    console.warn('[Poland/smscloud] REST API unavailable (HTTP ' + restResult.status + '), falling back to GET API');
+    var getResult = await sendViaSmsCloudGet(cfg, to, body);
+    getResult.fallback_reason = 'rest_api_unavailable';
+    getResult.rest_attempt = { status: restResult.status, body: restResult.body };
+    return getResult;
+  }
+
+  return restResult;
 }
 
 // Send via carrier (per-config carrier_type dispatches to a different transport)
