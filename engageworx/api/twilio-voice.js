@@ -222,7 +222,7 @@ module.exports = async function handler(req, res) {
       } catch(e) { console.warn('Config lookup error:', e.message); }
 
       // Default to SP tenant
-      if (!tenantId) tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+      if (!tenantId) tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
       var voice = defaultVoiceFor(body.To);
       if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.[\w-]+/); if (vm) voice = vm[0]; }
@@ -323,7 +323,7 @@ module.exports = async function handler(req, res) {
     // AI-REPLY — Speech received, call AI, respond
     // ═══════════════════════════════════════════════════════════════
     if (action === 'ai-reply') {
-      var replyTenantId = req.query.tenant || 'c1bc59a8-5235-4921-9755-02514b574387';
+      var replyTenantId = req.query.tenant || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
       var replyCallSid = req.query.callSid || body.CallSid || '';
       var replyFrom = req.query.from || body.From || '';
       var replyTo = req.query.to || body.To || '';
@@ -458,7 +458,7 @@ module.exports = async function handler(req, res) {
     // VOICEMAIL — Play greeting and record message
     // ═══════════════════════════════════════════════════════════════
     if (action === 'voicemail') {
-      var vmInTenantId = req.query.tenant || 'c1bc59a8-5235-4921-9755-02514b574387';
+      var vmInTenantId = req.query.tenant || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
       var vmInCfg = {};
       try {
         var vmInVc = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', vmInTenantId).eq('channel', 'voice').single();
@@ -519,7 +519,7 @@ module.exports = async function handler(req, res) {
             } catch(e) {}
           }
         }
-        if (vmRecipients.length === 0) vmRecipients.push('rob@engwx.com');
+        if (vmRecipients.length === 0) vmRecipients.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
         var RESEND_KEY = process.env.RESEND_API_KEY;
         if (RESEND_KEY && sendVmEmail) {
           var callerNum = body.From || 'Unknown';
@@ -588,7 +588,7 @@ module.exports = async function handler(req, res) {
               } catch(e) {}
             }
           }
-          if (txRecipients.length === 0) txRecipients.push('rob@engwx.com');
+          if (txRecipients.length === 0) txRecipients.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
           var txCallerNum = 'Unknown';
           try {
             var txCall = await supabase.from('calls').select('from_number').eq('call_sid', txCallSid).single();

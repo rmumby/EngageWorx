@@ -15,7 +15,7 @@ const supabase = createClient(
 module.exports.config = { api: { bodyParser: false } };
 
 // SP tenant ID — fallback routing only if no tenant matched by inbound_email
-const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+const EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 // Simple multipart form-data parser
 function parseMultipart(req) {

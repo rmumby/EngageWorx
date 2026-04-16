@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 
-const DEMO_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+const DEMO_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 const SLIDES = [
   { id: 'inbox', icon: '💬', label: 'Live Inbox', desc: 'Every channel in one place' },

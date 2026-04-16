@@ -75,7 +75,7 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
 
       // Cancel qualification sequence enrollment (any tenant-scoped or master-SP qualification sequence)
       try {
-        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%');
+        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.' + (process.env.REACT_APP_SP_TENANT_ID || process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387') + '').ilike('name', '%contact qualification%');
         if (seqs.data && seqs.data.length > 0) {
           var sids = seqs.data.map(function(s) { return s.id; });
           await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', l.id).in('sequence_id', sids).eq('status', 'active');
@@ -88,7 +88,7 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         var qualName = upd.name || l.name || 'Prospect';
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: '✅ ' + qualName + ' just qualified from ' + channel,
           html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p><p><b>Lead ID:</b> <code>' + l.id + '</code></p>',
@@ -154,7 +154,7 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
         var sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
           html: '<h3>Archived Lead Reactivated (SMS inbound)</h3>' +
@@ -179,7 +179,7 @@ async function notifyInboundSendGrid(contactName, channel, messagePreview) {
     var sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(sgKey);
     await sgMail.send({
-      to: 'rob@engwx.com',
+      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
       from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3>' +
@@ -495,7 +495,7 @@ module.exports = async function handler(req, res) {
       }
 
       if (!tenantId) {
-        tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+        tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
         console.log('[Twilio] Using SP tenant fallback');
       }
 
@@ -536,7 +536,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
 
       // 6. Auto-create pipeline lead for SP tenant
       try {
-        if (tenantId === 'c1bc59a8-5235-4921-9755-02514b574387') {
+        if (tenantId === (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')) {
           var leadCheck = await supabase.from('leads').select('id').or('name.eq.' + From + ',notes.ilike.%' + From + '%').limit(1);
           if (!leadCheck.data || leadCheck.data.length === 0) {
             await supabase.from('leads').insert({

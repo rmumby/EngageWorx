@@ -124,7 +124,7 @@ module.exports = async function handler(req, res) {
           headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             from: 'EngageWorx <hello@engwx.com>',
-            to: ['rob@engwx.com'],
+            to: [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')],
             subject: 'Sandbox created: ' + companyName,
             html: '<h2>New Sandbox Account</h2><p><b>Company:</b> ' + companyName + '</p><p><b>Contact:</b> ' + fullName + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p><p><b>Tenant ID:</b> ' + tenant.id + '</p><p><b>Password:</b> ' + password + '</p><p>Created via SP Portal.</p>',
           }),

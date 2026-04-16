@@ -85,8 +85,8 @@ module.exports = async function handler(req, res) {
 
     await sgMail.send({
       to: to,
-      from: { email: 'hello@engwx.com', name: 'Rob at EngageWorx' },
-      replyTo: 'rob@engwx.com',
+      from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'Rob at EngageWorx' },
+      replyTo: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
       subject: '👋 Let\'s finish setting up ' + brand,
       html: html,
     });

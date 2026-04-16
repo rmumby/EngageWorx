@@ -20,7 +20,7 @@ module.exports = async function handler(req, res) {
   async function sendEmail({ to, from, fromName, subject, text, html, replyTo }) {
     const payload = {
       personalizations: [{ to: Array.isArray(to) ? to.map(e => ({ email: e })) : [{ email: to }] }],
-      from: { email: from || 'hello@engwx.com', name: fromName || 'EngageWorx' },
+      from: { email: from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: fromName || 'EngageWorx' },
       subject: subject,
       content: [],
     };
@@ -126,7 +126,7 @@ module.exports = async function handler(req, res) {
           to: Array.isArray(to) ? to.map(e => ({ email: e })) : [{ email: to }],
           dynamic_template_data: dynamicData || {},
         }],
-        from: { email: from || 'hello@engwx.com', name: fromName || 'EngageWorx' },
+        from: { email: from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: fromName || 'EngageWorx' },
         template_id: templateId,
       };
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from './supabaseClient';
 
-const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 const CPEXPO_SEQ_ID = '2cc4658f-46f6-4425-8300-95bc9213b720';
 
 const STAGES = ['inquiry','demo_shared','sandbox_shared','opportunity','package_selection','go_live','customer'];

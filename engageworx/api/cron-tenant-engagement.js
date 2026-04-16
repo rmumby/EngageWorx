@@ -8,7 +8,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 
-var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 function getSupabase() {
   return createClient(

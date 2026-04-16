@@ -27,7 +27,7 @@ function shouldFireForTenant(tenant, offsetHours) {
   return local === ((configured + (offsetHours || 0) + 24) % 24);
 }
 
-var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 var STALE_DAYS = 7;
 var FROZEN_STAGES = ['customer', 'closed_won', 'closed_lost'];
 
@@ -39,7 +39,7 @@ function getSupabase() {
 }
 
 async function resolveRecipient(supabase, tenantId) {
-  if (!tenantId) return { email: 'rob@engwx.com', tenantName: null };
+  if (!tenantId) return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
   try {
     var t = await supabase.from('tenants').select('digest_email, name').eq('id', tenantId).maybeSingle();
     if (t.data && t.data.digest_email && t.data.digest_email.trim()) return { email: t.data.digest_email.trim(), tenantName: t.data.name };
@@ -50,8 +50,8 @@ async function resolveRecipient(supabase, tenantId) {
         if (p.data && p.data.email) return { email: p.data.email, tenantName: (t.data || {}).name };
       }
     }
-    return { email: 'rob@engwx.com', tenantName: (t.data || {}).name };
-  } catch (e) { return { email: 'rob@engwx.com', tenantName: null }; }
+    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: (t.data || {}).name };
+  } catch (e) { return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null }; }
 }
 
 async function getMode(supabase) {
@@ -98,12 +98,12 @@ async function executeAction(supabase, lead, decision) {
         var sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         var _sig = require('./_email-signature');
-        var sigInfo = await _sig.getSignature(supabase, { tenantId: lead.tenant_id, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'followup' });
+        var sigInfo = await _sig.getSignature(supabase, { tenantId: lead.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'followup' });
         var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g, '&lt;') + '</div>';
         await sgMail.send({
           to: lead.email,
-          from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
-          replyTo: 'hello@engwx.com',
+          from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigInfo.fromName || 'EngageWorx' },
+          replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
           subject: 'Checking in',
           text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName),
           html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
@@ -221,7 +221,7 @@ module.exports = async function handler(req, res) {
 
       for (var tenantKey in createdByTenant) {
         var items = createdByTenant[tenantKey];
-        var r = tenantKey === '_orphan' ? { email: 'rob@engwx.com', tenantName: null } : await resolveRecipient(supabase, tenantKey);
+        var r = tenantKey === '_orphan' ? { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null } : await resolveRecipient(supabase, tenantKey);
         var rowsHtml = items.map(function(x) {
           var actionLabel = x.decision.action === 'auto_reply' ? '✉️ Personal email' : x.decision.action === 'enroll_sequence' ? '📤 Enrol in "' + (x.decision.sequence_name || '?') + '"' : '—';
           var statusLabel = x.status === 'actioned' ? '<span style="color:#059669;font-weight:700;">✓ Sent</span>' : '<span style="color:#d97706;font-weight:700;">⏳ Pending your approval</span>';

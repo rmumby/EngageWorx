@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
           '<p style="color:#94a3b8;font-size:11px;margin-top:16px;">Go to SP Admin → Platform Updates to edit or publish this draft.</p>' +
           '</div></div>';
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: '📝 Weekly platform update draft — ' + dateLabel,
           html: html,

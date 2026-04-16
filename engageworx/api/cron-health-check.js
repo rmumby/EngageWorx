@@ -13,7 +13,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var _reminder = require('./send-onboarding-reminder');
 
-var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 var PORTAL_BASE = process.env.PORTAL_URL || 'https://portal.engwx.com';
 
 function getSupabase() {
@@ -148,7 +148,7 @@ module.exports = async function handler(req, res) {
         var sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx Health Check' },
           subject: '🩺 Config health: ' + totalIssues + ' issue' + (totalIssues === 1 ? '' : 's') + ' detected',
           html: buildHtml(branding, missing, dupes),

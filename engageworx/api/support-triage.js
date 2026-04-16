@@ -142,7 +142,7 @@ async function notifyRob(ticket, classification, diagnosis, logs) {
       '<div style="text-align:center;margin-top:20px;"><a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Open ticket →</a></div>' +
       '</div></div>';
     await sgMail.send({
-      to: 'rob@engwx.com',
+      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
       from: { email: 'notifications@engwx.com', name: 'EngageWorx Triage' },
       subject: '🚨 ' + classification + ' — ' + (ticket.subject || 'Support ticket'),
       html: html,

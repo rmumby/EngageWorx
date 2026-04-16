@@ -31,7 +31,7 @@ async function sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan)
 
   var brandColor = ws.brand_primary || '#00C9FF';
   var senderName = ws.welcome_email_from_name || ws.brand_name || ws.name || 'EngageWorx';
-  var senderEmail = ws.welcome_email_from || 'hello@engwx.com';
+  var senderEmail = ws.welcome_email_from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com');
   var calendlyUrl = ws.welcome_email_onboarding_link || 'https://calendly.com/rob-engwx/cpexpo-the-venetian';
   var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
 
@@ -290,7 +290,7 @@ module.exports = async function handler(req, res) {
       try {
         var RESEND_KEY = process.env.RESEND_API_KEY;
         if (RESEND_KEY) {
-          var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+          var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
           var alertSettings = await supabase
             .from('sp_settings')
             .select('value')
@@ -298,7 +298,7 @@ module.exports = async function handler(req, res) {
             .eq('key', 'csp_alerts')
             .maybeSingle();
           var alertConfig = (alertSettings.data && alertSettings.data.value) ? alertSettings.data.value : {};
-          var alertEmail = alertConfig.alert_email || 'rob@engwx.com';
+          var alertEmail = alertConfig.alert_email || (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
           var notifyOnCreate = alertConfig.notify_on_csp_tenant_created !== false; // default true
           if (notifyOnCreate) {
             await fetch('https://api.resend.com/emails', {

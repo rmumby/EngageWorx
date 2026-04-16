@@ -465,8 +465,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     var importedEmails = [];
 
     // Master SP only: preload portal-user emails so we don't import CSP partners / agents / members as pipeline contacts
-    var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
-    var portalEmailSet = new Set(['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com']);
+    var SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+    var portalEmailSet = new Set([(process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), (process.env.REACT_APP_PLATFORM_FROM_EMAIL || 'hello@engwx.com'), 'notifications@engwx.com', 'support@engwx.com']);
     if (tid === SP_TENANT_ID) {
       try {
         var up = await supabase.from('user_profiles').select('email');
@@ -638,7 +638,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       alert('First name and phone are required.');
       return;
     }
-    const INTERNAL_EMAILS = ['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com'];
+    const INTERNAL_EMAILS = [(process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), (process.env.REACT_APP_PLATFORM_FROM_EMAIL || 'hello@engwx.com'), 'notifications@engwx.com', 'support@engwx.com'];
     if ((newContact.email || '').trim() && INTERNAL_EMAILS.indexOf(newContact.email.trim().toLowerCase()) !== -1) {
       alert('That email address is an internal EngageWorx address and cannot be added as a contact.');
       return;

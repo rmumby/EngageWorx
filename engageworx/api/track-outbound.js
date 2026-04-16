@@ -101,7 +101,7 @@ module.exports = async function handler(req, res) {
     var contact = await supabase.from('contacts').select('id').eq('tenant_id', tenantId).ilike('email', primaryTo).limit(1).maybeSingle();
     if (!contact.data) {
       // Optionally auto-create — keep it scoped to the sender's tenant. Internal addresses excluded.
-      var INTERNAL = ['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com'];
+      var INTERNAL = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), 'notifications@engwx.com', 'support@engwx.com'];
       if (INTERNAL.indexOf(primaryTo) !== -1) return res.status(200).json({ skipped: 'internal_recipient' });
       var _companies = require('./_companies');
       var companyId = await _companies.ensureCompanyForContact(supabase, tenantId, primaryTo);

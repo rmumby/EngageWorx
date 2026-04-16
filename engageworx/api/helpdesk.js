@@ -194,7 +194,7 @@ async function runAIResponse(ticket, latestMessage, history) {
     // ── Send escalation email notification ────────────────────────────────
     if (isEscalated) {
       try {
-        var notifyTenantId = ticket.tenant_id || 'c1bc59a8-5235-4921-9755-02514b574387';
+        var notifyTenantId = ticket.tenant_id || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
         var notifyEmails = await getNotifyEmails(notifyTenantId, 'notify_on_escalation');
         if (notifyEmails.length > 0) {
           var sgMail = require('@sendgrid/mail');
@@ -221,10 +221,10 @@ async function runAIResponse(ticket, latestMessage, history) {
             '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Ticket →</a>' +
             '</div></div>';
           var _sigH = require('./_email-signature');
-          var sigH = await _sigH.getSignature(supabase, { tenantId: ticket.tenant_id || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+          var sigH = await _sigH.getSignature(supabase, { tenantId: ticket.tenant_id || null, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
           await sgMail.send({
             to: notifyEmails,
-            from: { email: 'hello@engwx.com', name: sigH.fromName || 'EngageWorx Help Desk' },
+            from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigH.fromName || 'EngageWorx Help Desk' },
             subject: '🚨 AI Escalation: ' + tn + ' — ' + ticket.subject,
             text: 'Ticket ' + tn + ' escalated by AI.\n\nSubject: ' + ticket.subject + '\nFrom: ' + (ticket.submitter_name || ticket.submitter_email || 'Unknown') + '\nReason: ' + cleanText.substring(0, 300) + '\n\nView: ' + portalUrl,
             html: escalHtml,
@@ -378,9 +378,9 @@ async function escalateTicket(req, res) {
     var sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-    var notifyTenantId = (ticketDetails && ticketDetails.tenant_id) || 'c1bc59a8-5235-4921-9755-02514b574387';
+    var notifyTenantId = (ticketDetails && ticketDetails.tenant_id) || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
     var notifyEmails = await getNotifyEmails(notifyTenantId, 'notify_on_escalation');
-    if (notifyEmails.length === 0) notifyEmails = ['rob@engwx.com'];
+    if (notifyEmails.length === 0) notifyEmails = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
 
     var tn = ticketDetails ? ticketDetails.ticket_number : ticket_id;
     var subj = ticketDetails ? ticketDetails.subject : 'Support Request';
@@ -411,10 +411,10 @@ async function escalateTicket(req, res) {
       '</div></div>';
 
     var _sigE = require('./_email-signature');
-    var sigE = await _sigE.getSignature(supabase, { tenantId: (ticketDetails && ticketDetails.tenant_id) || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+    var sigE = await _sigE.getSignature(supabase, { tenantId: (ticketDetails && ticketDetails.tenant_id) || null, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
     await sgMail.send({
       to: notifyEmails,
-      from: { email: 'hello@engwx.com', name: sigE.fromName || 'EngageWorx Help Desk' },
+      from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigE.fromName || 'EngageWorx Help Desk' },
       subject: '🚨 Escalation: ' + tn + ' — ' + subj,
       text: 'Ticket ' + tn + ' has been escalated.\n\nSubject: ' + subj + '\nFrom: ' + fromName + '\nReason: ' + (reason || 'Manual escalation') + '\n\nView in portal: ' + portalUrl,
       html: html,

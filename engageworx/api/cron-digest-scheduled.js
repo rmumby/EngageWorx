@@ -18,7 +18,7 @@ async function executeAction(supabase, a) {
     }
     if (a.claude_action === 'enroll_sequence' && a.lead_id && a.tenant_id && a.action_payload && a.action_payload.sequence_name) {
       var seq = await supabase.from('sequences').select('id').eq('tenant_id', a.tenant_id).ilike('name', '%' + a.action_payload.sequence_name + '%').limit(1).maybeSingle();
-      if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%' + a.action_payload.sequence_name + '%').limit(1).maybeSingle();
+      if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).ilike('name', '%' + a.action_payload.sequence_name + '%').limit(1).maybeSingle();
       if (!seq.data) return false;
       var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
       var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
@@ -34,12 +34,12 @@ async function executeAction(supabase, a) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       var subj = (a.email_subject || '').startsWith('Re:') ? a.email_subject : 'Re: ' + (a.email_subject || 'your message');
       var _sig = require('./_email-signature');
-      var sigInfo = await _sig.getSignature(supabase, { tenantId: a.tenant_id || null, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+      var sigInfo = await _sig.getSignature(supabase, { tenantId: a.tenant_id || null, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
       var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + a.claude_reply_draft.replace(/</g, '&lt;') + '</div>';
       await sgMail.send({
         to: a.email_from,
-        from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
-        replyTo: 'hello@engwx.com',
+        from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigInfo.fromName || 'EngageWorx' },
+        replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
         subject: subj,
         text: _sig.composeTextBody(a.claude_reply_draft, sigInfo.closingLine, sigInfo.fromName),
         html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),

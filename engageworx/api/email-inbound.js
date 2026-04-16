@@ -9,7 +9,7 @@ var supabase = createClient(
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-var EW_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var EW_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 async function pauseSequencesForContact(email) {
   try {
@@ -109,15 +109,15 @@ async function analyzeAndActionEmail(ctx) {
     // 3. Resolve tenant AI context — every CSP/agent/direct tenant gets their own
     //    persona, knowledge base, and outbound email identity. The master SP only
     //    applies when the matched tenant is the SP itself OR no tenant matched.
-    var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+    var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
     var aiCtx = {
       agentName: 'Aria',
       businessName: 'EngageWorx',
       knowledgeBase: '',
       systemPromptOverride: '',
-      fromEmail: 'hello@engwx.com',
+      fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
       fromName: 'EngageWorx',
-      replyTo: 'hello@engwx.com',
+      replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
       isMasterSP: !match.tenantId || match.tenantId === SP_TENANT_ID,
     };
     if (match.tenantId) {
@@ -244,7 +244,7 @@ async function analyzeAndActionEmail(ctx) {
     if (decision.action === 'enroll_sequence' && match.leadId && decision.sequence_name && match.tenantId) {
       try {
         var seq = await supabase.from('sequences').select('id').eq('tenant_id', match.tenantId).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
-        if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
+        if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
         if (seq.data) {
           var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
           var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
@@ -291,7 +291,7 @@ async function tryQualifyProspect(email, replyBody, channel) {
       if (extracted.phone && !l.phone) upd.phone = extracted.phone;
       await supabase.from('leads').update(upd).eq('id', l.id);
       try {
-        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%');
+        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.' + (process.env.REACT_APP_SP_TENANT_ID || process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387') + '').ilike('name', '%contact qualification%');
         if (seqs.data && seqs.data.length > 0) {
           var sids = seqs.data.map(function(s) { return s.id; });
           await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', l.id).in('sequence_id', sids).eq('status', 'active');
@@ -301,7 +301,7 @@ async function tryQualifyProspect(email, replyBody, channel) {
         if (process.env.SENDGRID_API_KEY) {
           var qualName = upd.name || l.name || 'Prospect';
           await sgMail.send({
-            to: 'rob@engwx.com',
+            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
             from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
             subject: '✅ ' + qualName + ' just qualified from ' + channel,
             html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p>',
@@ -351,7 +351,7 @@ async function reactivateArchivedLeadsForContact(email) {
       try {
         if (process.env.SENDGRID_API_KEY) {
           await sgMail.send({
-            to: 'rob@engwx.com',
+            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
             from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
             subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
             html: '<h3>Archived Lead Reactivated (email inbound)</h3>' +
@@ -373,7 +373,7 @@ async function notifyInboundSendGrid(contactName, channel, preview) {
   try {
     if (!process.env.SENDGRID_API_KEY) return;
     await sgMail.send({
-      to: 'rob@engwx.com',
+      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
       from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
@@ -546,8 +546,8 @@ module.exports = async function handler(req, res) {
     try {
       await sgMail.send({
         to: senderEmail,
-        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
-        replyTo: 'hello@engwx.com',
+        from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
+        replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
         subject: replySubject,
         text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
         html: htmlReply,
@@ -563,7 +563,7 @@ module.exports = async function handler(req, res) {
     try {
       var portalMatch = null;
       var lowerSender = (senderEmail || '').toLowerCase().trim();
-      var INTERNAL_ADDRS = ['rob@engwx.com', 'hello@engwx.com', 'notifications@engwx.com', 'support@engwx.com'];
+      var INTERNAL_ADDRS = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), 'notifications@engwx.com', 'support@engwx.com'];
       if (lowerSender && INTERNAL_ADDRS.indexOf(lowerSender) !== -1) {
         portalMatch = { source: 'internal', email: lowerSender };
       }
@@ -739,7 +739,7 @@ module.exports = async function handler(req, res) {
           body: aiReply,
           status: 'sent',
           sender_type: 'bot',
-          metadata: { from: 'hello@engwx.com', to: senderEmail, subject: replySubject, ai_generated: true },
+          metadata: { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), to: senderEmail, subject: replySubject, ai_generated: true },
           created_at: new Date(Date.now() + 1000).toISOString(),
         });
         if (outboundInsert.error) console.error('Outbound message insert error:', outboundInsert.error.message);

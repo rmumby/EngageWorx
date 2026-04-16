@@ -175,7 +175,7 @@ module.exports = async function handler(req, res) {
             headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               from: 'EngageWorx <hello@engwx.com>',
-              to: ['rob@engwx.com'],
+              to: [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')],
               subject: 'Top-up purchased: ' + tenantName + ' (' + messages + ' messages)',
               html: '<h2>Message Top-Up Purchased</h2><p><b>Tenant:</b> ' + tenantName + '</p><p><b>Messages:</b> ' + messages + '</p><p><b>Amount:</b> $' + (parseFloat(amount) || 0).toFixed(2) + '</p>',
             }),
@@ -299,8 +299,8 @@ async function checkAndSendAlerts(supabase, tenantId, pct, usage) {
     + '</div></div>';
 
   // Send to tenant admin
-  var recipients = ['rob@engwx.com'];
-  if (adminEmail && adminEmail !== 'rob@engwx.com') {
+  var recipients = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
+  if (adminEmail && adminEmail !== (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')) {
     recipients.push(adminEmail);
   }
 

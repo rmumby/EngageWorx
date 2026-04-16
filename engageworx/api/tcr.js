@@ -14,7 +14,7 @@ function getSupabase() {
   );
 }
 
-var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 async function callClaude(system, userMessage, maxTokens) {
   var res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -241,7 +241,7 @@ module.exports = async function handler(req, res) {
         var _sig1 = require('./_email-signature');
         var sig1 = await _sig1.getSignature(supabase, { tenantId: tenantId, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: sig1.fromName || 'EngageWorx' },
           subject: 'TCR Submission: ' + tenantName + ' (' + (body.useCase || 'mixed') + ')',
           html: '<h3>New TCR A2P Registration</h3>' +
@@ -379,7 +379,7 @@ module.exports = async function handler(req, res) {
           var sigA = await _sigA.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
           try {
             await sgMail.send({
-              to: 'rob@engwx.com',
+              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
               from: { email: 'notifications@engwx.com', name: sigA.fromName || 'EngageWorx' },
               subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
               html: '<h3>TCR Registration Approved (via polling)</h3>' +
@@ -391,11 +391,11 @@ module.exports = async function handler(req, res) {
           } catch (e) {}
           if (sub.contact_email) {
             try {
-              var sigB = await _sigA.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+              var sigB = await _sigA.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
               var bodyAp = '<h3>Great news!</h3><p>Your A2P 10DLC registration has been approved by the carriers. SMS sending is now enabled on your account.</p><p><a href="https://portal.engwx.com">Log in to start sending →</a></p>';
               await sgMail.send({
                 to: sub.contact_email,
-                from: { email: 'hello@engwx.com', name: sigB.fromName || 'EngageWorx' },
+                from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigB.fromName || 'EngageWorx' },
                 subject: 'Your SMS registration is approved!',
                 html: _sigA.composeHtmlBody(bodyAp, sigB.closingLine, sigB.signatureHtml),
               });
@@ -429,7 +429,7 @@ module.exports = async function handler(req, res) {
           var sigR = await _sigR.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
           try {
             await sgMail.send({
-              to: 'rob@engwx.com',
+              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
               from: { email: 'notifications@engwx.com', name: sigR.fromName || 'EngageWorx' },
               subject: 'TCR Rejected: ' + (sub.legal_name || 'Tenant'),
               html: '<h3>TCR Registration Rejected (via polling)</h3>' +
@@ -440,11 +440,11 @@ module.exports = async function handler(req, res) {
           } catch (e) {}
           if (sub.contact_email) {
             try {
-              var sigRC = await _sigR.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+              var sigRC = await _sigR.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
               var bodyRc = '<h3>Registration Update</h3><p>Your A2P 10DLC registration needs attention. Our team is reviewing and will reach out with next steps.</p>';
               await sgMail.send({
                 to: sub.contact_email,
-                from: { email: 'hello@engwx.com', name: sigRC.fromName || 'EngageWorx' },
+                from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigRC.fromName || 'EngageWorx' },
                 subject: 'Action needed: SMS registration update',
                 html: _sigR.composeHtmlBody(bodyRc, sigRC.closingLine, sigRC.signatureHtml),
               });

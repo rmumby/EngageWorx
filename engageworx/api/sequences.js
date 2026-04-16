@@ -44,7 +44,7 @@ async function sendStep(supabase, step, lead, tenant) {
 
   if (step.channel === 'email') {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    var emailConfig = { from: 'hello@engwx.com', fromName: 'Rob at EngageWorx' };
+    var emailConfig = { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), fromName: 'Rob at EngageWorx' };
     try {
       var ccRes = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenant.id).eq('channel', 'email').single();
       if (ccRes.data && ccRes.data.config_encrypted) {

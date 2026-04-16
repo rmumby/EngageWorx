@@ -17,7 +17,7 @@ const TYPE_OPTIONS    = ["Direct Business", "White-Label / Reseller", "Agency", 
 const PACKAGE_OPTIONS = ["Starter $99", "Growth $249", "Pro $499", "Enterprise"];
 const SOURCE_OPTIONS  = ["Website", "LinkedIn", "Referral", "EngageWorx", "Direct", "Event", "Other"];
 const CALENDLY        = "https://calendly.com/rob-engwx/30min";
-const SP_TENANT_ID    = "c1bc59a8-5235-4921-9755-02514b574387";
+const SP_TENANT_ID    = (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387");
 const STALE_DAYS      = 5;
 
 const NEXT_ACTIONS = {
@@ -906,7 +906,7 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
   async function sendQualSeq(lead) {
     setBusy('seq_' + lead.id);
     try {
-      var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%').limit(1);
+      var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.' + (process.env.REACT_APP_SP_TENANT_ID || process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387') + '').ilike('name', '%contact qualification%').limit(1);
       if (!seqRes.data || seqRes.data.length === 0) { alert('No Contact Qualification sequence found. Create one in the master SP tenant first.'); setBusy(null); return; }
       var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqRes.data[0].id).eq('step_number', 1).single();
       var delay = (fs.data && fs.data.delay_days) || 0;
@@ -936,7 +936,7 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
     setBusy(null);
   }
   async function sendQualSeqInner(lead) {
-    var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%').limit(1);
+    var seqRes = await supabase.from('sequences').select('id').or('tenant_id.eq.' + lead.tenant_id + ',tenant_id.eq.' + (process.env.REACT_APP_SP_TENANT_ID || process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387') + '').ilike('name', '%contact qualification%').limit(1);
     if (!seqRes.data || seqRes.data.length === 0) return;
     var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqRes.data[0].id).eq('step_number', 1).single();
     var delay = (fs.data && fs.data.delay_days) || 0;

@@ -56,7 +56,7 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
       if (extracted.phone && !l.phone) upd.phone = extracted.phone;
       await supabase.from('leads').update(upd).eq('id', l.id);
       try {
-        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.c1bc59a8-5235-4921-9755-02514b574387').ilike('name', '%contact qualification%');
+        var seqs = await supabase.from('sequences').select('id').or('tenant_id.eq.' + l.tenant_id + ',tenant_id.eq.' + (process.env.REACT_APP_SP_TENANT_ID || process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387') + '').ilike('name', '%contact qualification%');
         if (seqs.data && seqs.data.length > 0) {
           var sids = seqs.data.map(function(s) { return s.id; });
           await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', l.id).in('sequence_id', sids).eq('status', 'active');
@@ -67,7 +67,7 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         var qualName = upd.name || l.name || 'Prospect';
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: '✅ ' + qualName + ' just qualified from ' + channel,
           html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p>',
@@ -118,7 +118,7 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
         var sgMail = require('@sendgrid/mail');
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
           html: '<h3>Archived Lead Reactivated (WhatsApp inbound)</h3>' +
@@ -142,7 +142,7 @@ async function notifyInboundSendGrid(contactName, channel, preview) {
     var sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(sgKey);
     await sgMail.send({
-      to: 'rob@engwx.com',
+      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
       from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
@@ -400,7 +400,7 @@ module.exports = async function handler(req, res) {
 
         // Final fallback: SP tenant
         if (!tenantId) {
-          tenantId = 'c1bc59a8-5235-4921-9755-02514b574387';
+          tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
           console.log('[WhatsApp] Using SP tenant fallback');
         }
 

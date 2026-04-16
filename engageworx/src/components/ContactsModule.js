@@ -346,7 +346,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       console.log('tenantUUID resolved:', tenantUUID, 'from:', currentTenantId);
 
       // Warn if adding a portal user (CSP/agent/member/tenant owner) as a contact in the master SP tenant
-      const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+      const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
       if (tenantUUID === SP_TENANT_ID && newContact.email) {
         const email = newContact.email.trim().toLowerCase();
         let portalMatch = null;

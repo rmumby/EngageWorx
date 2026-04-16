@@ -5,7 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
-const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+const SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 function getSupabase() {
   return createClient(
@@ -137,7 +137,7 @@ module.exports = async function handler(req, res) {
           const firstName = (user.full_name || '').split(' ')[0] || 'there';
           await sgMail.send({
             to: user.email,
-            from: { email: 'hello@engwx.com', name: 'Rob at EngageWorx' },
+            from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'Rob at EngageWorx' },
             subject: 'Did you have any questions about EngageWorx?',
             html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">
               <p style="font-size:15px;color:#1e293b;line-height:1.7;">Hi ${firstName},</p>

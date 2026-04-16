@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     if (!email) return res.status(400).json({ error: "Email required" });
 
     const displayName = name || email.split("@")[0];
-    const alertTo = process.env.ALERT_EMAIL || "rob@engwx.com";
+    const alertTo = process.env.ALERT_EMAIL || (process.env.PLATFORM_ADMIN_EMAIL || "rob@engwx.com");
 
     // ── Step 1: Write to Supabase pipeline ─────────────────────────────────
     let leadId = null;

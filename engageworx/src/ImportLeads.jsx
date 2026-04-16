@@ -32,7 +32,7 @@ function parseCSV(text) {
   }).filter(function(r) { return r.email || r.first_name || r.company; });
 }
 
-const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 export default function ImportLeads({ C, demoMode = false }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };

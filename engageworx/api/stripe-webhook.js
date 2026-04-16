@@ -6,7 +6,7 @@ var supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 // ── SP email config from portal ───────────────────────────────────────────
 async function getSPEmailConfig() {
@@ -15,10 +15,10 @@ async function getSPEmailConfig() {
     var res = await supabaseLocal.from('channel_configs').select('config_encrypted').eq('tenant_id', EW_SP_TENANT_ID).eq('channel', 'email').single();
     var cc = (res.data && res.data.config_encrypted) || {};
     return {
-      from: cc.from_email || cc.welcome_email_from || 'hello@engwx.com',
+      from: cc.from_email || cc.welcome_email_from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
       fromName: cc.from_name || cc.welcome_email_from_name || 'EngageWorx',
     };
-  } catch(e) { return { from: 'hello@engwx.com', fromName: 'EngageWorx' }; }
+  } catch(e) { return { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), fromName: 'EngageWorx' }; }
 }
 
 // ── AI-personalised welcome email builder ─────────────────────────────────
@@ -30,7 +30,7 @@ async function getSPEmailConfig() {
 
 async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPassword) {
   var config = {
-    from: 'hello@engwx.com',
+    from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
     fromName: 'Rob at EngageWorx',
     calendly: 'https://calendly.com/rob-engwx/30min',
     aiPrompt: null,
@@ -495,7 +495,7 @@ module.exports = async function handler(req, res) {
           var sgCancel = require('@sendgrid/mail');
           sgCancel.setApiKey(process.env.SENDGRID_API_KEY);
           await sgCancel.send({
-            to: 'rob@engwx.com',
+            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
             from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
             subject: 'Subscription ' + cancelEventName + ': ' + cancelTenant.name,
             html: '<h3>Subscription ' + cancelEventName.charAt(0).toUpperCase() + cancelEventName.slice(1) + '</h3>' +
@@ -574,7 +574,7 @@ module.exports = async function handler(req, res) {
           var sgFail = require('@sendgrid/mail');
           sgFail.setApiKey(process.env.SENDGRID_API_KEY);
           await sgFail.send({
-            to: 'rob@engwx.com',
+            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
             from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
             subject: 'Payment failed (final): ' + failedTenant.name,
             html: '<h3>Payment Failed — Account Disabled</h3>' +
@@ -667,7 +667,7 @@ module.exports = async function handler(req, res) {
           var sgReact = require('@sendgrid/mail');
           sgReact.setApiKey(process.env.SENDGRID_API_KEY);
           await sgReact.send({
-            to: 'rob@engwx.com',
+            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
             from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
             subject: 'Tenant reactivated: ' + reactiveTenant.name,
             html: '<h3>Subscription Reactivated</h3>' +

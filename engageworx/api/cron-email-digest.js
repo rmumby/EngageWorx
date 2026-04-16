@@ -33,7 +33,7 @@ function getSupabase() {
 }
 
 async function resolveRecipient(supabase, tenantId) {
-  if (!tenantId) return 'rob@engwx.com';
+  if (!tenantId) return (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
   try {
     var t = await supabase.from('tenants').select('digest_email, name').eq('id', tenantId).maybeSingle();
     if (t.data && t.data.digest_email && t.data.digest_email.trim()) {
@@ -47,9 +47,9 @@ async function resolveRecipient(supabase, tenantId) {
         if (p.data && p.data.email) return { email: p.data.email, tenantName: (t.data || {}).name };
       }
     }
-    return { email: 'rob@engwx.com', tenantName: (t.data || {}).name };
+    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: (t.data || {}).name };
   } catch (e) {
-    return { email: 'rob@engwx.com', tenantName: null };
+    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
   }
 }
 
@@ -169,7 +169,7 @@ module.exports = async function handler(req, res) {
     for (var tenantKey in byTenant) {
       var tenantId = tenantKey === '_orphan' ? null : tenantKey;
       var acts = byTenant[tenantKey];
-      var r = tenantId ? await resolveRecipient(supabase, tenantId) : { email: 'rob@engwx.com', tenantName: null };
+      var r = tenantId ? await resolveRecipient(supabase, tenantId) : { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
       var to = r.email;
       var tenantName = r.tenantName;
       var html = buildHtml(tenantName, acts);

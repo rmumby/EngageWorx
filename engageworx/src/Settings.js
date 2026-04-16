@@ -85,7 +85,7 @@ const SERVICES = [
 ];
 
 function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode }) {
-  const EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+  const EW_SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
   const [members, setMembers] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [allTenants, setAllTenants] = useState([]);
@@ -584,7 +584,7 @@ if (!tenantId) {
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
   // ── SP Alerts state ──────────────────────────────────────────
-  const SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+  const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
   const loadAlertConfig = async () => {
     if (demoMode) { setAlertsLoading(false); return; }
     setAlertsLoading(true);

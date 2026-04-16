@@ -59,7 +59,7 @@ async function resolveDigestEmail(supabase, tenantId) {
       }
     }
   } catch (e) {}
-  return 'rob@engwx.com';
+  return (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
 }
 
 function alertHtml(tenantName, metric, pct, used, limit, threshold) {
@@ -107,7 +107,7 @@ module.exports = async function handler(req, res) {
 
           var digestEmail = await resolveDigestEmail(supabase, t.id);
           var to = [digestEmail];
-          if (threshold >= 90 && to.indexOf('rob@engwx.com') === -1) to.push('rob@engwx.com');
+          if (threshold >= 90 && to.indexOf((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')) === -1) to.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
 
           var subjectPrefix = threshold === 75 ? '⚠️ Usage warning' : (threshold === 90 ? '🚨 Urgent: 90% used' : '🛑 Cap reached');
           var subject = subjectPrefix + ' — ' + (t.name || 'Tenant') + ' · ' + metric;

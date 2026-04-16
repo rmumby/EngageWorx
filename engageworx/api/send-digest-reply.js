@@ -17,12 +17,12 @@ module.exports = async function handler(req, res) {
     var { createClient } = require('@supabase/supabase-js');
     var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     var _sig = require('./_email-signature');
-    var sigInfo = await _sig.getSignature(supabase, { tenantId: tenantId, fromEmail: 'hello@engwx.com', isFirstTouch: false, closingKind: 'reply' });
+    var sigInfo = await _sig.getSignature(supabase, { tenantId: tenantId, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
     var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
     await sgMail.send({
       to: to,
-      from: { email: 'hello@engwx.com', name: sigInfo.fromName || 'EngageWorx' },
-      replyTo: 'hello@engwx.com',
+      from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigInfo.fromName || 'EngageWorx' },
+      replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
       subject: subject,
       text: _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),

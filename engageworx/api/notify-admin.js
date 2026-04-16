@@ -1,7 +1,7 @@
 var { getNotifyEmails } = require('./_notify');
 var sgMail = require('@sendgrid/mail');
 
-var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     if (emails.length > 0) {
       await sgMail.send({
         to: emails,
-        from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+        from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
         subject: subject,
         text: text,
       });

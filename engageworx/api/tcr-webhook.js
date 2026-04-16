@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
 
       try {
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: 'TCR Approved: ' + tenantName,
           html: '<h3>TCR Registration Approved</h3>' +
@@ -84,7 +84,7 @@ module.exports = async function handler(req, res) {
         try {
           await sgMail.send({
             to: sub.contact_email,
-            from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+            from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
             subject: 'Your SMS registration is approved!',
             html: '<h3>Great news!</h3>' +
               '<p>Your A2P 10DLC registration has been approved by the carriers. SMS sending is now enabled on your account.</p>' +
@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
 
       try {
         await sgMail.send({
-          to: 'rob@engwx.com',
+          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
           from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
           subject: 'TCR Rejected: ' + tenantName,
           html: '<h3>TCR Registration Rejected</h3>' +
@@ -137,7 +137,7 @@ module.exports = async function handler(req, res) {
         try {
           await sgMail.send({
             to: sub.contact_email,
-            from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+            from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
             subject: 'Action needed: SMS registration update',
             html: '<h3>Registration Update</h3>' +
               '<p>Your A2P 10DLC registration needs attention. Our team is reviewing and will reach out with next steps.</p>' +

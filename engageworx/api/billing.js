@@ -404,12 +404,12 @@ if (!priceId) {
                 sgMailTopup.setApiKey(process.env.SENDGRID_API_KEY);
                 var tenantRes = await supabase.from('tenants').select('name').eq('id', sessionMeta.tenant_id).single();
                 var tName = tenantRes.data ? tenantRes.data.name : sessionMeta.tenant_id;
-                var EW_SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+                var EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
                 var notifyEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_payment');
-                if (notifyEmails.length === 0) notifyEmails = ['rob@engwx.com'];
+                if (notifyEmails.length === 0) notifyEmails = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
                 await sgMailTopup.send({
                   to: notifyEmails,
-                  from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                  from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
                   subject: 'Top-up purchased: ' + tName + ' (' + sessionMeta.messages + ' messages)',
                   html: '<h2>Message Top-Up</h2><p><b>Tenant:</b> ' + tName + '</p><p><b>Messages:</b> ' + sessionMeta.messages + '</p><p><b>Amount:</b> $' + ((session.amount_total || 0) / 100).toFixed(2) + '</p>',
                 });
@@ -508,8 +508,8 @@ if (!priceId) {
               var sgMailNotify = require('@sendgrid/mail');
               sgMailNotify.setApiKey(process.env.SENDGRID_API_KEY);
               await sgMailNotify.send({
-                to: 'rob@engwx.com',
-                from: { email: 'hello@engwx.com', name: 'EngageWorx' },
+                to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
+                from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
                 subject: '⚡ New Sign-Up: ' + name + ' [' + plan + ']',
                 html: '<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#070d1a;color:#f1f5f9;border-radius:12px;">' +
                   '<h2 style="color:#00C9FF;margin:0 0 16px;">⚡ New Sign-Up</h2>' +

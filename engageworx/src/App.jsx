@@ -70,7 +70,7 @@ function useLiveData(demoMode) {
       const { data: pipelineContacts } = await supabase
         .from('contacts')
         .select('company_name')
-        .eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387');
+        .eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'));
       const companyCountMap = {};
       (pipelineContacts || []).forEach(c => {
         if (c.company_name) {
@@ -413,7 +413,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        csp_tenant_id: 'c1bc59a8-5235-4921-9755-02514b574387',
+        csp_tenant_id: (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
         email: newTenant.email,
         company_name: newTenant.companyName,
         plan: newTenant.plan,
@@ -703,7 +703,7 @@ try {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      csp_tenant_id: 'c1bc59a8-5235-4921-9755-02514b574387',
+      csp_tenant_id: (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
       email: demoForm.email,
       password: demoForm.password,
       full_name: 'Demo User',
@@ -1656,7 +1656,7 @@ function AppInner() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', 'c1bc59a8-5235-4921-9755-02514b574387').limit(1).maybeSingle();
+        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).limit(1).maybeSingle();
         const n = data && data.agent_name ? String(data.agent_name).trim() : '';
         if (n) setSpAgentName(n);
       } catch (e) {}
@@ -2104,7 +2104,7 @@ var spNavBase = [
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          to: "rob@engwx.com",
+                          to: (process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || "rob@engwx.com"),
                           subject: "🎉 New Signup: " + loginForm.companyName + " (starter)",
                           html: "<h2>New EngageWorx Signup</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Business:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p>",
                         }),
@@ -2120,7 +2120,7 @@ var spNavBase = [
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
-                        to: "rob@engwx.com",
+                        to: (process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || "rob@engwx.com"),
                         subject: "Signup Error: " + loginForm.email,
                         html: "<h2>Signup Failed</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Company:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p><p><b>Error:</b> " + (err.message || "Unknown") + "</p>",
                       }),
@@ -2294,13 +2294,13 @@ var spNavBase = [
           : <FeatureGate featureName="Pipeline" C={C} requirements={{ met: false, steps: [{ title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted }] }} />)}
         {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
         {spPage === "sequences" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
-          ? <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />
+          ? <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") : profile?.tenant_id} />
           : <FeatureGate featureName="Sequence Roster" C={C} requirements={{ met: false, steps: [
               { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
               { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
             ] }} />)}
         {spPage === "sequence-builder" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
-          ? <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? "c1bc59a8-5235-4921-9755-02514b574387" : profile?.tenant_id} />
+          ? <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") : profile?.tenant_id} />
           : <FeatureGate featureName="Sequence Builder" C={C} requirements={{ met: false, steps: [
               { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
               { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
@@ -2308,7 +2308,7 @@ var spNavBase = [
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
-        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId="c1bc59a8-5235-4921-9755-02514b574387" />}
+        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId=(process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "lead-scan" && (isSuperAdmin || (profile?.aup_accepted && profile?.kyc_status === 'approved')

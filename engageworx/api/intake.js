@@ -143,7 +143,7 @@ JSON structure:
 
     // ── Step 3: Branded email alert to Rob ──────────────────────────────────
     const urgencyEmoji = { Hot: "🔥", Warm: "⚡", Cold: "❄️" }[classification.urgency] || "📥";
-    const alertTo = process.env.ALERT_EMAIL || "rob@engwx.com";
+    const alertTo = process.env.ALERT_EMAIL || (process.env.PLATFORM_ADMIN_EMAIL || "rob@engwx.com");
 
     try {
       await fetch("https://api.resend.com/emails", {
