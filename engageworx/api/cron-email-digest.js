@@ -126,10 +126,15 @@ module.exports = async function handler(req, res) {
     var tenantsRes = await tenantsQuery;
     var allTenants = tenantsRes.data || [];
     var firingIds = {};
+    var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
     if (force) {
       allTenants.forEach(function(t) { firingIds[t.id] = true; });
     } else {
       allTenants.forEach(function(t) { if (shouldFireForTenant(t, 0)) firingIds[t.id] = true; });
+      // Master SP tenant is always firing — it's where Rob reads tenant_health,
+      // stale_lead, and any platform-level email_actions. Without this, those
+      // rows silently drop on every hour the SP digest_send_time doesn't match.
+      firingIds[SP_TENANT_ID] = true;
     }
     var firingCount = Object.keys(firingIds).length;
     console.log('[Cron] Tenants firing this hour:', firingCount, '/', allTenants.length, force ? '(force=true)' : '');
