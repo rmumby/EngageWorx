@@ -97,6 +97,34 @@ async function aiReplyForSms(tenantId, lang, body) {
   } catch (e) { return null; }
 }
 
+// smscloud.io requires a specific shape: JSON array body, X-Access-Token header,
+// number as an array, no + prefix on phone numbers.
+function isSmsCloud(endpoint) { return /smscloud\.io/i.test(endpoint || ''); }
+function plDigits(n) { return String(n || '').replace(/[^0-9]/g, ''); }
+
+async function sendViaSmsCloud(cfg, to, body) {
+  var senderID = cfg.carrier_name || 'EngageWorx';
+  var payload = [{
+    number: [plDigits(to)],
+    senderID: senderID.substring(0, 11), // smscloud caps alphanumeric senderID at 11
+    text: body,
+    type: 'sms',
+    delivery: false,
+  }];
+  var r = await fetch(cfg.outbound_endpoint, {
+    method: 'POST',
+    headers: {
+      'X-Access-Token': cfg.api_key || '',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  var raw = await r.text();
+  var parsed = null;
+  try { parsed = JSON.parse(raw); } catch (e) {}
+  return { ok: r.ok, status: r.status, body: parsed || raw, raw: raw };
+}
+
 // Send via carrier (per-config carrier_type dispatches to a different transport)
 async function sendOutboundSms(cfg, to, body) {
   try {
@@ -126,6 +154,10 @@ async function sendOutboundSms(cfg, to, body) {
       return { ok: twr.ok, status: twr.status, sid: twData && twData.sid, body: twData };
     }
     if (cfg.carrier_type === 'http_webhook') {
+      // Auto-detect smscloud.io and use their required JSON-array shape + X-Access-Token header
+      if (isSmsCloud(cfg.outbound_endpoint)) {
+        return await sendViaSmsCloud(cfg, to, body);
+      }
       var payload = { to: to, body: body, from: cfg.phone_number };
       var headers = { 'Content-Type': 'application/json' };
       if (cfg.api_key) headers['Authorization'] = 'Bearer ' + cfg.api_key;
@@ -271,10 +303,57 @@ module.exports = async function handler(req, res) {
       if (!tb.tenant_id) return res.status(400).json({ error: 'tenant_id required' });
       var tc = await supabase.from('poland_carrier_configs').select('*').eq('tenant_id', tb.tenant_id).eq('enabled', true).limit(1).maybeSingle();
       if (!tc.data) return res.status(200).json({ ok: false, msg: 'No active Poland config for this tenant' });
-      if (!tc.data.outbound_endpoint) return res.status(200).json({ ok: false, msg: 'outbound_endpoint is empty — cannot verify' });
+      var cfg = tc.data;
+
       try {
-        var probe = await fetch(tc.data.outbound_endpoint, { method: 'HEAD' });
-        return res.status(200).json({ ok: probe.status < 500, msg: 'Endpoint responded with HTTP ' + probe.status });
+        // smscloud.io: send a real-format probe with delivery=false so we can see auth/format response
+        if (cfg.carrier_type === 'http_webhook' && isSmsCloud(cfg.outbound_endpoint)) {
+          if (!cfg.api_key) return res.status(200).json({ ok: false, msg: 'smscloud.io requires api_key (used as X-Access-Token)' });
+          var to = plDigits(cfg.phone_number) || '48000000000';
+          var probe = await sendViaSmsCloud(cfg, to, 'EngageWorx connection test — please ignore.');
+          return res.status(200).json({
+            ok: probe.ok,
+            msg: probe.ok ? '✓ smscloud.io accepted the request (HTTP ' + probe.status + ')' : '✗ smscloud.io rejected the request (HTTP ' + probe.status + ')',
+            http_status: probe.status,
+            response_body: probe.body,
+            request_summary: { url: cfg.outbound_endpoint, header: 'X-Access-Token', body_shape: '[{ number: [...], senderID, text, type, delivery }]' },
+          });
+        }
+        // Twilio SIP: hit the Messages endpoint with HEAD-equivalent auth check via account fetch
+        if (cfg.carrier_type === 'twilio_sip') {
+          if (!cfg.api_key || !cfg.api_secret) return res.status(200).json({ ok: false, msg: 'Twilio needs api_key (Account SID) and api_secret (Auth Token)' });
+          var twProbe = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + cfg.api_key + '.json', {
+            headers: { 'Authorization': 'Basic ' + Buffer.from(cfg.api_key + ':' + cfg.api_secret).toString('base64') },
+          });
+          var twJson = await twProbe.json().catch(function() { return null; });
+          return res.status(200).json({
+            ok: twProbe.ok,
+            msg: twProbe.ok ? '✓ Twilio credentials valid · account: ' + (twJson && twJson.friendly_name) : '✗ Twilio rejected credentials (HTTP ' + twProbe.status + ')',
+            http_status: twProbe.status,
+            response_body: twJson,
+          });
+        }
+        // Generic http_webhook fallback: actual probe POST
+        if (cfg.carrier_type === 'http_webhook') {
+          if (!cfg.outbound_endpoint) return res.status(200).json({ ok: false, msg: 'outbound_endpoint is empty — cannot verify' });
+          var headers = { 'Content-Type': 'application/json' };
+          if (cfg.api_key) headers['Authorization'] = 'Bearer ' + cfg.api_key;
+          if (cfg.username && cfg.password) headers['Authorization'] = 'Basic ' + Buffer.from(cfg.username + ':' + cfg.password).toString('base64');
+          var gprobe = await fetch(cfg.outbound_endpoint, {
+            method: 'POST', headers: headers,
+            body: JSON.stringify({ to: cfg.phone_number, from: cfg.phone_number, body: 'EngageWorx connection test', test: true }),
+          });
+          var gtxt = await gprobe.text().catch(function() { return ''; });
+          var gparsed = null; try { gparsed = JSON.parse(gtxt); } catch (e) {}
+          return res.status(200).json({
+            ok: gprobe.ok,
+            msg: 'Endpoint responded with HTTP ' + gprobe.status,
+            http_status: gprobe.status,
+            response_body: gparsed || gtxt,
+          });
+        }
+        // SMPP/SIP — no synchronous test possible without a worker
+        return res.status(200).json({ ok: false, msg: 'No synchronous test for ' + cfg.carrier_type + ' — verify by sending a real message via your worker' });
       } catch (e) {
         return res.status(200).json({ ok: false, msg: 'Probe failed: ' + e.message });
       }

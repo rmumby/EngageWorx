@@ -79,7 +79,13 @@ export default function PolandCarrierCard({ tenantId, C, isSPAdmin }) {
         body: JSON.stringify({ tenant_id: tenantId }),
       });
       var d = await r.json();
-      setTestResult({ tone: d.ok ? 'ok' : 'err', msg: d.msg || (d.ok ? 'Connection looks good' : 'Test failed') });
+      setTestResult({
+        tone: d.ok ? 'ok' : 'err',
+        msg: d.msg || (d.ok ? 'Connection looks good' : 'Test failed'),
+        http_status: d.http_status,
+        response_body: d.response_body,
+        request_summary: d.request_summary,
+      });
     } catch (e) { setTestResult({ tone: 'err', msg: e.message }); }
   }
 
@@ -145,6 +151,12 @@ export default function PolandCarrierCard({ tenantId, C, isSPAdmin }) {
         <button onClick={testConnection} style={btnSec}>Test connection</button>
         {testResult && <span style={{ color: testResult.tone === 'ok' ? '#10b981' : testResult.tone === 'err' ? '#dc2626' : colors.muted, fontSize: 12 }}>{testResult.msg}</span>}
       </div>
+      {testResult && testResult.response_body && (
+        <div style={{ marginTop: 10, padding: 10, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6 }}>
+          <div style={{ color: colors.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>Carrier response · HTTP {testResult.http_status}</div>
+          <pre style={{ color: '#cbd5e1', fontSize: 11, fontFamily: 'monospace', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 200, overflow: 'auto' }}>{typeof testResult.response_body === 'string' ? testResult.response_body : JSON.stringify(testResult.response_body, null, 2)}</pre>
+        </div>
+      )}
     </div>
   );
 }
