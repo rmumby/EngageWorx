@@ -22,10 +22,17 @@ function escapeXml(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// Normalize any Polish number format to E.164 +48XXXXXXXXX
+// Normalize any Polish number format to E.164 +48XXXXXXXXX. Defensively strips
+// SIP URI prefixes ('sip:', 'tel:') and any leading characters before the first
+// '+' or digit — Twilio SIP trunks sometimes deliver the called party as
+// 'sip:+48732080851@example.com' or '<tel:+48732…>'.
 function normalizePL(raw) {
   if (!raw) return '';
-  var s = String(raw).replace(/[\s\-\(\)]/g, '');
+  var s = String(raw).trim();
+  s = s.replace(/^<+|>+$/g, '');                 // strip angle brackets
+  s = s.replace(/^(sip:|tel:)/i, '');            // strip URI scheme
+  s = s.split('@')[0];                            // strip SIP host part
+  s = s.replace(/[\s\-\(\)]/g, '');
   if (s.indexOf('+') === 0) return s;
   if (s.indexOf('48') === 0 && s.length === 11) return '+' + s;
   if (s.length === 9) return '+48' + s;
@@ -228,6 +235,18 @@ module.exports = async function handler(req, res) {
   var action = (req.query && req.query.action) || (req.body && req.body.action) || 'sms-inbound';
   var supabase = getSupabase();
 
+  // Top-of-handler log so every Twilio webhook hit is visible in Vercel function logs.
+  // Twilio sends form-encoded; req.body keys are PascalCase (From, To, CallSid, etc.).
+  try {
+    var probeBody = req.body || {};
+    var keys = Object.keys(probeBody).slice(0, 10);
+    console.log('[Poland] HIT', req.method, 'action=' + action,
+      'From=' + (probeBody.From || probeBody.from || ''),
+      'To=' + (probeBody.To || probeBody.to || ''),
+      'CallSid=' + (probeBody.CallSid || ''),
+      'body_keys=' + JSON.stringify(keys));
+  } catch (e) {}
+
   try {
     // ── INBOUND SMS ────────────────────────────────────────────────────────
     if (action === 'sms-inbound') {
@@ -309,7 +328,43 @@ module.exports = async function handler(req, res) {
     if (action === 'voice-inbound') {
       var vBody = req.body || {};
       var vTo = vBody.To || vBody.to || vBody.destination || '';
+      var vFrom = vBody.From || vBody.from || vBody.caller || '';
+      var vCallSid = vBody.CallSid || vBody.callSid || ('poland-' + Date.now());
       var vCfg = await matchTenantByNumber(supabase, vTo);
+      console.log('[Poland/voice] To=' + vTo, 'normalized=' + normalizePL(vTo), 'From=' + vFrom, 'CallSid=' + vCallSid, 'tenant_match=' + (vCfg ? vCfg.tenant_id : 'NONE'));
+
+      // Persist the call so Live Inbox shows it. Skip silently if no tenant matched
+      // (we still return TwiML so Twilio doesn't disconnect the caller mid-ring).
+      if (vCfg) {
+        try {
+          var fromNorm = normalizePL(vFrom);
+          var contactId = await ensureContact(supabase, vCfg.tenant_id, fromNorm);
+          var conversationId = contactId ? await ensureConversation(supabase, vCfg.tenant_id, contactId, 'voice') : null;
+          if (conversationId) {
+            await supabase.from('messages').insert({
+              tenant_id: vCfg.tenant_id, conversation_id: conversationId, contact_id: contactId,
+              channel: 'voice', direction: 'inbound', sender_type: 'contact',
+              body: '📞 Inbound call from ' + fromNorm + ' (Polish IVR played)',
+              status: 'delivered',
+              metadata: { from: fromNorm, to: normalizePL(vTo), country: 'PL', call_sid: vCallSid, ivr: 'pl_default' },
+              created_at: new Date().toISOString(),
+            });
+            await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1 }).eq('id', conversationId);
+          }
+          // Also record in calls table if it exists (CDR-style); failure is non-fatal.
+          try {
+            await supabase.from('calls').insert({
+              tenant_id: vCfg.tenant_id, call_sid: vCallSid, from_number: fromNorm, to_number: normalizePL(vTo),
+              direction: 'inbound', status: 'ringing', started_at: new Date().toISOString(),
+            });
+          } catch (callsErr) { console.warn('[Poland/voice] calls insert skipped:', callsErr.message); }
+          console.log('[Poland/voice] persisted contact=' + contactId, 'conversation=' + conversationId);
+        } catch (persistErr) {
+          console.error('[Poland/voice] persist failed:', persistErr.message, persistErr.stack);
+        }
+      } else {
+        console.warn('[Poland/voice] no tenant match for To=' + vTo + ' (normalized ' + normalizePL(vTo) + ') — call will get generic IVR but nothing logged. Check poland_carrier_configs.phone_number for an exact match.');
+      }
 
       var voice = 'Polly.Ewa-Neural'; // Polish female
       var greeting = 'Witamy. Naciśnij 1 dla wsparcia technicznego. Naciśnij 2 aby sprawdzić status zgłoszenia. Naciśnij 3 aby rozmawiać z konsultantem.';
@@ -324,6 +379,7 @@ module.exports = async function handler(req, res) {
         '<Say voice="' + voice + '" language="pl-PL">Nie otrzymaliśmy odpowiedzi. Do widzenia.</Say>' +
         '<Hangup/>' +
       '</Response>';
+      console.log('[Poland/voice] TwiML returned, length=' + twiml.length);
       res.setHeader('Content-Type', 'text/xml; charset=utf-8');
       return res.status(200).end(twiml);
     }
