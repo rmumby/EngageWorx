@@ -111,16 +111,28 @@ module.exports = async function handler(req, res) {
   var supabase = getSupabase();
   var dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   var utcHour = new Date().getUTCHours();
-  console.log('[Cron] Email digest window:', dayAgo, '→ now. UTC hour:', utcHour);
+  // Force flag: bypass per-tenant hour matching and send digest immediately. Useful for
+  // ad-hoc reruns and the "send me my digest now" UI button. Accepts force in body OR query.
+  var rawBody = req.body || {};
+  var force = rawBody.force === true || rawBody.force === 'true' || (req.query && (req.query.force === '1' || req.query.force === 'true'));
+  // Optional: limit a forced run to one tenant via tenant_id
+  var forceTenantId = rawBody.tenant_id || (req.query && req.query.tenant_id) || null;
+  console.log('[Cron] Email digest window:', dayAgo, '→ now. UTC hour:', utcHour, force ? '(FORCED)' : '');
 
   try {
-    // Determine which tenants should fire this hour
-    var tenantsRes = await supabase.from('tenants').select('id, name, digest_send_time, digest_timezone, digest_email');
+    // Determine which tenants should fire this hour (or all of them, when force=true)
+    var tenantsQuery = supabase.from('tenants').select('id, name, digest_send_time, digest_timezone, digest_email');
+    if (force && forceTenantId) tenantsQuery = tenantsQuery.eq('id', forceTenantId);
+    var tenantsRes = await tenantsQuery;
     var allTenants = tenantsRes.data || [];
     var firingIds = {};
-    allTenants.forEach(function(t) { if (shouldFireForTenant(t, 0)) firingIds[t.id] = true; });
+    if (force) {
+      allTenants.forEach(function(t) { firingIds[t.id] = true; });
+    } else {
+      allTenants.forEach(function(t) { if (shouldFireForTenant(t, 0)) firingIds[t.id] = true; });
+    }
     var firingCount = Object.keys(firingIds).length;
-    console.log('[Cron] Tenants firing this hour:', firingCount, '/', allTenants.length);
+    console.log('[Cron] Tenants firing this hour:', firingCount, '/', allTenants.length, force ? '(force=true)' : '');
 
     var actionsRes = await supabase.from('email_actions')
       .select('id, email_from, email_subject, email_body_summary, claude_action, claude_reasoning, claude_reply_draft, status, contact_id, lead_id, tenant_id, source, created_at')
@@ -129,20 +141,21 @@ module.exports = async function handler(req, res) {
     var actions = actionsRes.data || [];
 
     // Group by tenant_id — only include tenants firing this hour.
-    // Orphaned (null tenant) actions fire at 12:00 UTC as a fallback.
+    // Orphaned (null tenant) actions fire at 12:00 UTC as a fallback (or always when forced).
     var byTenant = {};
     actions.forEach(function(a) {
       if (a.tenant_id) {
         if (!firingIds[a.tenant_id]) return;
         if (!byTenant[a.tenant_id]) byTenant[a.tenant_id] = [];
         byTenant[a.tenant_id].push(a);
-      } else if (utcHour === 12) {
+      } else if (force || utcHour === 12) {
+        if (force && forceTenantId) return; // single-tenant force: skip orphans
         if (!byTenant._orphan) byTenant._orphan = [];
         byTenant._orphan.push(a);
       }
     });
     if (firingCount === 0 && !byTenant._orphan) {
-      return res.status(200).json({ success: true, skipped: true, utc_hour: utcHour, reason: 'No tenants scheduled for this hour' });
+      return res.status(200).json({ success: true, skipped: true, utc_hour: utcHour, forced: force, reason: force ? 'No matching tenants for forced run' : 'No tenants scheduled for this hour' });
     }
 
     var sgMail = null;
