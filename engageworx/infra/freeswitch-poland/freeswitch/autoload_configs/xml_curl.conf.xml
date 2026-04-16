@@ -1,0 +1,16 @@
+<!--
+  /etc/freeswitch/autoload_configs/xml_curl.conf.xml
+  Tells mod_xml_curl to fetch dialplan from our local Node bridge.
+-->
+<configuration name="xml_curl.conf" description="cURL XML Gateway">
+  <bindings>
+    <binding name="poland-bridge">
+      <param name="gateway-url" value="http://127.0.0.1:8080/fs-dialplan" bindings="dialplan"/>
+      <param name="gateway-credentials" value=""/>
+      <param name="auth-scheme" value="basic"/>
+      <param name="disable-100-continue" value="true"/>
+      <param name="timeout" value="10"/>
+      <param name="enable-cacert-check" value="false"/>
+    </binding>
+  </bindings>
+</configuration>

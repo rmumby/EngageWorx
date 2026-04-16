@@ -1,0 +1,12 @@
+<!--
+  /etc/freeswitch/autoload_configs/acl.conf.xml
+  Network ACLs. Pin the SIP profile to the Polish carrier IP only.
+-->
+<configuration name="acl.conf" description="Network Lists">
+  <network-lists>
+    <list name="poland-carrier" default="deny">
+      <node type="allow" cidr="64.79.144.100/32"/>
+      <!-- Add additional carrier source IPs here as <node type="allow" cidr="x.x.x.x/32"/> -->
+    </list>
+  </network-lists>
+</configuration>

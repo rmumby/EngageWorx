@@ -1,0 +1,62 @@
+<!--
+  /etc/freeswitch/sip_profiles/poland-inbound.xml
+  Inbound-only SIP profile for the Polish carrier (IP 64.79.144.100).
+  Listens on UDP/TCP 5060. ACL pinned to the carrier IP.
+-->
+<profile name="poland-inbound">
+  <aliases>
+    <alias name="poland-inbound"/>
+  </aliases>
+
+  <gateways>
+    <!-- No outbound gateway here — pure inbound trunk -->
+  </gateways>
+
+  <domains>
+    <domain name="all" alias="false" parse="true"/>
+  </domains>
+
+  <settings>
+    <param name="user-agent-string" value="FreeSWITCH/EngageWorx-Poland"/>
+    <param name="debug" value="0"/>
+    <param name="sip-trace" value="false"/>
+    <param name="log-auth-failures" value="true"/>
+
+    <!-- Listen on all interfaces, port 5060 -->
+    <param name="sip-ip" value="$${local_ip_v4}"/>
+    <param name="rtp-ip" value="$${local_ip_v4}"/>
+    <param name="ext-sip-ip" value="auto-nat"/>
+    <param name="ext-rtp-ip" value="auto-nat"/>
+    <param name="sip-port" value="5060"/>
+    <param name="rtp-timer-name" value="soft"/>
+
+    <!-- ACL: only accept INVITEs from the carrier -->
+    <param name="apply-inbound-acl" value="poland-carrier"/>
+    <param name="auth-calls" value="false"/>
+    <param name="accept-blind-reg" value="false"/>
+    <param name="accept-blind-auth" value="false"/>
+
+    <!-- Codecs — narrowband + opus for HD voice -->
+    <param name="inbound-codec-prefs" value="OPUS,PCMA,PCMU,G722"/>
+    <param name="outbound-codec-prefs" value="OPUS,PCMA,PCMU,G722"/>
+    <param name="inbound-codec-negotiation" value="generous"/>
+
+    <!-- Route inbound calls into the 'poland' dialplan context -->
+    <param name="context" value="poland"/>
+    <param name="dialplan" value="XML"/>
+
+    <!-- DTMF over RFC 2833 (most common) -->
+    <param name="dtmf-duration" value="2000"/>
+    <param name="dtmf-type" value="rfc2833"/>
+    <param name="rfc2833-pt" value="101"/>
+
+    <!-- NAT handling -->
+    <param name="nat-options-ping" value="true"/>
+    <param name="aggressive-nat-detection" value="true"/>
+    <param name="rtp-rewrite-timestamps" value="true"/>
+
+    <param name="manage-presence" value="false"/>
+    <param name="presence-hosts" value=""/>
+    <param name="caller-id-type" value="rpid"/>
+  </settings>
+</profile>

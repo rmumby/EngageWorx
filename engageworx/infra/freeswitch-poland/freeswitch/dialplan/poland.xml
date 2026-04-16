@@ -1,0 +1,37 @@
+<!--
+  /etc/freeswitch/dialplan/poland.xml
+  Inbound dialplan for the Polish carrier. Every inbound call is handed off
+  to the Node bridge via mod_xml_curl, which fetches dialplan XML for each
+  call by translating the portal's TwiML response.
+-->
+<include>
+  <context name="poland">
+
+    <!-- Default: any inbound call -->
+    <extension name="poland-inbound-bridge">
+      <condition field="destination_number" expression="^.*$">
+        <!-- Hand control to the Node bridge — it will reply with FreeSWITCH dialplan XML
+             constructed from the portal's TwiML response. -->
+        <action application="set" data="hangup_after_bridge=true"/>
+        <action application="set" data="continue_on_fail=true"/>
+        <action application="answer"/>
+        <action application="sleep" data="500"/>
+        <!-- Trigger mod_xml_curl fetch by transferring into a context the bridge owns -->
+        <action application="transfer" data="bridge XML poland-bridge"/>
+      </condition>
+    </extension>
+
+  </context>
+
+  <!-- The 'poland-bridge' context is served entirely by mod_xml_curl from the Node bridge -->
+  <context name="poland-bridge">
+    <extension name="fallback-hangup">
+      <!-- Only reached if mod_xml_curl returned nothing — play a polite Polish goodbye and hang up -->
+      <condition field="destination_number" expression="^.*$">
+        <action application="playback" data="ivr/ivr-thank_you.wav"/>
+        <action application="hangup"/>
+      </condition>
+    </extension>
+  </context>
+
+</include>

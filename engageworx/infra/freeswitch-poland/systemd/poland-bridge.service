@@ -1,0 +1,20 @@
+[Unit]
+Description=EngageWorx Poland FreeSWITCH ↔ Portal HTTP bridge
+After=network.target freeswitch.service
+Wants=freeswitch.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/poland-bridge.env
+WorkingDirectory=/opt/poland-bridge
+ExecStart=/usr/bin/node /opt/poland-bridge/server.js
+Restart=always
+RestartSec=3
+User=freeswitch
+Group=freeswitch
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
