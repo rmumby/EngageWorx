@@ -142,8 +142,9 @@ export default function EmailDigest({ C, currentTenantId }) {
   var todayItems = items.filter(function(i) { return (i.created_at || '').startsWith(today); });
   var filtered = filter === 'all' ? items : items.filter(function(i) { return i.status === filter; });
   // Split by source
-  var inboundItems = filtered.filter(function(i) { return i.source !== 'stale_lead'; });
+  var healthItems = filtered.filter(function(i) { return i.source === 'tenant_health'; });
   var staleItems = filtered.filter(function(i) { return i.source === 'stale_lead'; });
+  var inboundItems = filtered.filter(function(i) { return i.source !== 'stale_lead' && i.source !== 'tenant_health'; });
   var pendingStale = staleItems.filter(function(i) { return i.status === 'pending'; });
 
   async function bulkApproveStale() {
@@ -226,6 +227,17 @@ export default function EmailDigest({ C, currentTenantId }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {healthItems.length > 0 && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>🩺 Tenant Health <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {healthItems.length}</span></h2>
+              </div>
+              <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>Tenants who haven't finished setup or have gone quiet — review and edit Aria's drafted re-engagement message before sending.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {healthItems.map(function(a) { return renderActionCard(a); })}
+              </div>
+            </div>
+          )}
           {staleItems.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -263,13 +275,15 @@ export default function EmailDigest({ C, currentTenantId }) {
       else if (s === 'sms_inbound') ch = 'sms';
       else if (s === 'voice_inbound') ch = 'voice';
       else if (s === 'stale_lead') ch = 'lead';
+      else if (s === 'tenant_health') ch = 'health';
     }
     var map = {
-      email:    { icon: '📧', label: 'Email',    color: '#0ea5e9' },
-      whatsapp: { icon: '💬', label: 'WhatsApp', color: '#25D366' },
-      sms:      { icon: '📱', label: 'SMS',      color: '#00E676' },
-      voice:    { icon: '📞', label: 'Voice',    color: '#FFD600' },
-      lead:     { icon: '🔄', label: 'Stale Lead', color: '#6366f1' },
+      email:    { icon: '📧', label: 'Email',       color: '#0ea5e9' },
+      whatsapp: { icon: '💬', label: 'WhatsApp',    color: '#25D366' },
+      sms:      { icon: '📱', label: 'SMS',         color: '#00E676' },
+      voice:    { icon: '📞', label: 'Voice',       color: '#FFD600' },
+      lead:     { icon: '🔄', label: 'Stale Lead',  color: '#6366f1' },
+      health:   { icon: '🩺', label: 'Tenant Health', color: '#ec4899' },
     };
     return map[ch] || { icon: '📨', label: 'Inbound', color: '#94a3b8' };
   }

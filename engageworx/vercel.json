@@ -41,6 +41,9 @@
     },
     "api/cron-health-check.js": {
       "maxDuration": 60
+    },
+    "api/cron-tenant-engagement.js": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -82,6 +85,10 @@
     },
     {
       "path": "/api/cron-health-check",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron-tenant-engagement",
       "schedule": "0 14 * * *"
     }
   ],
