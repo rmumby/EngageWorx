@@ -64,6 +64,7 @@ module.exports = async function handler(req, res) {
 
   var supabase = getSupabase();
   var thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+  console.log('[TenantHealth] Starting · SP_TENANT_ID=', SP_TENANT_ID, '(env set:', !!process.env.SP_TENANT_ID, ')');
 
   try {
     // 1. Active or trial tenants (excluding master SP)
@@ -108,39 +109,67 @@ module.exports = async function handler(req, res) {
       var subject = classification === 'no_setup'
         ? '🛠 Setup not started — ' + tenant.name
         : '😴 Inactive ' + (hasRecent[tenant.id] ? '' : '(0 msgs/30d) — ') + tenant.name;
+      var payload = {
+        contact_id: null,
+        lead_id: null,
+        tenant_id: SP_TENANT_ID,
+        email_from: recipient || '(no recipient — fix digest_email)',
+        email_subject: subject,
+        email_body_summary: summary,
+        claude_action: 'review',
+        claude_reasoning: 'Tenant engagement risk: ' + classification.replace('_', ' '),
+        claude_reply_draft: draft || ('Hi ' + (tenant.name ? tenant.name.split(' ')[0] : 'there') + ',\n\nWe noticed your EngageWorx account has not been fully set up yet. Want a quick 10-minute call to walk through the basics together? Reply with a time that works for you.\n\n— Rob'),
+        action_payload: {
+          channel: 'email',
+          source_tenant_id: tenant.id,
+          source_tenant_name: tenant.name,
+          classification: classification,
+          days_since_signup: daysSince,
+          recipient_email: recipient,
+          plan: tenant.plan,
+          tier: tenant.entity_tier || tenant.tenant_type,
+        },
+        status: 'pending',
+        source: 'tenant_health',
+      };
       try {
-        await supabase.from('email_actions').insert({
-          contact_id: null,
-          lead_id: null,
-          tenant_id: SP_TENANT_ID,
-          email_from: recipient || '(no recipient — fix digest_email)',
-          email_subject: subject,
-          email_body_summary: summary,
-          claude_action: 'review',
-          claude_reasoning: 'Tenant engagement risk: ' + classification.replace('_', ' '),
-          claude_reply_draft: draft || ('Hi ' + (tenant.name ? tenant.name.split(' ')[0] : 'there') + ',\n\nWe noticed your EngageWorx account has not been fully set up yet. Want a quick 10-minute call to walk through the basics together? Reply with a time that works for you.\n\n— Rob'),
-          action_payload: {
-            channel: 'email',
-            source_tenant_id: tenant.id,
-            source_tenant_name: tenant.name,
-            classification: classification,
-            days_since_signup: daysSince,
-            recipient_email: recipient,
-            plan: tenant.plan,
-            tier: tenant.entity_tier || tenant.tenant_type,
-          },
-          status: 'pending',
-          source: 'tenant_health',
-        });
+        // Supabase returns { data, error } and does NOT throw on RLS/constraint failures.
+        // Must check .error explicitly or silent failures look like successes.
+        var ins = await supabase.from('email_actions').insert(payload).select('id');
+        if (ins.error) {
+          console.error('[TenantHealth] Insert FAILED for', tenant.name, '·', tenant.id, '→', ins.error.message, 'code:', ins.error.code, 'hint:', ins.error.hint, 'details:', ins.error.details);
+          errors.push({ tenant: tenant.name, tenant_id: tenant.id, classification: classification, error: ins.error.message, code: ins.error.code, hint: ins.error.hint });
+          return;
+        }
+        if (!ins.data || ins.data.length === 0) {
+          console.warn('[TenantHealth] Insert returned no rows (likely RLS blocked) for', tenant.name);
+          errors.push({ tenant: tenant.name, tenant_id: tenant.id, error: 'no row returned — likely RLS' });
+          return;
+        }
+        console.log('[TenantHealth] Inserted email_action', ins.data[0].id, 'for', tenant.name, '· classification:', classification);
         inserted++;
-      } catch (e) { errors.push({ tenant: tenant.name, error: e.message }); }
+      } catch (e) {
+        console.error('[TenantHealth] Insert EXCEPTION for', tenant.name, '·', tenant.id, '→', e.message, e.stack);
+        errors.push({ tenant: tenant.name, tenant_id: tenant.id, error: e.message });
+      }
     }
 
     for (var t1 of noSetup) await logFinding(t1, 'no_setup');
     for (var t2 of inactive) await logFinding(t2, 'inactive');
 
     console.log('[TenantHealth] no_setup:', noSetup.length, 'inactive:', inactive.length, 'skipped (already alerted):', skipped, 'inserted:', inserted);
-    return res.status(200).json({ success: true, no_setup: noSetup.length, inactive: inactive.length, skipped_recent: skipped, inserted: inserted, errors: errors });
+    return res.status(200).json({
+      success: true,
+      no_setup: noSetup.length,
+      inactive: inactive.length,
+      skipped_recent: skipped,
+      attempted: noSetup.length + inactive.length,
+      inserted: inserted,
+      failed: errors.length,
+      sp_tenant_id_used: SP_TENANT_ID,
+      sp_tenant_id_from_env: !!process.env.SP_TENANT_ID,
+      errors: errors,
+    });
   } catch (err) {
     console.error('[TenantHealth] error:', err.message);
     return res.status(500).json({ error: err.message });
