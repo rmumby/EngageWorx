@@ -11,8 +11,10 @@
 //      symptom).
 
 var { createClient } = require('@supabase/supabase-js');
+var _reminder = require('./send-onboarding-reminder');
 
 var SP_TENANT_ID = 'c1bc59a8-5235-4921-9755-02514b574387';
+var PORTAL_BASE = process.env.PORTAL_URL || 'https://portal.engwx.com';
 
 function getSupabase() {
   return createClient(
@@ -102,8 +104,12 @@ function buildHtml(branding, missing, dupes) {
       rows(branding, ['Tenant', 'Tier', 'from_email'], function(r) { return [r.tenant_name, r.tier, r.from_email]; }));
   }
   if (missing.length) {
-    sections.push('<h2 style="font-size:15px;color:#d97706;margin:0 0 8px;">📭 Missing channel_configs (' + missing.length + ')</h2><p style="color:#475569;font-size:12px;margin:0 0 10px;">These tenants have no channel_configs rows. Likely they never finished onboarding.</p>' +
-      rows(missing, ['Tenant', 'Tier', 'Status'], function(r) { return [r.tenant_name, r.tier, r.status]; }));
+    sections.push('<h2 style="font-size:15px;color:#d97706;margin:0 0 8px;">📭 Missing channel_configs (' + missing.length + ')</h2><p style="color:#475569;font-size:12px;margin:0 0 10px;">These tenants have no channel_configs rows. Likely they never finished onboarding. Click <strong>Send reminder</strong> next to any tenant to email them a setup nudge — no portal login required.</p>' +
+      rows(missing, ['Tenant', 'Tier', 'Status', 'Action'], function(r) {
+        var url = PORTAL_BASE + '/api/send-onboarding-reminder?tenant_id=' + r.tenant_id + '&token=' + _reminder.tokenFor(r.tenant_id);
+        var btn = '<a href="' + url + '" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:6px 14px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">📧 Send reminder</a>';
+        return [r.tenant_name, r.tier, r.status, btn];
+      }));
   }
   if (dupes.length) {
     sections.push('<h2 style="font-size:15px;color:#dc2626;margin:0 0 8px;">🔁 Duplicate (tenant_id, channel) rows (' + dupes.length + ')</h2><p style="color:#475569;font-size:12px;margin:0 0 10px;">Multiple rows for the same tenant + channel — symptom of the cross-tenant bleed bug. Merge or delete the older copies.</p>' +
