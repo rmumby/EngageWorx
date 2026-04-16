@@ -1,0 +1,12 @@
+{
+  "name": "engageworx-poland-bridge",
+  "version": "2.0.0",
+  "description": "Asterisk ARI bridge: translates EngageWorx TwiML to Asterisk ARI playback+DTMF",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "@aws-sdk/client-polly": "^3.600.0",
+    "ari-client": "^2.2.0",
+    "node-fetch": "^2.7.0"
+  }
+}
