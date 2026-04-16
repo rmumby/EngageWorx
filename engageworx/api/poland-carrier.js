@@ -131,7 +131,9 @@ function smsCloudUnavailable(restResult) {
   return false;
 }
 
-async function sendViaSmsCloud(cfg, to, body) {
+async function sendViaSmsCloudRest(cfg, to, body) {
+  // Kept for the day smscloud enables REST on this account. Set cfg.api_secret
+  // to the literal string "use_rest" (or any truthy value) to prefer it.
   var senderID = (cfg.carrier_name || 'EngageWorx').substring(0, 11);
   var payload = [{
     number: [plDigits(to)],
@@ -151,18 +153,24 @@ async function sendViaSmsCloud(cfg, to, body) {
   var raw = await r.text();
   var parsed = null;
   try { parsed = JSON.parse(raw); } catch (e) {}
-  var restResult = { ok: r.ok, status: r.status, body: parsed || raw, raw: raw, transport: 'smscloud_rest' };
+  return { ok: r.ok, status: r.status, body: parsed || raw, raw: raw, transport: 'smscloud_rest' };
+}
 
-  // Auto-fallback to GET API when REST is reported unavailable
-  if (!restResult.ok && smsCloudUnavailable(restResult)) {
+// Default smscloud transport: GET API. REST is a tested-but-disabled alternative.
+async function sendViaSmsCloud(cfg, to, body) {
+  // Power-user toggle: if api_secret contains 'use_rest', try REST first and fall
+  // back to GET on the documented "REST API is not available" error.
+  if (cfg.api_secret && /use[_\s-]?rest/i.test(cfg.api_secret)) {
+    var restResult = await sendViaSmsCloudRest(cfg, to, body);
+    if (restResult.ok || !smsCloudUnavailable(restResult)) return restResult;
     console.warn('[Poland/smscloud] REST API unavailable (HTTP ' + restResult.status + '), falling back to GET API');
-    var getResult = await sendViaSmsCloudGet(cfg, to, body);
-    getResult.fallback_reason = 'rest_api_unavailable';
-    getResult.rest_attempt = { status: restResult.status, body: restResult.body };
-    return getResult;
+    var fallback = await sendViaSmsCloudGet(cfg, to, body);
+    fallback.fallback_reason = 'rest_api_unavailable';
+    fallback.rest_attempt = { status: restResult.status, body: restResult.body };
+    return fallback;
   }
-
-  return restResult;
+  // Default path
+  return await sendViaSmsCloudGet(cfg, to, body);
 }
 
 // Send via carrier (per-config carrier_type dispatches to a different transport)
@@ -346,17 +354,26 @@ module.exports = async function handler(req, res) {
       var cfg = tc.data;
 
       try {
-        // smscloud.io: send a real-format probe with delivery=false so we can see auth/format response
+        // smscloud.io: send a real-format probe so we can see auth/format response
         if (cfg.carrier_type === 'http_webhook' && isSmsCloud(cfg.outbound_endpoint)) {
-          if (!cfg.api_key) return res.status(200).json({ ok: false, msg: 'smscloud.io requires api_key (used as X-Access-Token)' });
+          if (!cfg.api_key) return res.status(200).json({ ok: false, msg: 'smscloud.io requires api_key (used as token query param)' });
           var to = plDigits(cfg.phone_number) || '48000000000';
           var probe = await sendViaSmsCloud(cfg, to, 'EngageWorx connection test — please ignore.');
+          var transport = probe.transport || 'smscloud_get';
+          var msg = probe.ok
+            ? '✓ smscloud.io accepted the request via ' + transport + ' (HTTP ' + probe.status + ')'
+            : '✗ smscloud.io rejected the request via ' + transport + ' (HTTP ' + probe.status + ')';
+          var summary = transport === 'smscloud_rest'
+            ? { method: 'POST', url: cfg.outbound_endpoint, header: 'X-Access-Token', body_shape: '[{ number: [...], senderID, text, type, delivery }]' }
+            : { method: 'GET', url: 'http://api.smscloud.io/send', query_params: ['token', 'phone (digits only, no +)', 'text (URL-encoded)', 'senderID'], note: 'Default transport. Set api_secret = "use_rest" to prefer REST API once your account has it enabled.' };
           return res.status(200).json({
             ok: probe.ok,
-            msg: probe.ok ? '✓ smscloud.io accepted the request (HTTP ' + probe.status + ')' : '✗ smscloud.io rejected the request (HTTP ' + probe.status + ')',
+            msg: msg,
             http_status: probe.status,
+            transport: transport,
             response_body: probe.body,
-            request_summary: { url: cfg.outbound_endpoint, header: 'X-Access-Token', body_shape: '[{ number: [...], senderID, text, type, delivery }]' },
+            rest_attempt: probe.rest_attempt || null,
+            request_summary: summary,
           });
         }
         // Twilio SIP: hit the Messages endpoint with HEAD-equivalent auth check via account fetch
