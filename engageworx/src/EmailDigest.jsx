@@ -20,6 +20,59 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [delayOpenFor, setDelayOpenFor] = useState(null);
   var [customPickerFor, setCustomPickerFor] = useState(null);
   var [customValue, setCustomValue] = useState('');
+  var [improveOpenFor, setImproveOpenFor] = useState(null);
+  var [improveContext, setImproveContext] = useState('');
+  var [improving, setImproving] = useState(false);
+  var [improveErr, setImproveErr] = useState(null);
+
+  function openImprove(a) {
+    var existing = (a.action_payload && a.action_payload.user_context) || '';
+    setImproveOpenFor(a.id);
+    setImproveContext(existing);
+    setImproveErr(null);
+  }
+  function closeImprove() {
+    setImproveOpenFor(null);
+    setImproveContext('');
+    setImproveErr(null);
+  }
+  async function regenerate(a) {
+    if (!improveContext.trim()) { setImproveErr('Add some context first.'); return; }
+    setImproving(true);
+    setImproveErr(null);
+    try {
+      var r = await fetch('/api/improve-draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_id: a.id, context: improveContext.trim() }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Improve failed');
+      setItems(function(prev) { return prev.map(function(x) {
+        if (x.id !== a.id) return x;
+        var np = Object.assign({}, x.action_payload || {}, { user_context: d.user_context, original_draft: d.original_draft, improved_at: new Date().toISOString() });
+        return Object.assign({}, x, { claude_reply_draft: d.improved_draft, action_payload: np });
+      }); });
+      if (editingId === a.id) setEditDraft(d.improved_draft);
+    } catch (e) { setImproveErr(e.message); }
+    setImproving(false);
+  }
+  async function restoreOriginal(a) {
+    var orig = a.action_payload && a.action_payload.original_draft;
+    if (!orig) return;
+    if (!window.confirm('Restore the original Claude-drafted reply? Your improved version will be lost.')) return;
+    try {
+      var newPayload = Object.assign({}, a.action_payload || {});
+      delete newPayload.original_draft;
+      delete newPayload.user_context;
+      delete newPayload.improved_at;
+      await supabase.from('email_actions').update({ claude_reply_draft: orig, action_payload: newPayload }).eq('id', a.id);
+      setItems(function(prev) { return prev.map(function(x) {
+        return x.id === a.id ? Object.assign({}, x, { claude_reply_draft: orig, action_payload: newPayload }) : x;
+      }); });
+      if (editingId === a.id) setEditDraft(orig);
+      closeImprove();
+    } catch (e) { alert('Restore failed: ' + e.message); }
+  }
 
   useEffect(function() { load(); }, [currentTenantId]);
 
@@ -315,13 +368,30 @@ export default function EmailDigest({ C, currentTenantId }) {
                     )}
                     {a.claude_reply_draft && !editing && (
                       <div style={{ color: colors.text, fontSize: 12, marginTop: 10, padding: '10px 12px', background: 'rgba(0,0,0,0.3)', borderRadius: 6, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
-                        <div style={{ color: colors.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Suggested reply</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ color: colors.muted, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>Suggested reply{a.action_payload && a.action_payload.improved_at ? ' · ✨ improved with context' : ''}</span>
+                          {a.action_payload && a.action_payload.original_draft && (
+                            <button onClick={function() { restoreOriginal(a); }} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>↩ Restore original</button>
+                          )}
+                        </div>
                         {a.claude_reply_draft}
                       </div>
                     )}
                     {editing && (
                       <div style={{ marginTop: 10 }}>
                         <textarea value={editDraft} onChange={function(e) { setEditDraft(e.target.value); }} style={{ width: '100%', minHeight: 140, background: 'rgba(0,0,0,0.3)', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: 10, color: '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                      </div>
+                    )}
+                    {improveOpenFor === a.id && (
+                      <div style={{ marginTop: 10, padding: 12, background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 8 }}>
+                        <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>✨ Add context for Claude</div>
+                        <textarea value={improveContext} onChange={function(e) { setImproveContext(e.target.value); }} placeholder="e.g. Met at CPExpo, interested in CSP model, has 500 agents, follow up about Poland SMS" rows={3} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
+                        <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                          <button onClick={function() { regenerate(a); }} disabled={improving} style={{ background: 'linear-gradient(135deg,#E040FB,#A855F7)', border: 'none', borderRadius: 6, padding: '8px 14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12, opacity: improving ? 0.5 : 1 }}>{improving ? 'Rewriting…' : '✨ Regenerate Draft'}</button>
+                          <button onClick={closeImprove} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '8px 12px', color: colors.muted, cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                          {improveErr && <span style={{ color: '#dc2626', fontSize: 11 }}>{improveErr}</span>}
+                        </div>
+                        <div style={{ color: colors.muted, fontSize: 10, marginTop: 6 }}>Context is saved with the action — it'll be here next time you open this card.</div>
                       </div>
                     )}
                   </div>
@@ -332,6 +402,9 @@ export default function EmailDigest({ C, currentTenantId }) {
                         <button onClick={function() { executeAction(a); }} disabled={sending === a.id} style={{ background: style.color + '22', border: '1px solid ' + style.color + '66', borderRadius: 8, padding: '8px 12px', color: style.color, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{sending === a.id ? '...' : '✅ Action It'}</button>
                         {(a.claude_action === 'auto_reply' || a.claude_action === 'review') && (
                           <button onClick={function() { setEditingId(editing ? null : a.id); setEditDraft(a.claude_reply_draft || ''); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>{editing ? 'Cancel Edit' : '✏️ Edit & Send'}</button>
+                        )}
+                        {(a.claude_action === 'auto_reply' || a.claude_action === 'review') && a.claude_reply_draft && (
+                          <button onClick={function() { if (improveOpenFor === a.id) closeImprove(); else openImprove(a); }} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 8, padding: '8px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{improveOpenFor === a.id ? 'Close ✕' : '✨ Improve with context'}</button>
                         )}
                         <div style={{ position: 'relative' }}>
                           <button onClick={function() { setDelayOpenFor(delayOpenFor === a.id ? null : a.id); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.35)', borderRadius: 8, padding: '8px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 12, fontWeight: 600, width: '100%' }}>⏱️ Send in…</button>
