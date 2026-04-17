@@ -257,6 +257,7 @@ module.exports = async function handler(req, res) {
         tenant_type: 'business',
         is_sandbox: isSandbox,
         is_demo: isDemo,
+        onboarding_completed: isDemo ? true : false,
       }).select().single();
 
       if (tenantResult.error) {

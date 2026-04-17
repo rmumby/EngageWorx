@@ -25,6 +25,7 @@ module.exports = async function handler(req, res) {
   var fullName = body.fullName || '';
   var companyName = body.companyName || '';
   var plan = body.plan || 'growth';
+  var isDemo = body.is_demo === true;
 
   if (!email || !password || !companyName) {
     return res.status(400).json({ error: 'Missing required fields: email, password, companyName' });
@@ -81,6 +82,8 @@ module.exports = async function handler(req, res) {
       plan: plan,
       status: 'trial',
       is_sandbox: true,
+      is_demo: isDemo,
+      onboarding_completed: isDemo ? true : false,
     }).select().single();
 
     if (tenantResult.error) {
