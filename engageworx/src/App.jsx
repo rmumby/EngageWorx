@@ -35,6 +35,7 @@ import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
+import SetupChecklist from './SetupChecklist';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1643,6 +1644,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
               <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
               <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Welcome back, {tenant.name} team</p>
             </div>
+            <SetupChecklist tenantId={tenantId} C={C} onNavigate={setPage} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, marginBottom: 28 }}>
               <StatCard label="Messages Sent" value={tenant.stats.messages.toLocaleString()} sub={`Delivery: ${tenant.stats.deliveryRate}%`} color={C.primary} icon="📨" />
               <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
