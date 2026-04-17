@@ -229,7 +229,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             agentRegistered: !!agent,
             agentLaunched: agent?.status === 'launched',
             agentId: agent?.agent_id || null,
-            agentName: agent?.agent_name || null,
+            agentName: agent?.bot_name || null,
             agentStatus: agent?.status || 'none',
             verificationStatus: agent?.verification_status || 'not_started',
             carriers: agent?.carriers || [],

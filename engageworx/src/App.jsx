@@ -1552,8 +1552,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
-        const n = data && data.agent_name ? String(data.agent_name).trim() : '';
+        const { data } = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
+        const n = data && data.bot_name ? String(data.bot_name).trim() : '';
         if (n) setAgentName(n);
       } catch (e) {}
     })();
@@ -1731,8 +1731,8 @@ function AppInner() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).limit(1).maybeSingle();
-        const n = data && data.agent_name ? String(data.agent_name).trim() : '';
+        const { data } = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).limit(1).maybeSingle();
+        const n = data && data.bot_name ? String(data.bot_name).trim() : '';
         if (n) setSpAgentName(n);
       } catch (e) {}
     })();

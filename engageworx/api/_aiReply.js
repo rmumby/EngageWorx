@@ -51,7 +51,7 @@ async function getTenantAIConfig(supabase, tenantId) {
     return {
       businessName: tenant?.name || 'EngageWorx',
       industry: tenant?.industry || 'communications',
-      systemPrompt: chatbot?.system_prompt || ('You are ' + (chatbot?.agent_name || 'Aria') + ', the AI assistant for ' + (tenant?.name || 'EngageWorx') + '. Be helpful and concise.'),
+      systemPrompt: chatbot?.system_prompt || ('You are ' + (chatbot?.bot_name || 'Aria') + ', the AI assistant for ' + (tenant?.name || 'EngageWorx') + '. Be helpful and concise.'),
       personality: chatbot?.personality_preset || 'friendly and professional',
       fallbackMessage: chatbot?.fallback_message || 'Thanks for reaching out! Our team will be in touch shortly.',
       channelsActive: chatbot?.channels_active || ['sms', 'whatsapp', 'email'],

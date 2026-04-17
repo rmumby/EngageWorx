@@ -68,8 +68,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     if (!cspTenantId) { setAgentName(''); return; }
     (async function() {
       try {
-        var r = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', cspTenantId).limit(1).maybeSingle();
-        var n = r.data && r.data.agent_name ? String(r.data.agent_name).trim() : '';
+        var r = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', cspTenantId).limit(1).maybeSingle();
+        var n = r.data && r.data.bot_name ? String(r.data.bot_name).trim() : '';
         setAgentName(n);
       } catch (e) { setAgentName(''); }
     })();

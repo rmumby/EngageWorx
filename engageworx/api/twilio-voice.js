@@ -97,8 +97,8 @@ async function getChatbotConfig(tenantId) {
 async function getAgentName(tenantId) {
   if (!tenantId) return 'Aria';
   try {
-    var r = await supabase.from('chatbot_configs').select('agent_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
-    var name = r.data && r.data.agent_name ? String(r.data.agent_name).trim() : '';
+    var r = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', tenantId).limit(1).maybeSingle();
+    var name = r.data && r.data.bot_name ? String(r.data.bot_name).trim() : '';
     return name || 'Aria';
   } catch (e) { return 'Aria'; }
 }
@@ -108,7 +108,7 @@ async function callAI(userMessage, conversationHistory, chatbotConfig) {
   try {
     var systemPrompt = (chatbotConfig && chatbotConfig.system_prompt)
       ? chatbotConfig.system_prompt
-      : ('You are ' + ((chatbotConfig && chatbotConfig.agent_name) || 'Aria') + ', a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.');
+      : ('You are ' + ((chatbotConfig && chatbotConfig.bot_name) || 'Aria') + ', a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.');
 
     var knowledgeBase = (chatbotConfig && chatbotConfig.knowledge_base) ? chatbotConfig.knowledge_base : '';
     if (knowledgeBase) systemPrompt += '\n\nKnowledge base:\n' + knowledgeBase;

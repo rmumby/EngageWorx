@@ -66,9 +66,9 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           setFromEmail(ec.data.config_encrypted.from_email || '');
           setFromName(ec.data.config_encrypted.from_name || '');
         }
-        var cb = await supabase.from('chatbot_configs').select('agent_name, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
+        var cb = await supabase.from('chatbot_configs').select('bot_name, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
         if (cb.data) {
-          if (cb.data.agent_name) setAgentName(cb.data.agent_name);
+          if (cb.data.bot_name) setAgentName(cb.data.bot_name);
           if (cb.data.knowledge_base) setBusinessDescription(cb.data.knowledge_base);
         }
       } catch (e) { console.warn('[Onboarding] load:', e.message); }
@@ -103,7 +103,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
       } else if (step === 4 && !skipAI) {
         var faqText = faqs.filter(function(f) { return f.q.trim() && f.a.trim(); }).map(function(f) { return 'Q: ' + f.q.trim() + '\nA: ' + f.a.trim(); }).join('\n\n');
         var kb = (businessDescription.trim() ? businessDescription.trim() + '\n\n' : '') + (faqText ? '=== FAQs ===\n' + faqText : '');
-        await supabase.from('chatbot_configs').upsert({ tenant_id: tenantId, agent_name: agentName.trim() || 'Aria', knowledge_base: kb || null }, { onConflict: 'tenant_id' });
+        await supabase.from('chatbot_configs').upsert({ tenant_id: tenantId, bot_name: agentName.trim() || 'Aria', knowledge_base: kb || null }, { onConflict: 'tenant_id' });
       } else if (step === 5 && !skipWa) {
         var existingWa = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
         var waCfg = Object.assign({}, (existingWa.data && existingWa.data.config_encrypted) || {}, {

@@ -126,9 +126,9 @@ async function analyzeAndActionEmail(ctx) {
         if (tRow.data) aiCtx.businessName = (tRow.data.brand_name || tRow.data.business_name || tRow.data.name || aiCtx.businessName).trim();
       } catch (e) {}
       try {
-        var cb = await supabase.from('chatbot_configs').select('agent_name, system_prompt, knowledge_base').eq('tenant_id', match.tenantId).maybeSingle();
+        var cb = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', match.tenantId).maybeSingle();
         if (cb.data) {
-          if (cb.data.agent_name && cb.data.agent_name.trim()) aiCtx.agentName = cb.data.agent_name.trim();
+          if (cb.data.bot_name && cb.data.bot_name.trim()) aiCtx.agentName = cb.data.bot_name.trim();
           if (cb.data.knowledge_base && cb.data.knowledge_base.trim()) aiCtx.knowledgeBase = cb.data.knowledge_base.trim();
           if (cb.data.system_prompt && cb.data.system_prompt.trim()) aiCtx.systemPromptOverride = cb.data.system_prompt.trim();
         }
