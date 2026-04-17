@@ -1069,15 +1069,23 @@ setDemoCreating(false);
                           var url = (el && el.value || '').trim();
                           if (!url) { alert('Enter a website URL first.'); return; }
                           try {
-                            await supabase.from('tenants').update({ website_url: url.indexOf('http') === 0 ? url : 'https://' + url }).eq('id', c.id);
-                            var r = await fetch('/api/detect-brand?url=' + encodeURIComponent(url));
+                            var fullUrl = url.indexOf('http') === 0 ? url : 'https://' + url;
+                            await supabase.from('tenants').update({ website_url: fullUrl }).eq('id', c.id);
+                            var r = await fetch('/api/detect-branding?url=' + encodeURIComponent(fullUrl));
                             var d = await r.json();
-                            var brand = d.brand || d;
                             var msg = [];
-                            if (brand.name) msg.push('Name: ' + brand.name);
-                            if (brand.primary) msg.push('Primary: ' + brand.primary);
-                            if (brand.logoUrl) msg.push('Logo: found');
-                            alert('✅ Website saved. ' + (msg.length ? 'Detected: ' + msg.join(', ') + '. Open the Branding editor below to apply.' : 'No brand signals detected — configure manually below.'));
+                            if (d.site_name) msg.push('Name: ' + d.site_name);
+                            if (d.primary_color) msg.push('Primary: ' + d.primary_color);
+                            if (d.secondary_color) msg.push('Accent: ' + d.secondary_color);
+                            if (d.logo_url) msg.push('Logo: found');
+                            // Auto-apply detected colors + logo to the tenant row
+                            var patch = {};
+                            if (d.primary_color) patch.brand_primary = d.primary_color;
+                            if (d.secondary_color) patch.brand_secondary = d.secondary_color;
+                            if (d.logo_url) patch.logo_url = d.logo_url;
+                            if (d.site_name && !c.brand_name) patch.brand_name = d.site_name;
+                            if (Object.keys(patch).length > 0) await supabase.from('tenants').update(patch).eq('id', c.id);
+                            alert('✅ Website saved. ' + (msg.length ? 'Detected & applied: ' + msg.join(', ') + '.' : 'No brand signals detected — configure manually below.'));
                           } catch (e) { alert('Error: ' + e.message); }
                         }} style={{ background: "rgba(0,201,255,0.15)", border: "1px solid rgba(0,201,255,0.35)", borderRadius: 8, padding: "8px 14px", color: "#00C9FF", fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", marginTop: 16 }}>Auto-detect</button>
                       </div>

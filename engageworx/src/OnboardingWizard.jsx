@@ -126,48 +126,46 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     setSaving(false);
   }
 
+  var [detecting, setDetecting] = useState(false);
+  var [detectResult, setDetectResult] = useState(null);
+
   async function autoDetectLogo() {
     if (!websiteUrl.trim()) { alert('Enter a website URL first.'); return; }
     var domain = websiteUrl.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     var fullUrl = websiteUrl.trim().indexOf('http') === 0 ? websiteUrl.trim() : ('https://' + domain);
 
-    // Save website_url immediately so it persists even if the user closes the wizard.
+    setDetecting(true);
+    setDetectResult(null);
+
+    // Save website_url immediately
     if (tenantId) {
       try { await supabase.from('tenants').update({ website_url: fullUrl }).eq('id', tenantId); } catch (e) {}
     }
 
-    // 1. Try the full Claude-powered detect-brand endpoint (extracts og:image, theme-color, name)
-    var bestLogo = null;
+    // Fast lightweight endpoint — no Claude, pure HTML parsing (~1-2s)
     try {
-      var proxyUrl = '/api/detect-brand?url=' + encodeURIComponent(fullUrl);
-      var r = await fetch(proxyUrl).catch(function() { return null; });
+      var r = await fetch('/api/detect-branding?url=' + encodeURIComponent(fullUrl));
       if (r && r.ok) {
         var d = await r.json();
-        var brand = d.brand || d; // existing endpoint wraps in { brand: {...} }
-        if (brand.logoUrl) bestLogo = brand.logoUrl;
-        if (brand.primary && /^#[0-9a-fA-F]{3,8}$/.test(brand.primary)) setPrimaryColor(brand.primary);
-        if (brand.secondary && /^#[0-9a-fA-F]{3,8}$/.test(brand.secondary)) setAccentColor(brand.secondary);
-        if (brand.name && !displayName) setDisplayName(brand.name);
+        if (d.primary_color) setPrimaryColor(d.primary_color);
+        if (d.secondary_color) setAccentColor(d.secondary_color);
+        if (d.logo_url) setLogoUrl(d.logo_url);
+        else if (d.favicon_url) setLogoUrl(d.favicon_url);
+        if (d.site_name && !displayName) setDisplayName(d.site_name);
+        setDetectResult({
+          primary: d.primary_color,
+          secondary: d.secondary_color,
+          logo: d.logo_url || d.favicon_url,
+          name: d.site_name,
+        });
+        setDetecting(false);
+        return;
       }
     } catch (e) {}
 
-    // 2. Fallback: apple-touch-icon direct fetch (many sites serve it at a known path)
-    if (!bestLogo) {
-      try {
-        var touchIconUrl = fullUrl.replace(/\/$/, '') + '/apple-touch-icon.png';
-        var probe = await fetch(touchIconUrl, { method: 'HEAD' }).catch(function() { return null; });
-        if (probe && probe.ok && probe.headers.get('content-type') && probe.headers.get('content-type').indexOf('image') !== -1) {
-          bestLogo = touchIconUrl;
-        }
-      } catch (e) {}
-    }
-
-    // 3. Fallback: Google S2 favicons API (always returns something, even a generic globe)
-    if (!bestLogo) {
-      bestLogo = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128';
-    }
-
-    setLogoUrl(bestLogo);
+    // Fallback: Google S2 favicons (always works)
+    setLogoUrl('https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128');
+    setDetecting(false);
   }
 
   async function testEmailConnection() {
@@ -240,7 +238,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
             <label style={label}>Website URL</label>
             <div style={{ display: 'flex', gap: 6 }}>
               <input value={websiteUrl} onChange={function(e) { setWebsiteUrl(e.target.value); }} placeholder="conectacloud.com" style={Object.assign({}, inputStyle, { flex: 1 })} />
-              <button onClick={autoDetectLogo} style={btnSec}>Auto-detect logo</button>
+              <button onClick={autoDetectLogo} disabled={detecting} style={Object.assign({}, btnSec, { opacity: detecting ? 0.5 : 1 })}>{detecting ? '⏳ Detecting…' : '🔍 Auto-detect brand'}</button>
             </div>
           </div>
           <div style={{ gridColumn: 'span 2' }}>
@@ -266,6 +264,17 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
             </div>
           </div>
         </div>
+        {detectResult && (
+          <div style={{ marginTop: 14, padding: 12, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 8 }}>
+            <div style={{ color: '#10b981', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>✅ Detected from {websiteUrl.trim()}</div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              {detectResult.name && <div style={{ color: '#cbd5e1', fontSize: 13 }}>Name: <strong style={{ color: '#fff' }}>{detectResult.name}</strong></div>}
+              {detectResult.primary && <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: detectResult.primary, border: '1px solid rgba(255,255,255,0.2)' }} /><span style={{ color: '#cbd5e1', fontSize: 12 }}>Primary: <code style={{ color: '#fff' }}>{detectResult.primary}</code></span></div>}
+              {detectResult.secondary && <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: detectResult.secondary, border: '1px solid rgba(255,255,255,0.2)' }} /><span style={{ color: '#cbd5e1', fontSize: 12 }}>Accent: <code style={{ color: '#fff' }}>{detectResult.secondary}</code></span></div>}
+              {detectResult.logo && <div style={{ color: '#cbd5e1', fontSize: 12 }}>Logo: ✓</div>}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
