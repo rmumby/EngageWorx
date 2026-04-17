@@ -130,11 +130,9 @@ module.exports = async function handler(req, res) {
     if (force) {
       allTenants.forEach(function(t) { firingIds[t.id] = true; });
     } else {
+      // SP fires at its configured digest_send_time — same rule as every other tenant.
+      // The previous "always fire SP" override caused hourly emails to Rob.
       allTenants.forEach(function(t) { if (shouldFireForTenant(t, 0)) firingIds[t.id] = true; });
-      // Master SP tenant is always firing — it's where Rob reads tenant_health,
-      // stale_lead, and any platform-level email_actions. Without this, those
-      // rows silently drop on every hour the SP digest_send_time doesn't match.
-      firingIds[SP_TENANT_ID] = true;
     }
     var firingCount = Object.keys(firingIds).length;
     console.log('[Cron] Tenants firing this hour:', firingCount, '/', allTenants.length, force ? '(force=true)' : '');
@@ -169,11 +167,30 @@ module.exports = async function handler(req, res) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     }
 
+    // Guard: skip tenants that already received a digest in the last 20 hours.
+    // Protects against double-sends from deploy races, manual re-triggers that
+    // forgot force=true, or hour-matching drift across DST changes.
+    var DEDUP_HOURS = 20;
+    var dedup_cutoff = new Date(Date.now() - DEDUP_HOURS * 3600000).toISOString();
     var sent = 0;
+    var skipped_dedup = 0;
     var errors = [];
     for (var tenantKey in byTenant) {
       var tenantId = tenantKey === '_orphan' ? null : tenantKey;
       var acts = byTenant[tenantKey];
+
+      // Per-tenant dedup (skipped when force=true so manual testing is never blocked)
+      if (!force && tenantId) {
+        try {
+          var lastSent = await supabase.from('tenants').select('last_digest_sent_at').eq('id', tenantId).maybeSingle();
+          if (lastSent.data && lastSent.data.last_digest_sent_at && lastSent.data.last_digest_sent_at > dedup_cutoff) {
+            console.log('[Cron] Skipping tenant', tenantKey, '— digest already sent at', lastSent.data.last_digest_sent_at);
+            skipped_dedup++;
+            continue;
+          }
+        } catch (e) {}
+      }
+
       var r = tenantId ? await resolveRecipient(supabase, tenantId) : { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
       var to = r.email;
       var tenantName = r.tenantName;
@@ -192,11 +209,15 @@ module.exports = async function handler(req, res) {
           });
           sent++;
           console.log('[Cron] Digest sent to', to, '(tenant:', tenantKey + ')', 'actions:', acts.length);
+          // Stamp last_digest_sent_at so the 20h dedup kicks in on next run
+          if (tenantId) {
+            try { await supabase.from('tenants').update({ last_digest_sent_at: new Date().toISOString() }).eq('id', tenantId); } catch (e) {}
+          }
         } catch (se) { errors.push({ to: to, tenant: tenantKey, error: se.message }); }
       }
     }
 
-    return res.status(200).json({ success: true, tenants_processed: Object.keys(byTenant).length, digests_sent: sent, total_actions: actions.length, errors: errors });
+    return res.status(200).json({ success: true, tenants_processed: Object.keys(byTenant).length, digests_sent: sent, skipped_dedup: skipped_dedup, total_actions: actions.length, forced: force, errors: errors });
   } catch (err) {
     console.error('[Cron] Digest error:', err.message);
     return res.status(500).json({ error: err.message });
