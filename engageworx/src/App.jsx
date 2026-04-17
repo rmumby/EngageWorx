@@ -398,30 +398,50 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
         custom_domain: newTenant.domain || null,
       }).select().single();
       if (tenantRes.error) throw new Error(tenantRes.error.message);
-      var userRes = await supabase.from('user_profiles').select('id').eq('email', newTenant.email).single();
-      if (userRes.data) {
-  await supabase.from('user_profiles').update({ tenant_id: tenantRes.data.id, role: 'admin' }).eq('id', userRes.data.id);
-  await supabase.from('tenant_members').insert({
-    tenant_id: tenantRes.data.id, user_id: userRes.data.id, role: 'admin',
-    status: 'active', joined_at: new Date().toISOString(),
-    notify_on_escalation: true, notify_on_new_signup: false,
-    notify_on_payment: true, notify_on_new_lead: false,
-  });
+      // Link user as admin team member. If user doesn't exist, invite via Supabase auth.
+      var userRes = await supabase.from('user_profiles').select('id').ilike('email', newTenant.email).maybeSingle();
+      var userId = userRes.data ? userRes.data.id : null;
 
-  // Send welcome email
-  try {
-    await fetch('/api/csp?action=test_welcome_email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        csp_tenant_id: (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
-        email: newTenant.email,
-        company_name: newTenant.companyName,
-        plan: newTenant.plan,
-      }),
-    });
-  } catch (we) { console.log('[SP] Welcome email failed:', we.message); }
+      if (!userId) {
+        // New user — send Supabase magic-link invite
+        try {
+          var inv = await supabase.auth.admin.inviteUserByEmail(newTenant.email, {
+            data: { tenant_id: tenantRes.data.id, role: 'admin' },
+          });
+          if (inv.data && inv.data.user) {
+            userId = inv.data.user.id;
+            await supabase.from('user_profiles').upsert({
+              id: userId, email: newTenant.email, tenant_id: tenantRes.data.id,
+              role: 'admin', company_name: newTenant.companyName,
+            }, { onConflict: 'id' });
+          }
+        } catch (invErr) { console.warn('[CreateTenant] invite failed:', invErr.message); }
+      } else {
+        await supabase.from('user_profiles').update({ tenant_id: tenantRes.data.id, role: 'admin' }).eq('id', userId);
       }
+
+      if (userId) {
+        await supabase.from('tenant_members').upsert({
+          tenant_id: tenantRes.data.id, user_id: userId, role: 'admin',
+          status: 'active', joined_at: new Date().toISOString(),
+          notify_on_escalation: true, notify_on_new_signup: false,
+          notify_on_payment: true, notify_on_new_lead: false,
+        }, { onConflict: 'user_id,tenant_id' });
+      }
+
+      // Send welcome email
+      try {
+        await fetch('/api/csp?action=test_welcome_email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            csp_tenant_id: (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
+            email: newTenant.email,
+            company_name: newTenant.companyName,
+            plan: newTenant.plan,
+          }),
+        });
+      } catch (we) { console.log('[SP] Welcome email failed:', we.message); }
       // SP admin notification
       var notifyPayload = {
         subject: '🎉 New Tenant Created: ' + newTenant.companyName + ' (' + newTenant.plan + ')',
