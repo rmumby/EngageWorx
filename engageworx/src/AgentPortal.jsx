@@ -6,6 +6,7 @@ import PlatformUpdatesBell from './PlatformUpdatesBell';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
+import AutoDetectBrandBar from './AutoDetectBrandBar';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 var MASTER_RATE = 0.20;
@@ -641,7 +642,8 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
         {page === 'branding' && (
           <div style={{ maxWidth: 900 }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your agent portal branding. To edit branding for tenants under you, ask SP admin to enable MSP Access.</p>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Customize your agent portal branding.</p>
+            <AutoDetectBrandBar tenantId={agentTenantId} C={C} />
             <BrandingEditor entityId={agentTenantId} actor={{ tenantId: agentTenantId, entityTier: 'agent', isSuperAdmin: false, mspEnabled: !!(agentInfo && agentInfo.msp_enabled), loaOnFile: !!(agentInfo && agentInfo.letter_of_agency) }} C={C} />
           </div>
         )}

@@ -16,6 +16,7 @@ import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
 import CSPSMSRegistration from './CSPSMSRegistration';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
+import TenantBrandingManager from './TenantBrandingManager';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -578,10 +579,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'branding' && (
           <div style={{ padding: '32px 36px', maxWidth: 900 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Edit your own portal branding, or drill into a tenant from Tenant Management to edit theirs.</p>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Your Branding</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Your portal brand colors, logo, and identity.</p>
             <AutoDetectBrandBar tenantId={cspTenantId} C={C} />
             <BrandingEditor entityId={cspTenantId} actor={{ tenantId: cspTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
+
+            <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>🏢 Tenant Branding</h2>
+              <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Manage branding for each tenant under your account. Click a tenant to expand their branding editor and auto-detect.</p>
+              <TenantBrandingManager parentTenantId={cspTenantId} C={C} />
+            </div>
           </div>
         )}
 

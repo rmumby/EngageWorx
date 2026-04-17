@@ -6,6 +6,8 @@ import PlatformUpdatesBell from './PlatformUpdatesBell';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
+import AutoDetectBrandBar from './AutoDetectBrandBar';
+import TenantBrandingManager from './TenantBrandingManager';
 
 var PLAN_MRR = { starter: 99, growth: 249, pro: 499, enterprise: 999, silver: 499, gold: 1499, platinum: 3999, diamond: 7999 };
 
@@ -377,9 +379,18 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
 
         {page === 'branding' && (
           <div style={{ maxWidth: 900 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your master agent portal branding. Editing sub-agent or tenant branding requires MSP Access (Letter of Agency).</p>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Your Branding</h1>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Your master agent portal brand identity.</p>
+            <AutoDetectBrandBar tenantId={masterAgentTenantId} C={C} />
             <BrandingEditor entityId={masterAgentTenantId} actor={{ tenantId: masterAgentTenantId, entityTier: 'master_agent', isSuperAdmin: false, mspEnabled: !!(info && info.msp_enabled), loaOnFile: !!(info && info.letter_of_agency) }} C={C} />
+
+            {info && info.msp_enabled && info.letter_of_agency && (
+              <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>🏢 Agent & Tenant Branding</h2>
+                <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Manage branding for agents and tenants under your master agent account.</p>
+                <TenantBrandingManager parentTenantId={masterAgentTenantId} C={C} />
+              </div>
+            )}
           </div>
         )}
 
