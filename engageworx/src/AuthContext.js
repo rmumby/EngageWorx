@@ -220,7 +220,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, profile, loading,
+      user, session, profile, setProfile, loading,
       demoMode, toggleDemoMode,
       signIn, signUp, signOut, resetPassword, updatePassword,
       authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId,

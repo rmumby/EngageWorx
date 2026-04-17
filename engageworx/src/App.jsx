@@ -1706,7 +1706,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
+  const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
   
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
@@ -2003,7 +2003,13 @@ var spNavBase = [
 
   // AUP gate — first-login block for authenticated tenant users (not superadmin)
   if (isAuthenticated && profile && profile.tenant_id && profile.aup_accepted === false && !isSuperAdmin) {
-    return <AUPModal tenantId={profile.tenant_id} onAccepted={function() { window.location.reload(); }} onSignOut={handleLogout} />;
+    return <AUPModal tenantId={profile.tenant_id} onAccepted={function() {
+      // Patch profile in React state instead of window.location.reload().
+      // Reload drops the auth session momentarily → race condition → 400s on every
+      // Supabase query → blank portal. setProfile triggers a clean React re-render
+      // that skips the AUP gate and routes straight into the portal.
+      setProfile(function(prev) { return Object.assign({}, prev, { aup_accepted: true }); });
+    }} onSignOut={handleLogout} />;
   }
 
   // Password recovery screen
