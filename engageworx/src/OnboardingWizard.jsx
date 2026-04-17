@@ -264,11 +264,11 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div>
             <label style={label}>Display name</label>
-            <input value={displayName} onChange={function(e) { setDisplayName(e.target.value); }} placeholder="Conecta Cloud" style={inputStyle} />
+            <input value={displayName} onChange={function(e) { setDisplayName(e.target.value); }} placeholder="Your Company Name" style={inputStyle} />
           </div>
           <div>
             <label style={label}>Portal name</label>
-            <input value={portalName} onChange={function(e) { setPortalName(e.target.value); }} placeholder="Conecta Cloud Portal" style={inputStyle} />
+            <input value={portalName} onChange={function(e) { setPortalName(e.target.value); }} placeholder={displayName ? displayName + ' Portal' : 'Your Portal Name'} style={inputStyle} />
           </div>
           <div style={{ gridColumn: 'span 2' }}>
             <label style={label}>Website URL</label>
@@ -322,7 +322,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
         <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria sends customer replies, sequence emails, and notifications from this address. <a href="https://sendgrid.com" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>Get a SendGrid API key →</a></p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label style={label}>From email</label><input value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} placeholder="hello@yourdomain.com" style={inputStyle} /></div>
-          <div><label style={label}>From name</label><input value={fromName} onChange={function(e) { setFromName(e.target.value); }} placeholder="Conecta Cloud" style={inputStyle} /></div>
+          <div><label style={label}>From name</label><input value={fromName} onChange={function(e) { setFromName(e.target.value); }} placeholder={displayName || 'Your Company Name'} style={inputStyle} /></div>
           <div style={{ gridColumn: 'span 2' }}><label style={label}>SendGrid API key</label><input type="password" value={sendgridKey} onChange={function(e) { setSendgridKey(e.target.value); }} placeholder="SG.xxx…" style={inputStyle} /></div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
