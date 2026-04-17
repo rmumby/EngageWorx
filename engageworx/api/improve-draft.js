@@ -18,13 +18,14 @@ function getSupabase() {
 
 async function rewrite(originalDraft, context, meta) {
   if (!process.env.ANTHROPIC_API_KEY) return null;
+  var calendlyUrl = (meta && meta.calendly_url) || 'https://calendly.com/rob-engwx/30min';
   var system = 'You make MINIMAL edits to email drafts. The user wrote the draft themselves and wants their exact words preserved.\n\n' +
     'RULES — follow these strictly:\n' +
     '- Keep the user\'s exact words, tone, and structure. Do NOT rewrite, restructure, or paraphrase.\n' +
     '- Only add what the user explicitly asks for in the context instructions. Nothing extra.\n' +
     '- Never add sentences the user didn\'t write. Never add AI commentary or explanations.\n' +
     '- Fix obvious grammar/spelling if broken, but do not improve style or change voice.\n' +
-    '- If the user says "add calendly link" or "add booking link" → insert: https://calendly.com/rob-engwx/30min\n' +
+    '- If the user says "add calendly link" or "add booking link" → insert: ' + calendlyUrl + '\n' +
     '- If the user says "add phone" or "add number" → insert: +1 (786) 982-7800\n' +
     '- If the user says "add website" → insert: https://engwx.com\n' +
     '- Output ONLY the improved email body. No preamble, no "Here\'s the improved version:", no markdown fences, no explanation.';
@@ -60,10 +61,17 @@ module.exports = async function handler(req, res) {
     var ap = loaded.data.action_payload || {};
     var preservedOriginal = ap.original_draft || original;
 
+    // Fetch the SP tenant's Calendly link — single source of truth from Settings → Notifications.
+    var calendlyUrl = null;
+    try {
+      var SP_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+      var cu = await supabase.from('tenants').select('calendly_url').eq('id', SP_ID).maybeSingle();
+      if (cu.data && cu.data.calendly_url) calendlyUrl = String(cu.data.calendly_url).trim();
+    } catch (e) {}
+
     var improved = await rewrite(original, context, {
       tenant_name: ap.source_tenant_name || ap.tenant_name,
-      classification: ap.classification,
-      subject: loaded.data.email_subject,
+      calendly_url: calendlyUrl,
     });
     if (!improved) return res.status(502).json({ error: 'Claude did not return a draft — try again' });
 

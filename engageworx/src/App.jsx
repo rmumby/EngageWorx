@@ -1083,11 +1083,11 @@ setDemoCreating(false);
                       </div>
                     </div>
 
-                    {/* Calendly — SP admin overrides */}
+                    {/* Calendly — per-tenant booking link (used in welcome emails + Claude drafts for this tenant) */}
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>📅 Calendly Link</div>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>📅 Onboarding Call Link (for tenant welcome emails)</div>
                       <div style={{ display: "flex", gap: 8 }}>
-                        <input type="url" defaultValue={c.calendly_url || ''} placeholder="https://calendly.com/.../30min  (appended to Claude reply drafts)" data-field={"calendly_url_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1 })} />
+                        <input type="url" defaultValue={c.calendly_url || ''} placeholder="https://calendly.com/.../30min  (appended to this tenant's welcome email)" data-field={"calendly_url_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1 })} />
                         <button onClick={async function(e) {
                           var val = (document.querySelector('[data-field="calendly_url_' + c.id + '"]') || {}).value || '';
                           try {

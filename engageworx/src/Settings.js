@@ -1289,7 +1289,7 @@ return (<div>
               {calendlyUrlSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
-              Claude appends this as a booking CTA when drafting auto-reply or review emails. Leave blank to omit.
+              Your booking link. Used by Claude when drafting outreach emails, in your AI assistant auto-replies, and when you type "add calendly link" in the Improve with Context panel. Leave blank to omit.
             </div>
           </div>
 
