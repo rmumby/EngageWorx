@@ -33,8 +33,9 @@ function normalizePL(raw) {
   s = s.replace(/^(sip:|tel:)/i, '');            // strip URI scheme
   s = s.split('@')[0];                            // strip SIP host part
   s = s.replace(/[\s\-\(\)]/g, '');
+  s = s.replace(/^00/, '+');                      // international dial prefix 0048… → +48…
   if (s.indexOf('+') === 0) return s;
-  if (s.indexOf('48') === 0 && s.length === 11) return '+' + s;
+  if (s.indexOf('48') === 0 && s.length >= 11) return '+' + s;
   if (s.length === 9) return '+48' + s;
   return s;
 }
@@ -51,12 +52,19 @@ function detectLanguage(text) {
 
 async function matchTenantByNumber(supabase, toNumber) {
   var normalized = normalizePL(toNumber);
+  var withoutPlus = normalized.indexOf('+') === 0 ? normalized.slice(1) : normalized;
   try {
     var r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', normalized).eq('enabled', true).maybeSingle();
     if (r.data) return r.data;
+    // Try without + prefix (some configs stored as 48XXXXXXXXX)
+    r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', withoutPlus).eq('enabled', true).maybeSingle();
+    if (r.data) return r.data;
     // Also try un-normalised in case the config was saved raw
-    r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', toNumber).eq('enabled', true).maybeSingle();
-    return r.data || null;
+    if (toNumber !== normalized && toNumber !== withoutPlus) {
+      r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', toNumber).eq('enabled', true).maybeSingle();
+      return r.data || null;
+    }
+    return null;
   } catch (e) { return null; }
 }
 
