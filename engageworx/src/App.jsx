@@ -43,12 +43,13 @@ const Blog = lazy(() => import('./Blog'));
 const ApiDocs = lazy(() => import('./ApiDocs'));
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
-function useLiveData(demoMode) {
+function useLiveData(demoMode, isSPAdmin) {
   const [liveTenants, setLiveTenants] = useState([]);
   const [liveStats, setLiveStats] = useState({ totalMessages: 0, totalRevenue: 0, totalCampaigns: 0 });
   const [liveLoading, setLiveLoading] = useState(false);
 
   const fetchLiveData = useCallback(async () => {
+    if (!isSPAdmin) { setLiveLoading(false); return; }
     setLiveLoading(true);
     try {
       const { data: tenants, error } = await supabase
@@ -143,10 +144,10 @@ setLiveStats({
     setLiveLoading(false);
   }, []);
 
-  // Fetch when demoMode turns off
+  // Only fetch for SP admin — non-SP users shouldn't query ALL tenants/contacts (fails with RLS)
   useEffect(() => {
-    if (!demoMode) fetchLiveData();
-  }, [demoMode, fetchLiveData]);
+    if (!demoMode && isSPAdmin) fetchLiveData();
+  }, [demoMode, isSPAdmin, fetchLiveData]);
   return { liveTenants, liveStats, liveLoading, refreshLiveData: fetchLiveData };
 }
 
@@ -1736,7 +1737,7 @@ function AppInner() {
       } catch (e) {}
     })();
   }, []);
-  const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode);
+  const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode, isSuperAdmin);
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [resetMessage, setResetMessage] = useState(null);
