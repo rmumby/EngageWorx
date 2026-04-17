@@ -1495,14 +1495,17 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name').eq('id', tenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name, name').eq('id', tenantId).maybeSingle();
+        console.log('[CustomerPortal] brand fetch for', tenantId, '→', data ? { primary: data.brand_primary, secondary: data.brand_secondary, name: data.brand_name || data.name } : 'no data');
         if (data && (data.brand_primary || data.brand_secondary)) {
-          setDbColors({
+          var c = {
             primary: data.brand_primary || tenant.colors.primary,
             accent: data.brand_secondary || tenant.colors.accent,
-          });
+          };
+          console.log('[CustomerPortal] applying brand colors:', c);
+          setDbColors(c);
         }
-      } catch (e) {}
+      } catch (e) { console.warn('[CustomerPortal] brand fetch error:', e.message); }
     })();
   }, [tenantId]);
   const effectiveColors = dbColors ? Object.assign({}, tenant.colors, dbColors) : tenant.colors;
@@ -1956,7 +1959,24 @@ var spNavBase = [
     } else {
       inner = <CustomerPortal tenantId={drillDownTenant} onBack={popDrill} liveTenants={liveTenants} />;
     }
-    return <div>{breadcrumb}{inner}</div>;
+    // The drilled portal uses 100vw/100% internally — the wrapper must not constrain it.
+    // Also inject CSS custom properties for the drilled tenant's brand colors so any
+    // child that reads --color-primary / --color-accent picks up the right values.
+    var drillColors = {};
+    if (drillDownTenantData) {
+      if (drillDownTenantData.brand && drillDownTenantData.brand.primary) drillColors['--color-primary'] = drillDownTenantData.brand.primary;
+      if (drillDownTenantData.brand && drillDownTenantData.brand.secondary) drillColors['--color-accent'] = drillDownTenantData.brand.secondary;
+      if (drillDownTenantData.colors && drillDownTenantData.colors.primary) drillColors['--color-primary'] = drillDownTenantData.colors.primary;
+      if (drillDownTenantData.colors && drillDownTenantData.colors.accent) drillColors['--color-accent'] = drillDownTenantData.colors.accent;
+    }
+    return (
+      <div style={Object.assign({ width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }, drillColors)}>
+        {breadcrumb}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible' }}>
+          {inner}
+        </div>
+      </div>
+    );
   }
 
   // AUP gate — first-login block for authenticated tenant users (not superadmin)
