@@ -49,7 +49,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     if (!tenantId) { setLoading(false); return; }
     (async function() {
       try {
-        var t = await supabase.from('tenants').select('id, name, brand_name, business_name, plan, portal_name, brand_logo_url, brand_primary, brand_secondary, website_url, onboarding_step').eq('id', tenantId).maybeSingle();
+        var t = await supabase.from('tenants').select('id, name, brand_name, plan, portal_name, brand_logo_url, brand_primary, brand_secondary, website_url, onboarding_step').eq('id', tenantId).maybeSingle();
         if (t.data) {
           setTenant(t.data);
           setStep(Math.max(1, Math.min(6, t.data.onboarding_step || 1)));

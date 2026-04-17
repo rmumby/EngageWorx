@@ -48,8 +48,8 @@ async function getSignature(supabase, params) {
     // Brand-aware fallback: pull tenant.brand_name / business_name / name when signature fields are empty
     var brandName = null;
     try {
-      var tr = await supabase.from('tenants').select('name, brand_name, business_name').eq('id', tenantId).maybeSingle();
-      if (tr.data) brandName = (tr.data.brand_name || tr.data.business_name || tr.data.name || '').trim() || null;
+      var tr = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle();
+      if (tr.data) brandName = (tr.data.brand_name || tr.data.name || '').trim() || null;
     } catch (be) {}
     if (team) {
       result.fromName = (cfg.email_team_from_name || '').trim() || (brandName ? brandName + ' Team' : result.fromName);

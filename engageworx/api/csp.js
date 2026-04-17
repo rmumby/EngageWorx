@@ -273,7 +273,7 @@ module.exports = async function handler(req, res) {
 
       // Seed chatbot_configs with brand-aware signature defaults (only if no row exists yet)
       try {
-        var brand = (tenant.brand_name || tenant.business_name || companyName || 'Your Business').trim();
+        var brand = (tenant.brand_name || companyName || 'Your Business').trim();
         var existingCfg = await supabase.from('chatbot_configs').select('id, email_from_name, email_team_from_name').eq('tenant_id', tenant.id).maybeSingle();
         var patch = {};
         if (!existingCfg.data) {

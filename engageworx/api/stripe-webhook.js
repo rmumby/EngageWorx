@@ -245,8 +245,7 @@ module.exports = async function handler(req, res) {
             plan: plan,
             status: 'active',
             brand_primary: '#00C9FF',
-            brand_name: companyName,
-            business_name: suppliedBusinessName || companyName,
+            brand_name: suppliedBusinessName || companyName,
             website_url: suppliedWebsite,
             channels_enabled: ['sms', 'email', 'whatsapp'],
           }).select().single();

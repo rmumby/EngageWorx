@@ -122,8 +122,8 @@ async function analyzeAndActionEmail(ctx) {
     };
     if (match.tenantId) {
       try {
-        var tRow = await supabase.from('tenants').select('name, brand_name, business_name').eq('id', match.tenantId).maybeSingle();
-        if (tRow.data) aiCtx.businessName = (tRow.data.brand_name || tRow.data.business_name || tRow.data.name || aiCtx.businessName).trim();
+        var tRow = await supabase.from('tenants').select('name, brand_name').eq('id', match.tenantId).maybeSingle();
+        if (tRow.data) aiCtx.businessName = (tRow.data.brand_name || tRow.data.name || aiCtx.businessName).trim();
       } catch (e) {}
       try {
         var cb = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', match.tenantId).maybeSingle();
