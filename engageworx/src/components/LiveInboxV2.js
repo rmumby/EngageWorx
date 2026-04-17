@@ -218,6 +218,16 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
+  const [tenantFromEmail, setTenantFromEmail] = useState('');
+  useEffect(function() {
+    if (demoMode || !supabase || !currentTenantId) return;
+    (async function() {
+      try {
+        var r = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', 'email').maybeSingle();
+        if (r.data && r.data.config_encrypted && r.data.config_encrypted.from_email) setTenantFromEmail(r.data.config_encrypted.from_email);
+      } catch (e) {}
+    })();
+  }, [currentTenantId, demoMode, supabase]);
   const [composeText, setComposeText] = useState("");
   const [showCanned, setShowCanned] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(true);
@@ -739,7 +749,7 @@ useEffect(() => {
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
               <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || "Try adjusting your filters or send an email to hello@engwx.com"}</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || (tenantFromEmail ? ("Try adjusting your filters or send an email to " + tenantFromEmail) : "Try adjusting your filters or start a conversation")}</div>
             </div>
           )}
         </div>)}

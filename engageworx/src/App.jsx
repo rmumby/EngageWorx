@@ -1489,7 +1489,24 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     channels: ["SMS", "Email"],
   };
   const cpTheme = useTheme();
-  const C = getThemedColors(tenant.colors, cpTheme.theme);
+  // When drilled in, liveTenant may have stale colors or use defaults. Fetch fresh from DB.
+  const [dbColors, setDbColors] = useState(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name').eq('id', tenantId).maybeSingle();
+        if (data && (data.brand_primary || data.brand_secondary)) {
+          setDbColors({
+            primary: data.brand_primary || tenant.colors.primary,
+            accent: data.brand_secondary || tenant.colors.accent,
+          });
+        }
+      } catch (e) {}
+    })();
+  }, [tenantId]);
+  const effectiveColors = dbColors ? Object.assign({}, tenant.colors, dbColors) : tenant.colors;
+  const C = getThemedColors(effectiveColors, cpTheme.theme);
   const [page, setPage] = useState("dashboard");
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);

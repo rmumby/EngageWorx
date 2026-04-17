@@ -25,6 +25,23 @@ var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
+  // Load this tenant's branding from DB so drilled-in SP admins see tenant colors, not EngageWorx defaults
+  useEffect(function() {
+    if (!cspTenantId) return;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name').eq('id', cspTenantId).maybeSingle();
+        if (r.data) {
+          var patch = {};
+          if (r.data.brand_primary) patch.primary = r.data.brand_primary;
+          if (r.data.brand_secondary) patch.accent = r.data.brand_secondary;
+          if (r.data.logo_url) patch.logoUrl = r.data.logo_url;
+          if (r.data.brand_name) patch.brandName = r.data.brand_name;
+          if (Object.keys(patch).length > 0) setBrandColors(patch);
+        }
+      } catch (e) {}
+    })();
+  }, [cspTenantId]);
   var [needsOnboarding, setNeedsOnboarding] = useState(false);
   useEffect(function() {
     if (!cspTenantId) return;

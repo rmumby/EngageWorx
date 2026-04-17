@@ -24,7 +24,23 @@ function statusDot(status) {
 }
 
 export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
-  var C = getColors();
+  var baseC = getColors();
+  var [brandOverrides, setBrandOverrides] = useState({});
+  useEffect(function() {
+    if (!masterAgentTenantId) return;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('brand_primary, brand_secondary').eq('id', masterAgentTenantId).maybeSingle();
+        if (r.data) {
+          var p = {};
+          if (r.data.brand_primary) p.primary = r.data.brand_primary;
+          if (r.data.brand_secondary) p.accent = r.data.brand_secondary;
+          if (Object.keys(p).length > 0) setBrandOverrides(p);
+        }
+      } catch (e) {}
+    })();
+  }, [masterAgentTenantId]);
+  var C = Object.assign({}, baseC, brandOverrides);
   var [page, setPage] = useState('dashboard');
   var [needsOnboarding, setNeedsOnboarding] = useState(false);
   useEffect(function() {
