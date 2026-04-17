@@ -286,7 +286,20 @@ setSteps(aiSteps.map(function(s, i) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
                 <h1 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{selectedSeq.name}</h1>
-                <div style={{ color: colors.muted, fontSize: 13 }}>{steps.length} steps</div>
+                <div style={{ color: colors.muted, fontSize: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span>{steps.length} steps</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: selectedSeq.send_on_weekends ? '#10b981' : colors.muted }}>
+                    <input type="checkbox" checked={!!selectedSeq.send_on_weekends} onChange={async function(e) {
+                      var val = e.target.checked;
+                      try {
+                        await supabase.from('sequences').update({ send_on_weekends: val }).eq('id', selectedSeq.id);
+                        setSelectedSeq(Object.assign({}, selectedSeq, { send_on_weekends: val }));
+                        setSequences(function(prev) { return prev.map(function(s) { return s.id === selectedSeq.id ? Object.assign({}, s, { send_on_weekends: val }) : s; }); });
+                      } catch (err) { alert('Error: ' + err.message); }
+                    }} style={{ accentColor: colors.primary }} />
+                    {selectedSeq.send_on_weekends ? 'Sends on weekends' : 'Business days only'}
+                  </label>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={function() { setShowAI(!showAI); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(224,64,251,0.3)', background: showAI ? 'rgba(224,64,251,0.2)' : 'rgba(224,64,251,0.08)', color: '#e879f9', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Build with AI</button>

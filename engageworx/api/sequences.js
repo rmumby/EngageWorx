@@ -156,6 +156,22 @@ async function processDueSteps(supabase) {
         continue;
       }
 
+      // Weekend gate: skip if sequence.send_on_weekends is false and today is Sat or Sun.
+      // Reschedule to Monday 8am in the sequence's tenant timezone (or America/New_York default).
+      if (!sequence.send_on_weekends) {
+        var nowDate = new Date();
+        var dayOfWeek = nowDate.getUTCDay(); // 0=Sun, 6=Sat
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          var daysToMon = dayOfWeek === 0 ? 1 : 2;
+          var monday = new Date(nowDate);
+          monday.setUTCDate(monday.getUTCDate() + daysToMon);
+          monday.setUTCHours(13, 0, 0, 0); // 8am ET = 13:00 UTC (approximate; exact depends on DST)
+          await supabase.from('lead_sequences').update({ next_step_at: monday.toISOString() }).eq('id', enrolment.id);
+          console.log('[Sequences] Weekend skip for lead:', lead.id, '→ rescheduled to', monday.toISOString());
+          continue;
+        }
+      }
+
       var tenantRes = await supabase.from('tenants').select('id, name').eq('id', sequence.tenant_id).single();
       var tenant = tenantRes.data;
 
@@ -174,6 +190,14 @@ async function processDueSteps(supabase) {
         if (nextStep) {
           var d = new Date();
           d.setDate(d.getDate() + (nextStep.delay_days || 1));
+          // If the computed next date falls on a weekend and send_on_weekends is false,
+          // push forward to Monday 8am ET (13:00 UTC).
+          if (!sequence.send_on_weekends) {
+            var nDay = d.getUTCDay();
+            if (nDay === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
+            else if (nDay === 6) d.setUTCDate(d.getUTCDate() + 2); // Sat → Mon
+            if (nDay === 0 || nDay === 6) d.setUTCHours(13, 0, 0, 0);
+          }
           nextStepAt = d.toISOString();
         }
 
