@@ -95,6 +95,15 @@ function useLiveData(demoMode, isSPAdmin) {
         var label = CHANNEL_LABELS[String(r.channel).toLowerCase()] || r.channel.toUpperCase();
         if (channelMap[r.tenant_id].indexOf(label) === -1) channelMap[r.tenant_id].push(label);
       });
+      // Poland carrier — separate table, add 🇵🇱 Poland badge for enabled configs
+      try {
+        const { data: plRows } = await supabase.from('poland_carrier_configs').select('tenant_id').eq('enabled', true);
+        (plRows || []).forEach(function(r) {
+          if (!r.tenant_id) return;
+          if (!channelMap[r.tenant_id]) channelMap[r.tenant_id] = [];
+          if (channelMap[r.tenant_id].indexOf('🇵🇱 Poland') === -1) channelMap[r.tenant_id].push('🇵🇱 Poland');
+        });
+      } catch (e) {}
 
       const formatted = (tenants || []).map(t => {
         var directCount = countMap[t.id] || 0;
@@ -932,18 +941,27 @@ setDemoCreating(false);
                     <div style={{ marginBottom: 16 }}>
                       <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Active Channels</div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        {["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"].map(ch => (
+                        {["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice", "🇵🇱 Poland"].map(ch => (
                           <label key={ch} style={{ display: "flex", alignItems: "center", gap: 4, background: c.channels.includes(ch) ? `${c.brand.primary}15` : "rgba(255,255,255,0.03)", border: `1px solid ${c.channels.includes(ch) ? c.brand.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: c.channels.includes(ch) ? c.brand.primary : "rgba(255,255,255,0.4)" }}>
                             <input type="checkbox" checked={c.channels.includes(ch)} onChange={async function(e) {
                               var enabled = e.target.checked;
                               var channelKey = ch.toLowerCase();
                               try {
-                                // Find or create the channel_configs row, scoped strictly to this tenant
-                                var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', c.id).eq('channel', channelKey).maybeSingle();
-                                if (existing.data && existing.data.id) {
-                                  await supabase.from('channel_configs').update({ enabled: enabled, status: enabled ? 'connected' : 'disconnected', updated_at: new Date().toISOString() }).eq('id', existing.data.id).eq('tenant_id', c.id);
+                                if (ch === '🇵🇱 Poland') {
+                                  // Poland uses its own table
+                                  var plExisting = await supabase.from('poland_carrier_configs').select('id').eq('tenant_id', c.id).maybeSingle();
+                                  if (plExisting.data && plExisting.data.id) {
+                                    await supabase.from('poland_carrier_configs').update({ enabled: enabled }).eq('id', plExisting.data.id).eq('tenant_id', c.id);
+                                  } else if (enabled) {
+                                    await supabase.from('poland_carrier_configs').insert({ tenant_id: c.id, phone_number: '', carrier_type: 'http_webhook', enabled: true });
+                                  }
                                 } else {
-                                  await supabase.from('channel_configs').insert({ tenant_id: c.id, channel: channelKey, enabled: enabled, status: enabled ? 'connected' : 'disconnected', config_encrypted: {} });
+                                  var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', c.id).eq('channel', channelKey).maybeSingle();
+                                  if (existing.data && existing.data.id) {
+                                    await supabase.from('channel_configs').update({ enabled: enabled, status: enabled ? 'connected' : 'disconnected', updated_at: new Date().toISOString() }).eq('id', existing.data.id).eq('tenant_id', c.id);
+                                  } else {
+                                    await supabase.from('channel_configs').insert({ tenant_id: c.id, channel: channelKey, enabled: enabled, status: enabled ? 'connected' : 'disconnected', config_encrypted: {} });
+                                  }
                                 }
                                 if (refreshLiveData) refreshLiveData();
                               } catch (err) { alert('Channel toggle failed: ' + err.message); }
