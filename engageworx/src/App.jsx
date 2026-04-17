@@ -34,6 +34,7 @@ import PlatformUpdates from './PlatformUpdates';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
+import AutoDetectBrandBar from './AutoDetectBrandBar';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
 import LandingPage from './components/LandingPage';
@@ -1640,7 +1641,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "branding" && (
           <div style={{ padding: "32px 36px", maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Customize your portal branding</p>
+            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Customize your portal branding</p>
+            <AutoDetectBrandBar tenantId={tenantId} C={C} />
             <BrandingEditor entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
           </div>
         )}

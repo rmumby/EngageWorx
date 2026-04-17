@@ -83,16 +83,31 @@ module.exports = async function handler(req, res) {
       result.primary_color = themeColor.toLowerCase();
     }
 
-    // Priority 2: most-frequent non-gray hex colors in the HTML
+    // Priority 2: hex colors extracted ONLY from <style> blocks and inline style="…"
+    // attributes — not from <script> blocks, JSON-LD, or raw text, which pollute results
+    // with third-party library colors (e.g. EngageWorx widget defaults).
     if (!result.primary_color || !result.secondary_color) {
-      var hexMatches = html.match(/#[0-9A-Fa-f]{6}/g) || [];
+      // Strip scripts and JSON-LD before scanning
+      var cleanedHtml = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '');
+      // Collect CSS from <style> blocks and inline style attributes
+      var styleContent = '';
+      var styleBlocks = cleanedHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+      styleBlocks.forEach(function(b) { styleContent += b + ' '; });
+      var inlineStyles = cleanedHtml.match(/style=["'][^"']+["']/gi) || [];
+      inlineStyles.forEach(function(s) { styleContent += s + ' '; });
+      // Also scan CSS custom properties from :root or body
+      var rootBlocks = cleanedHtml.match(/:root\s*\{[^}]+\}/gi) || [];
+      rootBlocks.forEach(function(b) { styleContent += b + ' '; });
+
+      var hexMatches = styleContent.match(/#[0-9A-Fa-f]{6}/g) || [];
       var freq = {};
       hexMatches.forEach(function(c) {
         var lc = c.toLowerCase();
         var rv = parseInt(lc.slice(1, 3), 16);
         var gv = parseInt(lc.slice(3, 5), 16);
         var bv = parseInt(lc.slice(5, 7), 16);
-        // Skip near-black, near-white, pure grays
         if (rv < 30 && gv < 30 && bv < 30) return;
         if (rv > 225 && gv > 225 && bv > 225) return;
         if (Math.abs(rv - gv) < 15 && Math.abs(gv - bv) < 15 && Math.abs(rv - bv) < 15) return;
@@ -101,7 +116,6 @@ module.exports = async function handler(req, res) {
       var sorted = Object.entries(freq).sort(function(a, b) { return b[1] - a[1]; });
       if (!result.primary_color && sorted.length > 0) result.primary_color = sorted[0][0];
       if (!result.secondary_color && sorted.length > 1) result.secondary_color = sorted[1][0];
-      // If primary was set from meta but secondary wasn't, take the top CSS color
       if (result.primary_color && !result.secondary_color && sorted.length > 0) {
         var candidate = sorted.find(function(e) { return e[0] !== result.primary_color; });
         if (candidate) result.secondary_color = candidate[0];
