@@ -1517,7 +1517,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name, name').eq('id', tenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, brand_logo_url, brand_name, name').eq('id', tenantId).maybeSingle();
         console.log('[CustomerPortal] brand fetch for', tenantId, '→', data ? { primary: data.brand_primary, secondary: data.brand_secondary, name: data.brand_name || data.name } : 'no data');
         if (data && (data.brand_primary || data.brand_secondary)) {
           var c = {

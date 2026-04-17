@@ -14,7 +14,7 @@ export default function TenantBrandingManager({ parentTenantId, C }) {
     (async function() {
       setLoading(true);
       try {
-        var { data } = await supabase.from('tenants').select('id, name, brand_name, brand_primary, brand_secondary, logo_url, plan, status')
+        var { data } = await supabase.from('tenants').select('id, name, brand_name, brand_primary, brand_secondary, brand_logo_url, plan, status')
           .or('parent_tenant_id.eq.' + parentTenantId + ',parent_entity_id.eq.' + parentTenantId)
           .neq('id', parentTenantId)
           .order('name');

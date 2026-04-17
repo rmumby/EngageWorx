@@ -32,13 +32,13 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     if (!cspTenantId) return;
     (async function() {
       try {
-        var r = await supabase.from('tenants').select('brand_primary, brand_secondary, logo_url, brand_name, name').eq('id', cspTenantId).maybeSingle();
+        var r = await supabase.from('tenants').select('brand_primary, brand_secondary, brand_logo_url, brand_name, name').eq('id', cspTenantId).maybeSingle();
         console.log('[CSPPortal] brand fetch for', cspTenantId, '→', r.data ? { primary: r.data.brand_primary, secondary: r.data.brand_secondary, name: r.data.brand_name || r.data.name } : 'no data');
         if (r.data) {
           var patch = {};
           if (r.data.brand_primary) patch.primary = r.data.brand_primary;
           if (r.data.brand_secondary) patch.accent = r.data.brand_secondary;
-          if (r.data.logo_url) patch.logoUrl = r.data.logo_url;
+          if (r.data.brand_logo_url) patch.logoUrl = r.data.brand_logo_url;
           if (r.data.brand_name) patch.brandName = r.data.brand_name;
           if (Object.keys(patch).length > 0) {
             console.log('[CSPPortal] applying brand overrides:', patch);
