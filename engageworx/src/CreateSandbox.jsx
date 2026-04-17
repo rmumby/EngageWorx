@@ -5,7 +5,7 @@ export default function CreateSandbox({ C, onCreated }) {
   var show = showState[0];
   var setShow = showState[1];
 
-  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', password: '' });
+  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', password: '', isDemo: false });
   var form = formState[0];
   var setForm = formState[1];
 
@@ -54,6 +54,7 @@ export default function CreateSandbox({ C, onCreated }) {
           fullName: form.fullName.trim(),
           companyName: form.companyName.trim(),
           plan: form.plan,
+          is_demo: form.isDemo,
         }),
       });
       var data = await resp.json();
@@ -70,7 +71,7 @@ export default function CreateSandbox({ C, onCreated }) {
   }
 
   function reset() {
-    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', password: '' });
+    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', password: '', isDemo: false });
     setResult(null);
     setError(null);
   }
@@ -183,6 +184,14 @@ export default function CreateSandbox({ C, onCreated }) {
             </div>
           </div>
 
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px 16px', marginBottom: 16, background: form.isDemo ? 'rgba(224,64,251,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (form.isDemo ? 'rgba(224,64,251,0.35)' : 'rgba(255,255,255,0.08)'), borderRadius: 10, transition: 'all 0.2s' }}>
+            <input type="checkbox" checked={form.isDemo} onChange={function(e) { setForm(Object.assign({}, form, { isDemo: e.target.checked })); }} style={{ accentColor: '#E040FB' }} />
+            <div>
+              <div style={{ color: form.isDemo ? '#E040FB' : '#fff', fontWeight: 700, fontSize: 13 }}>🎭 Demo Account</div>
+              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>{form.isDemo ? 'Skips onboarding wizard. User lands directly in the portal.' : 'Check to skip onboarding and pre-load demo fixtures.'}</div>
+            </div>
+          </label>
+
           {error && (
             <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#FF3B30', fontSize: 13 }}>
               {error}
@@ -190,11 +199,13 @@ export default function CreateSandbox({ C, onCreated }) {
           )}
 
           <button onClick={handleCreate} disabled={loading} style={Object.assign({}, btnPrimary, { opacity: loading ? 0.6 : 1, width: '100%', padding: '12px 20px', fontSize: 14 })}>
-            {loading ? 'Creating Account...' : 'Create Sandbox Account'}
+            {loading ? 'Creating Account...' : (form.isDemo ? '🎭 Create Demo Account' : '🧪 Create Sandbox Account')}
           </button>
 
           <div style={{ marginTop: 12, color: 'rgba(255,255,255,0.25)', fontSize: 11, lineHeight: 1.5 }}>
-            This creates a Supabase auth user, tenant, and membership. The user can log in immediately at portal.engwx.com. A notification email is sent to rob@engwx.com.
+            {form.isDemo
+              ? 'Creates an account with onboarding pre-completed. User logs in and sees the portal immediately with sample data.'
+              : 'Creates a real account. User goes through the onboarding wizard on first login to configure branding, email, and AI.'}
           </div>
         </>
       )}
