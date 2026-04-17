@@ -80,6 +80,9 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("date"); // date, name, performance
   const [liveLoading, setLiveLoading] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch live campaigns from Supabase
   useEffect(() => {
@@ -255,7 +258,59 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   }, [demoMode, createStep, currentTenantId, newCampaign.channel, newCampaign.fallbackEnabled]);
 
   // ─── FILTERS ──────────────────────────────────────────────────────────────
+  async function deleteCampaign(c) {
+    if (!window.confirm('Delete "' + c.name + '"? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      if (demoMode) {
+        setCampaigns(prev => prev.filter(x => x.id !== c.id));
+      } else if (['draft', 'scheduled'].includes(c.status)) {
+        // Hard delete for unsent campaigns
+        var { supabase } = await import('./supabaseClient');
+        await supabase.from('campaigns').delete().eq('id', c.id);
+        setCampaigns(prev => prev.filter(x => x.id !== c.id));
+      } else {
+        // Soft delete for sent/completed — preserves analytics
+        var { supabase: sb } = await import('./supabaseClient');
+        await sb.from('campaigns').update({ status: 'deleted' }).eq('id', c.id);
+        setCampaigns(prev => prev.map(x => x.id === c.id ? Object.assign({}, x, { status: 'deleted' }) : x));
+      }
+      setSelectedIds(prev => prev.filter(id => id !== c.id));
+    } catch (e) { alert('Delete failed: ' + e.message); }
+    setDeleting(false);
+  }
+
+  async function bulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm('Delete ' + selectedIds.length + ' campaign(s)? Sent campaigns will be soft-deleted (hidden but analytics preserved).')) return;
+    setDeleting(true);
+    for (var id of selectedIds) {
+      var c = campaigns.find(x => x.id === id);
+      if (!c) continue;
+      try {
+        if (demoMode) {
+          setCampaigns(prev => prev.filter(x => x.id !== id));
+        } else if (['draft', 'scheduled'].includes(c.status)) {
+          var { supabase: s1 } = await import('./supabaseClient');
+          await s1.from('campaigns').delete().eq('id', id);
+          setCampaigns(prev => prev.filter(x => x.id !== id));
+        } else {
+          var { supabase: s2 } = await import('./supabaseClient');
+          await s2.from('campaigns').update({ status: 'deleted' }).eq('id', id);
+          setCampaigns(prev => prev.map(x => x.id === id ? Object.assign({}, x, { status: 'deleted' }) : x));
+        }
+      } catch (e) {}
+    }
+    setSelectedIds([]);
+    setDeleting(false);
+  }
+
+  function toggleSelect(id) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.concat([id]));
+  }
+
   const filteredCampaigns = campaigns.filter(c => {
+    if (!showDeleted && c.status === 'deleted') return false;
     if (filterStatus !== "all" && c.status !== filterStatus) return false;
     if (filterChannel !== "all" && c.channel !== filterChannel) return false;
     if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -1212,6 +1267,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           <option value="all">All Channels</option>
           {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
         </select>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginLeft: 8, fontSize: 12, color: showDeleted ? '#d97706' : C.muted }}>
+          <input type="checkbox" checked={showDeleted} onChange={function(e) { setShowDeleted(e.target.checked); }} />
+          Show archived
+        </label>
         <div style={{ marginLeft: "auto", color: C.muted, fontSize: 13 }}>{filteredCampaigns.length} campaign{filteredCampaigns.length !== 1 ? "s" : ""}</div>
       </div>
 
@@ -1224,21 +1283,35 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           ))}
         </div>
 
+        {selectedIds.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: C.primary + '11', border: '1px solid ' + C.primary + '33', borderRadius: 10, marginBottom: 8 }}>
+            <span style={{ color: C.primary, fontSize: 13, fontWeight: 700 }}>{selectedIds.length} selected</span>
+            <button onClick={bulkDelete} disabled={deleting} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.35)', borderRadius: 8, padding: '6px 14px', color: '#FF3B30', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>{deleting ? 'Deleting…' : '🗑 Delete selected'}</button>
+            <button onClick={function() { setSelectedIds([]); }} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 12, marginLeft: 'auto' }}>Clear</button>
+          </div>
+        )}
+
         {filteredCampaigns.map(c => {
           const openPct = c.sent > 0 ? ((c.opened / c.sent) * 100).toFixed(1) : "—";
           const clickPct = c.sent > 0 ? ((c.clicked / c.sent) * 100).toFixed(1) : "—";
+          var isSelected = selectedIds.includes(c.id);
           return (
             <div key={c.id} onClick={() => { setSelectedCampaign(c); setView("detail"); }} style={{
-              display: "grid", gridTemplateColumns: "2fr 100px 100px 120px 90px 90px 90px 90px 100px", gap: 12,
+              display: "grid", gridTemplateColumns: "32px 2fr 100px 100px 120px 90px 90px 90px 90px 100px", gap: 12,
+              opacity: c.status === 'deleted' ? 0.5 : 1,
               padding: "16px 20px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
               borderRadius: 10, cursor: "pointer", alignItems: "center", transition: "all 0.2s",
             }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.borderColor = C.primary + "44"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.05)"; }}
             >
+              {/* Select */}
+              <div onClick={function(e) { e.stopPropagation(); toggleSelect(c.id); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <input type="checkbox" checked={isSelected} onChange={function() {}} style={{ cursor: 'pointer', accentColor: C.primary }} />
+              </div>
               {/* Name */}
               <div>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}</div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}{c.status === 'deleted' && <span style={{ color: '#d97706', fontSize: 10, marginLeft: 8 }}>archived</span>}</div>
                 <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                   {c.aiGenerated && <span style={{ ...badge(C.accent), padding: "1px 6px", fontSize: 9 }}>AI</span>}
                   {c.abTest && <span style={{ ...badge("#FFD600"), padding: "1px 6px", fontSize: 9 }}>A/B</span>}
@@ -1268,8 +1341,11 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <div style={{ color: c.revenue > 0 ? "#00E676" : C.muted, fontSize: 14, fontWeight: 700 }}>{c.revenue > 0 ? `$${c.revenue.toLocaleString()}` : "—"}</div>
 
               {/* Action */}
-              <div style={{ textAlign: "right" }}>
-                <span style={{ color: C.primary, fontSize: 13, fontWeight: 600 }}>View →</span>
+              <div style={{ textAlign: "right", display: 'flex', gap: 6, justifyContent: 'flex-end' }} onClick={function(e) { e.stopPropagation(); }}>
+                <span onClick={function() { setSelectedCampaign(c); setView("detail"); }} style={{ color: C.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>View</span>
+                {c.status !== 'deleted' && (
+                  <span onClick={function() { deleteCampaign(c); }} style={{ color: '#FF3B30', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🗑️</span>
+                )}
               </div>
             </div>
           );
