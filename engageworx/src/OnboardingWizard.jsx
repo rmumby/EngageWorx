@@ -44,6 +44,8 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
   var [waAccountId, setWaAccountId] = useState('');
   var [waToken, setWaToken] = useState('');
   var [skipWa, setSkipWa] = useState(true);
+  var [aiGenerating, setAiGenerating] = useState(false);
+  var [faqGenerating, setFaqGenerating] = useState(false);
 
   useEffect(function() {
     if (!tenantId) { setLoading(false); return; }
@@ -334,9 +336,6 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
       </div>
     );
   }
-
-  var [aiGenerating, setAiGenerating] = useState(false);
-  var [faqGenerating, setFaqGenerating] = useState(false);
 
   async function generateDescription() {
     setAiGenerating(true);
