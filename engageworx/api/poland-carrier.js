@@ -220,11 +220,28 @@ async function sendOutboundSms(cfg, to, body) {
       var r = await fetch(cfg.outbound_endpoint, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
       return { ok: r.ok, status: r.status, body: await r.text().catch(function() { return ''; }) };
     }
-    if (cfg.carrier_type === 'direct_smpp' || cfg.carrier_type === 'direct_sip') {
-      // SMPP/SIP require persistent connections — proxy out to a worker service URL configured in outbound_endpoint.
-      var smPayload = { to: to, body: body, from: cfg.phone_number };
-      var r2 = await fetch(cfg.outbound_endpoint || '', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': cfg.api_key || '' }, body: JSON.stringify(smPayload) });
-      return { ok: r2.ok, status: r2.status, body: await r2.text().catch(function() { return ''; }) };
+    if (cfg.carrier_type === 'direct_smpp') {
+      // SMPP requires a persistent TCP connection — Vercel can't do that.
+      // Route through the VPS-hosted SMPP bridge (infra/poland-sip-bridge/smpp/server.js)
+      // which exposes POST /send on a local HTTP port. outbound_endpoint stores the bridge URL.
+      var smppUrl = cfg.outbound_endpoint;
+      if (!smppUrl) return { ok: false, error: 'direct_smpp needs outbound_endpoint pointing at the SMPP bridge (e.g. http://vps-ip:8090/send)' };
+      var senderID = (cfg.carrier_name || 'EngageWorx').substring(0, 11);
+      var smppPayload = { to: plDigits(to), body: body, from: plDigits(cfg.phone_number), senderID: senderID };
+      var r2 = await fetch(smppUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(smppPayload),
+      });
+      var smppRaw = await r2.text();
+      var smppParsed = null;
+      try { smppParsed = JSON.parse(smppRaw); } catch (e) {}
+      return { ok: r2.ok, status: r2.status, body: smppParsed || smppRaw, transport: 'smpp_bridge' };
+    }
+    if (cfg.carrier_type === 'direct_sip') {
+      var sipPayload = { to: to, body: body, from: cfg.phone_number };
+      var r3 = await fetch(cfg.outbound_endpoint || '', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sipPayload) });
+      return { ok: r3.ok, status: r3.status, body: await r3.text().catch(function() { return ''; }) };
     }
   } catch (e) { return { ok: false, error: e.message }; }
   return { ok: false, error: 'carrier_type not implemented: ' + cfg.carrier_type };
@@ -465,8 +482,25 @@ module.exports = async function handler(req, res) {
             response_body: gparsed || gtxt,
           });
         }
-        // SMPP/SIP — no synchronous test possible without a worker
-        return res.status(200).json({ ok: false, msg: 'No synchronous test for ' + cfg.carrier_type + ' — verify by sending a real message via your worker' });
+        // SMPP: probe the VPS bridge's /health endpoint
+        if (cfg.carrier_type === 'direct_smpp') {
+          if (!cfg.outbound_endpoint) return res.status(200).json({ ok: false, msg: 'direct_smpp needs outbound_endpoint pointing at the VPS SMPP bridge (e.g. http://vps-ip:8090/send)' });
+          var bridgeHealthUrl = cfg.outbound_endpoint.replace(/\/send$/, '/health');
+          try {
+            var hprobe = await fetch(bridgeHealthUrl);
+            var hdata = await hprobe.json().catch(function() { return null; });
+            return res.status(200).json({
+              ok: !!(hdata && hdata.bound),
+              msg: hdata && hdata.bound ? '✓ SMPP bridge connected and bound to ' + (hdata.host || 'carrier') : '✗ SMPP bridge not bound — check credentials and carrier connectivity',
+              transport: 'smpp_bridge',
+              bridge_health: hdata,
+            });
+          } catch (e) {
+            return res.status(200).json({ ok: false, msg: 'SMPP bridge unreachable at ' + bridgeHealthUrl + ': ' + e.message });
+          }
+        }
+        // SIP — no synchronous test
+        return res.status(200).json({ ok: false, msg: 'No synchronous test for ' + cfg.carrier_type + ' — verify by sending a real message' });
       } catch (e) {
         return res.status(200).json({ ok: false, msg: 'Probe failed: ' + e.message });
       }

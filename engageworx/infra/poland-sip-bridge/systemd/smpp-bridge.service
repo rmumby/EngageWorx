@@ -1,0 +1,19 @@
+[Unit]
+Description=EngageWorx SMPP Bridge — persistent smscloud.io SMPP ↔ HTTP
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/smpp-bridge.env
+WorkingDirectory=/opt/smpp-bridge
+ExecStart=/usr/bin/node /opt/smpp-bridge/server.js
+Restart=always
+RestartSec=5
+User=nobody
+Group=nogroup
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
