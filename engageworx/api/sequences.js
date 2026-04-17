@@ -129,8 +129,9 @@ async function processDueSteps(supabase) {
   var enrolments = enrolmentsRes.data;
 
   if (!enrolments || enrolments.length === 0) {
-    console.log('[Sequences] No due steps');
-    return { processed: 0, errors: 0 };
+    console.log('[Sequences] No due steps — running self-heal check only');
+    // Fall through to the self-heal block at the bottom rather than early-returning
+    enrolments = [];
   }
 
   console.log('[Sequences] Processing', enrolments.length, 'due enrolments');
@@ -221,7 +222,31 @@ async function processDueSteps(supabase) {
     }
   }
 
-  return { processed: processed, errors: errors };
+  // Self-healing: detect stuck leads that have been past-due for 4+ hours and
+  // weren't processed in this run (e.g. they errored silently on a prior run and
+  // never got their next_step_at bumped). Reset them to fire on the next cron tick.
+  var stuckFixed = 0;
+  try {
+    var fourHoursAgo = new Date(Date.now() - 4 * 3600000).toISOString();
+    var stuckRes = await supabase.from('lead_sequences')
+      .select('id, lead_id, next_step_at')
+      .eq('status', 'active')
+      .lt('next_step_at', fourHoursAgo);
+    var stuckRows = stuckRes.data || [];
+    if (stuckRows.length > 0) {
+      var resetTo = new Date().toISOString();
+      for (var sr of stuckRows) {
+        try {
+          await supabase.from('lead_sequences').update({ next_step_at: resetTo }).eq('id', sr.id);
+          stuckFixed++;
+          console.warn('[Sequences] Self-heal: reset stuck lead_sequence', sr.id, 'lead:', sr.lead_id, 'was due:', sr.next_step_at, '→ now');
+        } catch (e) { console.warn('[Sequences] Self-heal update failed:', sr.id, e.message); }
+      }
+      console.warn('[Sequences] Self-healed', stuckFixed, 'stuck lead(s) (due 4+ hours ago)');
+    }
+  } catch (e) { console.warn('[Sequences] Self-heal query error:', e.message); }
+
+  return { processed: processed, errors: errors, stuck_leads_fixed: stuckFixed };
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -397,7 +422,7 @@ module.exports = async function handler(req, res) {
   // ── PROCESS due steps (called by cron) ─────────────────────────────────────
   if (action === 'process') {
     var result = await processDueSteps(supabase);
-    return res.status(200).json({ success: true, processed: result.processed, errors: result.errors });
+    return res.status(200).json({ success: true, processed: result.processed, errors: result.errors, stuck_leads_fixed: result.stuck_leads_fixed || 0 });
   }
 
   // ── CREATE sequence with steps ──────────────────────────────────────────────
