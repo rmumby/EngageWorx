@@ -18,13 +18,20 @@ function getSupabase() {
 
 async function rewrite(originalDraft, context, meta) {
   if (!process.env.ANTHROPIC_API_KEY) return null;
-  var system = 'You rewrite email drafts to incorporate new context naturally. Keep the same length and warmth as the original. Do NOT add salutations or sign-offs the original doesn\'t already have. Reference the new context specifically — names, events, topics — never generic. Output the rewritten body only, no preamble.';
-  var prompt = 'Original draft:\n"""\n' + (originalDraft || '(empty)') + '\n"""\n\n' +
-    'Context to weave in (provided by the sender):\n"""\n' + (context || '').trim() + '\n"""\n\n' +
+  var system = 'You make MINIMAL edits to email drafts. The user wrote the draft themselves and wants their exact words preserved.\n\n' +
+    'RULES — follow these strictly:\n' +
+    '- Keep the user\'s exact words, tone, and structure. Do NOT rewrite, restructure, or paraphrase.\n' +
+    '- Only add what the user explicitly asks for in the context instructions. Nothing extra.\n' +
+    '- Never add sentences the user didn\'t write. Never add AI commentary or explanations.\n' +
+    '- Fix obvious grammar/spelling if broken, but do not improve style or change voice.\n' +
+    '- If the user says "add calendly link" or "add booking link" → insert: https://calendly.com/rob-engwx/30min\n' +
+    '- If the user says "add phone" or "add number" → insert: +1 (786) 982-7800\n' +
+    '- If the user says "add website" → insert: https://engwx.com\n' +
+    '- Output ONLY the improved email body. No preamble, no "Here\'s the improved version:", no markdown fences, no explanation.';
+  var prompt = 'Original draft (keep these exact words — make minimal changes only):\n"""\n' + (originalDraft || '(empty)') + '\n"""\n\n' +
+    'User\'s instructions (do ONLY what they ask, nothing more):\n"""\n' + (context || '').trim() + '\n"""\n\n' +
     (meta && meta.tenant_name ? 'Recipient is at: ' + meta.tenant_name + '\n' : '') +
-    (meta && meta.classification ? 'Reason for outreach: ' + meta.classification + '\n' : '') +
-    (meta && meta.subject ? 'Subject line: ' + meta.subject + '\n' : '') +
-    '\nRewrite the draft now.';
+    'Output the minimally-edited email body now. Preserve the user\'s words.';
   try {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
