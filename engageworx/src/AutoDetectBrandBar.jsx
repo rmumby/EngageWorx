@@ -32,11 +32,12 @@ export default function AutoDetectBrandBar({ tenantId, C, onDetected }) {
       var d = await r.json();
       console.log('[AutoDetect] API response:', d);
 
-      // 3. Build and save patch
+      // 3. Build and save patch — column names must match tenants table schema exactly
       var patch = {};
       if (d.primary_color) patch.brand_primary = d.primary_color;
       if (d.secondary_color) patch.brand_secondary = d.secondary_color;
-      if (d.logo_url) patch.logo_url = d.logo_url;
+      if (d.logo_url) patch.brand_logo_url = d.logo_url;
+      if (d.favicon_url) patch.brand_favicon_url = d.favicon_url;
       if (d.site_name) patch.brand_name = d.site_name;
 
       if (Object.keys(patch).length > 0) {
