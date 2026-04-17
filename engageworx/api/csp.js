@@ -43,7 +43,7 @@ async function sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan)
     var systemPrompt = ws.welcome_email_ai_prompt ||
       'You are ' + senderName + ', writing a welcome email to a new customer. Write exactly 2 short paragraphs. First: warm personal welcome referencing their company name and plan. Second: invite them to book a call. No URLs, no sign-off.';
     var aiRes = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 300,
       system: systemPrompt,
       messages: [{ role: 'user', content: 'New signup — Company: ' + companyName + ', Plan: ' + plan + ', Email: ' + email }]

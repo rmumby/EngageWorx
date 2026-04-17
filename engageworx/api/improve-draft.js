@@ -37,7 +37,7 @@ async function rewrite(originalDraft, context, meta) {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 800, system: system, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 800, system: system, messages: [{ role: 'user', content: prompt }] }),
     });
     var d = await r.json();
     var txt = (d.content || []).find(function(b) { return b.type === 'text'; });

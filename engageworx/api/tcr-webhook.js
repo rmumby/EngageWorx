@@ -19,7 +19,7 @@ async function callClaude(system, message) {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 600,
       system: system,
       messages: [{ role: 'user', content: message }],

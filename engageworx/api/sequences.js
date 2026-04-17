@@ -23,7 +23,7 @@ async function personaliseMessage(template, lead, tenantName) {
     var AnthropicSdk = require('@anthropic-ai/sdk');
     var anthropic = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
     var res = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 300,
       system: 'You are personalising an outreach message. Replace [FirstName] with the lead first name, [Company] with their company, [Platform] with ' + (tenantName || 'EngageWorx') + '. Keep the message natural and genuine. Return only the personalised message text, no explanation.',
       messages: [{ role: 'user', content: 'Template: ' + template + '\n\nLead name: ' + (lead.name || '') + '\nLead company: ' + (lead.company || '') + '\nLead type: ' + (lead.type || '') }]

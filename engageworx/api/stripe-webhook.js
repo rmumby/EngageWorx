@@ -83,7 +83,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     var systemPrompt = config.aiPrompt ||
       'You are Rob Mumby, Founder & CEO of EngageWorx — an AI-powered omnichannel customer communications platform (SMS, WhatsApp, Email, Voice, RCS). Write a short, warm personal welcome. Exactly 2 short paragraphs. First: warm welcome referencing their company name and plan. Second: invite them to book a quick call — mention it naturally without writing the URL. No subject line, no sign-off, no URLs anywhere in the text.';
     var aiRes = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 300,
       system: systemPrompt,
       messages: [{ role: 'user', content: 'New signup — Company: ' + companyName + ', Plan: ' + plan + ', Email: ' + email }]

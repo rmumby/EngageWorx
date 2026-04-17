@@ -172,7 +172,7 @@ async function analyzeAndActionEmail(ctx) {
       var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
       });
       var aiData = await aiRes.json();
       var txt = (aiData.content || []).find(function(b) { return b.type === 'text'; })?.text || '';
@@ -274,7 +274,7 @@ async function tryQualifyProspect(email, replyBody, channel) {
         method: 'POST',
         headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001', max_tokens: 200,
+          model: 'claude-haiku-4-5', max_tokens: 200,
           system: 'Extract sender info from prospect replies. Return STRICT JSON only: {"name": "full name" or null, "phone": "phone" or null}. No other text.',
           messages: [{ role: 'user', content: 'Reply message: ' + (replyBody || '') + '\n\nExtract the sender\'s name (if mentioned) and phone number (if mentioned). Return JSON.' }],
         }),
@@ -394,7 +394,7 @@ async function getAIReply(message) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: 500,
       system: EW_EMAIL_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: message }],

@@ -3,7 +3,7 @@
 // POST /api/ai?action=classify  → Classify intent of a message
 // POST /api/ai?action=test      → Test AI is working
 
-const CLAUDE_MODEL = 'claude-haiku-4-5-20251001';
+const CLAUDE_MODEL = 'claude-haiku-4-5';
 
 module.exports = async function handler(req, res) {
   // CORS

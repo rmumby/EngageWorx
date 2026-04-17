@@ -96,7 +96,7 @@ async function aiReplyForSms(tenantId, lang, body) {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: system, messages: [{ role: 'user', content: body }] }),
+      body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 200, system: system, messages: [{ role: 'user', content: body }] }),
     });
     var d = await r.json();
     var txt = (d.content || []).find(function(b) { return b.type === 'text'; });

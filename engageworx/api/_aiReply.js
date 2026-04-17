@@ -13,7 +13,7 @@ async function getAIReply(message, systemPrompt, maxTokens) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       max_tokens: maxTokens || 300,
       system: systemPrompt,
       messages: [{ role: 'user', content: message }],

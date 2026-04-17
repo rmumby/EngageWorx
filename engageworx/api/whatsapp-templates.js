@@ -34,7 +34,7 @@ async function aiDraft(useCase, brand) {
     var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-5', max_tokens: 1600, system: system, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1600, system: system, messages: [{ role: 'user', content: prompt }] }),
     });
     var data = await aiRes.json();
     var txt = (data.content || []).find(function(b) { return b.type === 'text'; });

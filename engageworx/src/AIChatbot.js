@@ -751,9 +751,9 @@ saveAIConfig(newSources);
                     <div>
                       <label style={label}>AI Model</label>
                       <select style={inputStyle}>
-                        <option>Claude 3.5 Sonnet (Recommended)</option>
-                        <option>Claude 3.5 Haiku (Fast)</option>
-                        <option>Claude 3 Opus (Most Capable)</option>
+                        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
+                        <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fast)</option>
+                        <option value="claude-opus-4-7">Claude Opus 4.7 (Most Capable)</option>
                       </select>
                     </div>
                     <div>

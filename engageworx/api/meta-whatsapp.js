@@ -175,7 +175,7 @@ module.exports = async function handler(req, res) {
           if (chatbot.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbot.knowledge_base;
 
           var aiRes = await anthropic.messages.create({
-            model: 'claude-haiku-4-5-20251001',
+            model: 'claude-haiku-4-5',
             max_tokens: 500,
             system: systemPrompt,
             messages: [{ role: 'user', content: messageText }],

@@ -67,7 +67,7 @@ async function askClaude(channel, context) {
     var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: context.prompt }] }),
+      body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: context.prompt }] }),
     });
     var aiData = await aiRes.json();
     var txt = (aiData.content || []).find(function(b) { return b.type === 'text'; });
@@ -79,7 +79,7 @@ async function askClaude(channel, context) {
       var usage = aiData.usage || {};
       _usage.logAiUsage(context.supabase, {
         tenant_id: context.tenantId,
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         input_tokens: usage.input_tokens || 0,
         output_tokens: usage.output_tokens || 0,
         feature: 'omnichannel_digest',
