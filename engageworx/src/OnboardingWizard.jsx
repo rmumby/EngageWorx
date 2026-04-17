@@ -47,24 +47,48 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
 
   useEffect(function() {
     if (!tenantId) { setLoading(false); return; }
+    // Reset all fields immediately so stale values from a prior tenant don't flash.
+    // The async fetch below overwrites these with the current tenant's actual data.
+    setTenant(null);
+    setStep(1);
+    setDisplayName('');
+    setPortalName('');
+    setLogoUrl('');
+    setPrimaryColor('#00C9FF');
+    setAccentColor('#E040FB');
+    setWebsiteUrl('');
+    setFromEmail('');
+    setFromName('');
+    setSendgridKey('');
+    setSkipEmail(false);
+    setAgentName('Aria');
+    setBusinessDescription('');
+    setFaqs([{ q: '', a: '' }, { q: '', a: '' }, { q: '', a: '' }]);
+    setSkipAI(false);
+    setWaPhoneId('');
+    setWaAccountId('');
+    setWaToken('');
+    setSkipWa(true);
+
     (async function() {
       try {
         var t = await supabase.from('tenants').select('id, name, brand_name, plan, portal_name, brand_logo_url, brand_primary, brand_secondary, website_url, onboarding_step').eq('id', tenantId).maybeSingle();
+        console.log('[Onboarding] tenant fetch for', tenantId, '→', t.data ? { name: t.data.name, brand_name: t.data.brand_name, portal_name: t.data.portal_name } : 'no data');
         if (t.data) {
           setTenant(t.data);
           setStep(Math.max(1, Math.min(6, t.data.onboarding_step || 1)));
           setDisplayName(t.data.brand_name || t.data.name || '');
           setPortalName(t.data.portal_name || '');
           setLogoUrl(t.data.brand_logo_url || '');
-          setPrimaryColor(t.data.brand_primary || '#00C9FF');
-          setAccentColor(t.data.brand_secondary || '#E040FB');
+          if (t.data.brand_primary) setPrimaryColor(t.data.brand_primary);
+          if (t.data.brand_secondary) setAccentColor(t.data.brand_secondary);
           setWebsiteUrl(t.data.website_url || '');
-          setAgentName('Aria');
         }
         var ec = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
+        console.log('[Onboarding] email config for', tenantId, '→', ec.data ? { from_email: ec.data.config_encrypted?.from_email, from_name: ec.data.config_encrypted?.from_name } : 'no config');
         if (ec.data && ec.data.config_encrypted) {
-          setFromEmail(ec.data.config_encrypted.from_email || '');
-          setFromName(ec.data.config_encrypted.from_name || '');
+          if (ec.data.config_encrypted.from_email) setFromEmail(ec.data.config_encrypted.from_email);
+          if (ec.data.config_encrypted.from_name) setFromName(ec.data.config_encrypted.from_name);
         }
         var cb = await supabase.from('chatbot_configs').select('bot_name, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
         if (cb.data) {
