@@ -335,6 +335,63 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     );
   }
 
+  var [aiGenerating, setAiGenerating] = useState(false);
+  var [faqGenerating, setFaqGenerating] = useState(false);
+
+  async function generateDescription() {
+    setAiGenerating(true);
+    try {
+      var companyLabel = displayName || portalName || 'our business';
+      var siteInfo = '';
+      if (websiteUrl) {
+        try {
+          var br = await fetch('/api/detect-branding?url=' + encodeURIComponent(websiteUrl));
+          var bd = await br.json();
+          if (bd.site_name) siteInfo = ' (' + bd.site_name + ')';
+        } catch (e) {}
+      }
+      var r = await fetch('/api/ai-advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          max_tokens: 200,
+          messages: [{ role: 'user', content: 'Write a 2-3 sentence business description for "' + companyLabel + siteInfo + '". This will be used as an AI chatbot knowledge base so the AI can answer customer questions. Be specific and factual. Output only the description, no preamble.' }],
+        }),
+      });
+      var d = await r.json();
+      var txt = (d.content || []).find(function(b) { return b.type === 'text'; });
+      if (txt && txt.text) setBusinessDescription(txt.text.trim());
+    } catch (e) { alert('Generation failed: ' + e.message); }
+    setAiGenerating(false);
+  }
+
+  async function suggestFaqs() {
+    if (!businessDescription.trim()) { alert('Add a business description first — AI needs it to generate relevant FAQs.'); return; }
+    setFaqGenerating(true);
+    try {
+      var r = await fetch('/api/ai-advisor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          max_tokens: 400,
+          messages: [{ role: 'user', content: 'Based on this business description, generate exactly 3 customer FAQs as a JSON array of {q, a} objects. Each answer should be 1-2 sentences. Output ONLY the JSON array, no markdown.\n\nBusiness: ' + businessDescription.trim() }],
+        }),
+      });
+      var d = await r.json();
+      var txt = (d.content || []).find(function(b) { return b.type === 'text'; });
+      if (txt && txt.text) {
+        var m = txt.text.match(/\[[\s\S]*\]/);
+        if (m) {
+          var parsed = JSON.parse(m[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFaqs(parsed.slice(0, 5).map(function(f) { return { q: f.q || f.question || '', a: f.a || f.answer || '' }; }));
+          }
+        }
+      }
+    } catch (e) { alert('FAQ generation failed: ' + e.message); }
+    setFaqGenerating(false);
+  }
+
   function renderStep4() {
     return (
       <div>
@@ -342,9 +399,18 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
         <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria reads inbound messages, answers customer questions, and routes anything she can't handle to your team.</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
           <div><label style={label}>AI agent name</label><input value={agentName} onChange={function(e) { setAgentName(e.target.value); }} placeholder="Aria" style={inputStyle} /></div>
-          <div><label style={label}>Business description (what does your business do?)</label><textarea value={businessDescription} onChange={function(e) { setBusinessDescription(e.target.value); }} rows={4} placeholder="We're a US-based MSP helping mid-market healthcare clients with…" style={Object.assign({}, inputStyle, { resize: 'vertical' })} /></div>
           <div>
-            <label style={label}>Key FAQs (up to 5)</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <label style={label}>Business description (what does your business do?)</label>
+              <button onClick={generateDescription} disabled={aiGenerating} style={{ background: 'linear-gradient(135deg,' + primaryColor + ',' + accentColor + ')', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 11, opacity: aiGenerating ? 0.5 : 1 }}>{aiGenerating ? '⏳ Generating…' : '✨ Generate with AI'}</button>
+            </div>
+            <textarea value={businessDescription} onChange={function(e) { setBusinessDescription(e.target.value); }} rows={4} placeholder="We're a US-based MSP helping mid-market healthcare clients with…" style={Object.assign({}, inputStyle, { resize: 'vertical' })} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <label style={label}>Key FAQs (up to 5)</label>
+              <button onClick={suggestFaqs} disabled={faqGenerating} style={{ background: 'linear-gradient(135deg,' + primaryColor + ',' + accentColor + ')', border: 'none', borderRadius: 6, padding: '5px 12px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 11, opacity: faqGenerating ? 0.5 : 1 }}>{faqGenerating ? '⏳ Generating…' : '✨ Suggest FAQs'}</button>
+            </div>
             {faqs.slice(0, 5).map(function(f, idx) {
               return (
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 30px', gap: 6, marginBottom: 6 }}>
