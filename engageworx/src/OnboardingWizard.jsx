@@ -86,11 +86,21 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           if (t.data.brand_secondary) setAccentColor(t.data.brand_secondary);
           setWebsiteUrl(t.data.website_url || '');
         }
-        var ec = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
-        console.log('[Onboarding] email config for', tenantId, '→', ec.data ? { from_email: ec.data.config_encrypted?.from_email, from_name: ec.data.config_encrypted?.from_name } : 'no config');
-        if (ec.data && ec.data.config_encrypted) {
-          if (ec.data.config_encrypted.from_email) setFromEmail(ec.data.config_encrypted.from_email);
-          if (ec.data.config_encrypted.from_name) setFromName(ec.data.config_encrypted.from_name);
+        var ec = await supabase.from('channel_configs').select('id, tenant_id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
+        if (ec.error) {
+          console.warn('[Onboarding] email config query ERROR for tenant_id=' + tenantId + ':', ec.error.message, ec.error.code);
+        } else if (!ec.data) {
+          console.log('[Onboarding] email config for tenant_id=' + tenantId + ' → NO ROW (new tenant, no email configured yet)');
+        } else {
+          var cfgRow = ec.data;
+          var cfg = cfgRow.config_encrypted || {};
+          console.log('[Onboarding] email config for tenant_id=' + tenantId + ' → row_id=' + cfgRow.id + ' row_tenant_id=' + cfgRow.tenant_id + ' from_email=' + (cfg.from_email || '(empty)') + ' from_name=' + (cfg.from_name || '(empty)'));
+          if (cfgRow.tenant_id !== tenantId) {
+            console.error('[Onboarding] ⚠️ WRONG TENANT! Query asked for', tenantId, 'but got row belonging to', cfgRow.tenant_id, '— this is a cross-tenant bleed. Ignoring row.');
+          } else {
+            if (cfg.from_email) setFromEmail(cfg.from_email);
+            if (cfg.from_name) setFromName(cfg.from_name);
+          }
         }
         var cb = await supabase.from('chatbot_configs').select('bot_name, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
         if (cb.data) {
