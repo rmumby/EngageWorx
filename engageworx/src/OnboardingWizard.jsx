@@ -128,10 +128,46 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
 
   async function autoDetectLogo() {
     if (!websiteUrl.trim()) { alert('Enter a website URL first.'); return; }
+    var domain = websiteUrl.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    var fullUrl = websiteUrl.trim().indexOf('http') === 0 ? websiteUrl.trim() : ('https://' + domain);
+
+    // Save website_url immediately so it persists even if the user closes the wizard.
+    if (tenantId) {
+      try { await supabase.from('tenants').update({ website_url: fullUrl }).eq('id', tenantId); } catch (e) {}
+    }
+
+    // 1. Try the full Claude-powered detect-brand endpoint (extracts og:image, theme-color, name)
+    var bestLogo = null;
     try {
-      var url = websiteUrl.trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
-      setLogoUrl('https://www.google.com/s2/favicons?domain=' + url + '&sz=128');
+      var proxyUrl = '/api/detect-brand?url=' + encodeURIComponent(fullUrl);
+      var r = await fetch(proxyUrl).catch(function() { return null; });
+      if (r && r.ok) {
+        var d = await r.json();
+        var brand = d.brand || d; // existing endpoint wraps in { brand: {...} }
+        if (brand.logoUrl) bestLogo = brand.logoUrl;
+        if (brand.primary && /^#[0-9a-fA-F]{3,8}$/.test(brand.primary)) setPrimaryColor(brand.primary);
+        if (brand.secondary && /^#[0-9a-fA-F]{3,8}$/.test(brand.secondary)) setAccentColor(brand.secondary);
+        if (brand.name && !displayName) setDisplayName(brand.name);
+      }
     } catch (e) {}
+
+    // 2. Fallback: apple-touch-icon direct fetch (many sites serve it at a known path)
+    if (!bestLogo) {
+      try {
+        var touchIconUrl = fullUrl.replace(/\/$/, '') + '/apple-touch-icon.png';
+        var probe = await fetch(touchIconUrl, { method: 'HEAD' }).catch(function() { return null; });
+        if (probe && probe.ok && probe.headers.get('content-type') && probe.headers.get('content-type').indexOf('image') !== -1) {
+          bestLogo = touchIconUrl;
+        }
+      } catch (e) {}
+    }
+
+    // 3. Fallback: Google S2 favicons API (always returns something, even a generic globe)
+    if (!bestLogo) {
+      bestLogo = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128';
+    }
+
+    setLogoUrl(bestLogo);
   }
 
   async function testEmailConnection() {

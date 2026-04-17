@@ -1059,6 +1059,28 @@ setDemoCreating(false);
 
                     <div style={{ marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                       <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12, fontWeight: 700 }}>🎨 Branding</div>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>🌐 Website URL</div>
+                          <input type="url" defaultValue={c.website_url || ''} placeholder="https://example.com" data-field={"website_url_" + c.id} style={inputStyleTM} />
+                        </div>
+                        <button onClick={async function() {
+                          var el = document.querySelector('[data-field="website_url_' + c.id + '"]');
+                          var url = (el && el.value || '').trim();
+                          if (!url) { alert('Enter a website URL first.'); return; }
+                          try {
+                            await supabase.from('tenants').update({ website_url: url.indexOf('http') === 0 ? url : 'https://' + url }).eq('id', c.id);
+                            var r = await fetch('/api/detect-brand?url=' + encodeURIComponent(url));
+                            var d = await r.json();
+                            var brand = d.brand || d;
+                            var msg = [];
+                            if (brand.name) msg.push('Name: ' + brand.name);
+                            if (brand.primary) msg.push('Primary: ' + brand.primary);
+                            if (brand.logoUrl) msg.push('Logo: found');
+                            alert('✅ Website saved. ' + (msg.length ? 'Detected: ' + msg.join(', ') + '. Open the Branding editor below to apply.' : 'No brand signals detected — configure manually below.'));
+                          } catch (e) { alert('Error: ' + e.message); }
+                        }} style={{ background: "rgba(0,201,255,0.15)", border: "1px solid rgba(0,201,255,0.35)", borderRadius: 8, padding: "8px 14px", color: "#00C9FF", fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", marginTop: 16 }}>Auto-detect</button>
+                      </div>
                       <BrandingEditor
                         entityId={c.id}
                         actor={{ tenantId: null, entityTier: 'super_admin', isSuperAdmin: true, mspEnabled: true, loaOnFile: true }}

@@ -2,12 +2,13 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  var url = (req.body.url || '').trim();
+  // Accept url from POST body OR GET query param
+  var url = ((req.body && req.body.url) || (req.query && req.query.url) || '').trim();
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
   // Normalize URL
