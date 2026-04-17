@@ -76,49 +76,101 @@ module.exports = async function handler(req, res) {
     if (iconLink) result.favicon_url = resolveUrl(iconLink[1]);
     else result.favicon_url = origin + '/favicon.ico';
 
+    // ── Color utilities ──────────────────────────────────────────────────
+    function hexToRgb(hex) {
+      return { r: parseInt(hex.slice(1, 3), 16), g: parseInt(hex.slice(3, 5), 16), b: parseInt(hex.slice(5, 7), 16) };
+    }
+    function rgbToHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      var max = Math.max(r, g, b), min = Math.min(r, g, b);
+      var h = 0, s = 0, l = (max + min) / 2;
+      if (max !== min) {
+        var d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        else if (max === g) h = ((b - r) / d + 2) / 6;
+        else h = ((r - g) / d + 4) / 6;
+      }
+      return { h: h * 360, s: s * 100, l: l * 100 };
+    }
+    function isBrandWorthy(hex) {
+      var c = hexToRgb(hex);
+      // Filter near-black (including dark text defaults like #0a0a0a, #111, #1a1a1a)
+      if (c.r < 35 && c.g < 35 && c.b < 35) return false;
+      // Filter near-white
+      if (c.r > 225 && c.g > 225 && c.b > 225) return false;
+      // Filter pure grays (low saturation AND mid-range lightness)
+      var hsl = rgbToHsl(c.r, c.g, c.b);
+      if (hsl.s < 8) return false;
+      return true;
+    }
+    function hueDiff(hex1, hex2) {
+      var h1 = rgbToHsl(hexToRgb(hex1).r, hexToRgb(hex1).g, hexToRgb(hex1).b).h;
+      var h2 = rgbToHsl(hexToRgb(hex2).r, hexToRgb(hex2).g, hexToRgb(hex2).b).h;
+      var diff = Math.abs(h1 - h2);
+      return diff > 180 ? 360 - diff : diff;
+    }
+
     // ── Colors ───────────────────────────────────────────────────────────
     // Priority 1: explicit meta tags
     var themeColor = metaContent('theme-color') || metaContent('msapplication-TileColor');
-    if (themeColor && /^#[0-9a-fA-F]{3,8}$/.test(themeColor)) {
+    if (themeColor && /^#[0-9a-fA-F]{3,8}$/.test(themeColor) && isBrandWorthy(themeColor.length === 4
+        ? '#' + themeColor[1] + themeColor[1] + themeColor[2] + themeColor[2] + themeColor[3] + themeColor[3]
+        : themeColor)) {
       result.primary_color = themeColor.toLowerCase();
     }
 
-    // Priority 2: hex colors extracted ONLY from <style> blocks and inline style="…"
-    // attributes — not from <script> blocks, JSON-LD, or raw text, which pollute results
-    // with third-party library colors (e.g. EngageWorx widget defaults).
-    if (!result.primary_color || !result.secondary_color) {
-      // Strip scripts and JSON-LD before scanning
-      var cleanedHtml = html
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '');
-      // Collect CSS from <style> blocks and inline style attributes
-      var styleContent = '';
-      var styleBlocks = cleanedHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
-      styleBlocks.forEach(function(b) { styleContent += b + ' '; });
-      var inlineStyles = cleanedHtml.match(/style=["'][^"']+["']/gi) || [];
-      inlineStyles.forEach(function(s) { styleContent += s + ' '; });
-      // Also scan CSS custom properties from :root or body
-      var rootBlocks = cleanedHtml.match(/:root\s*\{[^}]+\}/gi) || [];
-      rootBlocks.forEach(function(b) { styleContent += b + ' '; });
+    // Priority 2: CSS from <style>, inline style=, and :root — NOT <script>
+    var cleanedHtml = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '');
 
-      var hexMatches = styleContent.match(/#[0-9A-Fa-f]{6}/g) || [];
+    // Source 2a: stylesheet content
+    var styleContent = '';
+    (cleanedHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || []).forEach(function(b) { styleContent += b + ' '; });
+    (cleanedHtml.match(/style=["'][^"']+["']/gi) || []).forEach(function(s) { styleContent += s + ' '; });
+    (cleanedHtml.match(/:root\s*\{[^}]+\}/gi) || []).forEach(function(b) { styleContent += b + ' '; });
+
+    // Source 2b: button / CTA / link / a / nav elements — weight these higher as brand indicators
+    var ctaContent = '';
+    (cleanedHtml.match(/<(?:a|button|nav|header)[^>]+style=["'][^"']+["']/gi) || []).forEach(function(s) { ctaContent += s + ' '; });
+    // class-based brand colors (bg-primary, btn-primary, text-brand, etc.)
+    (cleanedHtml.match(/(?:bg|text|border|btn|brand|primary|accent|cta)[-_]?(?:color)?["'\s:;]*#[0-9A-Fa-f]{6}/gi) || []).forEach(function(s) { ctaContent += s + ' '; });
+
+    function collectHex(source, weightMultiplier) {
+      var matches = source.match(/#[0-9A-Fa-f]{6}/g) || [];
       var freq = {};
-      hexMatches.forEach(function(c) {
+      matches.forEach(function(c) {
         var lc = c.toLowerCase();
-        var rv = parseInt(lc.slice(1, 3), 16);
-        var gv = parseInt(lc.slice(3, 5), 16);
-        var bv = parseInt(lc.slice(5, 7), 16);
-        if (rv < 30 && gv < 30 && bv < 30) return;
-        if (rv > 225 && gv > 225 && bv > 225) return;
-        if (Math.abs(rv - gv) < 15 && Math.abs(gv - bv) < 15 && Math.abs(rv - bv) < 15) return;
-        freq[lc] = (freq[lc] || 0) + 1;
+        if (!isBrandWorthy(lc)) return;
+        freq[lc] = (freq[lc] || 0) + (weightMultiplier || 1);
       });
-      var sorted = Object.entries(freq).sort(function(a, b) { return b[1] - a[1]; });
-      if (!result.primary_color && sorted.length > 0) result.primary_color = sorted[0][0];
-      if (!result.secondary_color && sorted.length > 1) result.secondary_color = sorted[1][0];
-      if (result.primary_color && !result.secondary_color && sorted.length > 0) {
-        var candidate = sorted.find(function(e) { return e[0] !== result.primary_color; });
-        if (candidate) result.secondary_color = candidate[0];
+      return freq;
+    }
+
+    // Merge with CTA colors weighted 3x
+    var styleFreq = collectHex(styleContent, 1);
+    var ctaFreq = collectHex(ctaContent, 3);
+    var merged = Object.assign({}, styleFreq);
+    Object.keys(ctaFreq).forEach(function(k) { merged[k] = (merged[k] || 0) + ctaFreq[k]; });
+
+    var sorted = Object.entries(merged).sort(function(a, b) { return b[1] - a[1]; });
+
+    if (!result.primary_color && sorted.length > 0) result.primary_color = sorted[0][0];
+    // Secondary must be visually distinct from primary (>30 deg hue difference)
+    if (result.primary_color) {
+      for (var si = 0; si < sorted.length; si++) {
+        var cand = sorted[si][0];
+        if (cand === result.primary_color) continue;
+        if (hueDiff(result.primary_color, cand) > 30) {
+          result.secondary_color = cand;
+          break;
+        }
+      }
+      // If no distinct secondary found, take the first non-identical color
+      if (!result.secondary_color) {
+        var fallbackCand = sorted.find(function(e) { return e[0] !== result.primary_color; });
+        if (fallbackCand) result.secondary_color = fallbackCand[0];
       }
     }
 
