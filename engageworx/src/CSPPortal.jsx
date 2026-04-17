@@ -26,6 +26,7 @@ var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
 export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [brandColors, setBrandColors] = useState({});
+  var [brandingKey, setBrandingKey] = useState(0);
   // Load this tenant's branding from DB so drilled-in SP admins see tenant colors, not EngageWorx defaults
   useEffect(function() {
     if (!cspTenantId) return;
@@ -581,8 +582,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div style={{ padding: '32px 36px', maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Your Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Your portal brand colors, logo, and identity.</p>
-            <AutoDetectBrandBar tenantId={cspTenantId} C={C} />
-            <BrandingEditor entityId={cspTenantId} actor={{ tenantId: cspTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
+            <AutoDetectBrandBar tenantId={cspTenantId} C={C} onDetected={function() { setBrandingKey(function(k) { return k + 1; }); }} />
+            <BrandingEditor key={'brand-' + brandingKey} entityId={cspTenantId} actor={{ tenantId: cspTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
 
             <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>🏢 Tenant Branding</h2>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
-export default function AutoDetectBrandBar({ tenantId, C }) {
+export default function AutoDetectBrandBar({ tenantId, C, onDetected }) {
   var [url, setUrl] = useState('');
   var [busy, setBusy] = useState(false);
   var [result, setResult] = useState(null);
@@ -23,16 +23,35 @@ export default function AutoDetectBrandBar({ tenantId, C }) {
     setBusy(true);
     setResult(null);
     try {
-      await supabase.from('tenants').update({ website_url: fullUrl }).eq('id', tenantId);
+      // 1. Save website_url
+      var urlRes = await supabase.from('tenants').update({ website_url: fullUrl }).eq('id', tenantId);
+      console.log('[AutoDetect] website_url save:', urlRes.error ? urlRes.error.message : 'ok');
+
+      // 2. Detect brand
       var r = await fetch('/api/detect-branding?url=' + encodeURIComponent(fullUrl));
       var d = await r.json();
+      console.log('[AutoDetect] API response:', d);
+
+      // 3. Build and save patch
       var patch = {};
       if (d.primary_color) patch.brand_primary = d.primary_color;
       if (d.secondary_color) patch.brand_secondary = d.secondary_color;
       if (d.logo_url) patch.logo_url = d.logo_url;
       if (d.site_name) patch.brand_name = d.site_name;
-      if (Object.keys(patch).length > 0) await supabase.from('tenants').update(patch).eq('id', tenantId);
+
+      if (Object.keys(patch).length > 0) {
+        var saveRes = await supabase.from('tenants').update(patch).eq('id', tenantId);
+        console.log('[AutoDetect] brand save:', saveRes.error ? saveRes.error.message : 'ok', patch);
+        if (saveRes.error) {
+          alert('Brand detection succeeded but save failed: ' + saveRes.error.message);
+        }
+      } else {
+        console.log('[AutoDetect] no brand signals detected — nothing saved');
+      }
+
       setResult(d);
+      // Signal parent to re-render BrandingEditor with fresh DB data
+      if (onDetected) onDetected(d);
     } catch (e) { alert('Detection failed: ' + e.message); }
     setBusy(false);
   }
@@ -47,12 +66,11 @@ export default function AutoDetectBrandBar({ tenantId, C }) {
       </div>
       {result && (
         <div style={{ marginTop: 10, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', color: '#cbd5e1', fontSize: 12 }}>
-          <span style={{ color: '#10b981', fontWeight: 700 }}>✅ Applied:</span>
+          <span style={{ color: '#10b981', fontWeight: 700 }}>✅ Saved & applied:</span>
           {result.site_name && <span>Name: <strong style={{ color: '#fff' }}>{result.site_name}</strong></span>}
           {result.primary_color && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 14, height: 14, borderRadius: 3, background: result.primary_color, display: 'inline-block', border: '1px solid rgba(255,255,255,0.2)' }} /> {result.primary_color}</span>}
           {result.secondary_color && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 14, height: 14, borderRadius: 3, background: result.secondary_color, display: 'inline-block', border: '1px solid rgba(255,255,255,0.2)' }} /> {result.secondary_color}</span>}
           {result.logo_url && <span>Logo ✓</span>}
-          <span style={{ color: muted, fontSize: 11 }}>Refresh BrandingEditor to see changes.</span>
         </div>
       )}
     </div>

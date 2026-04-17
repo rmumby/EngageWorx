@@ -1525,6 +1525,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     })();
   }, [tenantId, cpAuth]);
   const [agentName, setAgentName] = useState('Aria');
+  const [brandingKey, setBrandingKey] = useState(0);
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
@@ -1662,8 +1663,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <div style={{ padding: "32px 36px", maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Customize your portal branding</p>
-            <AutoDetectBrandBar tenantId={tenantId} C={C} />
-            <BrandingEditor entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
+            <AutoDetectBrandBar tenantId={tenantId} C={C} onDetected={function() { setBrandingKey(function(k) { return k + 1; }); }} />
+            <BrandingEditor key={'brand-' + brandingKey} entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
           </div>
         )}
         {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "sms-registration" && (

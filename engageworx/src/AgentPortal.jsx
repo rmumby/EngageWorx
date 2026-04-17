@@ -27,6 +27,7 @@ function getColors() {
 export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, onOpenTenantPortal }) {
   var baseC = getColors();
   var [brandOverrides, setBrandOverrides] = useState({});
+  var [brandingKey, setBrandingKey] = useState(0);
   useEffect(function() {
     if (!agentTenantId) return;
     (async function() {
@@ -643,8 +644,8 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
           <div style={{ maxWidth: 900 }}>
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Customize your agent portal branding.</p>
-            <AutoDetectBrandBar tenantId={agentTenantId} C={C} />
-            <BrandingEditor entityId={agentTenantId} actor={{ tenantId: agentTenantId, entityTier: 'agent', isSuperAdmin: false, mspEnabled: !!(agentInfo && agentInfo.msp_enabled), loaOnFile: !!(agentInfo && agentInfo.letter_of_agency) }} C={C} />
+            <AutoDetectBrandBar tenantId={agentTenantId} C={C} onDetected={function() { setBrandingKey(function(k) { return k + 1; }); }} />
+            <BrandingEditor key={'brand-' + brandingKey} entityId={agentTenantId} actor={{ tenantId: agentTenantId, entityTier: 'agent', isSuperAdmin: false, mspEnabled: !!(agentInfo && agentInfo.msp_enabled), loaOnFile: !!(agentInfo && agentInfo.letter_of_agency) }} C={C} />
           </div>
         )}
 
