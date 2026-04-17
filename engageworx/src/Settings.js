@@ -21,8 +21,8 @@ const NOTIFICATION_PREFS = [
 
 const CHANNEL_DEFS = [
   { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-    { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+    { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)", "🇵🇱 Poland (+48)"] },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
     { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
     { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message." },
     { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices." },
@@ -54,9 +54,9 @@ const CHANNEL_DEFS = [
   ]},
   { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
     { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu)." },
-    { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)"] },
+    { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)", "🇵🇱 Poland (+48)"] },
     { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
-    { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Brian-Neural (UK Male Natural)"] },
+    { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Ewa-Neural (Polish Female Natural)"] },
     { key: "greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. Our AI assistant will help you now.", aiAssist: true, aiContext: "Professional during-hours phone greeting." },
     { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "You've reached [Business]. We're currently closed.", aiAssist: true, aiContext: "Professional after-hours phone greeting." },
     { key: "voicemail_greeting", label: "Voicemail Greeting", type: "textarea", placeholder: "Hi, you've reached [Business]. We can't take your call right now. Please leave your name, number, and a short message after the tone and we'll get back to you shortly.", aiAssist: true, aiContext: "Friendly voicemail greeting read by TTS when the caller reaches voicemail.", hint: "AI reads this via TTS when the call rolls to voicemail." },

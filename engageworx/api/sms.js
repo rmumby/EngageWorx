@@ -421,6 +421,23 @@ module.exports = async function handler(req, res) {
         }
       } catch (usageErr) { console.log('[Usage] Check failed, allowing:', usageErr.message); }
     }
+    // Route +48 (Poland) numbers through the Poland carrier integration instead of Twilio
+    var normalizedTo = String(to).replace(/[\s\-\(\)]/g, '');
+    if (normalizedTo.indexOf('+48') === 0 || (normalizedTo.indexOf('48') === 0 && normalizedTo.length === 11)) {
+      try {
+        var plRes = await fetch((process.env.PORTAL_URL || 'https://portal.engwx.com') + '/api/poland-carrier?action=sms-outbound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenant_id: tenant_id, to: normalizedTo, body: body }),
+        });
+        var plData = await plRes.json();
+        if (plRes.ok) return res.status(200).json({ success: true, routed: 'poland', transport: plData.transport || 'poland_carrier', body: plData.body });
+        return res.status(plRes.status).json({ error: 'Poland carrier error', detail: plData });
+      } catch (plErr) {
+        console.warn('[SMS] Poland route failed, falling through to Twilio:', plErr.message);
+        // Fall through to Twilio as last resort
+      }
+    }
     try {
       const result = await sendSMS(to, body, from);
       if (!result.ok) return res.status(result.status).json({ error: result.data.message, code: result.data.code });
