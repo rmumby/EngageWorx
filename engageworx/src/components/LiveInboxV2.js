@@ -248,8 +248,35 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [calls, setCalls] = useState([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [selectedCall, setSelectedCall] = useState(null);
+  const [fromEmail, setFromEmail] = useState('');
+  const [senderEmails, setSenderEmails] = useState([]);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
+
+  // Load sender email options
+  useEffect(function() {
+    if (demoMode || !supabase || !currentTenantId) return;
+    (async function() {
+      try {
+        var emails = [];
+        // Tenant's configured from_email
+        var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', 'email').maybeSingle();
+        if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
+          emails.push({ email: chR.data.config_encrypted.from_email, label: 'Tenant default', type: 'tenant' });
+        }
+        // Team member emails (profiles with sender_email set, or their auth email)
+        var tmR = await supabase.from('profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', currentTenantId);
+        (tmR.data || []).forEach(function(p) {
+          var senderAddr = p.sender_email || p.email;
+          if (senderAddr && !emails.find(function(e) { return e.email === senderAddr; })) {
+            emails.push({ email: senderAddr, label: (p.full_name || p.email || '').split('@')[0], type: 'team', profileId: p.id, role: p.role });
+          }
+        });
+        setSenderEmails(emails);
+        if (emails.length > 0 && !fromEmail) setFromEmail(emails[0].email);
+      } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
+    })();
+  }, [currentTenantId, demoMode, supabase]);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
@@ -538,6 +565,7 @@ useEffect(() => {
         body: messageBody,
         status: 'delivered',
         sender_type: 'agent',
+        metadata: fromEmail ? { from_email: fromEmail } : null,
         created_at: new Date().toISOString(),
       });
       if (insertResult.error) { console.error('Message insert error:', insertResult.error.message); throw insertResult.error; }
@@ -548,7 +576,7 @@ useEffect(() => {
         status: 'active',
       }).eq('id', selectedConv.id);
 
-      // Send via API if SMS
+      // Send via API based on channel
       if (selectedConv.channel === 'sms' && selectedConv.contact?.phone) {
         try {
           await fetch('/api/sms', {
@@ -562,6 +590,22 @@ useEffect(() => {
           });
         } catch (smsErr) {
           console.warn('SMS send error:', smsErr.message);
+        }
+      }
+      if (selectedConv.channel === 'email' && selectedConv.contact?.email) {
+        try {
+          await fetch('/api/send-digest-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: selectedConv.contact.email,
+              subject: selectedConv.subject ? 'Re: ' + selectedConv.subject : 'Re: your message',
+              body: messageBody,
+              from: fromEmail || undefined,
+            }),
+          });
+        } catch (emailErr) {
+          console.warn('Email send error:', emailErr.message);
         }
       }
 
@@ -965,6 +1009,11 @@ useEffect(() => {
               <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>📎 Attach</button>
               {!isMobile && <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>}
               <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>{isMobile ? "🤖" : "🤖 AI Suggest"}</button>
+              {selectedConv.channel === 'email' && senderEmails.length > 0 && (
+                <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 6px", color: "#fff", fontSize: 10, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", flexShrink: 0, maxWidth: isMobile ? 120 : 200 }}>
+                  {senderEmails.map(function(se) { return <option key={se.email} value={se.email}>From: {se.email}</option>; })}
+                </select>
+              )}
               <div style={{ flex: 1 }} />
               {!isMobile && <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>}
             </div>
