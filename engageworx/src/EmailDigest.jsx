@@ -25,6 +25,20 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [improving, setImproving] = useState(false);
   var [improveErr, setImproveErr] = useState(null);
 
+  // ── Follow-up Generator state ──
+  var [followups, setFollowups] = useState([]);
+  var [fuLoading, setFuLoading] = useState(false);
+  var [fuGenerating, setFuGenerating] = useState(null);
+  var [fuGeneratingAll, setFuGeneratingAll] = useState(false);
+  var [fuSending, setFuSending] = useState(null);
+  var [fuSelected, setFuSelected] = useState({});
+  var [fuFilter, setFuFilter] = useState('cpexpo');
+  var [fuSearchOpen, setFuSearchOpen] = useState(false);
+  var [fuSearchQuery, setFuSearchQuery] = useState('');
+  var [fuSearchResults, setFuSearchResults] = useState([]);
+  var [fuSearching, setFuSearching] = useState(false);
+  var [fuImproving, setFuImproving] = useState(null);
+
   function openImprove(a) {
     var existing = (a.action_payload && a.action_payload.user_context) || '';
     setImproveOpenFor(a.id);
@@ -72,6 +86,190 @@ export default function EmailDigest({ C, currentTenantId }) {
       if (editingId === a.id) setEditDraft(orig);
       closeImprove();
     } catch (e) { alert('Restore failed: ' + e.message); }
+  }
+
+  // ── Follow-up candidate loader ──
+  async function loadFollowups() {
+    if (!currentTenantId) return;
+    setFuLoading(true);
+    try {
+      var sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+      var q;
+      if (fuFilter === 'cpexpo') {
+        q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
+          .eq('tenant_id', currentTenantId).eq('event_tag', 'CPExpo 2026 · Las Vegas');
+      } else {
+        q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
+          .eq('tenant_id', currentTenantId).or('last_activity_at.is.null,last_activity_at.lt.' + fourteenDaysAgo);
+      }
+      var r = await q.limit(50);
+      var contacts = r.data || [];
+      // Filter out contacts with recent conversations
+      var ids = contacts.map(function(c) { return c.id; });
+      if (ids.length === 0) { setFollowups([]); setFuLoading(false); return; }
+      var convR = await supabase.from('conversations').select('contact_id, last_message_at')
+        .eq('tenant_id', currentTenantId).in('contact_id', ids).gte('last_message_at', sevenDaysAgo);
+      var recentContactIds = {};
+      (convR.data || []).forEach(function(c) { recentContactIds[c.contact_id] = true; });
+      var candidates = contacts.filter(function(c) { return !recentContactIds[c.id]; });
+      setFollowups(candidates.map(function(c) {
+        var existing = followups.find(function(f) { return f.id === c.id; });
+        return {
+          id: c.id, first_name: c.first_name, last_name: c.last_name,
+          email: c.email, phone: c.phone, company: c.company,
+          event_tag: c.event_tag, notes: c.notes,
+          draft: existing ? existing.draft : '',
+          channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
+          generated: existing ? existing.generated : false,
+          manual: existing ? existing.manual : false,
+        };
+      }));
+    } catch (e) { console.error('[Followup] load error:', e.message); }
+    setFuLoading(false);
+  }
+  useEffect(function() { if (currentTenantId) loadFollowups(); }, [currentTenantId, fuFilter]);
+
+  async function generateFollowup(contact) {
+    setFuGenerating(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
+      var r = await fetch('/api/generate-followup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_name: name, company: contact.company || '',
+          event_tag: contact.event_tag || '', notes: contact.notes || '',
+          channel: contact.channel || 'email', tenant_id: currentTenantId,
+        }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Generation failed');
+      setFollowups(function(prev) { return prev.map(function(f) {
+        return f.id === contact.id ? Object.assign({}, f, { draft: d.draft, generated: true }) : f;
+      }); });
+    } catch (e) { alert('Generate error: ' + e.message); }
+    setFuGenerating(null);
+  }
+
+  async function generateAllFollowups() {
+    var pending = followups.filter(function(f) { return !f.draft; });
+    if (pending.length === 0) return;
+    setFuGeneratingAll(true);
+    for (var c of pending) {
+      await generateFollowup(c);
+    }
+    setFuGeneratingAll(false);
+  }
+
+  async function improveFollowup(contact) {
+    setFuImproving(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
+      var r = await fetch('/api/generate-followup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_name: name, company: contact.company || '',
+          event_tag: contact.event_tag || '', notes: contact.notes || '',
+          channel: contact.channel || 'email', tenant_id: currentTenantId,
+          existing_draft: contact.draft, improve: true,
+        }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Improve failed');
+      setFollowups(function(prev) { return prev.map(function(f) {
+        return f.id === contact.id ? Object.assign({}, f, { draft: d.draft }) : f;
+      }); });
+    } catch (e) { alert('Improve error: ' + e.message); }
+    setFuImproving(null);
+  }
+
+  async function sendFollowup(contact) {
+    if (!contact.draft) { alert('Generate a message first.'); return; }
+    setFuSending(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
+      // Create conversation + message in Live Inbox
+      var convRes = await supabase.from('conversations').insert({
+        tenant_id: currentTenantId, contact_id: contact.id,
+        channel: contact.channel, status: 'active',
+        subject: 'Follow-up: ' + name,
+        last_message_at: new Date().toISOString(), unread_count: 0,
+      }).select('id').single();
+      if (!convRes.data) throw new Error('Failed to create conversation');
+      await supabase.from('messages').insert({
+        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        contact_id: contact.id, channel: contact.channel,
+        direction: 'outbound', sender_type: 'agent',
+        body: contact.draft, status: 'delivered',
+        metadata: { source: 'followup_generator', event_tag: contact.event_tag || '' },
+        created_at: new Date().toISOString(),
+      });
+      // Send via appropriate channel
+      if (contact.channel === 'email' && contact.email) {
+        await fetch('/api/send-digest-reply', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: contact.email, subject: 'Following up' + (contact.event_tag ? ' — ' + contact.event_tag : ''), body: contact.draft }),
+        });
+      } else if (contact.channel === 'sms' && contact.phone) {
+        await fetch('/api/sms', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send', to: contact.phone, body: contact.draft, tenant_id: currentTenantId }),
+        });
+      }
+      // Remove from list
+      setFollowups(function(prev) { return prev.filter(function(f) { return f.id !== contact.id; }); });
+      setFuSelected(function(prev) { var n = Object.assign({}, prev); delete n[contact.id]; return n; });
+    } catch (e) { alert('Send error: ' + e.message); }
+    setFuSending(null);
+  }
+
+  async function sendSelectedFollowups() {
+    var sel = followups.filter(function(f) { return fuSelected[f.id] && f.draft; });
+    if (sel.length === 0) { alert('Select contacts with generated messages first.'); return; }
+    if (!window.confirm('Send ' + sel.length + ' follow-up message(s)?')) return;
+    setFuSending('bulk');
+    for (var c of sel) {
+      try { await sendFollowup(c); } catch (e) { console.error('Bulk send error:', c.id, e); }
+    }
+    setFuSending(null);
+  }
+
+  function toggleFuSelect(id) {
+    setFuSelected(function(prev) { var n = Object.assign({}, prev); n[id] = !n[id]; return n; });
+  }
+  function selectAllFu() {
+    var all = {};
+    followups.forEach(function(f) { all[f.id] = true; });
+    setFuSelected(all);
+  }
+  function deselectAllFu() { setFuSelected({}); }
+
+  async function searchContacts(query) {
+    if (!query.trim() || !currentTenantId) return;
+    setFuSearching(true);
+    try {
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
+        .eq('tenant_id', currentTenantId)
+        .or('first_name.ilike.%' + query + '%,last_name.ilike.%' + query + '%,email.ilike.%' + query + '%,company.ilike.%' + query + '%')
+        .limit(20);
+      var existingIds = {};
+      followups.forEach(function(f) { existingIds[f.id] = true; });
+      setFuSearchResults((r.data || []).filter(function(c) { return !existingIds[c.id]; }));
+    } catch (e) { console.error('[Followup] search error:', e); }
+    setFuSearching(false);
+  }
+
+  function addContactToFollowups(contact) {
+    setFollowups(function(prev) {
+      if (prev.find(function(f) { return f.id === contact.id; })) return prev;
+      return prev.concat([{
+        id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
+        email: contact.email, phone: contact.phone, company: contact.company,
+        event_tag: contact.event_tag, notes: contact.notes,
+        draft: '', channel: contact.email ? 'email' : 'sms', generated: false, manual: true,
+      }]);
+    });
+    setFuSearchResults(function(prev) { return prev.filter(function(c) { return c.id !== contact.id; }); });
   }
 
   useEffect(function() { load(); }, [currentTenantId]);
@@ -280,6 +478,151 @@ export default function EmailDigest({ C, currentTenantId }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* ═══════════ Pending Follow-ups Section ═══════════ */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>📋 Pending Follow-ups <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {followups.length}</span></h2>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: 3 }}>
+                  <button onClick={function() { setFuFilter('cpexpo'); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: fuFilter === 'cpexpo' ? colors.primary + '22' : 'transparent', color: fuFilter === 'cpexpo' ? colors.primary : colors.muted }}>CPExpo only</button>
+                  <button onClick={function() { setFuFilter('all_stale'); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: fuFilter === 'all_stale' ? colors.primary + '22' : 'transparent', color: fuFilter === 'all_stale' ? colors.primary : colors.muted }}>All pending (14+ days)</button>
+                </div>
+                <button onClick={function() { setFuSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
+                {followups.length > 0 && (
+                  <button onClick={generateAllFollowups} disabled={fuGeneratingAll} style={{ background: 'linear-gradient(135deg, #E040FB, #A855F7)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuGeneratingAll ? 0.6 : 1 }}>
+                    {fuGeneratingAll ? '⏳ Generating…' : '✨ Generate All'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 8px' }}>Contacts with no reply or conversation in the last 7 days. Claude generates personalized follow-ups using event context.</p>
+
+            {followups.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <button onClick={selectAllFu} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>Select All</button>
+                <button onClick={deselectAllFu} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>Deselect All</button>
+                {Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length > 0 && (
+                  <button onClick={sendSelectedFollowups} disabled={fuSending === 'bulk'} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuSending === 'bulk' ? 0.6 : 1 }}>
+                    {fuSending === 'bulk' ? '⏳ Sending…' : '✉️ Send Selected (' + Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length + ')'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {fuLoading ? (
+              <div style={{ color: colors.muted, textAlign: 'center', padding: 20 }}>Loading follow-up candidates…</div>
+            ) : followups.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 30 })}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
+                <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>No pending follow-ups</div>
+                <div style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>All contacts have been recently engaged, or use "Add Contact" to manually queue someone.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {followups.map(function(fu) {
+                  var name = ((fu.first_name || '') + ' ' + (fu.last_name || '')).trim() || fu.email || fu.phone || 'Unknown';
+                  var isGenerating = fuGenerating === fu.id || fuGeneratingAll;
+                  var isImproving = fuImproving === fu.id;
+                  var isSending = fuSending === fu.id || fuSending === 'bulk';
+                  return (
+                    <div key={fu.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (fu.draft ? '#10b981' : '#f59e0b') })}>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div style={{ paddingTop: 2 }}>
+                          <input type="checkbox" checked={!!fuSelected[fu.id]} onChange={function() { toggleFuSelect(fu.id); }} style={{ cursor: 'pointer', width: 16, height: 16 }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{name}</span>
+                            {fu.company && <span style={{ color: colors.muted, fontSize: 12 }}>· {fu.company}</span>}
+                            {fu.event_tag && <span style={{ background: 'rgba(224,64,251,0.12)', color: '#E040FB', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>{fu.event_tag}</span>}
+                            {fu.manual && <span style={{ background: 'rgba(14,165,233,0.12)', color: '#0ea5e9', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>Manual</span>}
+                          </div>
+                          <div style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
+                            {fu.email && <span>{fu.email}</span>}
+                            {fu.email && fu.phone && <span> · </span>}
+                            {fu.phone && <span>{fu.phone}</span>}
+                          </div>
+
+                          {fu.draft ? (
+                            <textarea value={fu.draft} onChange={function(e) {
+                              var val = e.target.value;
+                              setFollowups(function(prev) { return prev.map(function(f) { return f.id === fu.id ? Object.assign({}, f, { draft: val }) : f; }); });
+                            }} rows={4} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+                          ) : (
+                            <div style={{ color: colors.muted, fontSize: 12, fontStyle: 'italic', padding: '8px 0' }}>No message generated yet — click Generate or ✨ Generate All</div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <select value={fu.channel} onChange={function(e) {
+                              var val = e.target.value;
+                              setFollowups(function(prev) { return prev.map(function(f) { return f.id === fu.id ? Object.assign({}, f, { channel: val }) : f; }); });
+                            }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }}>
+                              <option value="email">📧 Email</option>
+                              <option value="sms">📱 SMS</option>
+                            </select>
+                            {!fu.draft && (
+                              <button onClick={function() { generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
+                                {isGenerating ? '⏳ Generating…' : '✨ Generate'}
+                              </button>
+                            )}
+                            {fu.draft && (
+                              <button onClick={function() { improveFollowup(fu); }} disabled={isImproving} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 6, padding: '5px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isImproving ? 0.5 : 1 }}>
+                                {isImproving ? '⏳ Improving…' : '✨ Improve'}
+                              </button>
+                            )}
+                            {fu.draft && (
+                              <button onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                                {isSending ? '⏳…' : '✉️ Send'}
+                              </button>
+                            )}
+                            <button onClick={function() {
+                              setFollowups(function(prev) { return prev.filter(function(f) { return f.id !== fu.id; }); });
+                              setFuSelected(function(prev) { var n = Object.assign({}, prev); delete n[fu.id]; return n; });
+                            }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Dismiss</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ═══════════ Contact Search Modal ═══════════ */}
+          {fuSearchOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setFuSearchOpen(false); }}>
+              <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 480, maxWidth: '90vw', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>＋ Add Contact to Follow-ups</h3>
+                  <button onClick={function() { setFuSearchOpen(false); }} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: 18, cursor: 'pointer' }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input value={fuSearchQuery} onChange={function(e) { setFuSearchQuery(e.target.value); }} onKeyDown={function(e) { if (e.key === 'Enter') searchContacts(fuSearchQuery); }} placeholder="Search by name, email, or company…" style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                  <button onClick={function() { searchContacts(fuSearchQuery); }} disabled={fuSearching} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 8, padding: '8px 14px', color: colors.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{fuSearching ? '…' : '🔍 Search'}</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {fuSearchResults.length === 0 ? (
+                    <div style={{ color: colors.muted, textAlign: 'center', padding: 20, fontSize: 13 }}>
+                      {fuSearchQuery ? 'No results — try a different query' : 'Type a name, email, or company to search'}
+                    </div>
+                  ) : fuSearchResults.map(function(c) {
+                    var cName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown';
+                    return (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{cName}</div>
+                          <div style={{ color: colors.muted, fontSize: 11 }}>{c.email || c.phone}{c.company ? ' · ' + c.company : ''}</div>
+                        </div>
+                        <button onClick={function() { addContactToFollowups(c); }} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>＋ Add</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {healthItems.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
