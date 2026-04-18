@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
+import { useTranslation } from 'react-i18next';
 import { DEMO_CONVERSATIONS } from '../demoFixtures';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
@@ -202,6 +203,7 @@ function timeAgo(date) {
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+  const { t } = useTranslation();
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
@@ -637,7 +639,7 @@ useEffect(() => {
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>Live Inbox</h2>
+            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>{t('inbox.title')}</h2>
             <div style={{ display: "flex", gap: 6 }}>
               {totalUnread > 0 && <span style={{ background: "#FF3B30", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
@@ -647,26 +649,26 @@ useEffect(() => {
           {/* Tab Switcher: Messages | Calls */}
           <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
             {[
-              { id: "all", label: "💬 All" },
-              { id: "messages", label: "Messages" },
-              { id: "calls", label: "📞 Calls" },
-            ].map(t => (
-              <button key={t.id} onClick={() => setInboxTab(t.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === t.id ? `${C.primary}22` : "transparent", color: inboxTab === t.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{t.label}</button>
+              { id: "all", label: "💬 " + t('inbox.all') },
+              { id: "messages", label: t('inbox.messages') },
+              { id: "calls", label: "📞 " + t('inbox.calls') },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setInboxTab(tab.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === tab.id ? `${C.primary}22` : "transparent", color: inboxTab === tab.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{tab.label}</button>
             ))}
           </div>
 
           {/* Search */}
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search conversations..." style={{ ...inputStyle, width: "100%", marginBottom: 8 }} />
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={t('inbox.searchPlaceholder')} style={{ ...inputStyle, width: "100%", marginBottom: 8 }} />
 
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible" }}>
             {[
-              { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
-              { id: "active", label: "Active", count: activeCount },
-              { id: "waiting", label: "Waiting", count: waitingCount },
-              { id: "urgent", label: "Urgent", count: conversations.filter(c => c.status === "urgent").length },
-              { id: "resolved", label: "Resolved", count: conversations.filter(c => c.status === "resolved").length },
-              { id: "spam", label: "Spam", count: conversations.filter(c => c.status === "spam").length },
+              { id: "all", label: t('inbox.all'), count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
+              { id: "active", label: t('inbox.active'), count: activeCount },
+              { id: "waiting", label: t('inbox.waiting'), count: waitingCount },
+              { id: "urgent", label: t('inbox.urgent'), count: conversations.filter(c => c.status === "urgent").length },
+              { id: "resolved", label: t('inbox.resolved'), count: conversations.filter(c => c.status === "resolved").length },
+              { id: "spam", label: t('inbox.spam'), count: conversations.filter(c => c.status === "spam").length },
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "rgba(255,255,255,0.04)",
@@ -755,7 +757,7 @@ useEffect(() => {
           {filtered.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
+              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : t('inbox.noConversations')}</div>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || (tenantFromEmail ? ("Try adjusting your filters or send an email to " + tenantFromEmail) : "Try adjusting your filters or start a conversation")}</div>
             </div>
           )}
@@ -769,8 +771,8 @@ useEffect(() => {
             ) : calls.length === 0 ? (
               <div style={{ padding: "40px 20px", textAlign: "center" }}>
                 <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>No calls yet</div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Calls and voicemails will appear here</div>
+                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{t('inbox.noCalls')}</div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{t('inbox.callsHint')}</div>
               </div>
             ) : calls.map(call => {
               const isVoicemail = call.status === 'voicemail' || call.recording_url;
@@ -868,7 +870,7 @@ useEffect(() => {
           <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px 10px" : "20px 24px" }}>
             {/* Date separator */}
             <div style={{ textAlign: "center", margin: "12px 0 20px" }}>
-              <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Today</span>
+              <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>{t('inbox.today')}</span>
             </div>
 
             {(selectedConv.messages || []).map((msg, i) => {
@@ -937,7 +939,7 @@ useEffect(() => {
             {/* Canned Responses */}
             {showCanned && (
               <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Quick Responses</div>
+                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{t('inbox.quickResponses')}</div>
                 <div style={{ display: "grid", gap: 4 }}>
                   {CANNED_RESPONSES.map(cr => (
                     <button key={cr.id} onClick={() => handleCannedSelect(cr.text)} style={{
@@ -975,7 +977,7 @@ useEffect(() => {
                 border: "none", borderRadius: 12, padding: "0 20px", color: composeText.trim() && !sendingMessage ? "#000" : "rgba(255,255,255,0.2)",
                 fontWeight: 700, cursor: composeText.trim() && !sendingMessage ? "pointer" : "not-allowed", fontSize: 14,
                 fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", alignSelf: "stretch",
-              }}>{sendingMessage ? "..." : "Send"}</button>
+              }}>{sendingMessage ? "..." : t('common.send')}</button>
             </div>
           </div>
         </div>
@@ -984,8 +986,8 @@ useEffect(() => {
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>💬</div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Select a conversation</div>
-            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>Choose from the inbox to start messaging</div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('inbox.selectConversation')}</div>
+            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>{t('inbox.selectHint')}</div>
             <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 28 }}>
               {[
                 { label: "Active", value: activeCount, color: C.primary },

@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from './supabaseClient';
 import EmailTrackingInstructions from './EmailTrackingInstructions';
 
-var STEPS = [
-  { id: 1, label: 'Welcome' },
-  { id: 2, label: 'Branding' },
-  { id: 3, label: 'Email' },
-  { id: 4, label: 'AI Assistant' },
-  { id: 5, label: 'WhatsApp' },
-  { id: 6, label: 'Done' },
-];
+var STEP_KEYS = ['welcome', 'branding', 'email', 'aiAssistant', 'whatsapp', 'done'];
 
 export default function OnboardingWizard({ tenantId, onComplete }) {
+  var { t } = useTranslation();
+  var STEPS = STEP_KEYS.map(function(key, i) { return { id: i + 1, label: t('onboarding.' + key) }; });
   var [step, setStep] = useState(1);
   var [tenant, setTenant] = useState(null);
   var [loading, setLoading] = useState(true);

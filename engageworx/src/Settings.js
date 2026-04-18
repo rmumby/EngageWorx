@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { supabase } from "./supabaseClient";
 import WelcomeEmailSettings from './WelcomeEmailSettings';
 import EmailTrackingInstructions from './EmailTrackingInstructions';
@@ -287,7 +288,9 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs, enabledModules, onSaveModules }) {
+  const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
+  const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
   const [stripePlan, setStripePlan] = useState(null);
@@ -817,22 +820,59 @@ return (<div>
 
       <div style={{ display: "flex", gap: 2, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
         {[
-          // Settings-grouped tabs (in display order)
-          { id: "channels", label: "Channels", icon: "📡" },
-          { id: "billing", label: "Billing", icon: "💳" },
-          { id: "team", label: "Team", icon: "👥" },
-          { id: "notifications", label: "Notifications", icon: "🔔" },
-          { id: "security", label: "Security", icon: "🔒" },
-          { id: "alerts", label: "SP Alerts", icon: "🚨" },
-          { id: "modules", label: "Modules", icon: "🧩" },
-          // APIs & Integrations group
-          { id: "integrations", label: "Integrations", icon: "🔌" },
-          { id: "api", label: "API Keys", icon: "🔑" },
-          { id: "webhooks", label: "Webhooks", icon: "🔗" },
-        ].filter(t => !allowedTabs || allowedTabs.includes(t.id)).map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{t.icon} {t.label}</button>
+          { id: "portal", label: t('settings.portal'), icon: "🌐" },
+          { id: "channels", label: t('settings.channels'), icon: "📡" },
+          { id: "billing", label: t('settings.billing'), icon: "💳" },
+          { id: "team", label: t('settings.team'), icon: "👥" },
+          { id: "notifications", label: t('settings.notifications'), icon: "🔔" },
+          { id: "security", label: t('settings.security'), icon: "🔒" },
+          { id: "alerts", label: t('settings.spAlerts'), icon: "🚨" },
+          { id: "modules", label: t('settings.modules'), icon: "🧩" },
+          { id: "integrations", label: t('settings.integrations'), icon: "🔌" },
+          { id: "api", label: t('settings.apiKeys'), icon: "🔑" },
+          { id: "webhooks", label: t('settings.webhooks'), icon: "🔗" },
+        ].filter(tab => !allowedTabs || allowedTabs.includes(tab.id)).map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: activeTab === tab.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === tab.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === tab.id ? "#000" : C.muted, fontWeight: activeTab === tab.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{tab.icon} {tab.label}</button>
         ))}
       </div>
+
+      {activeTab === "portal" && (
+        <div>
+          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 16px" }}>{t('settings.portal')}</h2>
+          <div style={{ ...card, marginBottom: 20 }}>
+            <h3 style={{ color: "#fff", fontSize: 15, margin: "0 0 8px" }}>🌐 {t('settings.language')}</h3>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 12px" }}>{t('settings.languageDesc')}</p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {[
+                { code: 'en', label: 'English', flag: '🇬🇧' },
+                { code: 'pt', label: 'Português', flag: '🇧🇷' },
+                { code: 'es', label: 'Español', flag: '🇪🇸' },
+                { code: 'pl', label: 'Polski', flag: '🇵🇱' },
+              ].map(function(lang) {
+                var isActive = tenantLanguage === lang.code;
+                return (
+                  <button key={lang.code} onClick={async function() {
+                    setTenantLanguage(lang.code);
+                    i18n.changeLanguage(lang.code);
+                    localStorage.setItem('engwx_language', lang.code);
+                    if (currentTenantId && !demoMode) {
+                      try {
+                        await supabase.from('tenants').update({ language: lang.code }).eq('id', currentTenantId);
+                      } catch (e) { console.error('[Settings] language save error:', e); }
+                    }
+                  }} style={{
+                    background: isActive ? C.primary + '22' : 'rgba(255,255,255,0.04)',
+                    border: '1px solid ' + (isActive ? C.primary + '66' : 'rgba(255,255,255,0.1)'),
+                    borderRadius: 10, padding: '10px 18px', cursor: 'pointer',
+                    color: isActive ? C.primary : '#fff', fontWeight: isActive ? 700 : 400,
+                    fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s',
+                  }}>{lang.flag} {lang.label}</button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "integrations" && (
         <div>

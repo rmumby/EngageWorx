@@ -20,6 +20,7 @@ import MasterAgentPortal from './MasterAgentPortal';
 import HierarchyView from './HierarchyView';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
+import { useTranslation } from 'react-i18next';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
 import LeadScan from './LeadScan';
@@ -1513,6 +1514,7 @@ function TenantBrandSettings({ tenantId, tenant, C }) {
 // ─── CUSTOMER TENANT PORTAL ───────────────────────────────────────────────────
 function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const cpAuth = useAuth();
+  const { t, i18n } = useTranslation();
   const [cpSidebarOpen, setCpSidebarOpen] = useState(false);
   const [cpIsMobile, setCpIsMobile] = useState(window.innerWidth < 768);
   const [cpSidebarCollapsed, setCpSidebarCollapsed] = useState(false);
@@ -1577,21 +1579,33 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       } catch (e) {}
     })();
   }, [tenantId]);
+  useEffect(() => {
+    if (!tenantId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.from('tenants').select('language').eq('id', tenantId).maybeSingle();
+        if (data && data.language) {
+          i18n.changeLanguage(data.language);
+          localStorage.setItem('engwx_language', data.language);
+        }
+      } catch (e) {}
+    })();
+  }, [tenantId, i18n]);
   const navItems = [
-    { id: "dashboard", label: "Platform Overview", icon: "⊞" },
-    { id: "inbox", label: "Live Inbox", icon: "💬" },
-    { id: "support", label: "Help Desk", icon: "🎫" },
-    { id: "contacts", label: "Contacts", icon: "👥" },
-    { id: "campaigns", label: "Campaigns", icon: "🚀" },
-    { id: "flows", label: "Flow Builder", icon: "⚡" },
-    { id: "sequenceroster", label: "Sequence Roster", icon: "📋" },
-    { id: "sequences", label: "Sequence Builder", icon: "📝" },
+    { id: "dashboard", label: t('nav.platformOverview'), icon: "⊞" },
+    { id: "inbox", label: t('nav.liveInbox'), icon: "💬" },
+    { id: "support", label: t('nav.helpDesk'), icon: "🎫" },
+    { id: "contacts", label: t('nav.contacts'), icon: "👥" },
+    { id: "campaigns", label: t('nav.campaigns'), icon: "🚀" },
+    { id: "flows", label: t('nav.flowBuilder'), icon: "⚡" },
+    { id: "sequenceroster", label: t('nav.sequenceRoster'), icon: "📋" },
+    { id: "sequences", label: t('nav.sequenceBuilder'), icon: "📝" },
     { id: "chatbot", label: agentName || 'Aria', icon: "🤖" },
-    { id: "email-digest", label: "AI Omnichannel Digest", icon: "📡" },
-    { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "branding", label: "Branding", icon: "🎨" },
-    { id: "sms-registration", label: "SMS Registration", icon: "📋" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
+    { id: "analytics", label: t('nav.analytics'), icon: "📊" },
+    { id: "branding", label: t('nav.branding'), icon: "🎨" },
+    { id: "sms-registration", label: t('nav.smsRegistration'), icon: "📋" },
+    { id: "settings", label: t('nav.settings'), icon: "⚙️" },
   ];
 
   if (needsOnboarding) {
@@ -1610,7 +1624,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {onBack && (
           <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + "10", border: "1px solid " + C.primary + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
             <span>←</span>
-            {!cpSidebarCollapsed && <span>Back to Platform</span>}
+            {!cpSidebarCollapsed && <span>{t('nav.backToPlatform')}</span>}
           </div>
         )}
         <div style={{ marginBottom: 28, paddingLeft: cpSidebarCollapsed ? 0 : 8, textAlign: cpSidebarCollapsed ? "center" : "left" }}>
@@ -1619,7 +1633,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           ) : (
             <>
               <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Powered by EngageWorx</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t('common.poweredBy')}</div>
             </>
           )}
         </div>
@@ -1728,6 +1742,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
   const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
+  const { t: tSP } = useTranslation();
   
   // Default to production mode (demo off) on first load
   const [demoInitialized, setDemoInitialized] = useState(false);
@@ -1866,35 +1881,34 @@ function AppInner() {
   const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
 
 var spNavBase = [
-    { id: "dashboard",        label: "Platform Overview",  icon: "⊞" },
-    { id: "tenants",          label: "Tenant Management",  icon: "🏢" },
-    { id: "hierarchy",        label: "Hierarchy",          icon: "🌳" },
-    { id: "pipeline",         label: "Pipeline",           icon: "📈" },
-    { id: "import",           label: "Import Leads",       icon: "📥" },
-    { id: "lead-scan",        label: "Lead Scan",          icon: "📲" },
-    { id: "sequences",        label: "Sequence Roster",    icon: "📋" },
-    { id: "sequence-builder", label: "Sequence Builder",   icon: "📝" },
-    { id: "campaigns",        label: "Campaigns",          icon: "🚀" },
-    { id: "contacts",         label: "Contacts",           icon: "👥" },
-    { id: "inbox",            label: "Live Inbox",         icon: "💬" },
-    { id: "helpdesk",         label: "Help Desk",          icon: "🎫" },
-    { id: "chatbot",          label: spAgentName || 'Aria', icon: "🤖" },
-    { id: "flows",            label: "Flow Builder",       icon: "⚡" },
-    { id: "analytics",        label: "Global Analytics",   icon: "📊" },
-    { id: "customer-success", label: "Customer Success",   icon: "📊", superadminOnly: true },
-    { id: "platform-updates", label: "Platform Updates",   icon: "📢", superadminOnly: true },
-    { id: "tcr-queue",        label: "TCR Queue",          icon: "📋", superadminOnly: true },
-    { id: "demo",             label: "Demo Mode",          icon: "🎯" },
-    { id: "blog",             label: "Blog Manager",       icon: "📝", superadminOnly: true },
-    { id: "api",              label: "APIs & Integrations", icon: "🔌" },
-    { id: "settings",         label: "Settings",           icon: "⚙️" },
+    { id: "dashboard",        label: tSP('nav.platformOverview'),  icon: "⊞" },
+    { id: "tenants",          label: tSP('nav.tenantManagement'),  icon: "🏢" },
+    { id: "hierarchy",        label: tSP('nav.hierarchy'),         icon: "🌳" },
+    { id: "pipeline",         label: tSP('nav.pipeline'),          icon: "📈" },
+    { id: "import",           label: tSP('nav.importLeads'),       icon: "📥" },
+    { id: "lead-scan",        label: tSP('nav.leadScan'),          icon: "📲" },
+    { id: "sequences",        label: tSP('nav.sequenceRoster'),    icon: "📋" },
+    { id: "sequence-builder", label: tSP('nav.sequenceBuilder'),   icon: "📝" },
+    { id: "campaigns",        label: tSP('nav.campaigns'),         icon: "🚀" },
+    { id: "contacts",         label: tSP('nav.contacts'),          icon: "👥" },
+    { id: "inbox",            label: tSP('nav.liveInbox'),         icon: "💬" },
+    { id: "helpdesk",         label: tSP('nav.helpDesk'),          icon: "🎫" },
+    { id: "chatbot",          label: spAgentName || 'Aria',         icon: "🤖" },
+    { id: "flows",            label: tSP('nav.flowBuilder'),       icon: "⚡" },
+    { id: "analytics",        label: tSP('nav.globalAnalytics'),   icon: "📊" },
+    { id: "customer-success", label: tSP('nav.customerSuccess'),   icon: "📊", superadminOnly: true },
+    { id: "platform-updates", label: tSP('nav.platformUpdates'),   icon: "📢", superadminOnly: true },
+    { id: "tcr-queue",        label: tSP('nav.tcrQueue'),          icon: "📋", superadminOnly: true },
+    { id: "demo",             label: tSP('nav.demoMode'),          icon: "🎯" },
+    { id: "blog",             label: tSP('nav.blogManager'),       icon: "📝", superadminOnly: true },
+    { id: "api",              label: tSP('nav.apisIntegrations'),  icon: "🔌" },
+    { id: "settings",         label: tSP('nav.settings'),          icon: "⚙️" },
   ];
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
   if (isSuperAdmin) {
-    // Insert AI Email Digest before Settings
     var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
-    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' });
-    else spNavItems.push({ id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' });
+    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
+    else spNavItems.push({ id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
   }
 
   const hostname = window.location.hostname;
