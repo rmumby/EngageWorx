@@ -99,7 +99,7 @@ const CRM_INTEGRATIONS = [
 ];
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, onNavigate }) {
   const [contacts, setContacts] = useState(() => demoMode ? generateContacts(60) : []);
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState("list");
@@ -666,6 +666,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <button onClick={() => { setView("list"); setSelectedContact(null); setEditingContact(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>← Back to Contacts</button>
           <div style={{ display: "flex", gap: 8 }}>
+              {onNavigate && <button onClick={function() {
+                var vipContact = {
+                  id: c.id, first_name: c.firstName, last_name: c.lastName,
+                  email: c.email, phone: c.phone, company: c.company,
+                  title: c.title || '', notes: c.notes || '',
+                };
+                try { localStorage.setItem('engwx_vip_queue', JSON.stringify(vipContact)); } catch (e) {}
+                onNavigate('email-digest');
+              }} style={{ background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.35)", borderRadius: 8, padding: "8px 16px", color: "#FFD600", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>⭐ VIP Outreach</button>}
               <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ background: editingContact ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${editingContact ? C.primary : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "8px 16px", color: editingContact ? C.primary : "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
               <button onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "8px 16px", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", opacity: deleting ? 0.5 : 1 }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
           </div>

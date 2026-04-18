@@ -48,6 +48,28 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipResearching, setVipResearching] = useState(null);
   var [vipSending, setVipSending] = useState(null);
 
+  // Pick up VIP contact queued from Contacts detail page
+  useEffect(function() {
+    try {
+      var raw = localStorage.getItem('engwx_vip_queue');
+      if (!raw) return;
+      localStorage.removeItem('engwx_vip_queue');
+      var contact = JSON.parse(raw);
+      if (contact && contact.id) {
+        setVipContacts(function(prev) {
+          if (prev.find(function(c) { return c.id === contact.id; })) return prev;
+          return prev.concat([{
+            id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
+            email: contact.email, phone: contact.phone, company: contact.company,
+            title: contact.title || '', notes: contact.notes || '',
+            emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
+            research: null, researched: false, channel: 'email',
+          }]);
+        });
+      }
+    } catch (e) {}
+  }, []);
+
   function openImprove(a) {
     var existing = (a.action_payload && a.action_payload.user_context) || '';
     setImproveOpenFor(a.id);
