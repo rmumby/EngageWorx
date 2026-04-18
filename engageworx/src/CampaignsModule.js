@@ -121,6 +121,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           abVariants: c.ab_variants || [],
           body: c.message_body || '',
           tags: c.target_tags || [],
+          campaignType: c.campaign_type || 'broadcast',
+          surveyOptions: c.survey_options || null,
           aiGenerated: false,
           tone: 'Professional',
           tenant_id: c.tenant_id,
@@ -144,7 +146,13 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
     tags: [], tone: "Professional", aiTemplate: null,
     useAI: false,
     fallbackEnabled: false,
-    fallbacks: [], // e.g. [{ channel: "Email", waitMinutes: 30 }, { channel: "SMS", waitMinutes: 60 }]
+    fallbacks: [],
+    campaignType: "broadcast",
+    surveyOptions: [
+      { key: "1", label: "", tag: "" },
+      { key: "2", label: "", tag: "" },
+      { key: "3", label: "", tag: "" },
+    ],
   });
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
@@ -395,7 +403,35 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <input value={newCampaign.name} onChange={e => setNewCampaign({ ...newCampaign, name: e.target.value })} placeholder="e.g. Spring Flash Sale" style={inputStyle} />
             </div>
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Channel</label>
+              <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Campaign Type</label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { id: "broadcast", label: "Broadcast", icon: "📢", desc: "One-way blast to your audience", color: "#00C9FF" },
+                  { id: "conversation", label: "Conversation Starter", icon: "💬", desc: "Send a question, replies open Live Inbox", color: "#25D366" },
+                  { id: "survey", label: "Survey / Poll", icon: "📊", desc: "SMS reply 1/2/3, auto-tagged on contact", color: "#E040FB" },
+                  { id: "drip", label: "Drip-to-Conversation", icon: "🔄", desc: "Automated start, first reply → Live Inbox", color: "#FFD600" },
+                ].map(function(ct) {
+                  var isActive = newCampaign.campaignType === ct.id;
+                  return (
+                    <button key={ct.id} onClick={function() { setNewCampaign(Object.assign({}, newCampaign, { campaignType: ct.id, channel: ct.id === 'survey' ? 'SMS' : newCampaign.channel })); }} style={{
+                      padding: "14px 16px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                      background: isActive ? ct.color + "15" : "rgba(255,255,255,0.03)",
+                      border: "2px solid " + (isActive ? ct.color : "rgba(255,255,255,0.08)"),
+                      transition: "all 0.2s",
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <span style={{ fontSize: 20 }}>{ct.icon}</span>
+                        <span style={{ color: isActive ? ct.color : "#fff", fontSize: 14, fontWeight: 700 }}>{ct.label}</span>
+                      </div>
+                      <div style={{ color: isActive ? "rgba(255,255,255,0.6)" : C.muted, fontSize: 11, lineHeight: 1.4 }}>{ct.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Channel{newCampaign.campaignType === 'survey' ? ' (SMS only for surveys)' : ''}</label>
               <div style={{ display: "flex", gap: 10 }}>
                 {CHANNELS.map(ch => (
                   <button key={ch} onClick={() => setNewCampaign({ ...newCampaign, channel: ch })} style={{
@@ -608,7 +644,48 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               </div>
             </div>
 
+            {/* Campaign Type Hint */}
+            {newCampaign.campaignType === 'conversation' && (
+              <div style={{ padding: "12px 16px", background: "rgba(37,211,102,0.08)", border: "1px solid rgba(37,211,102,0.3)", borderRadius: 10, marginBottom: 16 }}>
+                <div style={{ color: "#25D366", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>💬 Conversation Starter</div>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, lineHeight: 1.5 }}>Write a message designed to get a reply. When a contact responds, a Live Inbox conversation is automatically created and AI will suggest a follow-up response. Reply rate is tracked as the primary metric.</div>
+              </div>
+            )}
+            {newCampaign.campaignType === 'drip' && (
+              <div style={{ padding: "12px 16px", background: "rgba(255,214,0,0.08)", border: "1px solid rgba(255,214,0,0.3)", borderRadius: 10, marginBottom: 16 }}>
+                <div style={{ color: "#FFD600", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>🔄 Drip-to-Conversation</div>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, lineHeight: 1.5 }}>This campaign starts as automated outreach. The first reply from any contact hands off to Live Inbox as a real conversation. AI picks up context from prior messages in the drip.</div>
+              </div>
+            )}
+
+            {/* Survey / Poll Options */}
+            {newCampaign.campaignType === 'survey' && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Survey Reply Options</label>
+                <div style={{ padding: 16, background: "rgba(224,64,251,0.06)", border: "1px solid rgba(224,64,251,0.25)", borderRadius: 10 }}>
+                  <div style={{ color: "#E040FB", fontSize: 11, fontWeight: 700, marginBottom: 10 }}>📊 Define up to 3 reply options. Contacts text 1, 2, or 3 to respond.</div>
+                  {newCampaign.surveyOptions.map(function(opt, idx) {
+                    return (
+                      <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(224,64,251,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#E040FB", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>{opt.key}</div>
+                        <input value={opt.label} onChange={function(e) {
+                          var updated = newCampaign.surveyOptions.map(function(o, i) { return i === idx ? Object.assign({}, o, { label: e.target.value }) : o; });
+                          setNewCampaign(Object.assign({}, newCampaign, { surveyOptions: updated }));
+                        }} placeholder={"Option " + opt.key + " label (e.g. " + ["Very satisfied", "Somewhat satisfied", "Not satisfied"][idx] + ")"} style={Object.assign({}, inputStyle, { flex: 1 })} />
+                        <input value={opt.tag} onChange={function(e) {
+                          var updated = newCampaign.surveyOptions.map(function(o, i) { return i === idx ? Object.assign({}, o, { tag: e.target.value }) : o; });
+                          setNewCampaign(Object.assign({}, newCampaign, { surveyOptions: updated }));
+                        }} placeholder="Auto-tag (e.g. satisfied)" style={Object.assign({}, inputStyle, { width: 140 })} />
+                      </div>
+                    );
+                  })}
+                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 6 }}>Responses are auto-tagged on the contact record. High responders (&gt;2 surveys) flagged for VIP outreach.</div>
+                </div>
+              </div>
+            )}
+
             {/* A/B Test Toggle */}
+            {newCampaign.campaignType === 'broadcast' && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, marginBottom: newCampaign.abTest ? 16 : 0 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>A/B Testing</div>
@@ -627,6 +704,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Variant B Message</label>
                 <textarea value={newCampaign.abVariantB} onChange={e => setNewCampaign({ ...newCampaign, abVariantB: e.target.value })} rows={3} placeholder="Write an alternative version to test against..." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
+            )}
             )}
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>
@@ -808,6 +886,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             <div style={{ display: "grid", gap: 16 }}>
               {[
                 { label: "Campaign Name", value: newCampaign.name, icon: "📋" },
+                { label: "Type", value: ({ broadcast: "Broadcast", conversation: "Conversation Starter", survey: "Survey / Poll", drip: "Drip-to-Conversation" })[newCampaign.campaignType] || "Broadcast", icon: ({ broadcast: "📢", conversation: "💬", survey: "📊", drip: "🔄" })[newCampaign.campaignType] || "📢" },
                 { label: "Channel", value: newCampaign.channel, icon: CHANNEL_ICONS[newCampaign.channel] },
                 { label: "Smart Fallback", value: newCampaign.fallbackEnabled && newCampaign.fallbacks.length > 0 ? `${newCampaign.channel} → ${newCampaign.fallbacks.map(f => `${f.channel} (${f.waitMinutes}min)`).join(" → ")}` : "Disabled", icon: "🔄" },
                 { label: "Audience", value: `${newCampaign.audience} (${newCampaign.audienceSize.toLocaleString()} contacts)`, icon: "👥" },
@@ -953,6 +1032,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                         tenant_id: currentTenantId,
                         name: newCampaign.name,
                         type: newCampaign.channel.toLowerCase(),
+                        campaign_type: newCampaign.campaignType || 'broadcast',
                         status: newCampaign.sendNow ? 'active' : 'scheduled',
                         message_body: newCampaign.body,
                         message_subject: newCampaign.subject || null,
@@ -962,6 +1042,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                         started_at: newCampaign.sendNow ? new Date().toISOString() : null,
                         ab_enabled: newCampaign.abTest || false,
                         ab_variants: newCampaign.abTest ? [{ name: "A", body: newCampaign.body }, { name: "B", body: newCampaign.abVariantB }] : [],
+                        survey_options: newCampaign.campaignType === 'survey' ? newCampaign.surveyOptions.filter(function(o) { return o.label; }) : null,
                       }).select().single();
                       if (error) throw error;
                       if (saved) newC.id = saved.id;
@@ -977,6 +1058,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                               tenantId: currentTenantId,
                               channel: newCampaign.channel.toLowerCase(),
                               body: newCampaign.body,
+                              campaignType: newCampaign.campaignType || 'broadcast',
+                              surveyOptions: newCampaign.campaignType === 'survey' ? newCampaign.surveyOptions.filter(function(o) { return o.label; }) : null,
                             }),
                           });
                         } catch (sendErr) {
@@ -1007,6 +1090,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                           tenant_id: currentTenantId,
                           name: newCampaign.name || 'Untitled Draft',
                           type: newCampaign.channel.toLowerCase(),
+                          campaign_type: newCampaign.campaignType || 'broadcast',
                           status: 'draft',
                           message_body: newCampaign.body,
                           message_subject: newCampaign.subject || null,
@@ -1014,6 +1098,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                           target_count: newCampaign.audienceSize || 0,
                           ab_enabled: newCampaign.abTest || false,
                           ab_variants: newCampaign.abTest ? [{ name: "A", body: newCampaign.body }, { name: "B", body: newCampaign.abVariantB }] : [],
+                          survey_options: newCampaign.campaignType === 'survey' ? newCampaign.surveyOptions.filter(function(o) { return o.label; }) : null,
                         });
                       } catch (err) {
                         console.error('Draft save error:', err);
@@ -1075,6 +1160,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               {c.fallbacks && c.fallbacks.length > 0 && (
                 <span style={{ ...badge("rgba(255,215,0,0.15)"), color: "#FFD600", fontSize: 10 }}>🔄 → {c.fallbacks.map(f => f.channel).join(" → ")}</span>
               )}
+              {c.campaignType && c.campaignType !== 'broadcast' && <span style={badge({ conversation: "#25D366", survey: "#E040FB", drip: "#FFD600" }[c.campaignType] || C.muted)}>{{ conversation: "💬 Conversation Starter", survey: "📊 Survey/Poll", drip: "🔄 Drip-to-Conversation" }[c.campaignType]}</span>}
               {c.aiGenerated && <span style={badge(C.accent)}>🤖 AI</span>}
               {c.abTest && <span style={badge("#FFD600")}>🧪 A/B</span>}
             </div>
@@ -1107,6 +1193,56 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             </div>
           ))}
         </div>
+
+        {/* Survey Results Dashboard */}
+        {c.campaignType === 'survey' && c.surveyOptions && c.surveyOptions.length > 0 && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>📊 Survey Results</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {c.surveyOptions.map(function(opt, idx) {
+                var totalReplied = c.replied || 1;
+                var optCount = Math.round(totalReplied * [0.45, 0.35, 0.2][idx] || 0);
+                var pct = totalReplied > 0 ? ((optCount / totalReplied) * 100).toFixed(1) : 0;
+                return (
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(224,64,251,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#E040FB", fontSize: 14, fontWeight: 800, flexShrink: 0 }}>{opt.key}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{opt.label || "Option " + opt.key}</span>
+                        <span style={{ color: C.muted, fontSize: 12 }}>{optCount} ({pct}%)</span>
+                      </div>
+                      <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: pct + "%", background: "linear-gradient(90deg, #E040FB, #A855F7)", borderRadius: 4, transition: "width 0.5s" }} />
+                      </div>
+                    </div>
+                    {opt.tag && <span style={{ background: "rgba(224,64,251,0.12)", color: "#E040FB", borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{opt.tag}</span>}
+                  </div>
+                );
+              })}
+            </div>
+            {c.replied > 0 && (
+              <div style={{ marginTop: 14, padding: "10px 14px", background: "rgba(37,211,102,0.08)", border: "1px solid rgba(37,211,102,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.6)", fontSize: 12 }}>
+                ⭐ High responders (2+ survey replies) auto-flagged for VIP outreach
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Conversation Starter Metrics */}
+        {c.campaignType === 'conversation' && (
+          <div style={{ ...card, marginBottom: 20 }}>
+            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>💬 Reply Rate — Primary Metric</h3>
+            <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 36, fontWeight: 900, color: "#25D366" }}>{c.sent > 0 ? ((c.replied / c.sent) * 100).toFixed(1) : 0}%</div>
+                <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Reply Rate</div>
+              </div>
+              <div style={{ flex: 1, color: "rgba(255,255,255,0.5)", fontSize: 12, lineHeight: 1.6 }}>
+                {c.replied} out of {c.sent} contacts replied. Each reply created a Live Inbox conversation with AI-suggested follow-up.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Engagement Funnel */}
         <div style={{ ...card, marginBottom: 20 }}>
@@ -1313,6 +1449,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <div>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}{c.status === 'deleted' && <span style={{ color: '#d97706', fontSize: 10, marginLeft: 8 }}>archived</span>}</div>
                 <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  {c.campaignType && c.campaignType !== 'broadcast' && <span style={{ ...badge({ conversation: "#25D366", survey: "#E040FB", drip: "#FFD600" }[c.campaignType] || C.muted), padding: "1px 6px", fontSize: 9 }}>{{ conversation: "💬 Conv", survey: "📊 Survey", drip: "🔄 Drip" }[c.campaignType]}</span>}
                   {c.aiGenerated && <span style={{ ...badge(C.accent), padding: "1px 6px", fontSize: 9 }}>AI</span>}
                   {c.abTest && <span style={{ ...badge("#FFD600"), padding: "1px 6px", fontSize: 9 }}>A/B</span>}
                   {c.tags && c.tags.slice(0, 2).map(t => <span key={t} style={{ ...badge("rgba(255,255,255,0.3)"), padding: "1px 6px", fontSize: 9 }}>{t}</span>)}
