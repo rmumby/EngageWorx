@@ -125,12 +125,12 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       var memberData = memberResult.data || [];
       if (memberData.length === 0) { setMembers([]); setLoading(false); return; }
       var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
-      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, company_name').in('id', userIds);
+      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, company_name, sender_email').in('id', userIds);
       var profileMap = {};
       (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
       setMembers(memberData.map(function(m) {
         var profile = profileMap[m.user_id] || {};
-        return Object.assign({}, m, { email: profile.email || 'Unknown', full_name: profile.full_name || profile.company_name || profile.email || 'Unknown' });
+        return Object.assign({}, m, { email: profile.email || 'Unknown', full_name: profile.full_name || profile.company_name || profile.email || 'Unknown', sender_email: profile.sender_email || '' });
       }));
     } catch (e) { console.error('fetchMembers error:', e); }
     setLoading(false);
@@ -147,6 +147,15 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
   async function updateRole(memberId, role) {
     await supabase.from('tenant_members').update({ role }).eq('id', memberId);
     setMembers(function(prev) { return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { role }) : m; }); });
+  }
+
+  async function saveSenderEmail(memberId, userId, email) {
+    setSaving(memberId + '_sender');
+    try {
+      await supabase.from('user_profiles').update({ sender_email: email || null }).eq('id', userId);
+      setMembers(function(prev) { return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { sender_email: email }) : m; }); });
+    } catch (e) { alert('Error saving sender email: ' + e.message); }
+    setSaving(null);
   }
 
   async function removeMember(memberId) {
@@ -225,6 +234,14 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                     ) : <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>}
                     {editable && <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>}
                   </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✉️ Sender Email (Live Inbox)</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input value={m.sender_email || ''} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { sender_email: val }) : x; }); }); }} placeholder={m.email + ' (default)'} disabled={!editable} style={Object.assign({}, inputSt, { maxWidth: 300 })} />
+                    {editable && <button onClick={function() { saveSenderEmail(m.id, m.user_id, m.sender_email); }} disabled={saving === m.id + '_sender'} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 6, padding: '7px 14px', color: C.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>{saving === m.id + '_sender' ? '...' : 'Save'}</button>}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 4 }}>Custom "From" address for this team member when sending from Live Inbox. Leave blank to use their login email.</div>
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>

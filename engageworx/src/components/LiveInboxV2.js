@@ -202,7 +202,7 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase }) {
+function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase, userProfile }) {
   const { t } = useTranslation();
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
@@ -253,30 +253,40 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
-  // Load sender email options
+  // Load sender email options — admin sees all, reps see only their own
+  var currentUserId = userProfile && userProfile.id;
+  var currentUserRole = userProfile && userProfile.role;
+  var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
     if (demoMode || !supabase || !currentTenantId) return;
     (async function() {
       try {
         var emails = [];
-        // Tenant's configured from_email
+        // Tenant's configured from_email (visible to all)
         var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', 'email').maybeSingle();
         if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
           emails.push({ email: chR.data.config_encrypted.from_email, label: 'Tenant default', type: 'tenant' });
         }
-        // Team member emails (profiles with sender_email set, or their auth email)
+        // Team member emails
         var tmR = await supabase.from('profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', currentTenantId);
         (tmR.data || []).forEach(function(p) {
           var senderAddr = p.sender_email || p.email;
-          if (senderAddr && !emails.find(function(e) { return e.email === senderAddr; })) {
-            emails.push({ email: senderAddr, label: (p.full_name || p.email || '').split('@')[0], type: 'team', profileId: p.id, role: p.role });
+          if (!senderAddr) return;
+          if (emails.find(function(e) { return e.email === senderAddr; })) return;
+          // Admin sees all team senders; reps see only their own
+          if (isAdmin || p.id === currentUserId) {
+            emails.push({ email: senderAddr, label: p.full_name || senderAddr.split('@')[0], type: 'team', profileId: p.id, role: p.role });
           }
         });
         setSenderEmails(emails);
-        if (emails.length > 0 && !fromEmail) setFromEmail(emails[0].email);
+        // Default: rep's own email if available, else tenant default
+        if (emails.length > 0 && !fromEmail) {
+          var own = currentUserId && emails.find(function(e) { return e.profileId === currentUserId; });
+          setFromEmail(own ? own.email : emails[0].email);
+        }
       } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
     })();
-  }, [currentTenantId, demoMode, supabase]);
+  }, [currentTenantId, demoMode, supabase, currentUserId, isAdmin]);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
