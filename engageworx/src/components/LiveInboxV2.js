@@ -233,6 +233,13 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [showContactInfo, setShowContactInfo] = useState(true);
   const [sortBy, setSortBy] = useState("recent");
   const [inboxTab, setInboxTab] = useState("messages");
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" && window.innerWidth < 768);
+  const [mobileShowChat, setMobileShowChat] = useState(false);
+  useEffect(function() {
+    var handler = function() { setIsMobile(window.innerWidth < 768); };
+    window.addEventListener("resize", handler);
+    return function() { window.removeEventListener("resize", handler); };
+  }, []);
   const [liveMessages, setLiveMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -624,9 +631,9 @@ useEffect(() => {
   // Errors shown inline in the conversation list
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: isMobile ? "100vh" : "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", position: "relative" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
-      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : 320, minWidth: isMobile ? 0 : 280, borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.06)", display: isMobile && mobileShowChat ? "none" : "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -652,7 +659,7 @@ useEffect(() => {
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search conversations..." style={{ ...inputStyle, width: "100%", marginBottom: 8 }} />
 
           {/* Quick Filters */}
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible" }}>
             {[
               { id: "all", label: "All", count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
               { id: "active", label: "Active", count: activeCount },
@@ -666,7 +673,7 @@ useEffect(() => {
                 border: `1px solid ${filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary + "66" : "rgba(255,255,255,0.06)"}`,
                 borderRadius: 6, padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer",
                 color: filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary : "rgba(255,255,255,0.4)",
-                fontFamily: "'DM Sans', sans-serif",
+                fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0,
               }}>{f.label} {f.count > 0 && <span style={{ opacity: 0.6 }}>({f.count})</span>}</button>
             ))}
           </div>
@@ -697,7 +704,7 @@ useEffect(() => {
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={() => { setSelectedConv(conv); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
+              <div key={conv.id} onClick={() => { setSelectedConv(conv); if (isMobile) setMobileShowChat(true); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
                 padding: "16px 16px", cursor: "pointer", transition: "background 0.15s",
                 background: isSelected ? `${C.primary}15` : "transparent",
                 borderLeft: isSelected ? `3px solid ${C.primary}` : "3px solid transparent",
@@ -813,7 +820,7 @@ useEffect(() => {
         )}
 
         {/* Bottom Stats */}
-        <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
           <div style={{ display: "flex", gap: 6 }}>
             {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
@@ -825,21 +832,24 @@ useEffect(() => {
       </div>
 
       {/* ═══════════ CENTER: Chat View ═══════════ */}
-      {selectedConv ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {selectedConv && (!isMobile || mobileShowChat) ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: isMobile ? "100%" : "auto", position: isMobile ? "absolute" : "relative", inset: isMobile ? 0 : "auto", zIndex: isMobile ? 10 : "auto", background: isMobile ? (C.bg || "#080d1a") : "transparent" }}>
           {/* Chat Header */}
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 14, background: "rgba(0,0,0,0.1)" }}>
-            <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: CHANNELS[selectedConv.channel].color }}>{selectedConv.contact.avatar}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</span>
+          <div style={{ padding: isMobile ? "10px 12px" : "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: isMobile ? 10 : 14, background: "rgba(0,0,0,0.1)" }}>
+            {isMobile && (
+              <button onClick={function() { setMobileShowChat(false); }} style={{ background: "none", border: "none", color: C.primary, fontSize: 18, cursor: "pointer", padding: "4px 8px 4px 0", fontWeight: 700, flexShrink: 0 }}>←</button>
+            )}
+            <div style={{ width: isMobile ? 32 : 38, height: isMobile ? 32 : 38, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 11 : 13, fontWeight: 800, color: CHANNELS[selectedConv.channel].color, flexShrink: 0 }}>{selectedConv.contact.avatar}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: isMobile ? "nowrap" : "wrap" }}>
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: isMobile ? 14 : 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.name}</span>
                 <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
-                <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>
+                {!isMobile && <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>}
                 {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{selectedConv.contact.company} · {selectedConv.contact.phone}</div>
+              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.company}{!isMobile && (" · " + selectedConv.contact.phone)}</div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {!isMobile && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {selectedConv.assignedTo && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "6px 10px" }}>
                   <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary }}>{selectedConv.assignedTo.avatar}</div>
@@ -851,11 +861,11 @@ useEffect(() => {
   {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
 </select>
               <button onClick={() => setShowContactInfo(!showContactInfo)} style={{ background: showContactInfo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showContactInfo ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", color: showContactInfo ? C.primary : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>ℹ️ Info</button>
-            </div>
+            </div>}
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px 10px" : "20px 24px" }}>
             {/* Date separator */}
             <div style={{ textAlign: "center", margin: "12px 0 20px" }}>
               <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Today</span>
@@ -875,7 +885,7 @@ useEffect(() => {
                   {isContact && !showAvatar && <div style={{ width: 28, flexShrink: 0 }} />}
 
                   {/* Message Bubble */}
-                  <div style={{ maxWidth: "65%" }}>
+                  <div style={{ maxWidth: isMobile ? "85%" : "65%" }}>
                     {showAvatar && !isContact && msg.agent && (
                       <div style={{ textAlign: "right", marginBottom: 2 }}>
                         <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{msg.agent.name}</span>
@@ -923,7 +933,7 @@ useEffect(() => {
           </div>
 
           {/* Compose Area */}
-          <div style={{ padding: "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.1)" }}>
+          <div style={{ padding: isMobile ? "10px 10px 16px" : "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: isMobile ? (C.bg || "#080d1a") : "rgba(0,0,0,0.1)", ...(isMobile ? { position: "sticky", bottom: 0, zIndex: 5 } : {}) }}>
             {/* Canned Responses */}
             {showCanned && (
               <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
@@ -948,13 +958,13 @@ useEffect(() => {
             )}
 
             {/* Action buttons */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showCanned ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>⚡ Quick</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📎 Attach</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>🤖 AI Suggest</button>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible" }}>
+              <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showCanned ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>⚡ Quick</button>
+              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>📎 Attach</button>
+              {!isMobile && <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>}
+              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>{isMobile ? "🤖" : "🤖 AI Suggest"}</button>
               <div style={{ flex: 1 }} />
-              <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>
+              {!isMobile && <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>}
             </div>
 
             {/* Input */}
@@ -969,8 +979,8 @@ useEffect(() => {
             </div>
           </div>
         </div>
-      ) : (
-        /* Empty State */
+      ) : !isMobile ? (
+        /* Empty State — desktop only */
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>💬</div>
@@ -990,10 +1000,10 @@ useEffect(() => {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ═══════════ RIGHT: Contact Info Sidebar ═══════════ */}
-      {selectedConv && showContactInfo && (
+      {!isMobile && selectedConv && showContactInfo && (
         <div style={{ width: 280, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.1)", flexShrink: 0 }}>
           <div style={{ padding: "20px 16px" }}>
             {/* Contact Card */}

@@ -1657,20 +1657,20 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
         </div>
         {page === "dashboard" && (
-          <div style={{ padding: "32px 36px" }}>
+          <div style={{ padding: cpIsMobile ? "20px 14px" : "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
+              <h1 style={{ fontSize: cpIsMobile ? 22 : 26, fontWeight: 800, color: C.text, margin: 0 }}>{tenant.brand.name} Dashboard</h1>
               <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Welcome back, {tenant.name} team</p>
             </div>
             <SetupChecklist tenantId={tenantId} C={C} onNavigate={setPage} />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, marginBottom: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: cpIsMobile ? "1fr" : "repeat(3, 1fr)", gap: cpIsMobile ? 12 : 18, marginBottom: 28 }}>
               <StatCard label="Messages Sent" value={tenant.stats.messages.toLocaleString()} sub={`Delivery: ${tenant.stats.deliveryRate}%`} color={C.primary} icon="📨" />
               <StatCard label="Revenue" value={`$${tenant.stats.revenue.toLocaleString()}`} sub="+22.7% this month" color="#00E676" icon="💰" />
               <StatCard label="Open Rate" value={`${tenant.stats.openRate}%`} sub="Industry avg: 38%" color={C.accent} icon="👁️" />
             </div>
-            <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: 24 }}>
+            <div style={{ background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 14, padding: cpIsMobile ? 16 : 24 }}>
               <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Active Channels</h3>
-              <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {tenant.channels.map(ch => (
                   <div key={ch} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 10, padding: "12px 20px", color: C.primary, fontWeight: 700, fontSize: 14 }}>● {ch}</div>
                 ))}
