@@ -39,6 +39,15 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [fuSearching, setFuSearching] = useState(false);
   var [fuImproving, setFuImproving] = useState(null);
 
+  // ── VIP Outreach state ──
+  var [vipContacts, setVipContacts] = useState([]);
+  var [vipSearchOpen, setVipSearchOpen] = useState(false);
+  var [vipSearchQuery, setVipSearchQuery] = useState('');
+  var [vipSearchResults, setVipSearchResults] = useState([]);
+  var [vipSearching, setVipSearching] = useState(false);
+  var [vipResearching, setVipResearching] = useState(null);
+  var [vipSending, setVipSending] = useState(null);
+
   function openImprove(a) {
     var existing = (a.action_payload && a.action_payload.user_context) || '';
     setImproveOpenFor(a.id);
@@ -270,6 +279,99 @@ export default function EmailDigest({ C, currentTenantId }) {
       }]);
     });
     setFuSearchResults(function(prev) { return prev.filter(function(c) { return c.id !== contact.id; }); });
+  }
+
+  // ── VIP Outreach functions ──
+  async function vipSearch(query) {
+    if (!query.trim() || !currentTenantId) return;
+    setVipSearching(true);
+    try {
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, title, notes')
+        .eq('tenant_id', currentTenantId)
+        .or('first_name.ilike.%' + query + '%,last_name.ilike.%' + query + '%,email.ilike.%' + query + '%,company.ilike.%' + query + '%')
+        .limit(20);
+      var existingIds = {};
+      vipContacts.forEach(function(c) { existingIds[c.id] = true; });
+      setVipSearchResults((r.data || []).filter(function(c) { return !existingIds[c.id]; }));
+    } catch (e) { console.error('[VIP] search error:', e); }
+    setVipSearching(false);
+  }
+
+  function addVipContact(contact) {
+    setVipContacts(function(prev) {
+      if (prev.find(function(c) { return c.id === contact.id; })) return prev;
+      return prev.concat([{
+        id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
+        email: contact.email, phone: contact.phone, company: contact.company,
+        title: contact.title, notes: contact.notes,
+        emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
+        research: null, researched: false, channel: 'email',
+      }]);
+    });
+    setVipSearchResults(function(prev) { return prev.filter(function(c) { return c.id !== contact.id; }); });
+  }
+
+  async function researchAndGenerate(contact) {
+    setVipResearching(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
+      var r = await fetch('/api/vip-research', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_name: name, title: contact.title || '',
+          company: contact.company || '', email: contact.email || '',
+          notes: contact.notes || '', tenant_id: currentTenantId,
+        }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Research failed');
+      setVipContacts(function(prev) { return prev.map(function(c) {
+        if (c.id !== contact.id) return c;
+        return Object.assign({}, c, {
+          emailDraft: d.email_body || '', smsDraft: d.sms_body || '',
+          subject: d.subject || '', research: d.research || '',
+          researched: true,
+        });
+      }); });
+    } catch (e) { alert('Research error: ' + e.message); }
+    setVipResearching(null);
+  }
+
+  async function sendVipOutreach(contact) {
+    var draft = contact.channel === 'sms' ? contact.smsDraft : contact.emailDraft;
+    if (!draft) { alert('Generate a message first.'); return; }
+    setVipSending(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
+      var convRes = await supabase.from('conversations').insert({
+        tenant_id: currentTenantId, contact_id: contact.id,
+        channel: contact.channel, status: 'active',
+        subject: 'VIP Outreach: ' + name,
+        last_message_at: new Date().toISOString(), unread_count: 0,
+      }).select('id').single();
+      if (!convRes.data) throw new Error('Failed to create conversation');
+      await supabase.from('messages').insert({
+        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        contact_id: contact.id, channel: contact.channel,
+        direction: 'outbound', sender_type: 'agent',
+        body: draft, status: 'delivered',
+        metadata: { source: 'vip_outreach', research: contact.research || '' },
+        created_at: new Date().toISOString(),
+      });
+      if (contact.channel === 'email' && contact.email) {
+        await fetch('/api/send-digest-reply', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: contact.email, subject: contact.subject || 'Quick intro', body: draft, from: contact.fromEmail }),
+        });
+      } else if (contact.channel === 'sms' && contact.phone) {
+        await fetch('/api/sms', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'send', to: contact.phone, body: draft, tenant_id: currentTenantId }),
+        });
+      }
+      setVipContacts(function(prev) { return prev.filter(function(c) { return c.id !== contact.id; }); });
+    } catch (e) { alert('Send error: ' + e.message); }
+    setVipSending(null);
   }
 
   useEffect(function() { load(); }, [currentTenantId]);
@@ -615,6 +717,132 @@ export default function EmailDigest({ C, currentTenantId }) {
                           <div style={{ color: colors.muted, fontSize: 11 }}>{c.email || c.phone}{c.company ? ' · ' + c.company : ''}</div>
                         </div>
                         <button onClick={function() { addContactToFollowups(c); }} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>＋ Add</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════ VIP Outreach Section ═══════════ */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+              <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>⭐ VIP Outreach <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {vipContacts.length}</span></h2>
+              <button onClick={function() { setVipSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
+            </div>
+            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>AI-researched, hyper-personalized outreach. Claude uses web search to learn about each company and crafts a tailored message.</p>
+
+            {vipContacts.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 30 })}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>⭐</div>
+                <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>No VIP contacts queued</div>
+                <div style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>Use "Add Contact" to search and select high-value contacts for personalized outreach.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {vipContacts.map(function(vc) {
+                  var name = ((vc.first_name || '') + ' ' + (vc.last_name || '')).trim() || vc.email || 'Unknown';
+                  var isResearching = vipResearching === vc.id;
+                  var isSending = vipSending === vc.id;
+                  return (
+                    <div key={vc.id} style={Object.assign({}, card, { borderLeft: '3px solid #FFD600' })}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                        <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{name}</span>
+                        {vc.title && <span style={{ color: colors.muted, fontSize: 12 }}>· {vc.title}</span>}
+                        {vc.company && <span style={{ background: 'rgba(255,214,0,0.12)', color: '#FFD600', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 4, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>{vc.company}</span>}
+                      </div>
+                      <div style={{ color: colors.muted, fontSize: 11, marginBottom: 10 }}>
+                        {vc.email && <span>{vc.email}</span>}
+                        {vc.email && vc.phone && <span> · </span>}
+                        {vc.phone && <span>{vc.phone}</span>}
+                      </div>
+
+                      {vc.research && (
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,214,0,0.06)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: 8, marginBottom: 10 }}>
+                          <div style={{ color: '#FFD600', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>🔍 Company Research</div>
+                          <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.5 }}>{vc.research}</div>
+                        </div>
+                      )}
+
+                      {!vc.researched ? (
+                        <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1, width: '100%' }}>
+                          {isResearching ? '🔍 Researching company & generating message…' : '🔍 Research & Generate'}
+                        </button>
+                      ) : (
+                        <div>
+                          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: 3 }}>
+                              <button onClick={function() { setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { channel: 'email' }) : c; }); }); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: vc.channel === 'email' ? colors.primary + '22' : 'transparent', color: vc.channel === 'email' ? colors.primary : colors.muted }}>📧 Email</button>
+                              <button onClick={function() { setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { channel: 'sms' }) : c; }); }); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: vc.channel === 'sms' ? '#00E676' + '22' : 'transparent', color: vc.channel === 'sms' ? '#00E676' : colors.muted }}>📱 SMS</button>
+                            </div>
+                            {vc.channel === 'email' && (
+                              <select value={vc.fromEmail} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { fromEmail: val }) : c; }); }); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }}>
+                                <option value="rob@engwx.com">From: rob@engwx.com</option>
+                                <option value="hello@engwx.com">From: hello@engwx.com</option>
+                              </select>
+                            )}
+                          </div>
+
+                          {vc.channel === 'email' && (
+                            <div style={{ marginBottom: 8 }}>
+                              <input value={vc.subject} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { subject: val }) : c; }); }); }} placeholder="Subject line…" style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: '8px 10px', color: '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }} />
+                            </div>
+                          )}
+
+                          <textarea value={vc.channel === 'sms' ? vc.smsDraft : vc.emailDraft} onChange={function(e) {
+                            var val = e.target.value;
+                            var field = vc.channel === 'sms' ? 'smsDraft' : 'emailDraft';
+                            setVipContacts(function(p) { return p.map(function(c) { if (c.id !== vc.id) return c; var u = {}; u[field] = val; return Object.assign({}, c, u); }); });
+                          }} rows={vc.channel === 'sms' ? 2 : 5} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+                          {vc.channel === 'sms' && (
+                            <div style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: 'right' }}>{(vc.smsDraft || '').length}/160 chars</div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                            <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>
+                              {isResearching ? '⏳…' : '🔄 Regenerate'}
+                            </button>
+                            <button onClick={function() { sendVipOutreach(vc); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                              {isSending ? '⏳…' : '✉️ Send'}
+                            </button>
+                            <button onClick={function() { setVipContacts(function(p) { return p.filter(function(c) { return c.id !== vc.id; }); }); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Remove</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ═══════════ VIP Contact Search Modal ═══════════ */}
+          {vipSearchOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setVipSearchOpen(false); }}>
+              <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 480, maxWidth: '90vw', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>⭐ Add VIP Contact</h3>
+                  <button onClick={function() { setVipSearchOpen(false); }} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: 18, cursor: 'pointer' }}>✕</button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input value={vipSearchQuery} onChange={function(e) { setVipSearchQuery(e.target.value); }} onKeyDown={function(e) { if (e.key === 'Enter') vipSearch(vipSearchQuery); }} placeholder="Search by name, email, or company…" style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                  <button onClick={function() { vipSearch(vipSearchQuery); }} disabled={vipSearching} style={{ background: '#FFD600' + '22', border: '1px solid #FFD600' + '44', borderRadius: 8, padding: '8px 14px', color: '#FFD600', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{vipSearching ? '…' : '🔍'}</button>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {vipSearchResults.length === 0 ? (
+                    <div style={{ color: colors.muted, textAlign: 'center', padding: 20, fontSize: 13 }}>
+                      {vipSearchQuery ? 'No results found' : 'Search for a contact to add'}
+                    </div>
+                  ) : vipSearchResults.map(function(c) {
+                    var cName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || 'Unknown';
+                    return (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 8px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <div style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{cName}{c.title ? ' · ' + c.title : ''}</div>
+                          <div style={{ color: colors.muted, fontSize: 11 }}>{c.email || c.phone}{c.company ? ' · ' + c.company : ''}</div>
+                        </div>
+                        <button onClick={function() { addVipContact(c); }} style={{ background: '#FFD600' + '22', border: '1px solid #FFD600' + '44', borderRadius: 6, padding: '5px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>⭐ Add</button>
                       </div>
                     );
                   })}
