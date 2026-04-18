@@ -646,7 +646,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   if (view === "detail" && selectedContact) {
     const c = selectedContact;
     const liveStats = detailStats;
-    const channelsList = liveStats ? liveStats.channels : (c.channels || []);
+    var rawChannels = liveStats ? liveStats.channels : (c.channels || []);
+    const channelsList = rawChannels.filter(function(ch) {
+      var upper = String(ch).toUpperCase();
+      if (upper === 'SMS' || upper === 'MMS' || upper === 'VOICE') return !!(c.phone);
+      if (upper === 'EMAIL') return !!(c.email);
+      if (upper === 'WHATSAPP') return !!(c.whatsapp_number || c.phone);
+      return true;
+    });
     const messagesSent = liveStats ? liveStats.messagesSent : (c.messagesSent || 0);
     const messagesReceived = liveStats ? liveStats.messagesReceived : (c.messagesReceived || 0);
     const openRate = liveStats ? liveStats.openRate : (c.openRate || 0);

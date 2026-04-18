@@ -963,7 +963,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Channels</h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {c.channels.map(ch => <div key={ch} style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.primary, fontWeight: 600 }}>{CHANNEL_ICONS[ch]} {ch}</div>)}
+                {(c.channels || []).filter(function(ch) {
+                  var upper = String(ch).toUpperCase();
+                  if (upper === 'SMS' || upper === 'MMS' || upper === 'VOICE') return !!(c.phone);
+                  if (upper === 'EMAIL') return !!(c.email);
+                  if (upper === 'WHATSAPP') return !!(c.whatsapp_number || c.phone);
+                  return true;
+                }).map(ch => <div key={ch} style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.primary, fontWeight: 600 }}>{CHANNEL_ICONS[ch]} {ch}</div>)}
               </div>
             </div>
             <div style={{ ...card, marginBottom: 16 }}>
