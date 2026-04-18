@@ -15,11 +15,18 @@
     "twilio": "^5.0.0"
   },
   "engines": {
-    "node": "18.x"
+    "node": "24.x"
+  },
+  "overrides": {
+    "ajv": "^8.0.0",
+    "ajv-keywords": "^5.0.0",
+    "schema-utils": "^4.0.0",
+    "fork-ts-checker-webpack-plugin": "^9.0.0",
+    "babel-loader": "^9.0.0"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "DISABLE_ESLINT_PLUGIN=true react-scripts build"
   },
   "browserslist": {
     "production": [

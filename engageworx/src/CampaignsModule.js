@@ -685,7 +685,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             )}
 
             {/* A/B Test Toggle */}
-            {newCampaign.campaignType === 'broadcast' && (
+            {newCampaign.campaignType === 'broadcast' && (<>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, marginBottom: newCampaign.abTest ? 16 : 0 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>A/B Testing</div>
@@ -705,7 +705,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 <textarea value={newCampaign.abVariantB} onChange={e => setNewCampaign({ ...newCampaign, abVariantB: e.target.value })} rows={3} placeholder="Write an alternative version to test against..." style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }} />
               </div>
             )}
-            )}
+            </>)}
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28 }}>
               <button onClick={() => setCreateStep(1)} style={btnSecondary}>← Back</button>
