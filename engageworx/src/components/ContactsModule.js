@@ -121,6 +121,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [page, setPage] = useState(0);
   const pageSize = 15;
   const [detailStats, setDetailStats] = useState(null);
+  const [filterVip, setFilterVip] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
   const [mergePrimaryId, setMergePrimaryId] = useState(null);
   const [mergeChoices, setMergeChoices] = useState({}); // { field: contactId }
@@ -265,9 +266,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           email: c.email || '',
           phone: c.phone || '',
           company: c.company || '',
+          title: c.title || '',
+          linkedin_url: c.linkedin_url || '',
+          notes: c.notes || '',
           status: c.status || 'subscribed',
           tags: c.tags || [],
           channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
+          preferred_channel: c.preferred_channel || 'email',
+          is_vip: c.is_vip || false,
           created: new Date(c.created_at),
           lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
           messagesSent: c.message_count || 0,
@@ -277,7 +283,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           ltv: 0,
           city: '',
           state: '',
-          notes: '',
           customFields: c.custom_fields || {},
           tenant_id: c.tenant_id,
           pipeline_lead_id: c.pipeline_lead_id || null,
@@ -417,6 +422,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     }
   };
 
+  async function toggleVip(contact) {
+    var newVal = !contact.is_vip;
+    if (!demoMode && currentTenantId) {
+      try { await supabase.from('contacts').update({ is_vip: newVal }).eq('id', contact.id); } catch (e) { console.warn('VIP toggle error:', e); }
+    }
+    setContacts(function(prev) { return prev.map(function(c) { return c.id === contact.id ? Object.assign({}, c, { is_vip: newVal }) : c; }); });
+    if (selectedContact && selectedContact.id === contact.id) setSelectedContact(function(prev) { return prev ? Object.assign({}, prev, { is_vip: newVal }) : prev; });
+  }
+
   // Edit contact in Supabase
   const handleEditContact = async (contact) => {
     if (demoMode) {
@@ -436,7 +450,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         email: contact.email,
         phone: contact.phone,
         company: contact.company,
+        title: contact.title || null,
+        linkedin_url: contact.linkedin_url || null,
+        notes: contact.notes || null,
         status: contact.status,
+        preferred_channel: contact.preferred_channel || 'email',
+        is_vip: contact.is_vip || false,
+        tags: contact.tags || [],
       }).eq('id', contact.id);
       if (error) throw error;
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
@@ -585,6 +605,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   const filtered = contacts.filter(c => {
     if (!segment.filter(c)) return false;
+    if (filterVip && !c.is_vip) return false;
     if (filterStatus !== "all" && c.status !== filterStatus) return false;
     if (filterTag !== "all" && !c.tags.includes(filterTag)) return false;
     if (filterChannel !== "all" && !c.channels.includes(filterChannel)) return false;
@@ -685,9 +706,16 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           <div>
             <div style={{ ...card, textAlign: "center", marginBottom: 16 }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", margin: "0 auto 14px" }}>{c.firstName[0]}{c.lastName[0]}</div>
-              <h2 style={{ color: "#fff", margin: "0 0 4px", fontSize: 20 }}>{c.firstName} {c.lastName}</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <h2 style={{ color: "#fff", margin: "0", fontSize: 20 }}>{c.firstName} {c.lastName}</h2>
+                <button onClick={function() { toggleVip(c); }} title={c.is_vip ? "Remove VIP" : "Mark as VIP"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, color: c.is_vip ? "#FFD600" : "rgba(255,255,255,0.15)", transition: "color 0.2s" }}>{c.is_vip ? "⭐" : "☆"}</button>
+              </div>
+              {c.title && <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2, marginBottom: 4 }}>{c.title}</div>}
               <div style={{ color: C.muted, fontSize: 13, marginBottom: 8 }}>{c.company}</div>
-              <span style={badge(STATUS_COLORS[c.status])}>{c.status}</span>
+              <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 4 }}>
+                <span style={badge(STATUS_COLORS[c.status])}>{c.status}</span>
+                {c.is_vip && <span style={badge("#FFD600")}>⭐ VIP</span>}
+              </div>
               <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 12, flexWrap: "wrap" }}>
                 {c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>)}
               </div>
@@ -703,6 +731,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     { key: "email", label: "Email", icon: "📧" },
                     { key: "phone", label: "Phone", icon: "📞" },
                     { key: "company", label: "Company", icon: "🏢" },
+                    { key: "title", label: "Title", icon: "💼" },
+                    { key: "linkedin_url", label: "LinkedIn", icon: "🔗" },
                   ].map(f => (
                     <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
@@ -710,12 +740,50 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                     </div>
                   ))}
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 14, width: 20, paddingTop: 6 }}>📝</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80, paddingTop: 6 }}>Notes</span>
+                    <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={3} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical" }} />
+                  </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{ fontSize: 14, width: 20 }}>📋</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Status</span>
                     <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 14, width: 20 }}>📡</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Preferred</span>
+                    <div style={{ flex: 1, display: "flex", gap: 6 }}>
+                      {[
+                        { id: "email", label: "📧 Email" },
+                        { id: "sms", label: "💬 SMS" },
+                        { id: "whatsapp", label: "📱 WhatsApp" },
+                      ].map(function(ch) {
+                        var active = (editingContact.preferred_channel || 'email') === ch.id;
+                        return <button key={ch.id} onClick={function() { setEditingContact(Object.assign({}, editingContact, { preferred_channel: ch.id })); }} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1px solid " + (active ? C.primary + "66" : "rgba(255,255,255,0.1)"), background: active ? C.primary + "22" : "rgba(0,0,0,0.2)", color: active ? C.primary : C.muted, fontSize: 11, fontWeight: active ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{ch.label}</button>;
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 14, width: 20 }}>🏷️</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Tags</span>
+                    <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {TAGS.map(function(t) {
+                        var has = (editingContact.tags || []).includes(t);
+                        return <button key={t} onClick={function() {
+                          var current = editingContact.tags || [];
+                          var next = has ? current.filter(function(x) { return x !== t; }) : current.concat([t]);
+                          setEditingContact(Object.assign({}, editingContact, { tags: next }));
+                        }} style={{ background: has ? (TAG_COLORS[t] || C.muted) + "22" : "rgba(255,255,255,0.04)", border: "1px solid " + (has ? (TAG_COLORS[t] || C.muted) + "55" : "rgba(255,255,255,0.08)"), borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: has ? 700 : 400, color: has ? (TAG_COLORS[t] || C.muted) : "rgba(255,255,255,0.3)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{has ? "✓ " : ""}{t}</button>;
+                      })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <span style={{ fontSize: 14, width: 20 }}>⭐</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>VIP</span>
+                    <button onClick={function() { setEditingContact(Object.assign({}, editingContact, { is_vip: !editingContact.is_vip })); }} style={{ background: editingContact.is_vip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (editingContact.is_vip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 6, padding: "6px 14px", color: editingContact.is_vip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: editingContact.is_vip ? 700 : 400, fontFamily: "'DM Sans', sans-serif" }}>{editingContact.is_vip ? "⭐ VIP" : "☆ Not VIP"}</button>
                   </div>
                   <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
@@ -725,10 +793,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     { icon: "📧", label: "Email", value: c.email },
                     { icon: "📞", label: "Phone", value: c.phone },
                     { icon: "🏢", label: "Company", value: c.company },
-                    { icon: "📍", label: "Location", value: `${c.city}, ${c.state}` },
+                    c.title ? { icon: "💼", label: "Title", value: c.title } : null,
+                    c.linkedin_url ? { icon: "🔗", label: "LinkedIn", value: c.linkedin_url } : null,
+                    { icon: "📡", label: "Preferred", value: (c.preferred_channel || 'email').charAt(0).toUpperCase() + (c.preferred_channel || 'email').slice(1) },
                     { icon: "📅", label: "Created", value: c.created.toLocaleDateString() },
                     { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() },
-                  ].map(item => (
+                  ].filter(Boolean).map(item => (
                     <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
                       <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
@@ -738,6 +808,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 </>
               )}
             </div>
+
+            {c.notes && !editingContact && (
+              <div style={{ ...card, marginBottom: 16 }}>
+                <h3 style={{ color: "#fff", margin: "0 0 8px", fontSize: 14 }}>📝 Notes</h3>
+                <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{c.notes}</div>
+              </div>
+            )}
 
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Channels</h3>
@@ -980,6 +1057,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <option value="all">All Channels</option>
               {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
             </select>
+            <button onClick={function() { setFilterVip(!filterVip); setPage(0); }} style={{ background: filterVip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterVip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterVip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterVip ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterVip ? "⭐ VIP Only" : "⭐ VIP"}</button>
             <div style={{ marginLeft: "auto", color: C.muted, fontSize: 13 }}>{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</div>
           </div>
 
@@ -1102,7 +1180,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div onClick={() => { setSelectedContact(c); setView("detail"); }} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{c.firstName[0]}{c.lastName[0]}</div>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{c.firstName} {c.lastName}</div>
+                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{c.is_vip && <span style={{ color: "#FFD600", marginRight: 4 }}>⭐</span>}{c.firstName} {c.lastName}</div>
                     <div style={{ color: C.muted, fontSize: 11 }}>{c.company}</div>
                   </div>
                 </div>
