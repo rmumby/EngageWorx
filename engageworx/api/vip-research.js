@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
       model: model,
       max_tokens: 4096,
       system: system,
-      tools: [{ type: 'web_search_20250305', max_uses: 3 }],
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
       messages: [{ role: 'user', content: userPrompt }],
     };
 
