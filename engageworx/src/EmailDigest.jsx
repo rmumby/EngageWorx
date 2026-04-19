@@ -923,7 +923,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                   }
                   var noReply = daysSinceContact !== null && !vc.has_reply && !followupDue;
                   return (
-                    <div key={vc.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (followupDue ? '#FF3B30' : '#FFD600') })}>
+                    <div key={vc.id} id={'vip-card-' + vc.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (followupDue ? '#FF3B30' : '#FFD600') })}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{name}</span>
                         {vc.title && <span style={{ color: colors.muted, fontSize: 12 }}>· {vc.title}</span>}
@@ -1066,7 +1066,16 @@ export default function EmailDigest({ C, currentTenantId }) {
                   )}
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={function() { setVipPreview(null); }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
+                  <button onClick={function() {
+                    var contactId = vipPreview && vipPreview.id;
+                    setVipPreview(null);
+                    if (contactId) {
+                      setTimeout(function() {
+                        var el = document.getElementById('vip-card-' + contactId);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 100);
+                    }
+                  }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
                   <button onClick={function() { var contact = vipPreview; setVipPreview(null); sendVipOutreach(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
                 </div>
               </div>
