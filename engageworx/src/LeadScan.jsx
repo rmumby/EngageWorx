@@ -160,6 +160,8 @@ export default function LeadScan({ C, demoMode = false }) {
           var pc = await supabase.from('contacts').select('id').eq('phone', form.phone).eq('tenant_id', SP_TENANT_ID).single();
           if (pc.data) existing = pc.data.id;
         }
+        var scanTag = (eventTag || '').trim();
+        var contactTags = scanTag ? [scanTag] : [];
         var contactPayload = {
           first_name: nameParts[0] || form.company,
           last_name: nameParts.slice(1).join(' ') || null,
@@ -172,8 +174,20 @@ export default function LeadScan({ C, demoMode = false }) {
           tenant_id: SP_TENANT_ID,
           status: 'active',
           source: selectedLocation || 'Direct',
+          event_tag: scanTag || null,
+          tags: contactTags,
         };
+        console.log('[LeadScan] saving contact:', JSON.stringify({ name: form.name, email: form.email, tags: contactTags, event_tag: scanTag, existing: existing }));
         if (existing) {
+          // Merge tags with existing contact's tags
+          try {
+            var existingContact = await supabase.from('contacts').select('tags').eq('id', existing).maybeSingle();
+            if (existingContact.data && Array.isArray(existingContact.data.tags)) {
+              var merged = existingContact.data.tags.slice();
+              contactTags.forEach(function(t) { if (merged.indexOf(t) === -1) merged.push(t); });
+              contactPayload.tags = merged;
+            }
+          } catch (e) {}
           await supabase.from('contacts').update(contactPayload).eq('id', existing);
         } else {
           await supabase.from('contacts').insert(contactPayload);
