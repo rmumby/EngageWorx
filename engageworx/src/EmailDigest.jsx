@@ -9,7 +9,10 @@ var ACTION_STYLE = {
   no_action:       { label: 'No Action',       color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
 };
 
+var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+
 export default function EmailDigest({ C, currentTenantId }) {
+  var resolvedTenantId = currentTenantId || SP_TENANT_ID;
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -60,11 +63,11 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   // Load is_vip contacts from DB + pick up localStorage queue
   useEffect(function() {
-    if (!currentTenantId) return;
+    if (!resolvedTenantId) return;
     (async function() {
       try {
         var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
-          .eq('tenant_id', currentTenantId).eq('is_vip', true);
+          .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
         var dbContacts = (r.data || []).map(makeVipCard);
         // Merge with any localStorage-queued contact
         var queued = null;
@@ -85,7 +88,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         });
       } catch (e) { console.warn('[VIP] load error:', e.message); }
     })();
-  }, [currentTenantId]);
+  }, [resolvedTenantId]);
 
   function openImprove(a) {
     var existing = (a.action_payload && a.action_payload.user_context) || '';
@@ -293,12 +296,14 @@ export default function EmailDigest({ C, currentTenantId }) {
   function deselectAllFu() { setFuSelected({}); }
 
   async function searchContacts(query) {
-    if (!query.trim() || !currentTenantId) return;
+    if (!query.trim() || !resolvedTenantId) return;
     setFuSearching(true);
     try {
+      var q = query.trim();
+      var pattern = '%' + q + '%';
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
-        .eq('tenant_id', currentTenantId)
-        .or('first_name.ilike.%' + query + '%,last_name.ilike.%' + query + '%,email.ilike.%' + query + '%,company.ilike.%' + query + '%')
+        .eq('tenant_id', resolvedTenantId)
+        .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
         .limit(20);
       var existingIds = {};
       followups.forEach(function(f) { existingIds[f.id] = true; });
@@ -322,12 +327,14 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   // ── VIP Outreach functions ──
   async function vipSearch(query) {
-    if (!query.trim() || !currentTenantId) return;
+    if (!query.trim() || !resolvedTenantId) return;
     setVipSearching(true);
     try {
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, title, notes')
-        .eq('tenant_id', currentTenantId)
-        .or('first_name.ilike.%' + query + '%,last_name.ilike.%' + query + '%,email.ilike.%' + query + '%,company.ilike.%' + query + '%')
+      var q = query.trim();
+      var pattern = '%' + q + '%';
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
+        .eq('tenant_id', resolvedTenantId)
+        .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
         .limit(20);
       var existingIds = {};
       vipContacts.forEach(function(c) { existingIds[c.id] = true; });
