@@ -6,6 +6,30 @@ const TAGS = ["New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enter
 const TAG_COLORS = { New: "#00E676", Active: "#00C9FF", Inactive: "#FF9800", Churned: "#FF3B30", Lead: "#E040FB", Prospect: "#7C4DFF", Enterprise: "#FF6B35", SMB: "#6B8BAE", Newsletter: "#25D366" };
 const CHANNELS = ["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"];
 const CHANNEL_ICONS = { SMS: "💬", Email: "📧", WhatsApp: "📱", RCS: "✨", MMS: "📷", Voice: "📞" };
+const COUNTRY_CODES = [
+  { code: "+1", label: "US +1", flag: "🇺🇸" },
+  { code: "+44", label: "UK +44", flag: "🇬🇧" },
+  { code: "+48", label: "PL +48", flag: "🇵🇱" },
+  { code: "+34", label: "ES +34", flag: "🇪🇸" },
+  { code: "+55", label: "BR +55", flag: "🇧🇷" },
+  { code: "+33", label: "FR +33", flag: "🇫🇷" },
+  { code: "+49", label: "DE +49", flag: "🇩🇪" },
+  { code: "+61", label: "AU +61", flag: "🇦🇺" },
+  { code: "+91", label: "IN +91", flag: "🇮🇳" },
+  { code: "+52", label: "MX +52", flag: "🇲🇽" },
+  { code: "+971", label: "AE +971", flag: "🇦🇪" },
+  { code: "+972", label: "IL +972", flag: "🇮🇱" },
+];
+function splitPhone(full) {
+  if (!full) return { cc: "+1", num: "" };
+  var s = String(full).trim();
+  for (var i = 0; i < COUNTRY_CODES.length; i++) {
+    if (s.indexOf(COUNTRY_CODES[i].code) === 0) return { cc: COUNTRY_CODES[i].code, num: s.slice(COUNTRY_CODES[i].code.length).trim() };
+  }
+  if (s[0] === '+') { var m = s.match(/^(\+\d{1,4})\s*(.*)/); if (m) return { cc: m[1], num: m[2] }; }
+  return { cc: "+1", num: s };
+}
+function joinPhone(cc, num) { return num ? (cc + num.replace(/^0+/, '')).trim() : ''; }
 const STATUSES = ["active", "unsubscribed", "bounced", "blocked"];
 const STATUS_COLORS = { active: "#00E676", unsubscribed: "#FF3B30", bounced: "#FF9800", blocked: "#6B8BAE" };
 
@@ -742,19 +766,29 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       if (selectedContact?.id === contact.id) setSelectedContact({ ...selectedContact, ...contact });
       return;
     }
+    var phoneVal = contact.mobile_phone || contact.phone || null;
+    var coreFields = {
+      first_name: contact.firstName, last_name: contact.lastName,
+      email: contact.email, phone: phoneVal,
+      company: contact.company || null, status: contact.status,
+      tags: (contact.tags || []).filter(function(t) { return t !== 'VIP'; }),
+    };
+    var extraFields = {
+      mobile_phone: phoneVal, office_phone: contact.office_phone || null,
+      title: contact.title || null, linkedin_url: contact.linkedinUrl || null,
+      notes: contact.notes || null, preferred_channel: contact.preferred_channel || 'email',
+      is_vip: contact.is_vip || false,
+    };
     try {
-      const { error } = await supabase.from('contacts').update({
-        first_name: contact.firstName, last_name: contact.lastName,
-        email: contact.email,
-        phone: contact.mobile_phone || contact.phone || null,
-        mobile_phone: contact.mobile_phone || contact.phone || null,
-        office_phone: contact.office_phone || null,
-        company: contact.company || null, title: contact.title || null,
-        linkedin_url: contact.linkedinUrl || null, notes: contact.notes || null,
-        status: contact.status, preferred_channel: contact.preferred_channel || 'email',
-        is_vip: contact.is_vip || false, tags: (contact.tags || []).filter(function(t) { return t !== 'VIP'; }),
-      }).eq('id', contact.id);
-      if (error) throw error;
+      var fullUpdate = Object.assign({}, coreFields, extraFields);
+      var { error } = await supabase.from('contacts').update(fullUpdate).eq('id', contact.id);
+      if (error && error.message && error.message.includes('column')) {
+        console.warn('Full update failed, trying core fields only:', error.message);
+        var { error: coreErr } = await supabase.from('contacts').update(coreFields).eq('id', contact.id);
+        if (coreErr) throw coreErr;
+      } else if (error) {
+        throw error;
+      }
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
       setEditingContact(null);
       if (selectedContact?.id === contact.id) setSelectedContact({ ...selectedContact, ...contact });
@@ -978,7 +1012,27 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
               {editingContact ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }, { key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }, { key: "company", label: "Company", icon: "🏢" }, { key: "title", label: "Title", icon: "💼" }, { key: "linkedinUrl", label: "LinkedIn", icon: "🔗" }].map(f => (
+                  {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }].map(f => (
+                    <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
+                      <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
+                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                    </div>
+                  ))}
+                  {[{ key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }].map(function(f) {
+                    var parts = splitPhone(editingContact[f.key]);
+                    return (
+                      <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
+                        <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
+                        <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 6px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 90 }}>
+                          {COUNTRY_CODES.map(function(cc) { return <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>; })}
+                        </select>
+                        <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Phone number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                      </div>
+                    );
+                  })}
+                  {[{ key: "company", label: "Company", icon: "🏢" }, { key: "title", label: "Title", icon: "💼" }, { key: "linkedinUrl", label: "LinkedIn", icon: "🔗" }].map(f => (
                     <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
                       <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
