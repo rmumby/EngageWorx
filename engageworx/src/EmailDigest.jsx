@@ -43,6 +43,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [fuSearchResults, setFuSearchResults] = useState([]);
   var [fuSearching, setFuSearching] = useState(false);
   var [fuImproving, setFuImproving] = useState(null);
+  var [fuPreview, setFuPreview] = useState(null);
 
   // ── VIP Outreach state ──
   var [vipContacts, setVipContacts] = useState([]);
@@ -793,7 +794,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                   var isImproving = fuImproving === fu.id;
                   var isSending = fuSending === fu.id || fuSending === 'bulk';
                   return (
-                    <div key={fu.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (fu.draft ? '#10b981' : '#f59e0b') })}>
+                    <div key={fu.id} id={'followup-card-' + fu.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (fu.draft ? '#10b981' : '#f59e0b') })}>
                       <div style={{ display: 'flex', gap: 12 }}>
                         <div style={{ paddingTop: 2 }}>
                           <input type="checkbox" checked={!!fuSelected[fu.id]} onChange={function() { toggleFuSelect(fu.id); }} style={{ cursor: 'pointer', width: 16, height: 16 }} />
@@ -838,6 +839,9 @@ export default function EmailDigest({ C, currentTenantId }) {
                                 {isImproving ? '⏳ Improving…' : '✨ Improve'}
                               </button>
                             )}
+                            {fu.draft && fu.channel === 'email' && (
+                              <button onClick={function() { setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
+                            )}
                             {fu.draft && (
                               <button onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                                 {isSending ? '⏳…' : '✉️ Send'}
@@ -856,6 +860,39 @@ export default function EmailDigest({ C, currentTenantId }) {
               </div>
             )}
           </div>
+
+          {/* ═══════════ Follow-up Preview Modal ═══════════ */}
+          {fuPreview && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setFuPreview(null); }}>
+              <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#fff', borderRadius: 14, width: 640, maxWidth: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ color: '#6b7280', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email Preview</span>
+                    <button onClick={function() { setFuPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>To: {fuPreview.email || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: rob@engwx.com</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Following up</div>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+                  <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{fuPreview.draft}</div>
+                </div>
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={function() {
+                    var contactId = fuPreview && fuPreview.id;
+                    setFuPreview(null);
+                    if (contactId) {
+                      setTimeout(function() {
+                        var el = document.getElementById('followup-card-' + contactId);
+                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
+                      }, 100);
+                    }
+                  }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
+                  <button onClick={function() { var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ═══════════ Contact Search Modal ═══════════ */}
           {fuSearchOpen && (
@@ -1072,7 +1109,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     if (contactId) {
                       setTimeout(function() {
                         var el = document.getElementById('vip-card-' + contactId);
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
                       }, 100);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
