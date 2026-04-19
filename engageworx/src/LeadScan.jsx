@@ -161,7 +161,8 @@ export default function LeadScan({ C, demoMode = false }) {
           if (pc.data) existing = pc.data.id;
         }
         var scanTag = (eventTag || '').trim();
-        var contactTags = scanTag ? [scanTag] : [];
+        var contactTags = ['Lead'];
+        if (scanTag && contactTags.indexOf(scanTag) === -1) contactTags.push(scanTag);
         var contactPayload = {
           first_name: nameParts[0] || form.company,
           last_name: nameParts.slice(1).join(' ') || null,
