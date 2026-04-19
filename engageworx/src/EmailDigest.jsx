@@ -52,6 +52,8 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipSending, setVipSending] = useState(null);
   var [vipPreview, setVipPreview] = useState(null);
   var [vipFollowingUp, setVipFollowingUp] = useState(null);
+  var [vipFollowupDays, setVipFollowupDays] = useState(5);
+  var [vipDatePicker, setVipDatePicker] = useState(null);
 
   function makeVipCard(c, extra) {
     return {
@@ -62,6 +64,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       research: null, researched: false, channel: 'email',
       calendly_cta: '', email_signature: '',
       last_contacted_at: c.last_contacted_at || null,
+      vip_followup_at: c.vip_followup_at || null,
       has_reply: (extra && extra.has_reply) || false,
     };
   }
@@ -69,7 +72,12 @@ export default function EmailDigest({ C, currentTenantId }) {
   async function loadVipContacts() {
     if (!resolvedTenantId) return;
     try {
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes, last_contacted_at')
+      // Load tenant follow-up days setting
+      try {
+        var tR = await supabase.from('tenants').select('vip_followup_days').eq('id', resolvedTenantId).maybeSingle();
+        if (tR.data && tR.data.vip_followup_days) setVipFollowupDays(tR.data.vip_followup_days);
+      } catch (e) {}
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes, last_contacted_at, vip_followup_at')
         .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
       var contactIds = (r.data || []).map(function(c) { return c.id; });
       var replyMap = {};
@@ -861,8 +869,13 @@ export default function EmailDigest({ C, currentTenantId }) {
                   var isResearching = vipResearching === vc.id;
                   var isSending = vipSending === vc.id;
                   var daysSinceContact = vc.last_contacted_at ? Math.floor((Date.now() - new Date(vc.last_contacted_at).getTime()) / 86400000) : null;
-                  var followupDue = daysSinceContact !== null && daysSinceContact >= 5 && !vc.has_reply;
-                  var noReply = daysSinceContact !== null && !vc.has_reply;
+                  var followupDue;
+                  if (vc.vip_followup_at) {
+                    followupDue = Date.now() >= new Date(vc.vip_followup_at).getTime() && !vc.has_reply;
+                  } else {
+                    followupDue = daysSinceContact !== null && daysSinceContact >= vipFollowupDays && !vc.has_reply;
+                  }
+                  var noReply = daysSinceContact !== null && !vc.has_reply && !followupDue;
                   return (
                     <div key={vc.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (followupDue ? '#FF3B30' : '#FFD600') })}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -878,7 +891,31 @@ export default function EmailDigest({ C, currentTenantId }) {
                         {vc.email && vc.phone && <span> · </span>}
                         {vc.phone && <span>{vc.phone}</span>}
                         {daysSinceContact !== null && <span style={{ marginLeft: 8, color: followupDue ? '#FF3B30' : 'rgba(255,255,255,0.3)' }}>· Last contacted {daysSinceContact === 0 ? 'today' : daysSinceContact + 'd ago'}</span>}
+                        {vc.vip_followup_at && <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.3)' }}>· Follow-up: {new Date(vc.vip_followup_at).toLocaleDateString()}</span>}
                       </div>
+
+                      {daysSinceContact !== null && !vc.emailDraft && !vc.researched && (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+                          <span style={{ color: colors.muted, fontSize: 11 }}>⏰ Follow up in:</span>
+                          {[3, 5, 7].map(function(d) {
+                            return <button key={d} onClick={async function() {
+                              var dt = new Date(Date.now() + d * 86400000).toISOString();
+                              setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
+                              try { await supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id); } catch (e) {}
+                            }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
+                          })}
+                          <button onClick={function() { setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
+                          {vipDatePicker === vc.id && (
+                            <input type="date" onChange={async function(e) {
+                              if (!e.target.value) return;
+                              var dt = new Date(e.target.value + 'T09:00:00').toISOString();
+                              setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
+                              setVipDatePicker(null);
+                              try { await supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id); } catch (e2) {}
+                            }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '4px 8px', color: '#fff', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }} />
+                          )}
+                        </div>
+                      )}
 
                       {vc.research && (
                         <div style={{ padding: '10px 12px', background: 'rgba(255,214,0,0.06)', border: '1px solid rgba(255,214,0,0.2)', borderRadius: 8, marginBottom: 10 }}>

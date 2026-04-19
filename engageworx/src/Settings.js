@@ -308,6 +308,16 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
+  const [vipFollowupDays, setVipFollowupDays] = useState(5);
+  useEffect(function() {
+    if (!currentTenantId || demoMode) return;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('vip_followup_days').eq('id', currentTenantId).maybeSingle();
+        if (r.data && r.data.vip_followup_days) setVipFollowupDays(r.data.vip_followup_days);
+      } catch (e) {}
+    })();
+  }, [currentTenantId, demoMode]);
   const [topupLoading, setTopupLoading] = useState(null);
   const [userEmail, setUserEmail] = useState("");
   const [stripePlan, setStripePlan] = useState(null);
@@ -884,6 +894,29 @@ return (<div>
                     color: isActive ? C.primary : '#fff', fontWeight: isActive ? 700 : 400,
                     fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: 'all 0.2s',
                   }}>{lang.flag} {lang.label}</button>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ ...card, marginBottom: 20 }}>
+            <h3 style={{ color: "#fff", fontSize: 15, margin: "0 0 8px" }}>⏰ VIP Follow-up Timing</h3>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 12px" }}>Default number of days before a VIP follow-up reminder appears. Can be overridden per contact.</p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {[3, 5, 7].map(function(d) {
+                var isActive = vipFollowupDays === d;
+                return (
+                  <button key={d} onClick={async function() {
+                    setVipFollowupDays(d);
+                    if (currentTenantId && !demoMode) {
+                      try { await supabase.from('tenants').update({ vip_followup_days: d }).eq('id', currentTenantId); } catch (e) {}
+                    }
+                  }} style={{
+                    background: isActive ? C.primary + '22' : 'rgba(255,255,255,0.04)',
+                    border: '1px solid ' + (isActive ? C.primary + '66' : 'rgba(255,255,255,0.1)'),
+                    borderRadius: 10, padding: '10px 18px', cursor: 'pointer',
+                    color: isActive ? C.primary : '#fff', fontWeight: isActive ? 700 : 400,
+                    fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                  }}>{d} days</button>
                 );
               })}
             </div>
