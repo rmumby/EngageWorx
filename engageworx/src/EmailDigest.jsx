@@ -62,33 +62,34 @@ export default function EmailDigest({ C, currentTenantId }) {
     };
   }
 
-  // Load is_vip contacts from DB + pick up localStorage queue
-  useEffect(function() {
+  async function loadVipContacts() {
     if (!resolvedTenantId) return;
-    (async function() {
+    try {
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
+        .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
+      var dbContacts = (r.data || []).map(makeVipCard);
+      var queued = null;
       try {
-        var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
-          .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
-        var dbContacts = (r.data || []).map(makeVipCard);
-        // Merge with any localStorage-queued contact
-        var queued = null;
-        try {
-          var raw = localStorage.getItem('engwx_vip_queue');
-          if (raw) { localStorage.removeItem('engwx_vip_queue'); queued = JSON.parse(raw); }
-        } catch (e) {}
-        setVipContacts(function(prev) {
-          var ids = {};
-          var merged = [];
-          // Keep existing cards that already have drafts (user may have typed)
-          prev.forEach(function(c) { if (c.draft || c.emailDraft || c.researched) { ids[c.id] = true; merged.push(c); } });
-          // Add DB VIP contacts
-          dbContacts.forEach(function(c) { if (!ids[c.id]) { ids[c.id] = true; merged.push(c); } });
-          // Add queued contact
-          if (queued && queued.id && !ids[queued.id]) merged.push(makeVipCard(queued));
-          return merged;
-        });
-      } catch (e) { console.warn('[VIP] load error:', e.message); }
-    })();
+        var raw = localStorage.getItem('engwx_vip_queue');
+        if (raw) { localStorage.removeItem('engwx_vip_queue'); queued = JSON.parse(raw); }
+      } catch (e) {}
+      setVipContacts(function(prev) {
+        var ids = {};
+        var merged = [];
+        prev.forEach(function(c) { if (c.emailDraft || c.researched) { ids[c.id] = true; merged.push(c); } });
+        dbContacts.forEach(function(c) { if (!ids[c.id]) { ids[c.id] = true; merged.push(c); } });
+        if (queued && queued.id && !ids[queued.id]) merged.push(makeVipCard(queued));
+        return merged;
+      });
+    } catch (e) { console.warn('[VIP] load error:', e.message); }
+  }
+
+  useEffect(function() { loadVipContacts(); }, [resolvedTenantId]);
+
+  useEffect(function() {
+    function onVisible() { if (!document.hidden) loadVipContacts(); }
+    document.addEventListener('visibilitychange', onVisible);
+    return function() { document.removeEventListener('visibilitychange', onVisible); };
   }, [resolvedTenantId]);
 
   function openImprove(a) {
@@ -786,7 +787,10 @@ export default function EmailDigest({ C, currentTenantId }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>⭐ VIP Outreach <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {vipContacts.length}</span></h2>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={function() { loadVipContacts(); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 10px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄</button>
               <button onClick={function() { setVipSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
+              </div>
             </div>
             <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>AI-researched, hyper-personalized outreach. Claude uses web search to learn about each company and crafts a tailored message.</p>
 
