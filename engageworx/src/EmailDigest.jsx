@@ -51,6 +51,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipResearching, setVipResearching] = useState(null);
   var [vipSending, setVipSending] = useState(null);
   var [vipPreview, setVipPreview] = useState(null);
+  var [vipFollowingUp, setVipFollowingUp] = useState(null);
 
   function makeVipCard(c, extra) {
     return {
@@ -450,6 +451,39 @@ export default function EmailDigest({ C, currentTenantId }) {
       }); });
     } catch (e) { alert('Send error: ' + e.message); }
     setVipSending(null);
+  }
+
+  async function generateFollowup(contact) {
+    setVipFollowingUp(contact.id);
+    try {
+      var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
+      var r = await fetch('/api/vip-followup', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact_id: contact.id, contact_name: name,
+          company: contact.company || '', tenant_id: resolvedTenantId,
+        }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Follow-up generation failed');
+      setVipContacts(function(prev) { return prev.map(function(c) {
+        if (c.id !== contact.id) return c;
+        return Object.assign({}, c, {
+          emailDraft: d.email_body || '', subject: d.subject || '',
+          fromEmail: d.from_email || c.fromEmail,
+          calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
+          researched: true, channel: 'email',
+        });
+      }); });
+      // Auto-open preview
+      var updated = Object.assign({}, contact, {
+        emailDraft: d.email_body || '', subject: d.subject || '',
+        fromEmail: d.from_email || contact.fromEmail,
+        calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
+      });
+      setVipPreview(updated);
+    } catch (e) { alert('Follow-up error: ' + e.message); }
+    setVipFollowingUp(null);
   }
 
   useEffect(function() { load(); }, [currentTenantId]);
@@ -858,9 +892,16 @@ export default function EmailDigest({ C, currentTenantId }) {
                       </div>
 
                       {!vc.researched ? (
-                        <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1, width: '100%' }}>
-                          {isResearching ? '🔍 Researching company & generating message…' : '🔍 Research & Generate'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching || vipFollowingUp === vc.id} style={{ flex: 1, background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1 }}>
+                            {isResearching ? '🔍 Researching…' : '🔍 Research & Generate'}
+                          </button>
+                          {(followupDue || noReply) && (
+                            <button onClick={function() { generateFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
+                              {vipFollowingUp === vc.id ? '⏳…' : '🔄 Follow-up'}
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -896,7 +937,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                             )}
                           </>)}
 
-                          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                             <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>
                               {isResearching ? '⏳…' : '🔄 Regenerate'}
                             </button>
