@@ -35,7 +35,9 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [fuGeneratingAll, setFuGeneratingAll] = useState(false);
   var [fuSending, setFuSending] = useState(null);
   var [fuSelected, setFuSelected] = useState({});
-  var [fuFilter, setFuFilter] = useState('cpexpo');
+  var [fuFilter, setFuFilter] = useState('all');
+  var [fuTagFilter, setFuTagFilter] = useState('');
+  var [fuAvailableTags, setFuAvailableTags] = useState([]);
   var [fuSearchOpen, setFuSearchOpen] = useState(false);
   var [fuSearchQuery, setFuSearchQuery] = useState('');
   var [fuSearchResults, setFuSearchResults] = useState([]);
@@ -165,26 +167,34 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   // ── Follow-up candidate loader ──
   async function loadFollowups() {
-    if (!currentTenantId) return;
+    if (!resolvedTenantId) return;
     setFuLoading(true);
     try {
       var sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-      var q;
-      if (fuFilter === 'cpexpo') {
-        q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
-          .eq('tenant_id', currentTenantId).eq('event_tag', 'CPExpo 2026 · Las Vegas');
-      } else {
-        q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
-          .eq('tenant_id', currentTenantId).or('last_activity_at.is.null,last_activity_at.lt.' + fourteenDaysAgo);
-      }
-      var r = await q.limit(50);
+      var q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+        .eq('tenant_id', resolvedTenantId)
+        .or('last_activity_at.is.null,last_activity_at.lt.' + fourteenDaysAgo);
+      var r = await q.limit(100);
       var contacts = r.data || [];
+      // Build available tags from all contacts
+      var tagSet = {};
+      contacts.forEach(function(c) {
+        if (c.event_tag) tagSet[c.event_tag] = true;
+        (c.tags || []).forEach(function(t) { tagSet[t] = true; });
+      });
+      setFuAvailableTags(Object.keys(tagSet).sort());
+      // Apply tag filter
+      if (fuTagFilter) {
+        contacts = contacts.filter(function(c) {
+          return c.event_tag === fuTagFilter || (c.tags || []).indexOf(fuTagFilter) > -1;
+        });
+      }
       // Filter out contacts with recent conversations
       var ids = contacts.map(function(c) { return c.id; });
       if (ids.length === 0) { setFollowups([]); setFuLoading(false); return; }
       var convR = await supabase.from('conversations').select('contact_id, last_message_at')
-        .eq('tenant_id', currentTenantId).in('contact_id', ids).gte('last_message_at', sevenDaysAgo);
+        .eq('tenant_id', resolvedTenantId).in('contact_id', ids).gte('last_message_at', sevenDaysAgo);
       var recentContactIds = {};
       (convR.data || []).forEach(function(c) { recentContactIds[c.contact_id] = true; });
       var candidates = contacts.filter(function(c) { return !recentContactIds[c.id]; });
@@ -193,7 +203,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         return {
           id: c.id, first_name: c.first_name, last_name: c.last_name,
           email: c.email, phone: c.phone, company: c.company,
-          event_tag: c.event_tag, notes: c.notes,
+          event_tag: c.event_tag, tags: c.tags || [], notes: c.notes,
           draft: existing ? existing.draft : '',
           channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
           generated: existing ? existing.generated : false,
@@ -203,7 +213,7 @@ export default function EmailDigest({ C, currentTenantId }) {
     } catch (e) { console.error('[Followup] load error:', e.message); }
     setFuLoading(false);
   }
-  useEffect(function() { if (currentTenantId) loadFollowups(); }, [currentTenantId, fuFilter]);
+  useEffect(function() { if (resolvedTenantId) loadFollowups(); }, [resolvedTenantId, fuTagFilter]);
 
   async function generateFollowup(contact) {
     setFuGenerating(contact.id);
@@ -276,14 +286,14 @@ export default function EmailDigest({ C, currentTenantId }) {
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
         body: contact.draft, status: 'delivered',
-        metadata: { source: 'followup_generator', event_tag: contact.event_tag || '' },
+        metadata: { source: 'followup_generator', event_tag: contact.event_tag || '', from_email: 'rob@engwx.com' },
         created_at: new Date().toISOString(),
       });
       // Send via appropriate channel
       if (contact.channel === 'email' && contact.email) {
         await fetch('/api/send-digest-reply', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: contact.email, subject: 'Following up' + (contact.event_tag ? ' — ' + contact.event_tag : ''), body: contact.draft }),
+          body: JSON.stringify({ to: contact.email, subject: 'Following up' + (contact.event_tag ? ' — ' + contact.event_tag : ''), body: contact.draft, from: 'rob@engwx.com' }),
         });
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
@@ -324,11 +334,24 @@ export default function EmailDigest({ C, currentTenantId }) {
     setFuSearching(true);
     try {
       var q = query.trim();
-      var pattern = '%' + q + '%';
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, notes')
-        .eq('tenant_id', resolvedTenantId)
-        .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
-        .limit(20);
+      var words = q.split(/\s+/);
+      var r;
+      if (words.length > 1) {
+        // Multi-word: search first word in first_name AND second in last_name, plus full string in other fields
+        var pattern = '%' + q + '%';
+        var firstP = '%' + words[0] + '%';
+        var lastP = '%' + words.slice(1).join(' ') + '%';
+        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+          .eq('tenant_id', resolvedTenantId)
+          .or('first_name.ilike.' + firstP + ',last_name.ilike.' + lastP + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
+          .limit(20);
+      } else {
+        var pattern = '%' + q + '%';
+        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+          .eq('tenant_id', resolvedTenantId)
+          .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
+          .limit(20);
+      }
       var existingIds = {};
       followups.forEach(function(f) { existingIds[f.id] = true; });
       setFuSearchResults((r.data || []).filter(function(c) { return !existingIds[c.id]; }));
@@ -705,10 +728,10 @@ export default function EmailDigest({ C, currentTenantId }) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>📋 Pending Follow-ups <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {followups.length}</span></h2>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: 3 }}>
-                  <button onClick={function() { setFuFilter('cpexpo'); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: fuFilter === 'cpexpo' ? colors.primary + '22' : 'transparent', color: fuFilter === 'cpexpo' ? colors.primary : colors.muted }}>CPExpo only</button>
-                  <button onClick={function() { setFuFilter('all_stale'); }} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: fuFilter === 'all_stale' ? colors.primary + '22' : 'transparent', color: fuFilter === 'all_stale' ? colors.primary : colors.muted }}>All pending (14+ days)</button>
-                </div>
+                <select value={fuTagFilter} onChange={function(e) { setFuTagFilter(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 10px', color: '#fff', fontSize: 11, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                  <option value="">All pending (14+ days)</option>
+                  {fuAvailableTags.map(function(tag) { return <option key={tag} value={tag}>{tag}</option>; })}
+                </select>
                 <button onClick={function() { setFuSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
                 {followups.length > 0 && (
                   <button onClick={generateAllFollowups} disabled={fuGeneratingAll} style={{ background: 'linear-gradient(135deg, #E040FB, #A855F7)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuGeneratingAll ? 0.6 : 1 }}>
@@ -723,6 +746,19 @@ export default function EmailDigest({ C, currentTenantId }) {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
                 <button onClick={selectAllFu} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>Select All</button>
                 <button onClick={deselectAllFu} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>Deselect All</button>
+                {fuAvailableTags.length > 0 && (
+                  <select onChange={function(e) {
+                    if (!e.target.value) return;
+                    var tag = e.target.value;
+                    var sel = {};
+                    followups.forEach(function(f) { if ((f.tags || []).indexOf(tag) > -1 || f.event_tag === tag) sel[f.id] = true; });
+                    setFuSelected(sel);
+                    e.target.value = '';
+                  }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 8px', color: colors.muted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                    <option value="">Select by tag…</option>
+                    {fuAvailableTags.map(function(t) { return <option key={t} value={t}>{t}</option>; })}
+                  </select>
+                )}
                 {Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length > 0 && (
                   <button onClick={sendSelectedFollowups} disabled={fuSending === 'bulk'} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuSending === 'bulk' ? 0.6 : 1 }}>
                     {fuSending === 'bulk' ? '⏳ Sending…' : '✉️ Send Selected (' + Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length + ')'}
