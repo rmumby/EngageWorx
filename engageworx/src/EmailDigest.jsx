@@ -58,6 +58,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       title: c.title || '', notes: c.notes || '', context: '',
       emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
       research: null, researched: false, channel: 'email',
+      calendly_cta: '', email_signature: '',
     };
   }
 
@@ -377,6 +378,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         return Object.assign({}, c, {
           emailDraft: d.email_body || '', smsDraft: d.sms_body || '',
           subject: d.subject || '', research: d.research || '',
+          calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
           researched: true,
         });
       }); });
@@ -389,26 +391,34 @@ export default function EmailDigest({ C, currentTenantId }) {
     if (!draft) { alert('Generate a message first.'); return; }
     setVipSending(contact.id);
     try {
+      // For email: combine draft + calendly CTA + signature
+      var fullBody = draft;
+      if (contact.channel === 'email') {
+        var parts = [draft];
+        if (contact.calendly_cta) parts.push(contact.calendly_cta);
+        if (contact.email_signature) parts.push(contact.email_signature);
+        fullBody = parts.join('\n\n');
+      }
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
       var convRes = await supabase.from('conversations').insert({
-        tenant_id: currentTenantId, contact_id: contact.id,
+        tenant_id: resolvedTenantId, contact_id: contact.id,
         channel: contact.channel, status: 'active',
         subject: 'VIP Outreach: ' + name,
         last_message_at: new Date().toISOString(), unread_count: 0,
       }).select('id').single();
       if (!convRes.data) throw new Error('Failed to create conversation');
       await supabase.from('messages').insert({
-        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        tenant_id: resolvedTenantId, conversation_id: convRes.data.id,
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
-        body: draft, status: 'delivered',
+        body: fullBody, status: 'delivered',
         metadata: { source: 'vip_outreach', research: contact.research || '' },
         created_at: new Date().toISOString(),
       });
       if (contact.channel === 'email' && contact.email) {
         await fetch('/api/send-digest-reply', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: contact.email, subject: contact.subject || 'Quick intro', body: draft, from: contact.fromEmail }),
+          body: JSON.stringify({ to: contact.email, subject: contact.subject || 'Quick intro', body: fullBody, from: contact.fromEmail }),
         });
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
@@ -841,14 +851,19 @@ export default function EmailDigest({ C, currentTenantId }) {
                             </div>
                           )}
 
-                          <textarea value={vc.channel === 'sms' ? vc.smsDraft : vc.emailDraft} onChange={function(e) {
-                            var val = e.target.value;
-                            var field = vc.channel === 'sms' ? 'smsDraft' : 'emailDraft';
-                            setVipContacts(function(p) { return p.map(function(c) { if (c.id !== vc.id) return c; var u = {}; u[field] = val; return Object.assign({}, c, u); }); });
-                          }} rows={vc.channel === 'sms' ? 2 : 5} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-                          {vc.channel === 'sms' && (
+                          {vc.channel === 'sms' ? (<>
+                            <textarea value={vc.smsDraft} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { smsDraft: val }) : c; }); }); }} rows={2} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
                             <div style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: 'right' }}>{(vc.smsDraft || '').length}/160 chars</div>
-                          )}
+                          </>) : (<>
+                            <textarea value={vc.emailDraft} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { emailDraft: val }) : c; }); }); }} rows={5} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
+                            {(vc.calendly_cta || vc.email_signature) && (
+                              <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6 }}>
+                                <div style={{ color: colors.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Auto-appended on send</div>
+                                {vc.calendly_cta && <div style={{ color: colors.primary, fontSize: 12, marginBottom: vc.email_signature ? 8 : 0 }}>{vc.calendly_cta}</div>}
+                                {vc.email_signature && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: vc.email_signature }} />}
+                              </div>
+                            )}
+                          </>)}
 
                           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                             <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>

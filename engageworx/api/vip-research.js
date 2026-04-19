@@ -54,19 +54,21 @@ module.exports = async function handler(req, res) {
   var model = 'claude-sonnet-4-6';
   var searchQuery = company || (email ? email.split('@')[1] : '');
 
-  var system = 'You are a sales outreach specialist for ' + (tenantName || 'EngageWorx') + ', an AI-powered multi-channel communications platform.\n\n' +
+  var brandName = tenantName || 'EngageWorx';
+  var system = 'You are a sales outreach specialist for ' + brandName + ', an AI-powered multi-channel communications platform.\n' +
+    'You are writing on behalf of ' + brandName + '. Always refer to the company as "' + brandName + '", never as "My Business", "our company", or any placeholder text.\n\n' +
     'Your task has two parts:\n' +
     '1. RESEARCH: Use the web_search tool to find information about the contact\'s company. Look for what they do, their industry, recent news, size, and anything relevant.\n' +
     '2. WRITE: Based on the research, write a hyper-personalized outreach email AND a 160-character SMS version.\n\n' +
     'TONE RULES:\n' +
     '- Warm, specific, non-generic. Reference something REAL about their company.\n' +
     '- No "I hope this finds you well" or generic filler.\n' +
-    '- Show you understand their business and why ' + (tenantName || 'EngageWorx') + ' is relevant to them.\n' +
+    '- Show you understand their business and why ' + brandName + ' is relevant to them.\n' +
     '- Keep email to 3-4 short paragraphs max.\n' +
     '- End with a clear next step (e.g. suggest a quick call).\n' +
     '- NEVER use placeholder brackets like [Your Name], [Calendly Link], [Company], etc.\n' +
-    '- Write as Rob from ' + (tenantName || 'EngageWorx') + '.\n' +
-    '- Do NOT include a Calendly link, booking URL, or email signature — these are appended automatically.\n\n' +
+    '- Write as Rob from ' + brandName + '.\n' +
+    '- Do NOT include a Calendly link, booking URL, or email signature — these are appended automatically after your output.\n\n' +
     'Return your response in this exact format:\n' +
     'RESEARCH:\n[2-3 sentence summary of what you found about the company]\n\n' +
     'SUBJECT:\n[email subject line]\n\n' +
@@ -176,16 +178,8 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Server-side append: Calendly CTA + email signature
-    if (emailBody) {
-      var appendParts = [];
-      if (calendlyUrl) appendParts.push('Book a quick call: ' + calendlyUrl);
-      if (emailSignature) appendParts.push(emailSignature);
-      if (appendParts.length > 0) {
-        emailBody = emailBody + '\n\n' + appendParts.join('\n\n');
-      }
-      console.log('[vip-research] final emailBody length:', emailBody.length, 'calendly:', !!calendlyUrl, 'signature:', emailSignature.length);
-    }
+    // Build Calendly CTA line (plain text)
+    var calendlyCta = calendlyUrl ? 'Book a quick call: ' + calendlyUrl : '';
 
     logAiUsage(supabase, {
       tenant_id: tenantId, model: model,
@@ -193,11 +187,15 @@ module.exports = async function handler(req, res) {
       feature: 'vip_research',
     });
 
+    console.log('[vip-research] returning: email=' + emailBody.length + ' calendly=' + calendlyCta.length + ' sig=' + emailSignature.length);
+
     return res.status(200).json({
       research: research,
       subject: subject,
       email_body: emailBody,
       sms_body: smsBody,
+      calendly_cta: calendlyCta,
+      email_signature: emailSignature,
     });
   } catch (e) {
     console.error('[vip-research] error:', e.message, e.stack);
