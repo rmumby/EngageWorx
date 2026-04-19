@@ -32,11 +32,14 @@ module.exports = async function handler(req, res) {
   var tenantName = '';
   var calendlyUrl = '';
   var emailSignature = '';
+  var PLACEHOLDER_NAMES = ['my business', 'your business', 'company name', 'business name', 'your company', ''];
   if (tenantId) {
     try {
       var t = await supabase.from('tenants').select('name, brand_name, calendly_url').eq('id', tenantId).maybeSingle();
       if (t.data) {
-        tenantName = t.data.brand_name || t.data.name || '';
+        var bn = (t.data.brand_name || '').trim();
+        var tn = (t.data.name || '').trim();
+        tenantName = (bn && PLACEHOLDER_NAMES.indexOf(bn.toLowerCase()) === -1) ? bn : (tn && PLACEHOLDER_NAMES.indexOf(tn.toLowerCase()) === -1) ? tn : 'EngageWorx';
         calendlyUrl = t.data.calendly_url || '';
       }
     } catch (e) {}
