@@ -48,27 +48,44 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipResearching, setVipResearching] = useState(null);
   var [vipSending, setVipSending] = useState(null);
 
-  // Pick up VIP contact queued from Contacts detail page
+  function makeVipCard(c) {
+    return {
+      id: c.id, first_name: c.first_name, last_name: c.last_name,
+      email: c.email, phone: c.phone || c.mobile_phone, company: c.company,
+      title: c.title || '', notes: c.notes || '',
+      emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
+      research: null, researched: false, channel: 'email',
+    };
+  }
+
+  // Load is_vip contacts from DB + pick up localStorage queue
   useEffect(function() {
-    try {
-      var raw = localStorage.getItem('engwx_vip_queue');
-      if (!raw) return;
-      localStorage.removeItem('engwx_vip_queue');
-      var contact = JSON.parse(raw);
-      if (contact && contact.id) {
+    if (!currentTenantId) return;
+    (async function() {
+      try {
+        var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
+          .eq('tenant_id', currentTenantId).eq('is_vip', true);
+        var dbContacts = (r.data || []).map(makeVipCard);
+        // Merge with any localStorage-queued contact
+        var queued = null;
+        try {
+          var raw = localStorage.getItem('engwx_vip_queue');
+          if (raw) { localStorage.removeItem('engwx_vip_queue'); queued = JSON.parse(raw); }
+        } catch (e) {}
         setVipContacts(function(prev) {
-          if (prev.find(function(c) { return c.id === contact.id; })) return prev;
-          return prev.concat([{
-            id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
-            email: contact.email, phone: contact.phone, company: contact.company,
-            title: contact.title || '', notes: contact.notes || '',
-            emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
-            research: null, researched: false, channel: 'email',
-          }]);
+          var ids = {};
+          var merged = [];
+          // Keep existing cards that already have drafts (user may have typed)
+          prev.forEach(function(c) { if (c.draft || c.emailDraft || c.researched) { ids[c.id] = true; merged.push(c); } });
+          // Add DB VIP contacts
+          dbContacts.forEach(function(c) { if (!ids[c.id]) { ids[c.id] = true; merged.push(c); } });
+          // Add queued contact
+          if (queued && queued.id && !ids[queued.id]) merged.push(makeVipCard(queued));
+          return merged;
         });
-      }
-    } catch (e) {}
-  }, []);
+      } catch (e) { console.warn('[VIP] load error:', e.message); }
+    })();
+  }, [currentTenantId]);
 
   function openImprove(a) {
     var existing = (a.action_payload && a.action_payload.user_context) || '';
