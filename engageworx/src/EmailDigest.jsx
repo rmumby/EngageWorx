@@ -167,43 +167,48 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   // ── Follow-up candidate loader ──
   async function loadFollowups() {
-    if (!resolvedTenantId) return;
+    console.log('[Followups] loadFollowups called, resolvedTenantId=' + resolvedTenantId + ' fuTagFilter=' + fuTagFilter);
+    if (!resolvedTenantId) { console.log('[Followups] no resolvedTenantId, returning'); return; }
     setFuLoading(true);
     try {
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-      // Load all contacts for this tenant (no last_activity_at filter)
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
         .eq('tenant_id', resolvedTenantId).limit(200);
       var allContacts = r.data || [];
-      // Build available tags from ALL contacts
+      console.log('[Followups] DB returned ' + allContacts.length + ' contacts for tenant ' + resolvedTenantId);
+      if (allContacts.length > 0) {
+        console.log('[Followups] sample contacts:', allContacts.slice(0, 3).map(function(c) { return { id: c.id, name: (c.first_name || '') + ' ' + (c.last_name || ''), email: c.email, tags: c.tags, event_tag: c.event_tag }; }));
+      }
+      if (r.error) console.error('[Followups] query error:', r.error.message);
       var tagSet = {};
       allContacts.forEach(function(c) {
         if (c.event_tag) tagSet[c.event_tag] = true;
         (c.tags || []).forEach(function(t) { tagSet[t] = true; });
       });
       setFuAvailableTags(Object.keys(tagSet).sort());
-      // Apply tag filter first
+      console.log('[Followups] available tags:', Object.keys(tagSet));
       var contacts = allContacts;
       if (fuTagFilter) {
         contacts = contacts.filter(function(c) {
           return c.event_tag === fuTagFilter || (c.tags || []).indexOf(fuTagFilter) > -1;
         });
+        console.log('[Followups] after tag filter "' + fuTagFilter + '": ' + contacts.length + ' contacts');
       }
-      // Filter: keep contacts with NO conversation or last conversation 14+ days ago
       var ids = contacts.map(function(c) { return c.id; });
-      if (ids.length === 0) { setFollowups([]); setFuLoading(false); return; }
+      if (ids.length === 0) { console.log('[Followups] 0 contacts after tag filter, setting empty'); setFollowups([]); setFuLoading(false); return; }
       var convR = await supabase.from('conversations').select('contact_id, last_message_at')
         .eq('tenant_id', resolvedTenantId).in('contact_id', ids)
         .order('last_message_at', { ascending: false });
+      console.log('[Followups] conversations found: ' + (convR.data || []).length);
       var lastConvMap = {};
       (convR.data || []).forEach(function(c) {
         if (!lastConvMap[c.contact_id]) lastConvMap[c.contact_id] = c.last_message_at;
       });
       var candidates = contacts.filter(function(c) {
         var lastMsg = lastConvMap[c.id];
-        // Include if: no conversation at all, OR last conversation was 14+ days ago
         return !lastMsg || lastMsg < fourteenDaysAgo;
       });
+      console.log('[Followups] candidates after conversation filter: ' + candidates.length + ' (from ' + contacts.length + ')');
       setFollowups(candidates.map(function(c) {
         var existing = followups.find(function(f) { return f.id === c.id; });
         return {
@@ -942,9 +947,10 @@ export default function EmailDigest({ C, currentTenantId }) {
                           {[3, 5, 7].map(function(d) {
                             return <button type="button" key={d} onClick={function(e) {
                               e.stopPropagation();
+                              console.log('[VIP] timing button clicked: ' + d + 'd for contact ' + vc.id + ' (' + name + ')');
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
                               setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
-                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() {});
+                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() { console.log('[VIP] vip_followup_at saved for ' + vc.id); });
                             }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
                           <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
