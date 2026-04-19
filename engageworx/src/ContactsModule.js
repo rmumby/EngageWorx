@@ -676,8 +676,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   };
 
   const handleAddContact = async () => {
-    if (!newContact.firstName || !newContact.phone) {
-      alert('First name and phone are required.');
+    if (!newContact.firstName || !newContact.email) {
+      alert('First name and email are required.');
       return;
     }
     const INTERNAL_EMAILS = [(process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), (process.env.REACT_APP_PLATFORM_FROM_EMAIL || 'hello@engwx.com'), 'notifications@engwx.com', 'support@engwx.com'];
