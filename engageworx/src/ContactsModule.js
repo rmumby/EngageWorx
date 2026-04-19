@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 import { DEMO_CONTACTS } from './demoFixtures';
 
-const TAGS = ["VIP", "New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
-const TAG_COLORS = { VIP: "#FFD600", New: "#00E676", Active: "#00C9FF", Inactive: "#FF9800", Churned: "#FF3B30", Lead: "#E040FB", Prospect: "#7C4DFF", Enterprise: "#FF6B35", SMB: "#6B8BAE", Newsletter: "#25D366" };
+const TAGS = ["New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
+const TAG_COLORS = { New: "#00E676", Active: "#00C9FF", Inactive: "#FF9800", Churned: "#FF3B30", Lead: "#E040FB", Prospect: "#7C4DFF", Enterprise: "#FF6B35", SMB: "#6B8BAE", Newsletter: "#25D366" };
 const CHANNELS = ["SMS", "Email", "WhatsApp", "RCS", "MMS", "Voice"];
 const CHANNEL_ICONS = { SMS: "💬", Email: "📧", WhatsApp: "📱", RCS: "✨", MMS: "📷", Voice: "📞" };
 const STATUSES = ["active", "unsubscribed", "bounced", "blocked"];
@@ -95,21 +95,34 @@ const CRM_INTEGRATIONS = [
   { id: "freshsales", name: "Freshsales", icon: "🟤", color: "#F26522", status: "disconnected", lastSync: null, contacts: 0, synced: 0, errors: 0, direction: "none" },
 ];
 
+function autoPreferredChannel(c) {
+  var mobile = c.mobile_phone || c.phone || '';
+  var email = c.email || '';
+  if (c.preferred_channel) return c.preferred_channel;
+  if (email && !mobile) return 'email';
+  if (mobile && !email) return 'sms';
+  return 'email';
+}
+
 function mapContact(c) {
+  var mobile = c.mobile_phone || c.phone || '';
+  var office = c.office_phone || '';
   return {
     id: c.id,
     firstName: c.first_name || '',
     lastName: c.last_name || '',
     email: c.email || '',
-    phone: c.phone || '',
+    phone: mobile,
+    mobile_phone: mobile,
+    office_phone: office,
     company: c.company || '',
     title: c.title || '',
     linkedinUrl: c.linkedin_url || '',
     notes: c.notes || '',
     status: c.status || 'subscribed',
-    tags: c.tags || [],
+    tags: (c.tags || []).filter(function(t) { return t !== 'VIP'; }),
     channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
-    preferred_channel: c.preferred_channel || 'email',
+    preferred_channel: autoPreferredChannel(c),
     is_vip: c.is_vip || false,
     created: new Date(c.created_at),
     lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
@@ -122,6 +135,7 @@ function mapContact(c) {
     state: '',
     customFields: c.custom_fields || {},
     tenant_id: c.tenant_id,
+    whatsapp_number: c.whatsapp_number || '',
   };
 }
 
@@ -731,11 +745,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     try {
       const { error } = await supabase.from('contacts').update({
         first_name: contact.firstName, last_name: contact.lastName,
-        email: contact.email, phone: contact.phone,
-        company: contact.company, title: contact.title || null,
+        email: contact.email,
+        phone: contact.mobile_phone || contact.phone || null,
+        mobile_phone: contact.mobile_phone || contact.phone || null,
+        office_phone: contact.office_phone || null,
+        company: contact.company || null, title: contact.title || null,
         linkedin_url: contact.linkedinUrl || null, notes: contact.notes || null,
         status: contact.status, preferred_channel: contact.preferred_channel || 'email',
-        is_vip: contact.is_vip || false, tags: contact.tags || [],
+        is_vip: contact.is_vip || false, tags: (contact.tags || []).filter(function(t) { return t !== 'VIP'; }),
       }).eq('id', contact.id);
       if (error) throw error;
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
@@ -961,7 +978,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
               {editingContact ? (
                 <div style={{ display: "grid", gap: 10 }}>
-                  {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }, { key: "phone", label: "Phone", icon: "📞" }, { key: "company", label: "Company", icon: "🏢" }, { key: "title", label: "Title", icon: "💼" }, { key: "linkedinUrl", label: "LinkedIn", icon: "🔗" }].map(f => (
+                  {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }, { key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }, { key: "company", label: "Company", icon: "🏢" }, { key: "title", label: "Title", icon: "💼" }, { key: "linkedinUrl", label: "LinkedIn", icon: "🔗" }].map(f => (
                     <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
                       <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
@@ -981,16 +998,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     </select>
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 14, width: 20 }}>📡</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Preferred</span>
-                    <div style={{ flex: 1, display: "flex", gap: 6 }}>
-                      {[{ id: "email", label: "📧 Email" }, { id: "sms", label: "💬 SMS" }, { id: "whatsapp", label: "📱 WhatsApp" }].map(function(ch) {
-                        var active = (editingContact.preferred_channel || 'email') === ch.id;
-                        return <button key={ch.id} onClick={function() { setEditingContact(Object.assign({}, editingContact, { preferred_channel: ch.id })); }} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1px solid " + (active ? C.primary + "66" : "rgba(255,255,255,0.1)"), background: active ? C.primary + "22" : "rgba(0,0,0,0.2)", color: active ? C.primary : C.muted, fontSize: 11, fontWeight: active ? 700 : 400, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{ch.label}</button>;
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{ fontSize: 14, width: 20 }}>🏷️</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Tags</span>
                     <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -1000,15 +1007,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       })}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 14, width: 20 }}>⭐</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>VIP</span>
-                    <button onClick={function() { setEditingContact(Object.assign({}, editingContact, { is_vip: !editingContact.is_vip })); }} style={{ background: editingContact.is_vip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (editingContact.is_vip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 6, padding: "6px 14px", color: editingContact.is_vip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: editingContact.is_vip ? 700 : 400, fontFamily: "'DM Sans', sans-serif" }}>{editingContact.is_vip ? "⭐ VIP" : "☆ Not VIP"}</button>
-                  </div>
                   <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
               ) : (
-                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📞", label: "Phone", value: c.phone }, { icon: "🏢", label: "Company", value: c.company }, c.title ? { icon: "💼", label: "Title", value: c.title } : null, { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true }, { icon: "📡", label: "Preferred", value: (c.preferred_channel || 'email').charAt(0).toUpperCase() + (c.preferred_channel || 'email').slice(1) }, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
+                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📱", label: "Mobile", value: c.mobile_phone }, c.office_phone ? { icon: "📞", label: "Office", value: c.office_phone } : null, { icon: "🏢", label: "Company", value: c.company }, c.title ? { icon: "💼", label: "Title", value: c.title } : null, c.linkedinUrl ? { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true } : null, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
                   <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
@@ -1026,15 +1028,24 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               </div>
             )}
             <div style={{ ...card, marginBottom: 16 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Channels</h3>
+              <h3 style={{ color: "#fff", margin: "0 0 8px", fontSize: 14 }}>Channels <span style={{ color: C.muted, fontSize: 11, fontWeight: 400 }}>· click to set preferred</span></h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {(c.channels || []).filter(function(ch) {
-                  var upper = String(ch).toUpperCase();
-                  if (upper === 'SMS' || upper === 'MMS' || upper === 'VOICE') return !!(c.phone);
-                  if (upper === 'EMAIL') return !!(c.email);
-                  if (upper === 'WHATSAPP') return !!(c.whatsapp_number || c.phone);
-                  return true;
-                }).map(ch => <div key={ch} style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: 8, padding: "8px 14px", fontSize: 13, color: C.primary, fontWeight: 600 }}>{CHANNEL_ICONS[ch]} {ch}</div>)}
+                {[
+                  c.email ? { id: "email", label: "Email", icon: "📧" } : null,
+                  c.mobile_phone ? { id: "sms", label: "SMS", icon: "💬" } : null,
+                  (c.whatsapp_number || c.mobile_phone) ? { id: "whatsapp", label: "WhatsApp", icon: "📱" } : null,
+                  c.mobile_phone ? { id: "voice", label: "Voice", icon: "📞" } : null,
+                ].filter(Boolean).map(function(ch) {
+                  var isPref = c.preferred_channel === ch.id;
+                  return <button key={ch.id} onClick={function() {
+                    if (!demoMode) {
+                      supabase.from('contacts').update({ preferred_channel: ch.id }).eq('id', c.id).then(function() {});
+                    }
+                    var updated = Object.assign({}, c, { preferred_channel: ch.id });
+                    setSelectedContact(updated);
+                    setContacts(function(prev) { return prev.map(function(x) { return x.id === c.id ? updated : x; }); });
+                  }} style={{ background: isPref ? C.primary + "22" : "rgba(255,255,255,0.04)", border: "2px solid " + (isPref ? C.primary : "rgba(255,255,255,0.08)"), borderRadius: 8, padding: "8px 14px", fontSize: 13, color: isPref ? C.primary : C.muted, fontWeight: isPref ? 700 : 500, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{ch.icon} {ch.label}{isPref ? " ✓" : ""}</button>;
+                })}
               </div>
             </div>
             <div style={{ ...card, marginBottom: 16 }}>

@@ -166,7 +166,7 @@ export default function LeadScan({ C, demoMode = false }) {
           email: form.email || null,
           phone: form.phone || null,
           title: form.title || null,
-          company_name: form.company || null,
+          company: form.company || null,
           linkedin_url: (form.linkedinUrl || '').trim() || null,
           pipeline_lead_id: leadId,
           tenant_id: SP_TENANT_ID,
