@@ -630,6 +630,18 @@ useEffect(() => {
         sentAt: new Date().toISOString(),
       };
       setSelectedConv(prev => prev ? { ...prev, messages: [...(prev.messages || []), optimisticMsg] } : prev);
+
+      // Auto-update preferred_channel if the channel used differs
+      var usedChannel = (selectedConv.channel || '').toLowerCase();
+      var contactId = selectedConv.contact_id || null;
+      if (contactId && usedChannel) {
+        try {
+          var prefR = await supabase.from('contacts').select('preferred_channel').eq('id', contactId).maybeSingle();
+          if (prefR.data && prefR.data.preferred_channel !== usedChannel) {
+            await supabase.from('contacts').update({ preferred_channel: usedChannel }).eq('id', contactId);
+          }
+        } catch (prefErr) {}
+      }
     } catch (err) {
       console.error('Send error:', err);
       setComposeText(composeText); // Restore on error
