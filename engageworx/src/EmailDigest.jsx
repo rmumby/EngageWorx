@@ -209,18 +209,22 @@ export default function EmailDigest({ C, currentTenantId }) {
         return !lastMsg || lastMsg < fourteenDaysAgo;
       });
       console.log('[Followups] candidates after conversation filter: ' + candidates.length + ' (from ' + contacts.length + ')');
-      setFollowups(candidates.map(function(c) {
-        var existing = followups.find(function(f) { return f.id === c.id; });
-        return {
-          id: c.id, first_name: c.first_name, last_name: c.last_name,
-          email: c.email, phone: c.phone, company: c.company,
-          tags: c.tags || [], notes: c.notes,
-          draft: existing ? existing.draft : '',
-          channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
-          generated: existing ? existing.generated : false,
-          manual: existing ? existing.manual : false,
-        };
-      }));
+      setFollowups(function(prev) {
+        var prevMap = {};
+        prev.forEach(function(f) { prevMap[f.id] = f; });
+        return candidates.map(function(c) {
+          var existing = prevMap[c.id];
+          return {
+            id: c.id, first_name: c.first_name, last_name: c.last_name,
+            email: c.email, phone: c.phone, company: c.company,
+            tags: c.tags || [], notes: c.notes,
+            draft: existing ? existing.draft : '',
+            channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
+            generated: existing ? existing.generated : false,
+            manual: existing ? existing.manual : false,
+          };
+        });
+      });
     } catch (e) { console.error('[Followup] load error:', e.message); }
     setFuLoading(false);
   }
@@ -878,13 +882,20 @@ export default function EmailDigest({ C, currentTenantId }) {
                   <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{fuPreview.draft}</div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={function() {
+                  <button onClick={function(e) {
+                    e.stopPropagation();
                     var contactId = fuPreview && fuPreview.id;
+                    var draftText = fuPreview && fuPreview.draft;
+                    console.log('[Followup Edit] clicked, contactId=' + contactId + ' draft length=' + (draftText || '').length);
+                    // Check state before closing
+                    console.log('[Followup Edit] followups state has ' + followups.length + ' items, this contact draft=' + ((followups.find(function(f) { return f.id === contactId; }) || {}).draft || '').length);
                     setFuPreview(null);
                     if (contactId) {
                       setTimeout(function() {
+                        // Check state after re-render
                         var el = document.getElementById('followup-card-' + contactId);
-                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
+                        console.log('[Followup Edit] after 100ms: card element found=' + !!el);
+                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); console.log('[Followup Edit] textarea found=' + !!ta); if (ta) ta.focus(); }
                       }, 100);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
