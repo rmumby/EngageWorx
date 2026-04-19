@@ -26,27 +26,31 @@ module.exports = async function handler(req, res) {
   var context = b.context || '';
   var tenantId = b.tenant_id || null;
 
+  console.log('[vip-research] request: tenant_id=' + tenantId + ' contact=' + (b.contact_name || '') + ' company=' + (b.company || ''));
+
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
   if (!company && !email) return res.status(400).json({ error: 'Company or email required for research' });
 
   var supabase = getSupabase();
 
-  var tenantName = '';
+  var tenantName = 'EngageWorx';
   var calendlyUrl = '';
   var emailSignature = '';
-  var PLACEHOLDER_NAMES = ['my business', 'your business', 'company name', 'business name', 'your company', ''];
+  var PLACEHOLDER_NAMES = ['my business', 'your business', 'company name', 'business name', 'your company', 'untitled', ''];
   if (tenantId) {
     try {
       var t = await supabase.from('tenants').select('name, brand_name, calendly_url').eq('id', tenantId).maybeSingle();
+      console.log('[vip-research] tenant query result:', t.data ? JSON.stringify({ brand_name: t.data.brand_name, name: t.data.name }) : 'null', t.error ? 'err:' + t.error.message : 'ok');
       if (t.data) {
         var bn = (t.data.brand_name || '').trim();
         var tn = (t.data.name || '').trim();
-        // Skip placeholder brand names
-        tenantName = (bn && PLACEHOLDER_NAMES.indexOf(bn.toLowerCase()) === -1) ? bn : (tn && PLACEHOLDER_NAMES.indexOf(tn.toLowerCase()) === -1) ? tn : 'EngageWorx';
+        if (bn && PLACEHOLDER_NAMES.indexOf(bn.toLowerCase()) === -1) tenantName = bn;
+        else if (tn && PLACEHOLDER_NAMES.indexOf(tn.toLowerCase()) === -1) tenantName = tn;
+        // else stays 'EngageWorx'
         calendlyUrl = t.data.calendly_url || '';
-        console.log('[vip-research] tenant loaded: brand_name=' + bn + ' name=' + tn + ' resolved=' + tenantName);
+        console.log('[vip-research] resolved brandName=' + tenantName);
       }
-    } catch (e) {}
+    } catch (e) { console.warn('[vip-research] tenant load error:', e.message); }
     try {
       var sig = await supabase.from('chatbot_configs').select('email_signature_first').eq('tenant_id', tenantId).limit(1).maybeSingle();
       console.log('[vip-research] signature query result:', sig.data ? 'found' : 'null', sig.error ? 'err:' + sig.error.message : 'no-err');
@@ -59,9 +63,11 @@ module.exports = async function handler(req, res) {
   var model = 'claude-sonnet-4-6';
   var searchQuery = company || (email ? email.split('@')[1] : '');
 
-  var brandName = tenantName || 'EngageWorx';
-  var system = 'You are a sales outreach specialist for ' + brandName + ', an AI-powered multi-channel communications platform.\n' +
-    'You are writing on behalf of ' + brandName + '. Always refer to the company as "' + brandName + '", never as "My Business", "our company", or any placeholder text.\n\n' +
+  var brandName = tenantName;
+  console.log('[vip-research] final brandName for prompt: ' + brandName);
+  var system = 'CRITICAL: The company name is "' + brandName + '". You MUST use "' + brandName + '" everywhere. NEVER write "My Business", "our company", "Your Company", or any placeholder.\n\n' +
+    'You are a sales outreach specialist for ' + brandName + ', an AI-powered multi-channel communications platform.\n' +
+    'You are Rob from ' + brandName + '.\n\n' +
     'Your task has two parts:\n' +
     '1. RESEARCH: Use the web_search tool to find information about the contact\'s company. Look for what they do, their industry, recent news, size, and anything relevant.\n' +
     '2. WRITE: Based on the research, write a hyper-personalized outreach email AND a 160-character SMS version.\n\n' +
@@ -72,7 +78,7 @@ module.exports = async function handler(req, res) {
     '- Keep email to 3-4 short paragraphs max.\n' +
     '- End with a clear next step (e.g. suggest a quick call).\n' +
     '- NEVER use placeholder brackets like [Your Name], [Calendly Link], [Company], etc.\n' +
-    '- Write as Rob from ' + brandName + '.\n' +
+    '- Sign off as Rob from ' + brandName + '.\n' +
     '- Do NOT include a Calendly link, booking URL, or email signature — these are appended automatically after your output.\n\n' +
     'Return your response in this exact format:\n' +
     'RESEARCH:\n[2-3 sentence summary of what you found about the company]\n\n' +
