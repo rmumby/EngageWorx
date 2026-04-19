@@ -259,6 +259,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [newConvChannel, setNewConvChannel] = useState('sms');
   const [newConvBody, setNewConvBody] = useState('');
   const [newConvSending, setNewConvSending] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedConvIds, setSelectedConvIds] = useState([]);
+  const [bulkActing, setBulkActing] = useState(false);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
@@ -580,6 +583,24 @@ useEffect(() => {
     setNewConvSearching(false);
   }
 
+  function toggleConvSelect(id) {
+    setSelectedConvIds(function(prev) { return prev.indexOf(id) > -1 ? prev.filter(function(x) { return x !== id; }) : prev.concat([id]); });
+  }
+
+  async function bulkUpdateStatus(newStatus) {
+    if (selectedConvIds.length === 0) return;
+    setBulkActing(true);
+    try {
+      if (!demoMode && supabase) {
+        await supabase.from('conversations').update({ status: newStatus }).in('id', selectedConvIds);
+      }
+      setConversations(function(prev) { return prev.map(function(c) { return selectedConvIds.indexOf(c.id) > -1 ? Object.assign({}, c, { status: newStatus }) : c; }); });
+      setSelectedConvIds([]);
+      setSelectMode(false);
+    } catch (e) { alert('Bulk update error: ' + e.message); }
+    setBulkActing(false);
+  }
+
   async function sendNewConversation() {
     var recipient = '';
     var contactId = null;
@@ -818,6 +839,7 @@ useEffect(() => {
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {totalUnread > 0 && <span style={{ background: "#FF3B30", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
+              <button onClick={function() { setSelectMode(!selectMode); if (selectMode) setSelectedConvIds([]); }} style={{ background: selectMode ? C.primary + "22" : "rgba(255,255,255,0.06)", border: "1px solid " + (selectMode ? C.primary : "rgba(255,255,255,0.1)"), borderRadius: 6, height: 26, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 10, color: selectMode ? C.primary : "rgba(255,255,255,0.4)", fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }} title="Select conversations">{selectMode ? "✕" : "☑"}</button>
               {!demoMode && <button onClick={function() { setNewConvOpen(true); }} style={{ background: C.primary, border: "none", borderRadius: 6, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#000", fontWeight: 800, lineHeight: 1, padding: 0 }} title="New Conversation">✏️</button>}
             </div>
           </div>
@@ -882,16 +904,21 @@ useEffect(() => {
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={() => { setSelectedConv(conv); if (isMobile) setMobileShowChat(true); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
+              <div key={conv.id} onClick={function() { if (selectMode) { toggleConvSelect(conv.id); return; } setSelectedConv(conv); if (isMobile) setMobileShowChat(true); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
                 padding: "16px 16px", cursor: "pointer", transition: "background 0.15s",
-                background: isSelected ? `${C.primary}15` : "transparent",
-                borderLeft: isSelected ? `3px solid ${C.primary}` : "3px solid transparent",
+                background: selectedConvIds.indexOf(conv.id) > -1 ? C.primary + "18" : (isSelected ? C.primary + "15" : "transparent"),
+                borderLeft: selectedConvIds.indexOf(conv.id) > -1 ? "3px solid " + C.primary : (isSelected ? "3px solid " + C.primary : "3px solid transparent"),
                 borderBottom: "1px solid rgba(255,255,255,0.03)",
               }}
-                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
-                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                onMouseEnter={e => { if (!isSelected && selectedConvIds.indexOf(conv.id) < 0) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                onMouseLeave={e => { if (!isSelected && selectedConvIds.indexOf(conv.id) < 0) e.currentTarget.style.background = "transparent"; }}
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  {selectMode && (
+                    <div style={{ paddingTop: 12, flexShrink: 0 }}>
+                      <input type="checkbox" checked={selectedConvIds.indexOf(conv.id) > -1} onChange={function() { toggleConvSelect(conv.id); }} onClick={function(e) { e.stopPropagation(); }} style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.primary }} />
+                    </div>
+                  )}
                   {/* Avatar */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
@@ -997,16 +1024,37 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Bottom Stats */}
-        <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
-          <div style={{ display: "flex", gap: 6 }}>
-            {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
-              <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
-            ))}
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
+        {/* Bottom — Bulk Actions or Stats */}
+        {selectMode && selectedConvIds.length > 0 ? (
+          <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", background: C.primary + "08" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <span style={{ color: C.primary, fontSize: 11, fontWeight: 700 }}>{selectedConvIds.length} selected</span>
+              <button onClick={function() { var allIds = filtered.map(function(c) { return c.id; }); setSelectedConvIds(selectedConvIds.length === allIds.length ? [] : allIds); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 10, textDecoration: "underline", fontFamily: "'DM Sans', sans-serif" }}>{selectedConvIds.length === filtered.length ? "Deselect all" : "Select all"}</button>
+              <div style={{ flex: 1 }} />
+              <button onClick={function() { setSelectedConvIds([]); setSelectMode(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>✕ Clear</button>
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {[
+                { label: "✅ Resolve", status: "resolved", color: "#10b981" },
+                { label: "⏳ Waiting", status: "waiting", color: "#FFD600" },
+                { label: "🚨 Urgent", status: "urgent", color: "#FF3B30" },
+                { label: "🛡️ Spam", status: "spam", color: "#6B8BAE" },
+              ].map(function(a) {
+                return <button key={a.status} onClick={function() { bulkUpdateStatus(a.status); }} disabled={bulkActing} style={{ background: a.color + "15", border: "1px solid " + a.color + "44", borderRadius: 6, padding: "4px 8px", color: a.color, cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>{a.label}</button>;
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
+                <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
+              ))}
+              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══════════ CENTER: Chat View ═══════════ */}
