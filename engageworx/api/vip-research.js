@@ -69,9 +69,19 @@ module.exports = async function handler(req, res) {
     '- Company: ' + (company || 'unknown') + '\n' +
     (email ? '- Email: ' + email + '\n' : '') +
     (notes ? '- Notes: ' + notes + '\n' : '') +
-    '\nFirst search for information about ' + searchQuery + ', then write the outreach.';
+    '\nFirst search for information about "' + searchQuery + '", then write the outreach.';
 
   try {
+    var apiBody = {
+      model: model,
+      max_tokens: 4096,
+      system: system,
+      tools: [{ type: 'web_search_20250305', max_uses: 3 }],
+      messages: [{ role: 'user', content: userPrompt }],
+    };
+
+    console.log('[vip-research] calling Claude with web_search for:', searchQuery);
+
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -79,29 +89,34 @@ module.exports = async function handler(req, res) {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model: model,
-        max_tokens: 1024,
-        system: system,
-        tools: [{
-          type: 'web_search_20250305',
-          name: 'web_search',
-          max_uses: 3,
-        }],
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
+      body: JSON.stringify(apiBody),
     });
 
     var data = await r.json();
-    if (!r.ok) throw new Error(data.error?.message || JSON.stringify(data));
+    console.log('[vip-research] status:', r.status, 'stop_reason:', data.stop_reason, 'content_blocks:', (data.content || []).length);
 
-    // Extract text from content blocks
+    if (!r.ok) {
+      console.error('[vip-research] API error:', JSON.stringify(data));
+      throw new Error(data.error?.message || JSON.stringify(data));
+    }
+
+    // Extract ALL text from content blocks (skip tool_use, web_search_tool_result, etc.)
     var fullText = '';
-    if (data.content) {
-      for (var block of data.content) {
-        if (block.type === 'text') fullText += block.text;
+    var totalInput = (data.usage && data.usage.input_tokens) || 0;
+    var totalOutput = (data.usage && data.usage.output_tokens) || 0;
+
+    if (data.content && data.content.length > 0) {
+      for (var i = 0; i < data.content.length; i++) {
+        var block = data.content[i];
+        console.log('[vip-research] block[' + i + '] type=' + block.type + (block.type === 'text' ? ' len=' + (block.text || '').length : ''));
+        if (block.type === 'text' && block.text) {
+          fullText += block.text + '\n';
+        }
       }
     }
+
+    fullText = fullText.trim();
+    console.log('[vip-research] fullText length:', fullText.length, 'preview:', fullText.slice(0, 200));
 
     // Parse the structured response
     var research = '';
@@ -109,28 +124,50 @@ module.exports = async function handler(req, res) {
     var emailBody = '';
     var smsBody = '';
 
-    var researchMatch = fullText.match(/RESEARCH:\s*([\s\S]*?)(?=\nSUBJECT:)/i);
+    // Try multiple regex patterns — Claude sometimes uses ** markdown or slightly different formatting
+    var researchMatch = fullText.match(/RESEARCH:\s*\n?([\s\S]*?)(?=\n\s*SUBJECT:)/i)
+      || fullText.match(/\*\*RESEARCH:?\*\*\s*\n?([\s\S]*?)(?=\n\s*\*?\*?SUBJECT)/i);
     if (researchMatch) research = researchMatch[1].trim();
 
-    var subjectMatch = fullText.match(/SUBJECT:\s*([\s\S]*?)(?=\nEMAIL:)/i);
+    var subjectMatch = fullText.match(/SUBJECT:\s*\n?([\s\S]*?)(?=\n\s*EMAIL:)/i)
+      || fullText.match(/\*\*SUBJECT:?\*\*\s*\n?([\s\S]*?)(?=\n\s*\*?\*?EMAIL)/i);
     if (subjectMatch) subject = subjectMatch[1].trim();
 
-    var emailMatch = fullText.match(/EMAIL:\s*([\s\S]*?)(?=\nSMS:)/i);
+    var emailMatch = fullText.match(/EMAIL:\s*\n?([\s\S]*?)(?=\n\s*SMS:)/i)
+      || fullText.match(/\*\*EMAIL:?\*\*\s*\n?([\s\S]*?)(?=\n\s*\*?\*?SMS)/i);
     if (emailMatch) emailBody = emailMatch[1].trim();
 
-    var smsMatch = fullText.match(/SMS:\s*([\s\S]*?)$/i);
+    var smsMatch = fullText.match(/SMS:\s*\n?([\s\S]*?)$/i)
+      || fullText.match(/\*\*SMS:?\*\*\s*\n?([\s\S]*?)$/i);
     if (smsMatch) smsBody = smsMatch[1].trim();
 
+    console.log('[vip-research] parsed: research=' + research.length + ' subject=' + subject.length + ' email=' + emailBody.length + ' sms=' + smsBody.length);
+
     // Fallback: if parsing failed, use the whole text
-    if (!emailBody && !smsBody) {
+    if (!emailBody && fullText.length > 0) {
+      console.log('[vip-research] section parsing failed, using raw text as fallback');
+      // Try to at least split research from the rest
+      var firstParagraph = fullText.split('\n\n')[0] || '';
+      research = research || firstParagraph;
       emailBody = fullText;
-      smsBody = fullText.slice(0, 160);
+      subject = subject || ('Intro from ' + (tenantName || 'EngageWorx'));
+      smsBody = smsBody || fullText.replace(/\n/g, ' ').slice(0, 160);
+    }
+
+    if (!emailBody && fullText.length === 0) {
+      console.warn('[vip-research] no text content in response at all');
+      return res.status(200).json({
+        research: 'Research completed but no content was generated. Try again.',
+        subject: '',
+        email_body: '',
+        sms_body: '',
+        _debug: { stop_reason: data.stop_reason, block_count: (data.content || []).length, block_types: (data.content || []).map(function(b) { return b.type; }) },
+      });
     }
 
     logAiUsage(supabase, {
       tenant_id: tenantId, model: model,
-      input_tokens: data.usage?.input_tokens || 0,
-      output_tokens: data.usage?.output_tokens || 0,
+      input_tokens: totalInput, output_tokens: totalOutput,
       feature: 'vip_research',
     });
 
@@ -141,7 +178,7 @@ module.exports = async function handler(req, res) {
       sms_body: smsBody,
     });
   } catch (e) {
-    console.error('[vip-research] error:', e.message);
+    console.error('[vip-research] error:', e.message, e.stack);
     return res.status(500).json({ error: e.message });
   }
 };
