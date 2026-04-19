@@ -55,7 +55,7 @@ export default function EmailDigest({ C, currentTenantId }) {
     return {
       id: c.id, first_name: c.first_name, last_name: c.last_name,
       email: c.email, phone: c.phone || c.mobile_phone, company: c.company,
-      title: c.title || '', notes: c.notes || '',
+      title: c.title || '', notes: c.notes || '', context: '',
       emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
       research: null, researched: false, channel: 'email',
     };
@@ -366,7 +366,8 @@ export default function EmailDigest({ C, currentTenantId }) {
         body: JSON.stringify({
           contact_name: name, title: contact.title || '',
           company: contact.company || '', email: contact.email || '',
-          notes: contact.notes || '', tenant_id: currentTenantId,
+          notes: contact.notes || '', context: contact.context || '',
+          tenant_id: resolvedTenantId,
         }),
       });
       var d = await r.json();
@@ -810,6 +811,10 @@ export default function EmailDigest({ C, currentTenantId }) {
                           <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.5 }}>{vc.research}</div>
                         </div>
                       )}
+
+                      <div style={{ marginBottom: 10 }}>
+                        <textarea value={vc.context || ''} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { context: val }) : c; }); }); }} rows={2} placeholder="Add context: e.g. Met at CPExpo, interested in WhatsApp, has 50 agents..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '8px 10px', color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.4 }} />
+                      </div>
 
                       {!vc.researched ? (
                         <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1, width: '100%' }}>

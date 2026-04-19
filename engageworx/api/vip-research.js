@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
   var company = b.company || '';
   var email = b.email || '';
   var notes = b.notes || '';
+  var context = b.context || '';
   var tenantId = b.tenant_id || null;
 
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
@@ -62,15 +63,14 @@ module.exports = async function handler(req, res) {
     '- No "I hope this finds you well" or generic filler.\n' +
     '- Show you understand their business and why ' + (tenantName || 'EngageWorx') + ' is relevant to them.\n' +
     '- Keep email to 3-4 short paragraphs max.\n' +
-    '- End with a clear next step.\n' +
-    '- NEVER use placeholder brackets like [Your Name], [Calendly Link], [Company], etc. Write real values only.\n' +
+    '- End with a clear next step (e.g. suggest a quick call).\n' +
+    '- NEVER use placeholder brackets like [Your Name], [Calendly Link], [Company], etc.\n' +
     '- Write as Rob from ' + (tenantName || 'EngageWorx') + '.\n' +
-    '- Do NOT include an email signature — one will be appended automatically.\n' +
-    (calendlyUrl ? '- The LAST line of the email MUST be exactly this (copy verbatim):\nBook a quick call: ' + calendlyUrl + '\n' : '') +
-    '\nReturn your response in this exact format:\n' +
+    '- Do NOT include a Calendly link, booking URL, or email signature — these are appended automatically.\n\n' +
+    'Return your response in this exact format:\n' +
     'RESEARCH:\n[2-3 sentence summary of what you found about the company]\n\n' +
     'SUBJECT:\n[email subject line]\n\n' +
-    'EMAIL:\n[full email body' + (calendlyUrl ? ' — last line must be: Book a quick call: ' + calendlyUrl : '') + ']\n\n' +
+    'EMAIL:\n[full email body — no signature, no booking link]\n\n' +
     'SMS:\n[160 char max SMS version]';
 
   var userPrompt = 'Research and write personalized outreach to:\n' +
@@ -79,6 +79,7 @@ module.exports = async function handler(req, res) {
     '- Company: ' + (company || 'unknown') + '\n' +
     (email ? '- Email: ' + email + '\n' : '') +
     (notes ? '- Notes: ' + notes + '\n' : '') +
+    (context ? '\nAdditional context from Rob: ' + context + '\n' : '') +
     '\nFirst search for information about "' + searchQuery + '", then write the outreach.';
 
   try {
@@ -175,11 +176,15 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Append email signature to the email body
-    console.log('[vip-research] signature length:', emailSignature.length, 'emailBody length:', emailBody.length);
-    if (emailSignature && emailBody) {
-      emailBody = emailBody + '\n\n' + emailSignature;
-      console.log('[vip-research] appended signature, final emailBody length:', emailBody.length);
+    // Server-side append: Calendly CTA + email signature
+    if (emailBody) {
+      var appendParts = [];
+      if (calendlyUrl) appendParts.push('Book a quick call: ' + calendlyUrl);
+      if (emailSignature) appendParts.push(emailSignature);
+      if (appendParts.length > 0) {
+        emailBody = emailBody + '\n\n' + appendParts.join('\n\n');
+      }
+      console.log('[vip-research] final emailBody length:', emailBody.length, 'calendly:', !!calendlyUrl, 'signature:', emailSignature.length);
     }
 
     logAiUsage(supabase, {
