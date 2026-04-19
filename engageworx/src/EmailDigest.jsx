@@ -172,17 +172,16 @@ export default function EmailDigest({ C, currentTenantId }) {
     setFuLoading(true);
     try {
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags, notes')
         .eq('tenant_id', resolvedTenantId).limit(200);
       var allContacts = r.data || [];
       console.log('[Followups] DB returned ' + allContacts.length + ' contacts for tenant ' + resolvedTenantId);
       if (allContacts.length > 0) {
-        console.log('[Followups] sample contacts:', allContacts.slice(0, 3).map(function(c) { return { id: c.id, name: (c.first_name || '') + ' ' + (c.last_name || ''), email: c.email, tags: c.tags, event_tag: c.event_tag }; }));
+        console.log('[Followups] sample contacts:', allContacts.slice(0, 3).map(function(c) { return { id: c.id, name: (c.first_name || '') + ' ' + (c.last_name || ''), email: c.email, tags: c.tags }; }));
       }
       if (r.error) console.error('[Followups] query error:', r.error.message);
       var tagSet = {};
       allContacts.forEach(function(c) {
-        if (c.event_tag) tagSet[c.event_tag] = true;
         (c.tags || []).forEach(function(t) { tagSet[t] = true; });
       });
       setFuAvailableTags(Object.keys(tagSet).sort());
@@ -190,7 +189,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       var contacts = allContacts;
       if (fuTagFilter) {
         contacts = contacts.filter(function(c) {
-          return c.event_tag === fuTagFilter || (c.tags || []).indexOf(fuTagFilter) > -1;
+          return (c.tags || []).indexOf(fuTagFilter) > -1;
         });
         console.log('[Followups] after tag filter "' + fuTagFilter + '": ' + contacts.length + ' contacts');
       }
@@ -214,7 +213,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         return {
           id: c.id, first_name: c.first_name, last_name: c.last_name,
           email: c.email, phone: c.phone, company: c.company,
-          event_tag: c.event_tag, tags: c.tags || [], notes: c.notes,
+          tags: c.tags || [], notes: c.notes,
           draft: existing ? existing.draft : '',
           channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
           generated: existing ? existing.generated : false,
@@ -234,7 +233,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contact_name: name, company: contact.company || '',
-          event_tag: contact.event_tag || '', notes: contact.notes || '',
+          notes: contact.notes || '',
           channel: contact.channel || 'email', tenant_id: currentTenantId,
         }),
       });
@@ -265,7 +264,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contact_name: name, company: contact.company || '',
-          event_tag: contact.event_tag || '', notes: contact.notes || '',
+          notes: contact.notes || '',
           channel: contact.channel || 'email', tenant_id: currentTenantId,
           existing_draft: contact.draft, improve: true,
         }),
@@ -297,14 +296,14 @@ export default function EmailDigest({ C, currentTenantId }) {
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
         body: contact.draft, status: 'delivered',
-        metadata: { source: 'followup_generator', event_tag: contact.event_tag || '', from_email: 'rob@engwx.com' },
+        metadata: { source: 'followup_generator', from_email: 'rob@engwx.com' },
         created_at: new Date().toISOString(),
       });
       // Send via appropriate channel
       if (contact.channel === 'email' && contact.email) {
         await fetch('/api/send-digest-reply', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: contact.email, subject: 'Following up' + (contact.event_tag ? ' — ' + contact.event_tag : ''), body: contact.draft, from: 'rob@engwx.com' }),
+          body: JSON.stringify({ to: contact.email, subject: 'Following up', body: contact.draft, from: 'rob@engwx.com' }),
         });
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
@@ -352,13 +351,13 @@ export default function EmailDigest({ C, currentTenantId }) {
         var pattern = '%' + q + '%';
         var firstP = '%' + words[0] + '%';
         var lastP = '%' + words.slice(1).join(' ') + '%';
-        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags, notes')
           .eq('tenant_id', resolvedTenantId)
           .or('first_name.ilike.' + firstP + ',last_name.ilike.' + lastP + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
           .limit(20);
       } else {
         var pattern = '%' + q + '%';
-        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+        r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags, notes')
           .eq('tenant_id', resolvedTenantId)
           .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',company.ilike.' + pattern)
           .limit(20);
@@ -376,7 +375,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       return prev.concat([{
         id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
         email: contact.email, phone: contact.phone, company: contact.company,
-        event_tag: contact.event_tag, notes: contact.notes,
+        tags: contact.tags || [], notes: contact.notes,
         draft: '', channel: contact.email ? 'email' : 'sms', generated: false, manual: true,
       }]);
     });
@@ -762,7 +761,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     if (!e.target.value) return;
                     var tag = e.target.value;
                     var sel = {};
-                    followups.forEach(function(f) { if ((f.tags || []).indexOf(tag) > -1 || f.event_tag === tag) sel[f.id] = true; });
+                    followups.forEach(function(f) { if ((f.tags || []).indexOf(tag) > -1) sel[f.id] = true; });
                     setFuSelected(sel);
                     e.target.value = '';
                   }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '4px 8px', color: colors.muted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
@@ -803,7 +802,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                             <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{name}</span>
                             {fu.company && <span style={{ color: colors.muted, fontSize: 12 }}>· {fu.company}</span>}
-                            {fu.event_tag && <span style={{ background: 'rgba(224,64,251,0.12)', color: '#E040FB', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>{fu.event_tag}</span>}
+                            {(fu.tags || []).length > 0 && (fu.tags || []).slice(0, 2).map(function(tag) { return <span key={tag} style={{ background: 'rgba(224,64,251,0.12)', color: '#E040FB', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>{tag}</span>; })}
                             {fu.manual && <span style={{ background: 'rgba(14,165,233,0.12)', color: '#0ea5e9', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700 }}>Manual</span>}
                           </div>
                           <div style={{ color: colors.muted, fontSize: 11, marginBottom: 8 }}>
@@ -938,7 +937,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                         {vc.email && vc.phone && <span> · </span>}
                         {vc.phone && <span>{vc.phone}</span>}
                         {daysSinceContact !== null && <span style={{ marginLeft: 8, color: followupDue ? '#FF3B30' : 'rgba(255,255,255,0.3)' }}>· Last contacted {daysSinceContact === 0 ? 'today' : daysSinceContact + 'd ago'}</span>}
-                        {vc.vip_followup_at && <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.3)' }}>· Follow-up: {new Date(vc.vip_followup_at).toLocaleDateString()}</span>}
+                        {vc.vip_followup_at && <span style={{ marginLeft: 8, color: '#6366f1', fontWeight: 600 }}>· ⏰ Follow-up: {new Date(vc.vip_followup_at).toLocaleDateString()}</span>}
                       </div>
 
                       {daysSinceContact !== null && !vc.emailDraft && (
