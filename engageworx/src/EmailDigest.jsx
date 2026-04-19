@@ -50,6 +50,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipSearching, setVipSearching] = useState(false);
   var [vipResearching, setVipResearching] = useState(null);
   var [vipSending, setVipSending] = useState(null);
+  var [vipPreview, setVipPreview] = useState(null);
 
   function makeVipCard(c, extra) {
     return {
@@ -899,6 +900,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                             <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>
                               {isResearching ? '⏳…' : '🔄 Regenerate'}
                             </button>
+                            {vc.channel === 'email' && vc.emailDraft && <button onClick={function() { setVipPreview(vc); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '6px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>}
                             <button onClick={function() { sendVipOutreach(vc); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                               {isSending ? '⏳…' : '✉️ Send'}
                             </button>
@@ -912,6 +914,38 @@ export default function EmailDigest({ C, currentTenantId }) {
               </div>
             )}
           </div>
+
+          {/* ═══════════ VIP Email Preview Modal ═══════════ */}
+          {vipPreview && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setVipPreview(null); }}>
+              <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#fff', borderRadius: 14, width: 640, maxWidth: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ color: '#6b7280', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email Preview</span>
+                    <button onClick={function() { setVipPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>To: {vipPreview.email || '—'}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: {vipPreview.fromEmail || 'rob@engwx.com'}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{vipPreview.subject || '(no subject)'}</div>
+                </div>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+                  <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{vipPreview.emailDraft}</div>
+                  {vipPreview.calendly_cta && (
+                    <div style={{ marginTop: 16, fontSize: 14, color: '#374151' }}>
+                      <a href={vipPreview.calendly_cta.replace('Book a quick call: ', '')} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>{vipPreview.calendly_cta}</a>
+                    </div>
+                  )}
+                  {vipPreview.email_signature && (
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }} dangerouslySetInnerHTML={{ __html: vipPreview.email_signature }} />
+                  )}
+                </div>
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button onClick={function() { setVipPreview(null); }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
+                  <button onClick={function() { var contact = vipPreview; setVipPreview(null); sendVipOutreach(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ═══════════ VIP Contact Search Modal ═══════════ */}
           {vipSearchOpen && (
