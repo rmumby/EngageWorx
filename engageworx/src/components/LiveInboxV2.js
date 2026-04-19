@@ -250,6 +250,15 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [selectedCall, setSelectedCall] = useState(null);
   const [fromEmail, setFromEmail] = useState('');
   const [senderEmails, setSenderEmails] = useState([]);
+  const [newConvOpen, setNewConvOpen] = useState(false);
+  const [newConvSearch, setNewConvSearch] = useState('');
+  const [newConvResults, setNewConvResults] = useState([]);
+  const [newConvSearching, setNewConvSearching] = useState(false);
+  const [newConvContact, setNewConvContact] = useState(null);
+  const [newConvManual, setNewConvManual] = useState('');
+  const [newConvChannel, setNewConvChannel] = useState('sms');
+  const [newConvBody, setNewConvBody] = useState('');
+  const [newConvSending, setNewConvSending] = useState(false);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
@@ -557,6 +566,106 @@ useEffect(() => {
   // Live mode renders the full inbox immediately - conversations populate async
 
 
+  async function newConvSearchContacts(query) {
+    if (!query.trim() || !supabase || !currentTenantId) return;
+    setNewConvSearching(true);
+    try {
+      var pattern = '%' + query.trim() + '%';
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company')
+        .eq('tenant_id', currentTenantId)
+        .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern + ',company.ilike.' + pattern)
+        .limit(10);
+      setNewConvResults(r.data || []);
+    } catch (e) { console.warn('newConv search error:', e); }
+    setNewConvSearching(false);
+  }
+
+  async function sendNewConversation() {
+    var recipient = '';
+    var contactId = null;
+    var contactName = '';
+    if (newConvContact) {
+      contactId = newConvContact.id;
+      contactName = ((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim();
+      if (newConvChannel === 'email') recipient = newConvContact.email || '';
+      else recipient = newConvContact.mobile_phone || newConvContact.phone || '';
+    } else {
+      recipient = newConvManual.trim();
+      contactName = recipient;
+    }
+    if (!recipient) { alert('Select a contact or enter a number/email.'); return; }
+    if (!newConvBody.trim()) { alert('Write a message.'); return; }
+    setNewConvSending(true);
+    try {
+      // Create or find contact if manual entry
+      if (!contactId && supabase) {
+        var isEmail = recipient.indexOf('@') > 0;
+        if (isEmail) {
+          var ec = await supabase.from('contacts').select('id, first_name, last_name').eq('email', recipient).eq('tenant_id', currentTenantId).maybeSingle();
+          if (ec.data) { contactId = ec.data.id; contactName = ((ec.data.first_name || '') + ' ' + (ec.data.last_name || '')).trim() || recipient; }
+          else {
+            var ins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, email: recipient, first_name: recipient.split('@')[0], status: 'active' }).select('id').single();
+            if (ins.data) contactId = ins.data.id;
+          }
+        } else {
+          var pc = await supabase.from('contacts').select('id, first_name, last_name').eq('phone', recipient).eq('tenant_id', currentTenantId).maybeSingle();
+          if (pc.data) { contactId = pc.data.id; contactName = ((pc.data.first_name || '') + ' ' + (pc.data.last_name || '')).trim() || recipient; }
+          else {
+            var pins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, phone: recipient, mobile_phone: recipient, first_name: recipient, status: 'active' }).select('id').single();
+            if (pins.data) contactId = pins.data.id;
+          }
+        }
+      }
+      // Create conversation
+      var convRes = await supabase.from('conversations').insert({
+        tenant_id: currentTenantId, contact_id: contactId,
+        channel: newConvChannel, status: 'active',
+        subject: 'New: ' + contactName,
+        last_message_at: new Date().toISOString(), unread_count: 0,
+      }).select('id').single();
+      if (!convRes.data) throw new Error('Failed to create conversation');
+      // Insert message
+      await supabase.from('messages').insert({
+        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        contact_id: contactId, channel: newConvChannel,
+        direction: 'outbound', sender_type: 'agent',
+        body: newConvBody.trim(), status: 'delivered',
+        metadata: fromEmail ? { from_email: fromEmail } : null,
+        created_at: new Date().toISOString(),
+      });
+      // Send via channel API
+      if (newConvChannel === 'sms' && recipient) {
+        var smsEndpoint = recipient.indexOf('+48') === 0 ? '/api/poland-carrier?action=sms-outbound' : '/api/sms';
+        var smsPayload = recipient.indexOf('+48') === 0
+          ? { to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId }
+          : { action: 'send', to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId };
+        try { await fetch(smsEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsPayload) }); } catch (e) {}
+      }
+      if (newConvChannel === 'email' && recipient) {
+        try { await fetch('/api/send-digest-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, subject: 'Hello from ' + (contactName || 'us'), body: newConvBody.trim(), from: fromEmail || undefined }) }); } catch (e) {}
+      }
+      if (newConvChannel === 'whatsapp' && recipient) {
+        try { await fetch('/api/whatsapp-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId }) }); } catch (e) {}
+      }
+      // Reset and close
+      setNewConvOpen(false); setNewConvSearch(''); setNewConvResults([]); setNewConvContact(null); setNewConvManual(''); setNewConvBody(''); setNewConvChannel('sms');
+      // Reload conversations
+      if (!demoMode) {
+        try {
+          var convData = await supabase.from('conversations').select('*, contacts(id, first_name, last_name, email, phone, company, tags)')
+            .eq('tenant_id', currentTenantId).order('last_message_at', { ascending: false }).limit(100);
+          if (convData.data) {
+            setConversations(convData.data.map(function(cv) {
+              var ct = cv.contacts || {};
+              return { id: cv.id, contact_id: cv.contact_id, tenant_id: cv.tenant_id, channel: cv.channel || 'sms', status: cv.status || 'active', subject: cv.subject, priority: cv.priority || 'normal', unread: cv.unread_count || 0, lastActivity: new Date(cv.last_message_at || cv.created_at), contact: { name: ((ct.first_name || '') + ' ' + (ct.last_name || '')).trim() || 'Unknown', email: ct.email || '', phone: ct.phone || '', company: ct.company || '', avatar: ((ct.first_name || '?')[0] + (ct.last_name || '?')[0]).toUpperCase(), tags: ct.tags || [] }, messages: [], isTyping: false, assignedTo: null };
+            }));
+          }
+        } catch (e) {}
+      }
+    } catch (e) { alert('Error: ' + e.message); }
+    setNewConvSending(false);
+  }
+
   const handleSendLive = async () => {
     if (!composeText.trim() || !selectedConv) return;
     setSendingMessage(true);
@@ -706,9 +815,10 @@ useEffect(() => {
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>{t('inbox.title')}</h2>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {totalUnread > 0 && <span style={{ background: "#FF3B30", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
+              {!demoMode && <button onClick={function() { setNewConvOpen(true); }} style={{ background: C.primary, border: "none", borderRadius: 6, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#000", fontWeight: 800, lineHeight: 1, padding: 0 }} title="New Conversation">✏️</button>}
             </div>
           </div>
 
@@ -1228,6 +1338,76 @@ useEffect(() => {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════ New Conversation Modal ═══════════ */}
+      {newConvOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={function() { setNewConvOpen(false); }}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: "#0d1425", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14, padding: 24, width: 480, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ color: "#fff", margin: 0, fontSize: 16, fontWeight: 800 }}>✏️ New Conversation</h3>
+              <button onClick={function() { setNewConvOpen(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 18, cursor: "pointer" }}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>To</label>
+              {newConvContact ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.primary + "15", border: "1px solid " + C.primary + "44", borderRadius: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim()}</div>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{newConvContact.email || newConvContact.phone || newConvContact.mobile_phone}</div>
+                  </div>
+                  <button onClick={function() { setNewConvContact(null); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              ) : (<>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  <input value={newConvSearch} onChange={function(e) { setNewConvSearch(e.target.value); }} onKeyDown={function(e) { if (e.key === 'Enter') newConvSearchContacts(newConvSearch); }} placeholder="Search contacts..." style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                  <button onClick={function() { newConvSearchContacts(newConvSearch); }} disabled={newConvSearching} style={{ background: C.primary + "22", border: "1px solid " + C.primary + "44", borderRadius: 8, padding: "8px 12px", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{newConvSearching ? "..." : "🔍"}</button>
+                </div>
+                {newConvResults.length > 0 && (
+                  <div style={{ maxHeight: 120, overflowY: "auto", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, background: "rgba(0,0,0,0.2)" }}>
+                    {newConvResults.map(function(c) {
+                      var cName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone;
+                      return (
+                        <div key={c.id} onClick={function() { setNewConvContact(c); setNewConvResults([]); setNewConvSearch(''); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", justifyContent: "space-between" }}
+                          onMouseEnter={function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+                          onMouseLeave={function(e) { e.currentTarget.style.background = "transparent"; }}>
+                          <div><div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{cName}</div><div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{c.email}{c.phone ? ' · ' + c.phone : ''}</div></div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <input value={newConvManual} onChange={function(e) { setNewConvManual(e.target.value); }} placeholder="Or enter phone number / email directly..." style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+              </>)}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>Channel</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[
+                  { id: "sms", label: "💬 SMS", color: "#00C9FF" },
+                  { id: "email", label: "📧 Email", color: "#FF6B35" },
+                  { id: "whatsapp", label: "📱 WhatsApp", color: "#25D366" },
+                ].map(function(ch) {
+                  var active = newConvChannel === ch.id;
+                  return <button key={ch.id} onClick={function() { setNewConvChannel(ch.id); }} style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", background: active ? ch.color + "22" : "rgba(255,255,255,0.03)", border: "2px solid " + (active ? ch.color : "rgba(255,255,255,0.08)"), color: active ? ch.color : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: active ? 700 : 400, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{ch.label}</button>;
+                })}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>Message</label>
+              <textarea value={newConvBody} onChange={function(e) { setNewConvBody(e.target.value); }} rows={4} placeholder={"Write your " + newConvChannel.toUpperCase() + " message..."} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" }} />
+              {newConvChannel === "sms" && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, marginTop: 4, textAlign: "right" }}>{newConvBody.length}/160 chars{newConvBody.length > 160 ? " (" + Math.ceil(newConvBody.length / 160) + " segments)" : ""}</div>}
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={sendNewConversation} disabled={newConvSending} style={{ flex: 1, background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 8, padding: "12px", color: "#000", fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", opacity: newConvSending ? 0.6 : 1 }}>{newConvSending ? "Sending..." : "🚀 Send"}</button>
+              <button onClick={function() { setNewConvOpen(false); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "12px 20px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
             </div>
           </div>
         </div>
