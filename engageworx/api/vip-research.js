@@ -32,6 +32,7 @@ module.exports = async function handler(req, res) {
 
   var tenantName = '';
   var calendlyUrl = '';
+  var emailSignature = '';
   if (tenantId) {
     try {
       var t = await supabase.from('tenants').select('name, brand_name, calendly_url').eq('id', tenantId).maybeSingle();
@@ -39,6 +40,10 @@ module.exports = async function handler(req, res) {
         tenantName = t.data.brand_name || t.data.name || '';
         calendlyUrl = t.data.calendly_url || '';
       }
+    } catch (e) {}
+    try {
+      var sig = await supabase.from('chatbot_configs').select('email_signature_first').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (sig.data && sig.data.email_signature_first) emailSignature = sig.data.email_signature_first;
     } catch (e) {}
   }
 
@@ -55,12 +60,13 @@ module.exports = async function handler(req, res) {
     '- Show you understand their business and why ' + (tenantName || 'EngageWorx') + ' is relevant to them.\n' +
     '- Keep email to 3-4 short paragraphs max.\n' +
     '- End with a clear next step.\n' +
-    (calendlyUrl ? '- If suggesting a meeting, include this link: ' + calendlyUrl + '\n' : '') +
-    '- Never use brackets like [Your Name] — write as Rob from ' + (tenantName || 'EngageWorx') + '.\n\n' +
+    (calendlyUrl ? '- End the email with a Calendly CTA line: "Book a quick call: ' + calendlyUrl + '" — always include this link.\n' : '') +
+    '- Never use brackets like [Your Name] — write as Rob from ' + (tenantName || 'EngageWorx') + '.\n' +
+    '- Do NOT include an email signature — one will be appended automatically.\n\n' +
     'Return your response in this exact format:\n' +
     'RESEARCH:\n[2-3 sentence summary of what you found about the company]\n\n' +
     'SUBJECT:\n[email subject line]\n\n' +
-    'EMAIL:\n[full email body]\n\n' +
+    'EMAIL:\n[full email body — end with the Calendly CTA, no signature]\n\n' +
     'SMS:\n[160 char max SMS version]';
 
   var userPrompt = 'Research and write personalized outreach to:\n' +
@@ -163,6 +169,11 @@ module.exports = async function handler(req, res) {
         sms_body: '',
         _debug: { stop_reason: data.stop_reason, block_count: (data.content || []).length, block_types: (data.content || []).map(function(b) { return b.type; }) },
       });
+    }
+
+    // Append email signature to the email body
+    if (emailSignature && emailBody) {
+      emailBody = emailBody + '\n\n' + emailSignature;
     }
 
     logAiUsage(supabase, {
