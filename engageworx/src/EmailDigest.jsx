@@ -51,7 +51,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipResearching, setVipResearching] = useState(null);
   var [vipSending, setVipSending] = useState(null);
 
-  function makeVipCard(c) {
+  function makeVipCard(c, extra) {
     return {
       id: c.id, first_name: c.first_name, last_name: c.last_name,
       email: c.email, phone: c.phone || c.mobile_phone, company: c.company,
@@ -59,15 +59,27 @@ export default function EmailDigest({ C, currentTenantId }) {
       emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
       research: null, researched: false, channel: 'email',
       calendly_cta: '', email_signature: '',
+      last_contacted_at: c.last_contacted_at || null,
+      has_reply: (extra && extra.has_reply) || false,
     };
   }
 
   async function loadVipContacts() {
     if (!resolvedTenantId) return;
     try {
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes')
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes, last_contacted_at')
         .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
-      var dbContacts = (r.data || []).map(makeVipCard);
+      var contactIds = (r.data || []).map(function(c) { return c.id; });
+      var replyMap = {};
+      if (contactIds.length > 0) {
+        try {
+          var inbound = await supabase.from('messages').select('contact_id')
+            .eq('tenant_id', resolvedTenantId).eq('direction', 'inbound')
+            .in('contact_id', contactIds).limit(200);
+          (inbound.data || []).forEach(function(m) { replyMap[m.contact_id] = true; });
+        } catch (e) {}
+      }
+      var dbContacts = (r.data || []).map(function(c) { return makeVipCard(c, { has_reply: !!replyMap[c.id] }); });
       var queued = null;
       try {
         var raw = localStorage.getItem('engwx_vip_queue');
@@ -427,7 +439,14 @@ export default function EmailDigest({ C, currentTenantId }) {
           body: JSON.stringify({ action: 'send', to: contact.phone, body: draft, tenant_id: currentTenantId }),
         });
       }
-      setVipContacts(function(prev) { return prev.filter(function(c) { return c.id !== contact.id; }); });
+      // Update last_contacted_at on the contact
+      var now = new Date().toISOString();
+      try { await supabase.from('contacts').update({ last_contacted_at: now }).eq('id', contact.id); } catch (e) {}
+      // Update card to show sent status instead of removing
+      setVipContacts(function(prev) { return prev.map(function(c) {
+        if (c.id !== contact.id) return c;
+        return Object.assign({}, c, { last_contacted_at: now, emailDraft: '', smsDraft: '', researched: false, research: null });
+      }); });
     } catch (e) { alert('Send error: ' + e.message); }
     setVipSending(null);
   }
@@ -806,17 +825,24 @@ export default function EmailDigest({ C, currentTenantId }) {
                   var name = ((vc.first_name || '') + ' ' + (vc.last_name || '')).trim() || vc.email || 'Unknown';
                   var isResearching = vipResearching === vc.id;
                   var isSending = vipSending === vc.id;
+                  var daysSinceContact = vc.last_contacted_at ? Math.floor((Date.now() - new Date(vc.last_contacted_at).getTime()) / 86400000) : null;
+                  var followupDue = daysSinceContact !== null && daysSinceContact >= 5 && !vc.has_reply;
+                  var noReply = daysSinceContact !== null && !vc.has_reply;
                   return (
-                    <div key={vc.id} style={Object.assign({}, card, { borderLeft: '3px solid #FFD600' })}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                    <div key={vc.id} style={Object.assign({}, card, { borderLeft: '3px solid ' + (followupDue ? '#FF3B30' : '#FFD600') })}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                         <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{name}</span>
                         {vc.title && <span style={{ color: colors.muted, fontSize: 12 }}>· {vc.title}</span>}
                         {vc.company && <span style={{ background: 'rgba(255,214,0,0.12)', color: '#FFD600', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 4, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>{vc.company}</span>}
+                        {followupDue && <span style={{ background: 'rgba(255,59,48,0.12)', color: '#FF3B30', border: '1px solid rgba(255,59,48,0.4)', borderRadius: 4, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>⏰ Follow-up due</span>}
+                        {noReply && !followupDue && <span style={{ background: 'rgba(255,152,0,0.12)', color: '#FF9800', border: '1px solid rgba(255,152,0,0.4)', borderRadius: 4, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>No reply yet</span>}
+                        {vc.has_reply && <span style={{ background: 'rgba(0,230,118,0.12)', color: '#00E676', border: '1px solid rgba(0,230,118,0.4)', borderRadius: 4, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>✓ Replied</span>}
                       </div>
                       <div style={{ color: colors.muted, fontSize: 11, marginBottom: 10 }}>
                         {vc.email && <span>{vc.email}</span>}
                         {vc.email && vc.phone && <span> · </span>}
                         {vc.phone && <span>{vc.phone}</span>}
+                        {daysSinceContact !== null && <span style={{ marginLeft: 8, color: followupDue ? '#FF3B30' : 'rgba(255,255,255,0.3)' }}>· Last contacted {daysSinceContact === 0 ? 'today' : daysSinceContact + 'd ago'}</span>}
                       </div>
 
                       {vc.research && (
