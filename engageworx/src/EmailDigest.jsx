@@ -170,34 +170,40 @@ export default function EmailDigest({ C, currentTenantId }) {
     if (!resolvedTenantId) return;
     setFuLoading(true);
     try {
-      var sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-      var q = supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
-        .eq('tenant_id', resolvedTenantId)
-        .or('last_activity_at.is.null,last_activity_at.lt.' + fourteenDaysAgo);
-      var r = await q.limit(100);
-      var contacts = r.data || [];
-      // Build available tags from all contacts
+      // Load all contacts for this tenant (no last_activity_at filter)
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, event_tag, tags, notes')
+        .eq('tenant_id', resolvedTenantId).limit(200);
+      var allContacts = r.data || [];
+      // Build available tags from ALL contacts
       var tagSet = {};
-      contacts.forEach(function(c) {
+      allContacts.forEach(function(c) {
         if (c.event_tag) tagSet[c.event_tag] = true;
         (c.tags || []).forEach(function(t) { tagSet[t] = true; });
       });
       setFuAvailableTags(Object.keys(tagSet).sort());
-      // Apply tag filter
+      // Apply tag filter first
+      var contacts = allContacts;
       if (fuTagFilter) {
         contacts = contacts.filter(function(c) {
           return c.event_tag === fuTagFilter || (c.tags || []).indexOf(fuTagFilter) > -1;
         });
       }
-      // Filter out contacts with recent conversations
+      // Filter: keep contacts with NO conversation or last conversation 14+ days ago
       var ids = contacts.map(function(c) { return c.id; });
       if (ids.length === 0) { setFollowups([]); setFuLoading(false); return; }
       var convR = await supabase.from('conversations').select('contact_id, last_message_at')
-        .eq('tenant_id', resolvedTenantId).in('contact_id', ids).gte('last_message_at', sevenDaysAgo);
-      var recentContactIds = {};
-      (convR.data || []).forEach(function(c) { recentContactIds[c.contact_id] = true; });
-      var candidates = contacts.filter(function(c) { return !recentContactIds[c.id]; });
+        .eq('tenant_id', resolvedTenantId).in('contact_id', ids)
+        .order('last_message_at', { ascending: false });
+      var lastConvMap = {};
+      (convR.data || []).forEach(function(c) {
+        if (!lastConvMap[c.contact_id]) lastConvMap[c.contact_id] = c.last_message_at;
+      });
+      var candidates = contacts.filter(function(c) {
+        var lastMsg = lastConvMap[c.id];
+        // Include if: no conversation at all, OR last conversation was 14+ days ago
+        return !lastMsg || lastMsg < fourteenDaysAgo;
+      });
       setFollowups(candidates.map(function(c) {
         var existing = followups.find(function(f) { return f.id === c.id; });
         return {
@@ -930,17 +936,18 @@ export default function EmailDigest({ C, currentTenantId }) {
                         {vc.vip_followup_at && <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.3)' }}>· Follow-up: {new Date(vc.vip_followup_at).toLocaleDateString()}</span>}
                       </div>
 
-                      {daysSinceContact !== null && !vc.emailDraft && !vc.researched && (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+                      {daysSinceContact !== null && !vc.emailDraft && (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
                           <span style={{ color: colors.muted, fontSize: 11 }}>⏰ Follow up in:</span>
                           {[3, 5, 7].map(function(d) {
-                            return <button key={d} onClick={async function() {
+                            return <button type="button" key={d} onClick={function(e) {
+                              e.stopPropagation();
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
                               setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
-                              try { await supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id); } catch (e) {}
-                            }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
+                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() {});
+                            }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
-                          <button onClick={function() { setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
+                          <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
                           {vipDatePicker === vc.id && (
                             <input type="date" onChange={async function(e) {
                               if (!e.target.value) return;
