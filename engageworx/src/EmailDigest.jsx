@@ -51,6 +51,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [fuSearchQuery, setFuSearchQuery] = useState('');
   var [fuSearchResults, setFuSearchResults] = useState([]);
   var [fuSearching, setFuSearching] = useState(false);
+  var [fuLastDismissed, setFuLastDismissed] = useState(null);
   var [fuImproving, setFuImproving] = useState(null);
   var [fuPreview, setFuPreview] = useState(null);
 
@@ -231,11 +232,12 @@ export default function EmailDigest({ C, currentTenantId }) {
       (convR.data || []).forEach(function(c) {
         if (!lastConvMap[c.contact_id]) lastConvMap[c.contact_id] = c.last_message_at;
       });
+      var dismissed = DigestStore.getDismissed(resolvedTenantId);
       var candidates = contacts.filter(function(c) {
+        if (dismissed.indexOf(c.id) > -1) return false;
         var lastMsg = lastConvMap[c.id];
         return !lastMsg || lastMsg < fourteenDaysAgo;
       });
-      console.log('[Followups] candidates after conversation filter: ' + candidates.length + ' (from ' + contacts.length + ')');
       setFollowups(function(prev) {
         var prevMap = {};
         prev.forEach(function(f) { prevMap[f.id] = f; });
@@ -788,6 +790,9 @@ export default function EmailDigest({ C, currentTenantId }) {
                   {fuAvailableTags.map(function(tag) { return <option key={tag} value={tag}>{tag}</option>; })}
                 </select>
                 <button onClick={function() { setFuSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
+                {DigestStore.getDismissed(resolvedTenantId).length > 0 && (
+                  <button onClick={function() { DigestStore.resetDismissed(resolvedTenantId); loadFollowups(); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>↩ Reset dismissed ({DigestStore.getDismissed(resolvedTenantId).length})</button>
+                )}
                 {followups.length > 0 && (
                   <button onClick={generateAllFollowups} disabled={fuGeneratingAll} style={{ background: 'linear-gradient(135deg, #E040FB, #A855F7)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuGeneratingAll ? 0.6 : 1 }}>
                     {fuGeneratingAll ? '⏳ Generating…' : '✨ Generate All'}
@@ -796,6 +801,18 @@ export default function EmailDigest({ C, currentTenantId }) {
               </div>
             </div>
             <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 8px' }}>Contacts with no reply or conversation in the last 7 days. Claude generates personalized follow-ups using event context.</p>
+
+            {fuLastDismissed && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, marginBottom: 10 }}>
+                <span style={{ color: '#a5b4fc', fontSize: 12 }}>Dismissed {((fuLastDismissed.first_name || '') + ' ' + (fuLastDismissed.last_name || '')).trim()}</span>
+                <button type="button" onMouseDown={function() {
+                  var cId = fuLastDismissed.id;
+                  DigestStore.undismiss(resolvedTenantId, cId);
+                  setFuLastDismissed(null);
+                  loadFollowups();
+                }} style={{ background: '#6366f1', border: 'none', borderRadius: 6, padding: '4px 10px', color: '#fff', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>↩ Undo</button>
+              </div>
+            )}
 
             {followups.length > 0 && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
@@ -906,9 +923,13 @@ export default function EmailDigest({ C, currentTenantId }) {
                                 {isSending ? '⏳…' : '✉️ Send'}
                               </button>
                             )}
-                            <button type="button" onClick={function() {
+                            <button type="button" onMouseDown={function() {
+                              var dismissed = { id: fu.id, first_name: fu.first_name, last_name: fu.last_name };
+                              DigestStore.dismiss(resolvedTenantId, fu.id);
                               setFollowups(function(prev) { return prev.filter(function(f) { return f.id !== fu.id; }); });
                               setFuSelected(function(prev) { var n = Object.assign({}, prev); delete n[fu.id]; return n; });
+                              setFuLastDismissed(dismissed);
+                              setTimeout(function() { setFuLastDismissed(function(cur) { return cur && cur.id === dismissed.id ? null : cur; }); }, 8000);
                             }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Dismiss</button>
                           </div>
                         </div>
