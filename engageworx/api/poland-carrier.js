@@ -55,19 +55,28 @@ function detectLanguage(text) {
 async function matchTenantByNumber(supabase, toNumber) {
   var normalized = normalizePL(toNumber);
   var withoutPlus = normalized.indexOf('+') === 0 ? normalized.slice(1) : normalized;
+  console.log('[matchTenant] raw=' + toNumber + ' normalized=' + normalized + ' withoutPlus=' + withoutPlus);
   try {
+    // Try 1: normalized (+48732080851)
     var r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', normalized).eq('enabled', true).maybeSingle();
+    console.log('[matchTenant] try1 phone_number=' + normalized + ' found=' + !!r.data + (r.error ? ' err=' + r.error.message : ''));
     if (r.data) return r.data;
-    // Try without + prefix (some configs stored as 48XXXXXXXXX)
+    // Try 2: without + (48732080851)
     r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', withoutPlus).eq('enabled', true).maybeSingle();
+    console.log('[matchTenant] try2 phone_number=' + withoutPlus + ' found=' + !!r.data + (r.error ? ' err=' + r.error.message : ''));
     if (r.data) return r.data;
-    // Also try un-normalised in case the config was saved raw
+    // Try 3: raw input
     if (toNumber !== normalized && toNumber !== withoutPlus) {
       r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', toNumber).eq('enabled', true).maybeSingle();
+      console.log('[matchTenant] try3 phone_number=' + toNumber + ' found=' + !!r.data + (r.error ? ' err=' + r.error.message : ''));
       return r.data || null;
     }
+    // Try 4: any row for this number ignoring enabled flag
+    r = await supabase.from('poland_carrier_configs').select('*').eq('phone_number', normalized).maybeSingle();
+    console.log('[matchTenant] try4 (ignore enabled) phone_number=' + normalized + ' found=' + !!r.data + (r.data ? ' enabled=' + r.data.enabled + ' tenant=' + r.data.tenant_id : ''));
+    if (r.data && !r.data.enabled) console.warn('[matchTenant] CONFIG EXISTS but enabled=false!');
     return null;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[matchTenant] error:', e.message); return null; }
 }
 
 async function ensureContact(supabase, tenantId, fromNumber) {
