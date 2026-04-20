@@ -6,23 +6,23 @@
 
 var nodemailer = require('nodemailer');
 
-var _transport = null;
-function getTransport() {
-  if (_transport) return _transport;
-  _transport = nodemailer.createTransport({
+function createTransport(user, pass) {
+  return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
-    auth: {
-      user: process.env.GMAIL_SMTP_USER,
-      pass: process.env.GMAIL_SMTP_PASS,
-    },
+    auth: { user: user, pass: pass },
   });
-  return _transport;
 }
 
 module.exports = async function handler(req, res) {
-  console.log('[Gmail] env check: USER=' + !!process.env.GMAIL_SMTP_USER + ' PASS=' + !!process.env.GMAIL_SMTP_PASS + ' user_prefix=' + (process.env.GMAIL_SMTP_USER || '').substring(0, 5));
+  var gmailUser = process.env.GMAIL_SMTP_USER;
+  var gmailPass = process.env.GMAIL_SMTP_PASS;
+  var gmailKeys = Object.keys(process.env).filter(function(k) { return k.includes('GMAIL'); });
+  console.log('[Gmail] process.env keys with GMAIL:', gmailKeys);
+  console.log('[Gmail] GMAIL_SMTP_USER value:', gmailUser ? gmailUser.substring(0, 8) + '...' : 'UNDEFINED');
+  console.log('[Gmail] GMAIL_SMTP_PASS value:', gmailPass ? 'SET (len=' + gmailPass.length + ')' : 'UNDEFINED');
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   var b = req.body || {};
@@ -30,16 +30,15 @@ module.exports = async function handler(req, res) {
   var subject = b.subject || '(no subject)';
   var body = b.body || '';
   var html = b.html || null;
-  var from = b.from || process.env.GMAIL_SMTP_USER || 'rob@engwx.com';
+  var from = b.from || gmailUser || 'rob@engwx.com';
 
   if (!to) return res.status(400).json({ error: 'to is required' });
-  if (!process.env.GMAIL_SMTP_USER || !process.env.GMAIL_SMTP_PASS) {
-    console.log('[Gmail] MISSING ENV: GMAIL_SMTP_USER=' + (process.env.GMAIL_SMTP_USER || 'undefined') + ' GMAIL_SMTP_PASS=' + (process.env.GMAIL_SMTP_PASS ? 'set' : 'undefined'));
-    return res.status(500).json({ error: 'GMAIL_SMTP_USER and GMAIL_SMTP_PASS not configured' });
+  if (!gmailUser || !gmailPass) {
+    return res.status(500).json({ error: 'not configured', keys_found: gmailKeys, user_set: !!gmailUser, pass_set: !!gmailPass });
   }
 
   try {
-    var transport = getTransport();
+    var transport = createTransport(gmailUser, gmailPass);
     var mailOptions = {
       from: from,
       to: to,
