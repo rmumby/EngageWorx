@@ -382,24 +382,43 @@ module.exports = async function handler(req, res) {
       }
 
       // AI auto-reply in detected language
-      var reply = await aiReplyForSms(supabase, cfg.tenant_id, lang, text);
+      console.error('[Poland/sms] AI reply: generating for tenant=' + cfg.tenant_id + ' lang=' + lang + ' convId=' + conversationId);
+      var reply = null;
+      try {
+        reply = await aiReplyForSms(supabase, cfg.tenant_id, lang, text);
+      } catch (aiErr) { console.error('[Poland/sms] AI reply EXCEPTION:', aiErr.message); }
+      console.error('[Poland/sms] AI reply result:', reply ? 'generated (' + reply.length + ' chars)' : 'null/empty');
       if (reply) {
-        var sent = await sendOutboundSms(cfg, normalizePL(from), reply);
-        if (sent.ok && conversationId) {
-          await supabase.from('messages').insert({
+        console.error('[Poland/sms] sending AI reply to', normalizePL(from), 'via', cfg.carrier_type || 'default');
+        var sent = null;
+        try {
+          sent = await sendOutboundSms(cfg, normalizePL(from), reply);
+        } catch (sendErr) { console.error('[Poland/sms] sendOutboundSms EXCEPTION:', sendErr.message); }
+        console.error('[Poland/sms] send result:', sent ? JSON.stringify(sent).substring(0, 100) : 'null');
+        if (sent && sent.ok && conversationId) {
+          var botMsgRes = await supabase.from('messages').insert({
             tenant_id: cfg.tenant_id, conversation_id: conversationId, contact_id: contactId,
             channel: 'sms', direction: 'outbound', sender_type: 'bot',
             body: reply, status: 'sent',
             metadata: { to: normalizePL(from), language: lang, auto_reply: true },
             created_at: new Date().toISOString(),
           });
+          if (botMsgRes.error) console.error('[Poland/sms] bot message INSERT ERROR:', botMsgRes.error.message);
         }
       }
 
-      // Twilio expects a TwiML response (empty <Response/> is fine since we send the AI reply
-      // out-of-band via the Twilio Messages API in sendOutboundSms).
+      // Log final result to debug_logs
+      try {
+        await supabase.from('debug_logs').insert({
+          endpoint: 'poland-carrier', action: 'sms-inbound-complete',
+          payload: { from: from, to: to, text: (text || '').substring(0, 100) },
+          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, ai_reply: reply ? reply.substring(0, 100) : null, ai_reply_sent: !!(reply && sent && sent.ok) },
+          created_at: new Date().toISOString(),
+        });
+      } catch (logErr) {}
+
       if (isTwilio) return twilioReply('');
-      return res.status(200).json({ success: true, language: lang, conversation_id: conversationId });
+      return res.status(200).json({ success: true, language: lang, conversation_id: conversationId, ai_replied: !!reply });
     }
 
     // ── OUTBOUND SMS (platform → Polish number) ────────────────────────────
