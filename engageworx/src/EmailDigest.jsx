@@ -81,7 +81,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       title: c.title || '', notes: c.notes || '', context: '',
       emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
       research: null, researched: false, channel: 'email',
-      calendly_cta: '', email_signature: '',
+      calendly_cta: '', signature_first: '', signature_reply: '', sig_type: 'first',
       last_contacted_at: c.last_contacted_at || null,
       vip_followup_at: (DigestStore.getVipOverride(c.id) && DigestStore.getVipOverride(c.id).vip_followup_at) || c.vip_followup_at || null,
       has_reply: (extra && extra.has_reply) || false,
@@ -280,9 +280,9 @@ export default function EmailDigest({ C, currentTenantId }) {
       if (!r.ok) { console.error('[FuGenerate] API error:', d.error); throw new Error(d.error || 'Generation failed'); }
       console.log('[FuGenerate] draft received, length:', (d.draft || '').length);
       // Write to DigestStore immediately (survives remount)
-      DigestStore.setDraft(contact.id, { draft: d.draft || '', channel: contact.channel || 'email', generated: true });
+      DigestStore.setDraft(contact.id, { draft: d.draft || '', channel: contact.channel || 'email', generated: true, signature_first: d.signature_first || '', signature_reply: d.signature_reply || '' });
       var updated = DigestStore.getFuCards().map(function(f) {
-        return f.id === contact.id ? Object.assign({}, f, { draft: d.draft, generated: true }) : f;
+        return f.id === contact.id ? Object.assign({}, f, { draft: d.draft, generated: true, signature_first: d.signature_first || '', signature_reply: d.signature_reply || '', sig_type: 'first' }) : f;
       });
       DigestStore.saveFuCards(updated);
       setFollowupsRaw(updated);
@@ -478,7 +478,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         return Object.assign({}, c, {
           emailDraft: d.email_body || '', smsDraft: d.sms_body || '',
           subject: d.subject || '', research: d.research || '',
-          calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
+          calendly_cta: d.calendly_cta || '', signature_first: d.signature_first || '', signature_reply: d.signature_reply || '',
           researched: true,
         });
       }); });
@@ -496,7 +496,8 @@ export default function EmailDigest({ C, currentTenantId }) {
       if (contact.channel === 'email') {
         var parts = [draft];
         if (contact.calendly_cta) parts.push(contact.calendly_cta);
-        if (contact.email_signature) parts.push(contact.email_signature);
+        var selectedSig = contact.sig_type === 'reply' ? contact.signature_reply : contact.signature_first;
+        if (selectedSig) parts.push(selectedSig);
         fullBody = parts.join('\n\n');
       }
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
@@ -556,7 +557,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         return Object.assign({}, c, {
           emailDraft: d.email_body || '', subject: d.subject || '',
           fromEmail: d.from_email || c.fromEmail,
-          calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
+          calendly_cta: d.calendly_cta || '', signature_first: d.signature_first || '', signature_reply: d.signature_reply || '', sig_type: 'reply',
           researched: true, channel: 'email',
         });
       }); });
@@ -1105,11 +1106,19 @@ export default function EmailDigest({ C, currentTenantId }) {
                             <div style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: 'right' }}>{(vc.smsDraft || '').length}/160 chars</div>
                           </>) : (<>
                             <textarea value={vc.emailDraft} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { emailDraft: val }) : c; }); }); }} rows={5} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,214,0,0.25)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-                            {(vc.calendly_cta || vc.email_signature) && (
+                            {(vc.calendly_cta || vc.signature_first || vc.signature_reply) && (
                               <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6 }}>
-                                <div style={{ color: colors.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Auto-appended on send</div>
-                                {vc.calendly_cta && <div style={{ color: colors.primary, fontSize: 12, marginBottom: vc.email_signature ? 8 : 0 }}>{vc.calendly_cta}</div>}
-                                {vc.email_signature && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: vc.email_signature }} />}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                  <span style={{ color: colors.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Auto-appended on send</span>
+                                  {vc.signature_first && vc.signature_reply && (
+                                    <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 2 }}>
+                                      <button type="button" onMouseDown={function() { setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { sig_type: 'first' }) : c; }); }); }} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, background: (vc.sig_type || 'first') === 'first' ? colors.primary + '22' : 'transparent', color: (vc.sig_type || 'first') === 'first' ? colors.primary : colors.muted }}>✉️ Full</button>
+                                      <button type="button" onMouseDown={function() { setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { sig_type: 'reply' }) : c; }); }); }} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, background: vc.sig_type === 'reply' ? colors.primary + '22' : 'transparent', color: vc.sig_type === 'reply' ? colors.primary : colors.muted }}>↩️ Reply</button>
+                                    </div>
+                                  )}
+                                </div>
+                                {vc.calendly_cta && <div style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>{vc.calendly_cta}</div>}
+                                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: (vc.sig_type === 'reply' ? vc.signature_reply : vc.signature_first) || '' }} />
                               </div>
                             )}
                           </>)}
@@ -1153,8 +1162,8 @@ export default function EmailDigest({ C, currentTenantId }) {
                       <a href={vipPreview.calendly_cta.replace('Book a quick call: ', '')} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>{vipPreview.calendly_cta}</a>
                     </div>
                   )}
-                  {vipPreview.email_signature && (
-                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }} dangerouslySetInnerHTML={{ __html: vipPreview.email_signature }} />
+                  {(vipPreview.signature_first || vipPreview.signature_reply) && (
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }} dangerouslySetInnerHTML={{ __html: (vipPreview.sig_type === 'reply' ? vipPreview.signature_reply : vipPreview.signature_first) || '' }} />
                   )}
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

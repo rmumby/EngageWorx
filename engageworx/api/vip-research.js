@@ -35,7 +35,8 @@ module.exports = async function handler(req, res) {
 
   var tenantName = 'EngageWorx';
   var calendlyUrl = '';
-  var emailSignature = '';
+  var signatureFirst = '';
+  var signatureReply = '';
   var PLACEHOLDER_NAMES = ['my business', 'your business', 'company name', 'business name', 'your company', 'untitled', ''];
   if (tenantId) {
     try {
@@ -52,12 +53,12 @@ module.exports = async function handler(req, res) {
       }
     } catch (e) { console.warn('[vip-research] tenant load error:', e.message); }
     try {
-      var sig = await supabase.from('chatbot_configs').select('email_signature_first').eq('tenant_id', tenantId).limit(1).maybeSingle();
-      console.log('[vip-research] signature query result:', sig.data ? 'found' : 'null', sig.error ? 'err:' + sig.error.message : 'no-err');
-      if (sig.data && sig.data.email_signature_first) {
-        emailSignature = sig.data.email_signature_first;
+      var sig = await supabase.from('chatbot_configs').select('email_signature_first, email_signature_reply').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (sig.data) {
+        signatureFirst = sig.data.email_signature_first || '';
+        signatureReply = sig.data.email_signature_reply || '';
       }
-    } catch (e) { console.warn('[vip-research] signature load error:', e.message); }
+    } catch (e) {}
   }
 
   var model = 'claude-sonnet-4-6';
@@ -206,7 +207,8 @@ module.exports = async function handler(req, res) {
       email_body: emailBody,
       sms_body: smsBody,
       calendly_cta: calendlyCta,
-      email_signature: emailSignature,
+      signature_first: signatureFirst,
+      signature_reply: signatureReply,
     });
   } catch (e) {
     console.error('[vip-research] error:', e.message, e.stack);

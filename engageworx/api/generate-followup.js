@@ -33,6 +33,8 @@ module.exports = async function handler(req, res) {
   // Load tenant context for personalization
   var tenantName = '';
   var calendlyUrl = '';
+  var signatureFirst = '';
+  var signatureReply = '';
   if (tenantId) {
     try {
       var t = await supabase.from('tenants').select('name, brand_name, calendly_url').eq('id', tenantId).maybeSingle();
@@ -40,6 +42,10 @@ module.exports = async function handler(req, res) {
         tenantName = t.data.brand_name || t.data.name || '';
         calendlyUrl = t.data.calendly_url || '';
       }
+    } catch (e) {}
+    try {
+      var sig = await supabase.from('chatbot_configs').select('email_signature_first, email_signature_reply').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (sig.data) { signatureFirst = sig.data.email_signature_first || ''; signatureReply = sig.data.email_signature_reply || ''; }
     } catch (e) {}
   }
 
@@ -98,7 +104,7 @@ module.exports = async function handler(req, res) {
       feature: improve ? 'followup_improve' : 'followup_generate',
     });
 
-    return res.status(200).json({ draft: draft.trim() });
+    return res.status(200).json({ draft: draft.trim(), signature_first: signatureFirst, signature_reply: signatureReply });
   } catch (e) {
     console.error('[generate-followup] error:', e.message);
     return res.status(500).json({ error: e.message });

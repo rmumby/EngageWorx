@@ -31,7 +31,8 @@ module.exports = async function handler(req, res) {
   // Load tenant info
   var tenantName = '';
   var calendlyUrl = '';
-  var emailSignature = '';
+  var signatureFirst = '';
+  var signatureReply = '';
   var PLACEHOLDER_NAMES = ['my business', 'your business', 'company name', 'business name', 'your company', ''];
   if (tenantId) {
     try {
@@ -44,8 +45,8 @@ module.exports = async function handler(req, res) {
       }
     } catch (e) {}
     try {
-      var sig = await supabase.from('chatbot_configs').select('email_signature_first').eq('tenant_id', tenantId).limit(1).maybeSingle();
-      if (sig.data && sig.data.email_signature_first) emailSignature = sig.data.email_signature_first;
+      var sig = await supabase.from('chatbot_configs').select('email_signature_first, email_signature_reply').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (sig.data) { signatureFirst = sig.data.email_signature_first || ''; signatureReply = sig.data.email_signature_reply || ''; }
     } catch (e) {}
   }
 
@@ -137,7 +138,8 @@ module.exports = async function handler(req, res) {
       subject: subject,
       from_email: originalFromEmail,
       calendly_cta: calendlyCta,
-      email_signature: emailSignature,
+      signature_first: signatureFirst,
+      signature_reply: signatureReply,
     });
   } catch (e) {
     console.error('[vip-followup] error:', e.message);
