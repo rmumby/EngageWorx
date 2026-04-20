@@ -538,7 +538,7 @@ export default function EmailDigest({ C, currentTenantId }) {
     setVipSending(null);
   }
 
-  async function generateFollowup(contact) {
+  async function generateVipFollowup(contact) {
     setVipFollowingUp(contact.id);
     try {
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
@@ -1074,7 +1074,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                             {isResearching ? '🔍 Researching…' : '🔍 Research & Generate'}
                           </button>
                           {(followupDue || noReply) && (
-                            <button type="button" onMouseDown={function() { console.log('[VIP] Follow-up clicked for', vc.id); if (vipFollowingUp !== vc.id) generateFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
+                            <button type="button" onMouseDown={function() { console.log('[VIP] Follow-up clicked for', vc.id); if (vipFollowingUp !== vc.id) generateVipFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
                               {vipFollowingUp === vc.id ? '⏳…' : '🔄 Follow-up'}
                             </button>
                           )}
