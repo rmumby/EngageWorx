@@ -249,6 +249,9 @@ export default function EmailDigest({ C, currentTenantId }) {
             draft: (existing && existing.draft) || (cached && cached.draft) || '',
             channel: (existing && existing.channel) || (cached && cached.channel) || (c.email ? 'email' : 'sms'),
             generated: (existing && existing.generated) || (cached && cached.generated) || false,
+            signature_first: (existing && existing.signature_first) || (cached && cached.signature_first) || '',
+            signature_reply: (existing && existing.signature_reply) || (cached && cached.signature_reply) || '',
+            sig_type: (existing && existing.sig_type) || (cached && cached.sig_type) || 'first',
             manual: existing ? existing.manual : false,
           };
         });
@@ -832,6 +835,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                 {followups.map(function(fu) {
                   var name = ((fu.first_name || '') + ' ' + (fu.last_name || '')).trim() || fu.email || fu.phone || 'Unknown';
                   var isGenerating = fuGenerating === fu.id || fuGeneratingAll;
+                  if (fu.draft) console.log('[FuCard]', fu.first_name, 'sig_first=' + (fu.signature_first || '').length + ' sig_reply=' + (fu.signature_reply || '').length + ' sig_type=' + (fu.sig_type || 'none'));
                   var isImproving = fuImproving === fu.id;
                   var isSending = fuSending === fu.id || fuSending === 'bulk';
                   return (
