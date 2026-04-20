@@ -413,19 +413,18 @@ module.exports = async function handler(req, res) {
       if (reply) {
         var replyTo = normalizePL(from);
         var isPolishDest = replyTo.indexOf('+48') === 0;
-        console.error('[Poland/sms] sending AI reply to', replyTo, 'isPolish=' + isPolishDest);
+        var twilioFrom = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER || '+17869827800';
+        console.error('[Poland/sms] sending AI reply to', replyTo, 'isPolish=' + isPolishDest, 'twilioFrom=' + twilioFrom);
         var sent = null;
         try {
           if (isPolishDest) {
             sent = await sendOutboundSms(cfg, replyTo, reply);
-            // Fallback to Twilio if SMPP returns error
             if (!sent || !sent.ok) {
-              console.error('[Poland/sms] carrier send failed, trying Twilio fallback');
-              sent = await sendViaTwilioFallback(replyTo, reply, cfg.phone_number);
+              console.error('[Poland/sms] carrier failed, Twilio fallback with from=' + twilioFrom);
+              sent = await sendViaTwilioFallback(replyTo, reply, twilioFrom);
             }
           } else {
-            // Non-Polish number — use Twilio directly
-            sent = await sendViaTwilioFallback(replyTo, reply, cfg.phone_number);
+            sent = await sendViaTwilioFallback(replyTo, reply, twilioFrom);
           }
         } catch (sendErr) { console.error('[Poland/sms] send EXCEPTION:', sendErr.message); }
         console.error('[Poland/sms] send result:', sent ? JSON.stringify(sent).substring(0, 100) : 'null');
@@ -446,7 +445,7 @@ module.exports = async function handler(req, res) {
         await supabase.from('debug_logs').insert({
           endpoint: 'poland-carrier', action: 'sms-inbound-complete',
           payload: { from: from, to: to, text: (text || '').substring(0, 100) },
-          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, ai_reply: reply ? reply.substring(0, 100) : null, ai_reply_sent: !!(reply && sent && sent.ok) },
+          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, ai_reply: reply ? reply.substring(0, 100) : null, ai_reply_sent: !!(reply && sent && sent.ok), send_transport: sent && sent.transport, send_error: sent && !sent.ok ? (sent.error || JSON.stringify(sent.body || '').substring(0, 100)) : null },
           created_at: new Date().toISOString(),
         });
       } catch (logErr) {}
