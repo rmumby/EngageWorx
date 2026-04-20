@@ -422,23 +422,27 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
   // In live mode, fetch conversations using supabase prop
   const [liveLoading, setLiveLoading] = useState(!demoMode);
-useEffect(() => {
+useEffect(function() {
   if (demoMode || !supabase) return;
   if (viewLevel === 'tenant' && !currentTenantId) return;
-  var agentQuery = supabase.from('tenant_members')
-    .select('user_id, user_profiles(full_name, email)')
-    .eq('status', 'active');
-  if (viewLevel === 'tenant') agentQuery = agentQuery.eq('tenant_id', currentTenantId);
-  agentQuery.then(({ data }) => {
-      if (data && data.length > 0) {
-        const members = data.map(m => ({
-          id: m.user_id,
-          name: m.user_profiles?.full_name || m.user_profiles?.email?.split('@')[0] || 'Team Member',
-          avatar: (m.user_profiles?.full_name || 'TM').split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2),
-          status: 'online',
-        }));
-      }
-    });
+  (async function() {
+    try {
+      var tmQuery = supabase.from('tenant_members').select('user_id, role').eq('status', 'active');
+      if (viewLevel === 'tenant') tmQuery = tmQuery.eq('tenant_id', currentTenantId);
+      var tmRes = await tmQuery;
+      var memberData = tmRes.data || [];
+      if (memberData.length === 0) return;
+      var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
+      var profRes = await supabase.from('user_profiles').select('id, full_name, email').in('id', userIds);
+      var profMap = {};
+      (profRes.data || []).forEach(function(p) { profMap[p.id] = p; });
+      memberData.forEach(function(m) {
+        var p = profMap[m.user_id] || {};
+        var name = p.full_name || (p.email ? p.email.split('@')[0] : 'Team Member');
+        var avatar = name.split(' ').map(function(n) { return n[0] || ''; }).join('').toUpperCase().slice(0, 2);
+      });
+    } catch (e) {}
+  })();
 }, [demoMode, supabase, currentTenantId, viewLevel]);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
