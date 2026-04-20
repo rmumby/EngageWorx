@@ -917,6 +917,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     var snapshot = fuPreview;
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
+                    console.log('[Followup Edit] clicked, id=' + cId + ' draft len=' + (draftText || '').length);
                     // Write to DigestStore + React state directly (bypass wrapper to avoid race)
                     if (cId && draftText) {
                       DigestStore.setDraft(cId, { draft: draftText, channel: snapshot.channel || 'email', generated: true });
@@ -1033,12 +1034,12 @@ export default function EmailDigest({ C, currentTenantId }) {
                               e.stopPropagation();
                               e.preventDefault();
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
-                              // Write to DigestStore first (survives remount)
+                              console.log('[VIP] ' + d + 'd button clicked for ' + vc.id);
                               DigestStore.setVipOverride(vc.id, { vip_followup_at: dt });
                               var updated = vipContacts.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; });
                               DigestStore.saveVipCards(updated);
                               setVipContactsRaw(updated);
-                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() {});
+                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() { console.log('[VIP] DB saved'); });
                             }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
                           <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
