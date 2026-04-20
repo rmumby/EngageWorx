@@ -37,6 +37,8 @@ function normalizePL(raw) {
   if (s.indexOf('+') === 0) return s;
   if (s.indexOf('48') === 0 && s.length >= 11) return '+' + s;
   if (s.length === 9) return '+48' + s;
+  // Non-Polish international numbers without + (e.g. 447585610028 → +447585610028)
+  if (/^\d{10,15}$/.test(s)) return '+' + s;
   return s;
 }
 
@@ -280,10 +282,12 @@ module.exports = async function handler(req, res) {
       // when Content-Type is correct. Detect Twilio by the presence of MessageSid/AccountSid.
       var isTwilio = !!(body.MessageSid || body.AccountSid || body.SmsMessageSid);
 
-      // Carrier-agnostic field extraction (Twilio + generic webhook)
+      // Carrier-agnostic field extraction (Twilio + SMPP bridge + generic webhook)
       var from = body.from || body.From || body.msisdn || body.sender || '';
       var to = body.to || body.To || body.recipient || body.destination || '';
       var text = body.text || body.Body || body.message || body.content || '';
+      var source = body.source || (isTwilio ? 'twilio' : 'unknown');
+      console.log('[Poland/sms-inbound] from=' + from + ' to=' + to + ' text="' + (text || '').slice(0, 50) + '" source=' + source + ' isTwilio=' + isTwilio);
 
       function twilioReply(xml) {
         res.setHeader('Content-Type', 'text/xml; charset=utf-8');
@@ -291,8 +295,9 @@ module.exports = async function handler(req, res) {
       }
 
       var cfg = await matchTenantByNumber(supabase, to);
+      console.log('[Poland/sms-inbound] tenant match:', cfg ? cfg.tenant_id : 'NONE', 'normalized to:', normalizePL(to));
       if (!cfg) {
-        console.warn('[Poland] no tenant matched for to:', to);
+        console.warn('[Poland] no tenant matched for to:', to, 'normalized:', normalizePL(to));
         if (isTwilio) return twilioReply('');
         return res.status(200).json({ skipped: 'no_tenant', to: to });
       }
@@ -304,6 +309,7 @@ module.exports = async function handler(req, res) {
 
       var contactId = await ensureContact(supabase, cfg.tenant_id, from);
       var conversationId = contactId ? await ensureConversation(supabase, cfg.tenant_id, contactId, 'sms') : null;
+      console.log('[Poland/sms-inbound] contact=' + contactId + ' conversation=' + conversationId + ' from_normalized=' + normalizePL(from));
       var lang = detectLanguage(text);
 
       if (conversationId) {
