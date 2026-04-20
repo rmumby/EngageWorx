@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import DigestStore from './digestStore';
 
 var ACTION_STYLE = {
   advance_stage:   { label: 'Advance Stage',  color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
@@ -11,13 +12,8 @@ var ACTION_STYLE = {
 
 var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
-// Module-level draft cache — survives React remounts (not in React state)
-var _fuDraftCache = {};
-var _vipDraftCache = {};
-
-var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
+export default function EmailDigest({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
-  var portalType = currentTenantId ? 'tenant' : 'sp_admin';
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -33,20 +29,16 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
   var [improving, setImproving] = useState(false);
   var [improveErr, setImproveErr] = useState(null);
 
-  useEffect(function() {
-    console.log('[EmailDigest] MOUNTED, portal=' + portalType + ' tenant=' + resolvedTenantId);
-    return function() { console.log('[EmailDigest] UNMOUNTED'); };
-  }, []);
-
-  // ── Follow-up Generator state (drafts cached at module level) ──
-  var fuLoadedRef = useRef(false);
-  var [followups, setFollowups] = useState([]);
-  // Sync drafts to module cache on every state change
-  useEffect(function() {
-    followups.forEach(function(f) {
-      if (f.draft || f.generated) _fuDraftCache[f.id] = { draft: f.draft || '', channel: f.channel || 'email', generated: f.generated || false };
+  // ── Follow-up Generator state (backed by DigestStore singleton) ──
+  var [followups, setFollowupsRaw] = useState(function() { return DigestStore.getFuCards(); });
+  function setFollowups(valOrFn) {
+    setFollowupsRaw(function(prev) {
+      var next = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      DigestStore.saveFuCards(next);
+      next.forEach(function(f) { if (f.draft || f.generated) DigestStore.setDraft(f.id, { draft: f.draft || '', channel: f.channel || 'email', generated: f.generated || false }); });
+      return next;
     });
-  }, [followups]);
+  }
   var [fuLoading, setFuLoading] = useState(false);
   var [fuGenerating, setFuGenerating] = useState(null);
   var [fuGeneratingAll, setFuGeneratingAll] = useState(false);
@@ -62,8 +54,15 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
   var [fuImproving, setFuImproving] = useState(null);
   var [fuPreview, setFuPreview] = useState(null);
 
-  // ── VIP Outreach state ──
-  var [vipContacts, setVipContacts] = useState([]);
+  // ── VIP Outreach state (backed by DigestStore singleton) ──
+  var [vipContacts, setVipContactsRaw] = useState(function() { return DigestStore.getVipCards(); });
+  function setVipContacts(valOrFn) {
+    setVipContactsRaw(function(prev) {
+      var next = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      DigestStore.saveVipCards(next);
+      return next;
+    });
+  }
   var [vipSearchOpen, setVipSearchOpen] = useState(false);
   var [vipSearchQuery, setVipSearchQuery] = useState('');
   var [vipSearchResults, setVipSearchResults] = useState([]);
@@ -84,15 +83,13 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
       research: null, researched: false, channel: 'email',
       calendly_cta: '', email_signature: '',
       last_contacted_at: c.last_contacted_at || null,
-      vip_followup_at: c.vip_followup_at || null,
+      vip_followup_at: (DigestStore.getVipOverride(c.id) && DigestStore.getVipOverride(c.id).vip_followup_at) || c.vip_followup_at || null,
       has_reply: (extra && extra.has_reply) || false,
     };
   }
 
-  var vipLoadedRef = useRef(false);
-  async function loadVipContacts(force) {
+  async function loadVipContacts() {
     if (!resolvedTenantId) return;
-    if (!force && vipLoadedRef.current) return;
     try {
       // Load tenant follow-up days setting
       try {
@@ -137,11 +134,10 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
         if (queued && queued.id && !ids[queued.id]) merged.push(makeVipCard(queued));
         return merged;
       });
-      vipLoadedRef.current = true;
     } catch (e) { console.warn('[VIP] load error:', e.message); }
   }
 
-  useEffect(function() { loadVipContacts(true); }, [resolvedTenantId]);
+  useEffect(function() { loadVipContacts(); }, [resolvedTenantId]);
 
   useEffect(function() {
     function onVisible() { if (!document.hidden) loadVipContacts(); }
@@ -199,10 +195,8 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
   }
 
   // ── Follow-up candidate loader ──
-  async function loadFollowups(force) {
+  async function loadFollowups() {
     if (!resolvedTenantId) return;
-    if (!force && fuLoadedRef.current) return;
-    if (fuPreview) return;
     setFuLoading(true);
     try {
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
@@ -247,7 +241,7 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
         prev.forEach(function(f) { prevMap[f.id] = f; });
         return candidates.map(function(c) {
           var existing = prevMap[c.id];
-          var cached = _fuDraftCache[c.id];
+          var cached = DigestStore.getDraft(c.id);
           return {
             id: c.id, first_name: c.first_name, last_name: c.last_name,
             email: c.email, phone: c.phone, company: c.company,
@@ -259,11 +253,10 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
           };
         });
       });
-      fuLoadedRef.current = true;
     } catch (e) { console.error('[Followup] load error:', e.message); }
     setFuLoading(false);
   }
-  useEffect(function() { if (resolvedTenantId) loadFollowups(true); }, [resolvedTenantId, fuTagFilter]);
+  useEffect(function() { if (resolvedTenantId) loadFollowups(); }, [resolvedTenantId, fuTagFilter]);
 
   async function generateFollowup(contact) {
     setFuGenerating(contact.id);
@@ -922,9 +915,9 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
                     var snapshot = fuPreview;
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
-                    // Write to module cache SYNCHRONOUSLY before any state changes
+                    // Write to DigestStore SYNCHRONOUSLY before any React state changes
                     if (cId && draftText) {
-                      _fuDraftCache[cId] = { draft: draftText, channel: snapshot.channel || 'email', generated: true };
+                      DigestStore.setDraft(cId, { draft: draftText, channel: snapshot.channel || 'email', generated: true });
                       setFollowups(function(prev) {
                         return prev.map(function(f) {
                           if (f.id !== cId) return f;
@@ -1033,16 +1026,14 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
                           <span style={{ color: colors.muted, fontSize: 11 }}>⏰ Follow up in:</span>
                           {[3, 5, 7].map(function(d) {
-                            return <button type="button" key={d}
-                              onMouseDown={function() { console.log('[VIP] mousedown on ' + d + 'd button for ' + vc.id); }}
-                              onClick={function(e) {
+                            return <button type="button" key={d} onClick={function(e) {
                               e.stopPropagation();
                               e.preventDefault();
-                              console.log('[VIP] timing button CLICKED: ' + d + 'd for contact ' + vc.id + ' (' + name + ')');
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
-                              console.log('[VIP] setting vip_followup_at=' + dt);
+                              // Write to DigestStore first (survives remount)
+                              DigestStore.setVipOverride(vc.id, { vip_followup_at: dt });
                               setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
-                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function(res) { console.log('[VIP] DB update result: error=' + (res.error ? res.error.message : 'none')); });
+                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() {});
                             }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
                           <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
@@ -1386,5 +1377,4 @@ var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
               </div>
             );
   }
-});
-export default EmailDigestInner;
+}
