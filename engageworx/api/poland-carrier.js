@@ -312,7 +312,14 @@ module.exports = async function handler(req, res) {
       var cfg = await matchTenantByNumber(supabase, to);
       console.log('[Poland/sms-inbound] tenant match:', cfg ? cfg.tenant_id : 'NONE', 'normalized to:', normalizePL(to));
       if (!cfg) {
-        console.warn('[Poland] no tenant matched for to:', to, 'normalized:', normalizePL(to));
+        try {
+          await supabase.from('debug_logs').insert({
+            endpoint: 'poland-carrier', action: 'sms-inbound-no-match',
+            payload: { from: from, to: to, to_normalized: normalizePL(to), source: source },
+            result: { matched: false },
+            created_at: new Date().toISOString(),
+          });
+        } catch (logErr) {}
         if (isTwilio) return twilioReply('');
         return res.status(200).json({ skipped: 'no_tenant', to: to });
       }
@@ -324,8 +331,18 @@ module.exports = async function handler(req, res) {
 
       var contactId = await ensureContact(supabase, cfg.tenant_id, from);
       var conversationId = contactId ? await ensureConversation(supabase, cfg.tenant_id, contactId, 'sms') : null;
-      console.log('[Poland/sms-inbound] contact=' + contactId + ' conversation=' + conversationId + ' from_normalized=' + normalizePL(from));
       var lang = detectLanguage(text);
+
+      // DB debug log — survives even if console.log is filtered
+      try {
+        await supabase.from('debug_logs').insert({
+          endpoint: 'poland-carrier',
+          action: 'sms-inbound',
+          payload: { from: from, to: to, text: (text || '').substring(0, 200), source: source, isTwilio: isTwilio, from_normalized: normalizePL(from), to_normalized: normalizePL(to) },
+          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, language: lang },
+          created_at: new Date().toISOString(),
+        });
+      } catch (logErr) { /* ignore if table doesn't exist yet */ }
 
       if (conversationId) {
         await supabase.from('messages').insert({
