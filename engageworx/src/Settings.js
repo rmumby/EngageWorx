@@ -308,6 +308,16 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
+  const [emailSendMethod, setEmailSendMethod] = useState('sendgrid');
+  useEffect(function() {
+    if (!currentTenantId || demoMode) return;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('email_send_method').eq('id', currentTenantId).maybeSingle();
+        if (r.data && r.data.email_send_method) setEmailSendMethod(r.data.email_send_method);
+      } catch (e) {}
+    })();
+  }, [currentTenantId, demoMode]);
   const [vipFollowupDays, setVipFollowupDays] = useState(5);
   useEffect(function() {
     if (!currentTenantId || demoMode) return;
@@ -1284,6 +1294,31 @@ return (<div>
 
       {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} demoMode={demoMode} />}
 
+      {activeTab === "channels" && resolvedTenantId && !demoMode && (
+        <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid #FF6B35' })}>
+          <h3 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Email Sending Method</h3>
+          <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>Choose how outbound emails are sent. Gmail SMTP emails appear in your Gmail Sent folder.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { id: 'sendgrid', label: 'SendGrid', desc: 'Transactional email API' },
+              { id: 'gmail', label: 'Gmail SMTP', desc: 'Appears in Sent folder' },
+            ].map(function(opt) {
+              var isActive = (emailSendMethod || 'sendgrid') === opt.id;
+              return <button key={opt.id} onClick={async function() {
+                setEmailSendMethod(opt.id);
+                try { await supabase.from('tenants').update({ email_send_method: opt.id }).eq('id', resolvedTenantId); } catch (e) {}
+              }} style={{
+                flex: 1, padding: '12px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                background: isActive ? '#FF6B35' + '15' : 'rgba(255,255,255,0.03)',
+                border: '2px solid ' + (isActive ? '#FF6B35' : 'rgba(255,255,255,0.08)'),
+              }}>
+                <div style={{ color: isActive ? '#FF6B35' : '#fff', fontWeight: 700, fontSize: 13 }}>{opt.label}</div>
+                <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{opt.desc}</div>
+              </button>;
+            })}
+          </div>
+        </div>
+      )}
       {activeTab === "channels" && resolvedTenantId && !demoMode && (
         <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
