@@ -268,7 +268,9 @@ async function sendOutboundSms(cfg, to, body) {
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
+  console.log('[POLAND] REQUEST RECEIVED', new Date().toISOString(), req.method, JSON.stringify(req.query || {}));
   var action = (req.query && req.query.action) || (req.body && req.body.action) || 'sms-inbound';
+  console.log('[POLAND] action=' + action);
   var supabase = getSupabase();
 
   // Top-of-handler log so every Twilio webhook hit is visible in Vercel function logs.
