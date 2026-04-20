@@ -308,18 +308,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
-  var SP_TENANT_ID_SETTINGS = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
-  var emailTenantId = resolvedTenantId || SP_TENANT_ID_SETTINGS;
   const [emailSendMethod, setEmailSendMethod] = useState('sendgrid');
-  useEffect(function() {
-    if (!emailTenantId || demoMode) return;
-    (async function() {
-      try {
-        var r = await supabase.from('tenants').select('email_send_method').eq('id', emailTenantId).maybeSingle();
-        if (r.data && r.data.email_send_method) setEmailSendMethod(r.data.email_send_method);
-      } catch (e) {}
-    })();
-  }, [emailTenantId, demoMode]);
   const [vipFollowupDays, setVipFollowupDays] = useState(5);
   useEffect(function() {
     if (!currentTenantId || demoMode) return;
@@ -414,6 +403,18 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
       } catch(e) { console.error('tenant resolve error:', e); }
     })();
   }, [currentTenantId]);
+
+  var SP_TENANT_ID_SETTINGS = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+  var emailTenantId = resolvedTenantId || SP_TENANT_ID_SETTINGS;
+  useEffect(function() {
+    if (!emailTenantId || demoMode) return;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('email_send_method').eq('id', emailTenantId).maybeSingle();
+        if (r.data && r.data.email_send_method) setEmailSendMethod(r.data.email_send_method);
+      } catch (e) {}
+    })();
+  }, [emailTenantId, demoMode]);
 
   const ALL_PERMISSIONS = ["messages", "contacts", "campaigns", "analytics", "webhooks", "flows", "settings"];
   const ALL_EVENTS = ["message.sent", "message.delivered", "message.failed", "message.replied", "contact.created", "contact.updated", "contact.deleted", "campaign.started", "campaign.completed", "campaign.paused", "invoice.created", "payment.received"];
