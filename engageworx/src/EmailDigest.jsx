@@ -259,10 +259,14 @@ export default function EmailDigest({ C, currentTenantId }) {
   useEffect(function() { if (resolvedTenantId) loadFollowups(); }, [resolvedTenantId, fuTagFilter]);
 
   async function generateFollowup(contact) {
-    console.log('[FuGenerate] starting API call for', contact.id, contact.first_name);
+    console.log('[FuGenerate] function entered, contact:', contact ? contact.id : 'NULL');
+    if (!contact || !contact.id) { console.error('[FuGenerate] no contact or id'); return; }
+    console.log('[FuGenerate] contact:', contact.first_name, contact.last_name, 'company:', contact.company);
     setFuGenerating(contact.id);
+    console.log('[FuGenerate] setFuGenerating done, about to fetch, tenantId:', resolvedTenantId);
     try {
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
+      console.log('[FuGenerate] calling /api/generate-followup for', name);
       var r = await fetch('/api/generate-followup', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -862,7 +866,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                               <option value="sms">📱 SMS</option>
                             </select>
                             {!fu.draft && (
-                              <button type="button" onMouseDown={function() { console.log('[FuGenerate] mousedown for', fu.id); generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
+                              <button type="button" onMouseDown={function() { console.log('[FuGenerate] mousedown for', fu.id, 'typeof generateFollowup:', typeof generateFollowup); try { generateFollowup(fu); } catch(err) { console.error('[FuGenerate] SYNC ERROR:', err); } }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
                                 {isGenerating ? '⏳ Generating…' : '✨ Generate'}
                               </button>
                             )}
