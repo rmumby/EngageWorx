@@ -309,6 +309,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
   const [emailSendMethod, setEmailSendMethod] = useState('sendgrid');
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState(null);
   const [vipFollowupDays, setVipFollowupDays] = useState(5);
   useEffect(function() {
     if (!currentTenantId || demoMode) return;
@@ -1320,6 +1322,42 @@ return (<div>
                 <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{opt.desc}</div>
               </button>;
             })}
+          </div>
+        </div>
+      )}
+      {activeTab === "channels" && !demoMode && (
+        <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid #00C9FF' })}>
+          <h3 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Send Test Email</h3>
+          <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>Send a sample email with your full HTML signature to verify delivery and rendering.</p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={async function() {
+              setTestEmailSending(true); setTestEmailResult(null);
+              try {
+                var fromEmail = 'rob@engwx.com';
+                try {
+                  var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', emailTenantId).eq('channel', 'email').maybeSingle();
+                  if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) fromEmail = chR.data.config_encrypted.from_email;
+                } catch (e) {}
+                var r = await fetch('/api/send-digest-reply', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ to: fromEmail, subject: 'EngageWorx Test Email — Signature Preview', body: 'This is a test email from EngageWorx to verify delivery and signature rendering.\n\nIf you can see this message with your email signature below, everything is working correctly.\n\nSent via: ' + (emailSendMethod || 'sendgrid').toUpperCase() + '\nTimestamp: ' + new Date().toLocaleString(), tenant_id: emailTenantId, from: fromEmail }),
+                });
+                var d = await r.json();
+                if (r.ok && d.success) setTestEmailResult({ ok: true, to: fromEmail, method: d.method || emailSendMethod });
+                else setTestEmailResult({ ok: false, error: d.error || 'Send failed' });
+              } catch (e) { setTestEmailResult({ ok: false, error: e.message }); }
+              setTestEmailSending(false);
+            }} disabled={testEmailSending} style={{
+              background: testEmailSending ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #0ea5e9)',
+              border: 'none', borderRadius: 10, padding: '10px 20px', color: testEmailSending ? C.muted : '#000',
+              fontWeight: 700, cursor: testEmailSending ? 'default' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+            }}>{testEmailSending ? '⏳ Sending...' : '📧 Send Test Email'}</button>
+            {testEmailResult && testEmailResult.ok && (
+              <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600 }}>✓ Sent to {testEmailResult.to} via {testEmailResult.method}</span>
+            )}
+            {testEmailResult && !testEmailResult.ok && (
+              <span style={{ color: '#FF3B30', fontSize: 12, fontWeight: 600 }}>✗ {testEmailResult.error}</span>
+            )}
           </div>
         </div>
       )}
