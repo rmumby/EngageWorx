@@ -168,8 +168,10 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   // ── Follow-up candidate loader ──
   async function loadFollowups() {
-    console.log('[Followups] loadFollowups called, resolvedTenantId=' + resolvedTenantId + ' fuTagFilter=' + fuTagFilter);
+    console.log('[Followups] loadFollowups called, resolvedTenantId=' + resolvedTenantId + ' fuTagFilter=' + fuTagFilter + ' fuPreview=' + !!fuPreview);
     if (!resolvedTenantId) { console.log('[Followups] no resolvedTenantId, returning'); return; }
+    // Guard: don't reload if preview modal is open (draft in progress)
+    if (fuPreview) { console.log('[Followups] skipping reload — preview modal open'); return; }
     setFuLoading(true);
     try {
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
@@ -902,9 +904,16 @@ export default function EmailDigest({ C, currentTenantId }) {
                     if (cId) {
                       setTimeout(function() {
                         var el = document.getElementById('followup-card-' + cId);
-                        console.log('[Followup Edit] card=' + !!el + ' ta=' + !!(el && el.querySelector('textarea')));
+                        console.log('[Followup Edit] 150ms: card=' + !!el + ' ta=' + !!(el && el.querySelector('textarea')));
                         if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
                       }, 150);
+                      setTimeout(function() {
+                        setFollowups(function(current) {
+                          var match = current.find(function(f) { return f.id === cId; });
+                          console.log('[Followup Edit] 500ms state check: count=' + current.length + ' found=' + !!match + ' draft=' + (match ? (match.draft || '').length : 'N/A') + ' generated=' + (match ? match.generated : 'N/A'));
+                          return current;
+                        });
+                      }, 500);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
                   <button onClick={function() { var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
@@ -996,7 +1005,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                         {vc.vip_followup_at && <span style={{ marginLeft: 8, color: '#6366f1', fontWeight: 600 }}>· ⏰ Follow-up: {new Date(vc.vip_followup_at).toLocaleDateString()}</span>}
                       </div>
 
-                      {daysSinceContact !== null && !vc.emailDraft && (
+                      {daysSinceContact !== null && (
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
                           <span style={{ color: colors.muted, fontSize: 11 }}>⏰ Follow up in:</span>
                           {[3, 5, 7].map(function(d) {
