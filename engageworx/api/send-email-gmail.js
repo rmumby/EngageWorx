@@ -16,6 +16,8 @@ function createTransport(user, pass) {
 }
 
 module.exports = async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
   var allKeys = Object.keys(process.env);
   var gmailKeysAny = allKeys.filter(function(k) { return k.toLowerCase().indexOf('gmail') > -1; });
   var gmailUser = process.env.GMAIL_SMTP_USER;

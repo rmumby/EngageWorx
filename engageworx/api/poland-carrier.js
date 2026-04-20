@@ -268,6 +268,8 @@ async function sendOutboundSms(cfg, to, body) {
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
   console.log('[POLAND] REQUEST RECEIVED', new Date().toISOString(), req.method, JSON.stringify(req.query || {}));
   var action = (req.query && req.query.action) || (req.body && req.body.action) || 'sms-inbound';
   console.log('[POLAND] action=' + action);
