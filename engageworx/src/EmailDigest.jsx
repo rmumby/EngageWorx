@@ -259,6 +259,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   useEffect(function() { if (resolvedTenantId) loadFollowups(); }, [resolvedTenantId, fuTagFilter]);
 
   async function generateFollowup(contact) {
+    console.log('[FuGenerate] starting API call for', contact.id, contact.first_name);
     setFuGenerating(contact.id);
     try {
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() || 'there';
@@ -267,15 +268,21 @@ export default function EmailDigest({ C, currentTenantId }) {
         body: JSON.stringify({
           contact_name: name, company: contact.company || '',
           notes: contact.notes || '',
-          channel: contact.channel || 'email', tenant_id: currentTenantId,
+          channel: contact.channel || 'email', tenant_id: resolvedTenantId,
         }),
       });
+      console.log('[FuGenerate] API response status:', r.status);
       var d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Generation failed');
-      setFollowups(function(prev) { return prev.map(function(f) {
+      if (!r.ok) { console.error('[FuGenerate] API error:', d.error); throw new Error(d.error || 'Generation failed'); }
+      console.log('[FuGenerate] draft received, length:', (d.draft || '').length);
+      // Write to DigestStore immediately (survives remount)
+      DigestStore.setDraft(contact.id, { draft: d.draft || '', channel: contact.channel || 'email', generated: true });
+      var updated = DigestStore.getFuCards().map(function(f) {
         return f.id === contact.id ? Object.assign({}, f, { draft: d.draft, generated: true }) : f;
-      }); });
-    } catch (e) { alert('Generate error: ' + e.message); }
+      });
+      DigestStore.saveFuCards(updated);
+      setFollowupsRaw(updated);
+    } catch (e) { console.error('[FuGenerate] error:', e.message); alert('Generate error: ' + e.message); }
     setFuGenerating(null);
   }
 
@@ -298,7 +305,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         body: JSON.stringify({
           contact_name: name, company: contact.company || '',
           notes: contact.notes || '',
-          channel: contact.channel || 'email', tenant_id: currentTenantId,
+          channel: contact.channel || 'email', tenant_id: resolvedTenantId,
           existing_draft: contact.draft, improve: true,
         }),
       });
@@ -318,14 +325,14 @@ export default function EmailDigest({ C, currentTenantId }) {
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
       // Create conversation + message in Live Inbox
       var convRes = await supabase.from('conversations').insert({
-        tenant_id: currentTenantId, contact_id: contact.id,
+        tenant_id: resolvedTenantId, contact_id: contact.id,
         channel: contact.channel, status: 'active',
         subject: 'Follow-up: ' + name,
         last_message_at: new Date().toISOString(), unread_count: 0,
       }).select('id').single();
       if (!convRes.data) throw new Error('Failed to create conversation');
       await supabase.from('messages').insert({
-        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        tenant_id: resolvedTenantId, conversation_id: convRes.data.id,
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
         body: contact.draft, status: 'delivered',
@@ -341,7 +348,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'send', to: contact.phone, body: contact.draft, tenant_id: currentTenantId }),
+          body: JSON.stringify({ action: 'send', to: contact.phone, body: contact.draft, tenant_id: resolvedTenantId }),
         });
       }
       // Remove from list
@@ -512,7 +519,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'send', to: contact.phone, body: draft, tenant_id: currentTenantId }),
+          body: JSON.stringify({ action: 'send', to: contact.phone, body: draft, tenant_id: resolvedTenantId }),
         });
       }
       // Update last_contacted_at on the contact
