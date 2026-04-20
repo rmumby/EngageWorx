@@ -1,3 +1,4 @@
+// Force deploy: April 20 2026
 // api/send-email-gmail.js
 // Send email via Gmail SMTP (nodemailer). Emails appear in Gmail Sent folder.
 // POST { to, subject, body, from, html }
