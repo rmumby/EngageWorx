@@ -286,6 +286,28 @@ async function sendOutboundSms(cfg, to, body) {
   return { ok: false, error: 'carrier_type not implemented: ' + cfg.carrier_type };
 }
 
+async function sendViaTwilioFallback(to, body, fromNumber) {
+  var sid = process.env.TWILIO_ACCOUNT_SID;
+  var token = process.env.TWILIO_AUTH_TOKEN;
+  var twilioFrom = fromNumber || process.env.TWILIO_PHONE_NUMBER;
+  if (!sid || !token || !twilioFrom) return { ok: false, error: 'Twilio fallback not configured' };
+  try {
+    var url = 'https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json';
+    var params = new URLSearchParams();
+    params.append('To', to);
+    params.append('From', twilioFrom);
+    params.append('Body', body);
+    var r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': 'Basic ' + Buffer.from(sid + ':' + token).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    var d = await r.json().catch(function() { return null; });
+    console.error('[TwilioFallback] to=' + to + ' status=' + r.status + ' sid=' + (d && d.sid));
+    return { ok: r.ok, status: r.status, sid: d && d.sid, transport: 'twilio_fallback' };
+  } catch (e) { console.error('[TwilioFallback] error:', e.message); return { ok: false, error: e.message }; }
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   console.error('[POLAND-CARRIER] HIT', new Date().toISOString(), req.method, req.query && req.query.action);
@@ -389,11 +411,23 @@ module.exports = async function handler(req, res) {
       } catch (aiErr) { console.error('[Poland/sms] AI reply EXCEPTION:', aiErr.message); }
       console.error('[Poland/sms] AI reply result:', reply ? 'generated (' + reply.length + ' chars)' : 'null/empty');
       if (reply) {
-        console.error('[Poland/sms] sending AI reply to', normalizePL(from), 'via', cfg.carrier_type || 'default');
+        var replyTo = normalizePL(from);
+        var isPolishDest = replyTo.indexOf('+48') === 0;
+        console.error('[Poland/sms] sending AI reply to', replyTo, 'isPolish=' + isPolishDest);
         var sent = null;
         try {
-          sent = await sendOutboundSms(cfg, normalizePL(from), reply);
-        } catch (sendErr) { console.error('[Poland/sms] sendOutboundSms EXCEPTION:', sendErr.message); }
+          if (isPolishDest) {
+            sent = await sendOutboundSms(cfg, replyTo, reply);
+            // Fallback to Twilio if SMPP returns error
+            if (!sent || !sent.ok) {
+              console.error('[Poland/sms] carrier send failed, trying Twilio fallback');
+              sent = await sendViaTwilioFallback(replyTo, reply, cfg.phone_number);
+            }
+          } else {
+            // Non-Polish number — use Twilio directly
+            sent = await sendViaTwilioFallback(replyTo, reply, cfg.phone_number);
+          }
+        } catch (sendErr) { console.error('[Poland/sms] send EXCEPTION:', sendErr.message); }
         console.error('[Poland/sms] send result:', sent ? JSON.stringify(sent).substring(0, 100) : 'null');
         if (sent && sent.ok && conversationId) {
           var botMsgRes = await supabase.from('messages').insert({
