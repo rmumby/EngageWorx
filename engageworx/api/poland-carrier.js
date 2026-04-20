@@ -268,11 +268,11 @@ async function sendOutboundSms(cfg, to, body) {
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
-  console.log('[POLAND-CARRIER] HIT', new Date().toISOString(), req.method, req.query && req.query.action);
+  console.error('[POLAND-CARRIER] HIT', new Date().toISOString(), req.method, req.query && req.query.action);
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   var action = (req.query && req.query.action) || (req.body && req.body.action) || 'sms-inbound';
-  console.log('[POLAND] action=' + action);
+  console.error('[POLAND] action=' + action);
   var supabase = getSupabase();
 
   // Top-of-handler log so every Twilio webhook hit is visible in Vercel function logs.
@@ -291,8 +291,8 @@ module.exports = async function handler(req, res) {
     // ── INBOUND SMS ────────────────────────────────────────────────────────
     if (action === 'sms-inbound') {
       var body = req.body || {};
-      console.log('[POLAND-SMS] body received:', JSON.stringify(body).substring(0, 200));
-      console.log('[POLAND-SMS] to field:', body.to || body.To || 'NOT FOUND');
+      console.error('[POLAND-SMS] body received:', JSON.stringify(body).substring(0, 200));
+      console.error('[POLAND-SMS] to field:', body.to || body.To || 'NOT FOUND');
       // Twilio sends application/x-www-form-urlencoded — Vercel parses it into req.body
       // when Content-Type is correct. Detect Twilio by the presence of MessageSid/AccountSid.
       var isTwilio = !!(body.MessageSid || body.AccountSid || body.SmsMessageSid);
