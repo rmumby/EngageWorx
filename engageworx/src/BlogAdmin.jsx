@@ -133,6 +133,30 @@ export default function BlogAdmin({ C }) {
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
   var label = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
 
+  function renderContent(text) {
+    if (!text) return null;
+    return text.split('\n\n').map(function(para, i) {
+      if (!para || !para.trim()) return null;
+      if (para.trim().startsWith('## ')) {
+        return <h2 key={i} style={{ color: '#00c9ff', fontSize: 22, fontWeight: 800, marginTop: 36, marginBottom: 12 }}>{para.trim().replace('## ', '')}</h2>;
+      }
+      if (para.trim().startsWith('# ')) return null;
+      if (para.trim().startsWith('* ') || para.trim().startsWith('- ')) {
+        var items = para.split('\n').filter(function(l) { return l.trim(); });
+        return <ul key={i} style={{ color: '#fff', fontSize: 16, lineHeight: 1.75, marginBottom: 20, paddingLeft: 24 }}>{items.map(function(item, j) {
+          return <li key={j} style={{ marginBottom: 8 }}>{item.replace(/^[\s]*[*-]\s*/, '').split(/(\*\*.*?\*\*)/g).map(function(part, k) {
+            if (part.startsWith('**') && part.endsWith('**')) return <strong key={k} style={{ color: '#00c9ff', fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+            return <span key={k}>{part}</span>;
+          })}</li>;
+        })}</ul>;
+      }
+      return <p key={i} style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16, lineHeight: 1.75, marginBottom: 20 }}>{para.split(/(\*\*.*?\*\*)/g).map(function(part, k) {
+        if (part.startsWith('**') && part.endsWith('**')) return <strong key={k} style={{ color: '#00c9ff', fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+        return <span key={k}>{part}</span>;
+      })}</p>;
+    });
+  }
+
   // ── RENDER ──
   return (
     <div style={{ padding: '32px 40px', maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
