@@ -11,6 +11,10 @@ var ACTION_STYLE = {
 
 var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
+// Module-level draft cache — survives React remounts (not in React state)
+var _fuDraftCache = {};
+var _vipDraftCache = {};
+
 export default function EmailDigest({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
   var portalType = currentTenantId ? 'tenant' : 'sp_admin';
@@ -35,22 +39,13 @@ export default function EmailDigest({ C, currentTenantId }) {
     return function() { console.log('[EmailDigest] UNMOUNTED'); };
   }, []);
 
-  // ── Follow-up Generator state (drafts persisted to localStorage) ──
-  var fuDraftsKey = 'engwx_followup_drafts_' + resolvedTenantId;
-  function loadDraftsFromStorage() {
-    try { var raw = localStorage.getItem(fuDraftsKey); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
-  }
-  function saveDraftsToStorage(fups) {
-    try {
-      var drafts = {};
-      fups.forEach(function(f) { if (f.draft || f.generated) drafts[f.id] = { draft: f.draft || '', channel: f.channel || 'email', generated: f.generated || false }; });
-      if (Object.keys(drafts).length > 0) localStorage.setItem(fuDraftsKey, JSON.stringify(drafts));
-      else localStorage.removeItem(fuDraftsKey);
-    } catch (e) {}
-  }
+  // ── Follow-up Generator state (drafts cached at module level) ──
   var [followups, setFollowups] = useState([]);
+  // Sync drafts to module cache on every state change
   useEffect(function() {
-    saveDraftsToStorage(followups);
+    followups.forEach(function(f) {
+      if (f.draft || f.generated) _fuDraftCache[f.id] = { draft: f.draft || '', channel: f.channel || 'email', generated: f.generated || false };
+    });
   }, [followups]);
   var [fuLoading, setFuLoading] = useState(false);
   var [fuGenerating, setFuGenerating] = useState(null);
@@ -233,20 +228,19 @@ export default function EmailDigest({ C, currentTenantId }) {
         return !lastMsg || lastMsg < fourteenDaysAgo;
       });
       console.log('[Followups] candidates after conversation filter: ' + candidates.length + ' (from ' + contacts.length + ')');
-      var savedDrafts = loadDraftsFromStorage();
       setFollowups(function(prev) {
         var prevMap = {};
         prev.forEach(function(f) { prevMap[f.id] = f; });
         return candidates.map(function(c) {
           var existing = prevMap[c.id];
-          var stored = savedDrafts[c.id];
+          var cached = _fuDraftCache[c.id];
           return {
             id: c.id, first_name: c.first_name, last_name: c.last_name,
             email: c.email, phone: c.phone, company: c.company,
             tags: c.tags || [], notes: c.notes,
-            draft: (existing && existing.draft) || (stored && stored.draft) || '',
-            channel: (existing && existing.channel) || (stored && stored.channel) || (c.email ? 'email' : 'sms'),
-            generated: (existing && existing.generated) || (stored && stored.generated) || false,
+            draft: (existing && existing.draft) || (cached && cached.draft) || '',
+            channel: (existing && existing.channel) || (cached && cached.channel) || (c.email ? 'email' : 'sms'),
+            generated: (existing && existing.generated) || (cached && cached.generated) || false,
             manual: existing ? existing.manual : false,
           };
         });
@@ -913,13 +907,9 @@ export default function EmailDigest({ C, currentTenantId }) {
                     var snapshot = fuPreview;
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
-                    // Save draft to localStorage immediately (survives remount)
+                    // Write to module cache SYNCHRONOUSLY before any state changes
                     if (cId && draftText) {
-                      try {
-                        var stored = loadDraftsFromStorage();
-                        stored[cId] = { draft: draftText, channel: snapshot.channel || 'email', generated: true };
-                        localStorage.setItem(fuDraftsKey, JSON.stringify(stored));
-                      } catch (e2) {}
+                      _fuDraftCache[cId] = { draft: draftText, channel: snapshot.channel || 'email', generated: true };
                       setFollowups(function(prev) {
                         return prev.map(function(f) {
                           if (f.id !== cId) return f;
@@ -1028,12 +1018,16 @@ export default function EmailDigest({ C, currentTenantId }) {
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
                           <span style={{ color: colors.muted, fontSize: 11 }}>⏰ Follow up in:</span>
                           {[3, 5, 7].map(function(d) {
-                            return <button type="button" key={d} onClick={function(e) {
+                            return <button type="button" key={d}
+                              onMouseDown={function() { console.log('[VIP] mousedown on ' + d + 'd button for ' + vc.id); }}
+                              onClick={function(e) {
                               e.stopPropagation();
-                              console.log('[VIP] timing button clicked: ' + d + 'd for contact ' + vc.id + ' (' + name + ')');
+                              e.preventDefault();
+                              console.log('[VIP] timing button CLICKED: ' + d + 'd for contact ' + vc.id + ' (' + name + ')');
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
+                              console.log('[VIP] setting vip_followup_at=' + dt);
                               setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
-                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() { console.log('[VIP] vip_followup_at saved for ' + vc.id); });
+                              supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function(res) { console.log('[VIP] DB update result: error=' + (res.error ? res.error.message : 'none')); });
                             }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
                           <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
