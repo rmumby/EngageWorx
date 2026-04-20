@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { supabase } from './supabaseClient';
 
 var ACTION_STYLE = {
@@ -15,11 +15,10 @@ var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-975
 var _fuDraftCache = {};
 var _vipDraftCache = {};
 
-export default function EmailDigest({ C, currentTenantId }) {
+var EmailDigestInner = memo(function EmailDigestInner({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
   var portalType = currentTenantId ? 'tenant' : 'sp_admin';
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
-  console.log('[EmailDigest] render: portal=' + portalType + ' resolvedTenantId=' + resolvedTenantId + ' currentTenantId=' + (currentTenantId || 'null'));
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
   var [filter, setFilter] = useState('pending');
@@ -40,6 +39,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   }, []);
 
   // ── Follow-up Generator state (drafts cached at module level) ──
+  var fuLoadedRef = useRef(false);
   var [followups, setFollowups] = useState([]);
   // Sync drafts to module cache on every state change
   useEffect(function() {
@@ -89,8 +89,10 @@ export default function EmailDigest({ C, currentTenantId }) {
     };
   }
 
-  async function loadVipContacts() {
+  var vipLoadedRef = useRef(false);
+  async function loadVipContacts(force) {
     if (!resolvedTenantId) return;
+    if (!force && vipLoadedRef.current) return;
     try {
       // Load tenant follow-up days setting
       try {
@@ -116,17 +118,30 @@ export default function EmailDigest({ C, currentTenantId }) {
         if (raw) { localStorage.removeItem('engwx_vip_queue'); queued = JSON.parse(raw); }
       } catch (e) {}
       setVipContacts(function(prev) {
+        var prevMap = {};
+        prev.forEach(function(c) { prevMap[c.id] = c; });
         var ids = {};
         var merged = [];
-        prev.forEach(function(c) { if (c.emailDraft || c.researched) { ids[c.id] = true; merged.push(c); } });
-        dbContacts.forEach(function(c) { if (!ids[c.id]) { ids[c.id] = true; merged.push(c); } });
+        // Keep prev cards that have local state (drafts, research, local followup date)
+        prev.forEach(function(c) {
+          if (c.emailDraft || c.researched || c.context) { ids[c.id] = true; merged.push(c); }
+        });
+        // Add DB cards, merging local vip_followup_at if prev had it
+        dbContacts.forEach(function(c) {
+          if (!ids[c.id]) {
+            var p = prevMap[c.id];
+            if (p && p.vip_followup_at) c = Object.assign({}, c, { vip_followup_at: p.vip_followup_at });
+            ids[c.id] = true; merged.push(c);
+          }
+        });
         if (queued && queued.id && !ids[queued.id]) merged.push(makeVipCard(queued));
         return merged;
       });
+      vipLoadedRef.current = true;
     } catch (e) { console.warn('[VIP] load error:', e.message); }
   }
 
-  useEffect(function() { loadVipContacts(); }, [resolvedTenantId]);
+  useEffect(function() { loadVipContacts(true); }, [resolvedTenantId]);
 
   useEffect(function() {
     function onVisible() { if (!document.hidden) loadVipContacts(); }
@@ -184,11 +199,10 @@ export default function EmailDigest({ C, currentTenantId }) {
   }
 
   // ── Follow-up candidate loader ──
-  async function loadFollowups() {
-    console.log('[Followups] loadFollowups called, resolvedTenantId=' + resolvedTenantId + ' fuTagFilter=' + fuTagFilter + ' fuPreview=' + !!fuPreview);
-    if (!resolvedTenantId) { console.log('[Followups] no resolvedTenantId, returning'); return; }
-    // Guard: don't reload if preview modal is open (draft in progress)
-    if (fuPreview) { console.log('[Followups] skipping reload — preview modal open'); return; }
+  async function loadFollowups(force) {
+    if (!resolvedTenantId) return;
+    if (!force && fuLoadedRef.current) return;
+    if (fuPreview) return;
     setFuLoading(true);
     try {
       var fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
@@ -245,10 +259,11 @@ export default function EmailDigest({ C, currentTenantId }) {
           };
         });
       });
+      fuLoadedRef.current = true;
     } catch (e) { console.error('[Followup] load error:', e.message); }
     setFuLoading(false);
   }
-  useEffect(function() { if (resolvedTenantId) loadFollowups(); }, [resolvedTenantId, fuTagFilter]);
+  useEffect(function() { if (resolvedTenantId) loadFollowups(true); }, [resolvedTenantId, fuTagFilter]);
 
   async function generateFollowup(contact) {
     setFuGenerating(contact.id);
@@ -1371,4 +1386,5 @@ export default function EmailDigest({ C, currentTenantId }) {
               </div>
             );
   }
-}
+});
+export default EmailDigestInner;
