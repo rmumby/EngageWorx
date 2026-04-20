@@ -884,19 +884,27 @@ export default function EmailDigest({ C, currentTenantId }) {
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                   <button onClick={function(e) {
                     e.stopPropagation();
-                    var contactId = fuPreview && fuPreview.id;
-                    var draftText = fuPreview && fuPreview.draft;
-                    console.log('[Followup Edit] clicked, contactId=' + contactId + ' draft length=' + (draftText || '').length);
-                    // Check state before closing
-                    console.log('[Followup Edit] followups state has ' + followups.length + ' items, this contact draft=' + ((followups.find(function(f) { return f.id === contactId; }) || {}).draft || '').length);
+                    var snapshot = fuPreview;
+                    var cId = snapshot && snapshot.id;
+                    var draftText = snapshot && snapshot.draft;
+                    console.log('[Followup Edit] clicked, id=' + cId + ' draft="' + (draftText || '').slice(0, 40) + '"');
+                    // Write the draft back into followups state to guarantee it survives
+                    if (cId && draftText) {
+                      setFollowups(function(prev) {
+                        console.log('[Followup Edit] preserving draft in state, prev count=' + prev.length);
+                        return prev.map(function(f) {
+                          if (f.id !== cId) return f;
+                          return Object.assign({}, f, { draft: draftText, generated: true });
+                        });
+                      });
+                    }
                     setFuPreview(null);
-                    if (contactId) {
+                    if (cId) {
                       setTimeout(function() {
-                        // Check state after re-render
-                        var el = document.getElementById('followup-card-' + contactId);
-                        console.log('[Followup Edit] after 100ms: card element found=' + !!el);
-                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); console.log('[Followup Edit] textarea found=' + !!ta); if (ta) ta.focus(); }
-                      }, 100);
+                        var el = document.getElementById('followup-card-' + cId);
+                        console.log('[Followup Edit] card=' + !!el + ' ta=' + !!(el && el.querySelector('textarea')));
+                        if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
+                      }, 150);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
                   <button onClick={function() { var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
