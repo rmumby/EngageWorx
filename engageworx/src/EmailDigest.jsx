@@ -98,8 +98,6 @@ export default function EmailDigest({ C, currentTenantId }) {
       } catch (e) {}
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes, last_contacted_at, vip_followup_at')
         .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
-      console.log('[VIP load] raw DB contacts:', (r.data || []).map(function(c) { return { id: c.id, name: c.first_name, last_contacted_at: c.last_contacted_at, vip_followup_at: c.vip_followup_at }; }));
-      if (r.error) console.error('[VIP load] query error:', r.error.message);
       var contactIds = (r.data || []).map(function(c) { return c.id; });
       var replyMap = {};
       if (contactIds.length > 0) {
@@ -864,24 +862,24 @@ export default function EmailDigest({ C, currentTenantId }) {
                               <option value="sms">📱 SMS</option>
                             </select>
                             {!fu.draft && (
-                              <button onClick={function() { generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
+                              <button type="button" onClick={function() { generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
                                 {isGenerating ? '⏳ Generating…' : '✨ Generate'}
                               </button>
                             )}
                             {fu.draft && (
-                              <button onClick={function() { improveFollowup(fu); }} disabled={isImproving} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 6, padding: '5px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isImproving ? 0.5 : 1 }}>
+                              <button type="button" onClick={function() { improveFollowup(fu); }} disabled={isImproving} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 6, padding: '5px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isImproving ? 0.5 : 1 }}>
                                 {isImproving ? '⏳ Improving…' : '✨ Improve'}
                               </button>
                             )}
-                            {fu.draft && fu.channel === 'email' && (
-                              <button type="button" onClick={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
+                            {fu.draft && (
+                              <button type="button" onClick={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name, 'channel=' + fu.channel); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
                             )}
                             {fu.draft && (
-                              <button onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                              <button type="button" onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                                 {isSending ? '⏳…' : '✉️ Send'}
                               </button>
                             )}
-                            <button onClick={function() {
+                            <button type="button" onClick={function() {
                               setFollowups(function(prev) { return prev.filter(function(f) { return f.id !== fu.id; }); });
                               setFuSelected(function(prev) { var n = Object.assign({}, prev); delete n[fu.id]; return n; });
                             }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Dismiss</button>
@@ -1001,7 +999,6 @@ export default function EmailDigest({ C, currentTenantId }) {
                   var isResearching = vipResearching === vc.id;
                   var isSending = vipSending === vc.id;
                   var daysSinceContact = vc.last_contacted_at ? Math.floor((Date.now() - new Date(vc.last_contacted_at).getTime()) / 86400000) : null;
-                  if (vc.id && name) console.log('[VIP card]', name, 'last_contacted_at=' + vc.last_contacted_at, 'daysSince=' + daysSinceContact, 'vip_followup_at=' + vc.vip_followup_at);
                   var followupDue;
                   if (vc.vip_followup_at) {
                     followupDue = Date.now() >= new Date(vc.vip_followup_at).getTime() && !vc.has_reply;
