@@ -98,6 +98,8 @@ export default function EmailDigest({ C, currentTenantId }) {
       } catch (e) {}
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company, title, notes, last_contacted_at, vip_followup_at')
         .eq('tenant_id', resolvedTenantId).eq('is_vip', true);
+      console.log('[VIP load] raw DB contacts:', (r.data || []).map(function(c) { return { id: c.id, name: c.first_name, last_contacted_at: c.last_contacted_at, vip_followup_at: c.vip_followup_at }; }));
+      if (r.error) console.error('[VIP load] query error:', r.error.message);
       var contactIds = (r.data || []).map(function(c) { return c.id; });
       var replyMap = {};
       if (contactIds.length > 0) {
@@ -997,6 +999,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                   var isResearching = vipResearching === vc.id;
                   var isSending = vipSending === vc.id;
                   var daysSinceContact = vc.last_contacted_at ? Math.floor((Date.now() - new Date(vc.last_contacted_at).getTime()) / 86400000) : null;
+                  if (vc.id && name) console.log('[VIP card]', name, 'last_contacted_at=' + vc.last_contacted_at, 'daysSince=' + daysSinceContact, 'vip_followup_at=' + vc.vip_followup_at);
                   var followupDue;
                   if (vc.vip_followup_at) {
                     followupDue = Date.now() >= new Date(vc.vip_followup_at).getTime() && !vc.has_reply;
