@@ -855,20 +855,20 @@ export default function EmailDigest({ C, currentTenantId }) {
                               <option value="sms">📱 SMS</option>
                             </select>
                             {!fu.draft && (
-                              <button type="button" onClick={function() { generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
+                              <button type="button" onMouseDown={function() { console.log('[FuGenerate] mousedown for', fu.id); generateFollowup(fu); }} disabled={isGenerating} style={{ background: colors.primary + '22', border: '1px solid ' + colors.primary + '44', borderRadius: 6, padding: '5px 12px', color: colors.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isGenerating ? 0.5 : 1 }}>
                                 {isGenerating ? '⏳ Generating…' : '✨ Generate'}
                               </button>
                             )}
                             {fu.draft && (
-                              <button type="button" onClick={function() { improveFollowup(fu); }} disabled={isImproving} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 6, padding: '5px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isImproving ? 0.5 : 1 }}>
+                              <button type="button" onMouseDown={function() { console.log('[FuImprove] mousedown for', fu.id); improveFollowup(fu); }} disabled={isImproving} style={{ background: 'rgba(224,64,251,0.12)', border: '1px solid rgba(224,64,251,0.4)', borderRadius: 6, padding: '5px 12px', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isImproving ? 0.5 : 1 }}>
                                 {isImproving ? '⏳ Improving…' : '✨ Improve'}
                               </button>
                             )}
                             {fu.draft && (
-                              <button type="button" onClick={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name, 'channel=' + fu.channel); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
+                              <button type="button" onMouseDown={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name, 'channel=' + fu.channel); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
                             )}
                             {fu.draft && (
-                              <button type="button" onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                              <button type="button" onMouseDown={function() { if (!isSending) sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                                 {isSending ? '⏳…' : '✉️ Send'}
                               </button>
                             )}
@@ -1059,11 +1059,11 @@ export default function EmailDigest({ C, currentTenantId }) {
 
                       {!vc.researched ? (
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching || vipFollowingUp === vc.id} style={{ flex: 1, background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1 }}>
+                          <button type="button" onMouseDown={function() { console.log('[VIP] Research clicked for', vc.id); if (!isResearching) researchAndGenerate(vc); }} disabled={isResearching || vipFollowingUp === vc.id} style={{ flex: 1, background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1 }}>
                             {isResearching ? '🔍 Researching…' : '🔍 Research & Generate'}
                           </button>
                           {(followupDue || noReply) && (
-                            <button onClick={function() { generateFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
+                            <button type="button" onMouseDown={function() { console.log('[VIP] Follow-up clicked for', vc.id); if (vipFollowingUp !== vc.id) generateFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
                               {vipFollowingUp === vc.id ? '⏳…' : '🔄 Follow-up'}
                             </button>
                           )}
@@ -1104,14 +1104,14 @@ export default function EmailDigest({ C, currentTenantId }) {
                           </>)}
 
                           <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                            <button onClick={function() { researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>
+                            <button type="button" onMouseDown={function() { if (!isResearching) researchAndGenerate(vc); }} disabled={isResearching} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.4)', borderRadius: 6, padding: '6px 12px', color: '#FFD600', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: isResearching ? 0.5 : 1 }}>
                               {isResearching ? '⏳…' : '🔄 Regenerate'}
                             </button>
-                            {vc.channel === 'email' && vc.emailDraft && <button onClick={function() { setVipPreview(vc); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '6px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>}
-                            <button onClick={function() { sendVipOutreach(vc); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                            {vc.channel === 'email' && vc.emailDraft && <button type="button" onMouseDown={function() { setVipPreview(vc); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '6px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>}
+                            <button type="button" onMouseDown={function() { if (!isSending) sendVipOutreach(vc); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                               {isSending ? '⏳…' : '✉️ Send'}
                             </button>
-                            <button onClick={function() { setVipContacts(function(p) { return p.filter(function(c) { return c.id !== vc.id; }); }); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Remove</button>
+                            <button type="button" onMouseDown={function() { setVipContacts(function(p) { return p.filter(function(c) { return c.id !== vc.id; }); }); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Remove</button>
                           </div>
                         </div>
                       )}
