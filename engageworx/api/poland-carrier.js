@@ -112,11 +112,25 @@ async function ensureConversation(supabase, tenantId, contactId, channel) {
 }
 
 // ── AI reply in detected language ────────────────────────────────────────────
-async function aiReplyForSms(tenantId, lang, body) {
+async function aiReplyForSms(supabase, tenantId, lang, body) {
   if (!process.env.ANTHROPIC_API_KEY) return null;
+  // Load tenant chatbot config for personalized replies
+  var botName = 'Aria';
+  var businessName = 'EngageWorx';
+  var knowledgeBase = '';
+  try {
+    var cb = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
+    if (cb.data) {
+      botName = cb.data.bot_name || botName;
+      knowledgeBase = cb.data.knowledge_base || '';
+    }
+    var tn = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle();
+    if (tn.data) businessName = tn.data.brand_name || tn.data.name || businessName;
+  } catch (e) {}
   var system = lang === 'pl'
-    ? 'Jesteś asystentem AI dla polskiej firmy. Odpowiadaj zwięźle po polsku (max 160 znaków). Zachowaj profesjonalny ton. Zakończ informacją STOP aby się wypisać.'
-    : 'You are an AI assistant. Reply briefly in English (max 160 chars). End with "Reply STOP to unsubscribe".';
+    ? 'Jesteś ' + botName + ', asystentem AI firmy ' + businessName + '. Odpowiadaj zwięźle po polsku (max 160 znaków). Zachowaj profesjonalny ton.'
+    : 'You are ' + botName + ', AI assistant for ' + businessName + '. Reply briefly in English (max 160 chars). Be helpful and professional.';
+  if (knowledgeBase) system += '\n\nBusiness context:\n' + knowledgeBase.substring(0, 500);
   try {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -126,7 +140,7 @@ async function aiReplyForSms(tenantId, lang, body) {
     var d = await r.json();
     var txt = (d.content || []).find(function(b) { return b.type === 'text'; });
     return txt ? txt.text.trim() : null;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[aiReplyForSms] error:', e.message); return null; }
 }
 
 // smscloud.io requires a specific shape: JSON array body, X-Access-Token header,
@@ -368,7 +382,7 @@ module.exports = async function handler(req, res) {
       }
 
       // AI auto-reply in detected language
-      var reply = await aiReplyForSms(cfg.tenant_id, lang, text);
+      var reply = await aiReplyForSms(supabase, cfg.tenant_id, lang, text);
       if (reply) {
         var sent = await sendOutboundSms(cfg, normalizePL(from), reply);
         if (sent.ok && conversationId) {

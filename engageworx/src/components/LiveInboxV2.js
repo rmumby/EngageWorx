@@ -280,7 +280,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           emails.push({ email: chR.data.config_encrypted.from_email, label: 'Tenant default', type: 'tenant' });
         }
         // Team member emails
-        var tmR = await supabase.from('profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', currentTenantId);
+        var tmR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', currentTenantId);
         (tmR.data || []).forEach(function(p) {
           var senderAddr = p.sender_email || p.email;
           if (!senderAddr) return;
