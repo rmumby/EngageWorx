@@ -35,11 +35,22 @@ export default function EmailDigest({ C, currentTenantId }) {
     return function() { console.log('[EmailDigest] UNMOUNTED'); };
   }, []);
 
-  // ── Follow-up Generator state ──
+  // ── Follow-up Generator state (drafts persisted to localStorage) ──
+  var fuDraftsKey = 'engwx_followup_drafts_' + resolvedTenantId;
+  function loadDraftsFromStorage() {
+    try { var raw = localStorage.getItem(fuDraftsKey); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; }
+  }
+  function saveDraftsToStorage(fups) {
+    try {
+      var drafts = {};
+      fups.forEach(function(f) { if (f.draft || f.generated) drafts[f.id] = { draft: f.draft || '', channel: f.channel || 'email', generated: f.generated || false }; });
+      if (Object.keys(drafts).length > 0) localStorage.setItem(fuDraftsKey, JSON.stringify(drafts));
+      else localStorage.removeItem(fuDraftsKey);
+    } catch (e) {}
+  }
   var [followups, setFollowups] = useState([]);
   useEffect(function() {
-    var drafts = followups.filter(function(f) { return !!f.draft; });
-    console.log('[Followups] state changed: total=' + followups.length + ' withDrafts=' + drafts.length + (drafts.length > 0 ? ' ids=' + drafts.map(function(f) { return f.id; }).join(',') : ''));
+    saveDraftsToStorage(followups);
   }, [followups]);
   var [fuLoading, setFuLoading] = useState(false);
   var [fuGenerating, setFuGenerating] = useState(null);
@@ -222,18 +233,20 @@ export default function EmailDigest({ C, currentTenantId }) {
         return !lastMsg || lastMsg < fourteenDaysAgo;
       });
       console.log('[Followups] candidates after conversation filter: ' + candidates.length + ' (from ' + contacts.length + ')');
+      var savedDrafts = loadDraftsFromStorage();
       setFollowups(function(prev) {
         var prevMap = {};
         prev.forEach(function(f) { prevMap[f.id] = f; });
         return candidates.map(function(c) {
           var existing = prevMap[c.id];
+          var stored = savedDrafts[c.id];
           return {
             id: c.id, first_name: c.first_name, last_name: c.last_name,
             email: c.email, phone: c.phone, company: c.company,
             tags: c.tags || [], notes: c.notes,
-            draft: existing ? existing.draft : '',
-            channel: existing ? existing.channel : (c.email ? 'email' : 'sms'),
-            generated: existing ? existing.generated : false,
+            draft: (existing && existing.draft) || (stored && stored.draft) || '',
+            channel: (existing && existing.channel) || (stored && stored.channel) || (c.email ? 'email' : 'sms'),
+            generated: (existing && existing.generated) || (stored && stored.generated) || false,
             manual: existing ? existing.manual : false,
           };
         });
@@ -900,11 +913,14 @@ export default function EmailDigest({ C, currentTenantId }) {
                     var snapshot = fuPreview;
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
-                    console.log('[Followup Edit] clicked, id=' + cId + ' draft="' + (draftText || '').slice(0, 40) + '"');
-                    // Write the draft back into followups state to guarantee it survives
+                    // Save draft to localStorage immediately (survives remount)
                     if (cId && draftText) {
+                      try {
+                        var stored = loadDraftsFromStorage();
+                        stored[cId] = { draft: draftText, channel: snapshot.channel || 'email', generated: true };
+                        localStorage.setItem(fuDraftsKey, JSON.stringify(stored));
+                      } catch (e2) {}
                       setFollowups(function(prev) {
-                        console.log('[Followup Edit] preserving draft in state, prev count=' + prev.length);
                         return prev.map(function(f) {
                           if (f.id !== cId) return f;
                           return Object.assign({}, f, { draft: draftText, generated: true });
@@ -915,16 +931,8 @@ export default function EmailDigest({ C, currentTenantId }) {
                     if (cId) {
                       setTimeout(function() {
                         var el = document.getElementById('followup-card-' + cId);
-                        console.log('[Followup Edit] 150ms: card=' + !!el + ' ta=' + !!(el && el.querySelector('textarea')));
                         if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); var ta = el.querySelector('textarea'); if (ta) ta.focus(); }
-                      }, 150);
-                      setTimeout(function() {
-                        setFollowups(function(current) {
-                          var match = current.find(function(f) { return f.id === cId; });
-                          console.log('[Followup Edit] 500ms state check: count=' + current.length + ' found=' + !!match + ' draft=' + (match ? (match.draft || '').length : 'N/A') + ' generated=' + (match ? match.generated : 'N/A'));
-                          return current;
-                        });
-                      }, 500);
+                      }, 200);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
                   <button onClick={function() { var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
