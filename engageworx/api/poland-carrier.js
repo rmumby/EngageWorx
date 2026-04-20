@@ -268,9 +268,9 @@ async function sendOutboundSms(cfg, to, body) {
 
 // ── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
+  console.log('[POLAND-CARRIER] HIT', new Date().toISOString(), req.method, req.query && req.query.action);
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
-  console.log('[POLAND] REQUEST RECEIVED', new Date().toISOString(), req.method, JSON.stringify(req.query || {}));
   var action = (req.query && req.query.action) || (req.body && req.body.action) || 'sms-inbound';
   console.log('[POLAND] action=' + action);
   var supabase = getSupabase();
@@ -291,6 +291,8 @@ module.exports = async function handler(req, res) {
     // ── INBOUND SMS ────────────────────────────────────────────────────────
     if (action === 'sms-inbound') {
       var body = req.body || {};
+      console.log('[POLAND-SMS] body received:', JSON.stringify(body).substring(0, 200));
+      console.log('[POLAND-SMS] to field:', body.to || body.To || 'NOT FOUND');
       // Twilio sends application/x-www-form-urlencoded — Vercel parses it into req.body
       // when Content-Type is correct. Detect Twilio by the presence of MessageSid/AccountSid.
       var isTwilio = !!(body.MessageSid || body.AccountSid || body.SmsMessageSid);
