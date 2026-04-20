@@ -874,7 +874,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                               </button>
                             )}
                             {fu.draft && fu.channel === 'email' && (
-                              <button onClick={function() { setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
+                              <button type="button" onClick={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
                             )}
                             {fu.draft && (
                               <button onClick={function() { sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
@@ -902,7 +902,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                 <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ color: '#6b7280', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>Email Preview</span>
-                    <button onClick={function() { setFuPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                    <button type="button" onClick={function() { console.log('[FuPreview] close X clicked'); setFuPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
                   </div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>To: {fuPreview.email || '—'}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: rob@engwx.com</div>
@@ -912,12 +912,13 @@ export default function EmailDigest({ C, currentTenantId }) {
                   <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{fuPreview.draft}</div>
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                  <button onClick={function(e) {
+                  <button type="button" onClick={function(e) {
+                    console.log('[Followup Edit] RAW CLICK fired');
                     e.stopPropagation();
                     var snapshot = fuPreview;
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
-                    console.log('[Followup Edit] clicked, id=' + cId + ' draft len=' + (draftText || '').length);
+                    console.log('[Followup Edit] id=' + cId + ' draft len=' + (draftText || '').length);
                     // Write to DigestStore + React state directly (bypass wrapper to avoid race)
                     if (cId && draftText) {
                       DigestStore.setDraft(cId, { draft: draftText, channel: snapshot.channel || 'email', generated: true });
@@ -936,7 +937,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                       }, 200);
                     }
                   }} style={{ background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 8, padding: '10px 20px', color: '#374151', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✏️ Edit</button>
-                  <button onClick={function() { var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
+                  <button type="button" onClick={function() { console.log('[FuPreview] Send clicked'); var contact = fuPreview; setFuPreview(null); sendFollowup(contact); }} style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '10px 24px', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>✉️ Send</button>
                 </div>
               </div>
             </div>
