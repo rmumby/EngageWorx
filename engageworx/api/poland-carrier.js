@@ -83,26 +83,32 @@ async function ensureContact(supabase, tenantId, fromNumber) {
   var phone = normalizePL(fromNumber);
   try {
     var r = await supabase.from('contacts').select('id').eq('tenant_id', tenantId).eq('phone', phone).limit(1).maybeSingle();
-    if (r.data) return r.data.id;
-    var ins = await supabase.from('contacts').insert({
-      tenant_id: tenantId, phone: phone, first_name: phone, status: 'active',
-      source: 'poland_sms', channel_preference: 'sms',
-    }).select('id').single();
+    if (r.data) { console.error('[ensureContact] found existing:', r.data.id); return r.data.id; }
+    if (r.error) console.error('[ensureContact] select error:', r.error.message);
+    var payload = { tenant_id: tenantId, phone: phone, first_name: phone, status: 'active', source: 'poland_sms', channel_preference: 'sms' };
+    console.error('[ensureContact] inserting:', JSON.stringify(payload));
+    var ins = await supabase.from('contacts').insert(payload).select('id').single();
+    if (ins.error) console.error('[ensureContact] INSERT ERROR:', ins.error.message, ins.error.details, ins.error.hint);
+    console.error('[ensureContact] insert result:', ins.data ? ins.data.id : 'null');
     return ins.data ? ins.data.id : null;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[ensureContact] EXCEPTION:', e.message); return null; }
 }
 
 async function ensureConversation(supabase, tenantId, contactId, channel) {
   try {
     var r = await supabase.from('conversations').select('id').eq('tenant_id', tenantId).eq('contact_id', contactId).eq('channel', channel).in('status', ['active', 'waiting']).limit(1).maybeSingle();
-    if (r.data) return r.data.id;
-    var ins = await supabase.from('conversations').insert({
-      tenant_id: tenantId, contact_id: contactId, channel: channel, status: 'waiting',
+    if (r.data) { console.error('[ensureConv] found existing:', r.data.id); return r.data.id; }
+    if (r.error) console.error('[ensureConv] select error:', r.error.message);
+    var payload = {
+      tenant_id: tenantId, contact_id: contactId, channel: channel, status: 'active',
       last_message_at: new Date().toISOString(), unread_count: 1,
-      metadata: { country: 'PL' },
-    }).select('id').single();
+    };
+    console.error('[ensureConv] inserting:', JSON.stringify(payload));
+    var ins = await supabase.from('conversations').insert(payload).select('id').single();
+    if (ins.error) console.error('[ensureConv] INSERT ERROR:', ins.error.message, ins.error.details, ins.error.hint);
+    console.error('[ensureConv] insert result:', ins.data ? ins.data.id : 'null');
     return ins.data ? ins.data.id : null;
-  } catch (e) { return null; }
+  } catch (e) { console.error('[ensureConv] EXCEPTION:', e.message); return null; }
 }
 
 // ── AI reply in detected language ────────────────────────────────────────────
@@ -345,14 +351,20 @@ module.exports = async function handler(req, res) {
       } catch (logErr) { /* ignore if table doesn't exist yet */ }
 
       if (conversationId) {
-        await supabase.from('messages').insert({
+        var msgPayload = {
           tenant_id: cfg.tenant_id, conversation_id: conversationId, contact_id: contactId,
           channel: 'sms', direction: 'inbound', sender_type: 'contact',
           body: text, status: 'delivered',
           metadata: { from: normalizePL(from), to: normalizePL(to), country: 'PL', language: lang },
           created_at: new Date().toISOString(),
-        });
-        await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1 }).eq('id', conversationId);
+        };
+        console.error('[Poland/sms] inserting message:', JSON.stringify(msgPayload).substring(0, 200));
+        var msgRes = await supabase.from('messages').insert(msgPayload);
+        if (msgRes.error) console.error('[Poland/sms] message INSERT ERROR:', msgRes.error.message, msgRes.error.details);
+        var convUpd = await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1 }).eq('id', conversationId);
+        if (convUpd.error) console.error('[Poland/sms] conversation update ERROR:', convUpd.error.message);
+      } else {
+        console.error('[Poland/sms] NO conversation — contact=' + contactId + ' skipping message insert');
       }
 
       // AI auto-reply in detected language
