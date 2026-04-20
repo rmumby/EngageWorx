@@ -549,13 +549,6 @@ export default function EmailDigest({ C, currentTenantId }) {
           researched: true, channel: 'email',
         });
       }); });
-      // Auto-open preview
-      var updated = Object.assign({}, contact, {
-        emailDraft: d.email_body || '', subject: d.subject || '',
-        fromEmail: d.from_email || contact.fromEmail,
-        calendly_cta: d.calendly_cta || '', email_signature: d.email_signature || '',
-      });
-      setVipPreview(updated);
     } catch (e) { alert('Follow-up error: ' + e.message); }
     setVipFollowingUp(null);
   }
