@@ -16,12 +16,15 @@ function createTransport(user, pass) {
 }
 
 module.exports = async function handler(req, res) {
+  var allKeys = Object.keys(process.env);
+  var gmailKeysAny = allKeys.filter(function(k) { return k.toLowerCase().indexOf('gmail') > -1; });
   var gmailUser = process.env.GMAIL_SMTP_USER;
   var gmailPass = process.env.GMAIL_SMTP_PASS;
-  var gmailKeys = Object.keys(process.env).filter(function(k) { return k.includes('GMAIL'); });
-  console.log('[Gmail] process.env keys with GMAIL:', gmailKeys);
-  console.log('[Gmail] GMAIL_SMTP_USER value:', gmailUser ? gmailUser.substring(0, 8) + '...' : 'UNDEFINED');
-  console.log('[Gmail] GMAIL_SMTP_PASS value:', gmailPass ? 'SET (len=' + gmailPass.length + ')' : 'UNDEFINED');
+  console.log('[Gmail] all gmail-related keys:', gmailKeysAny);
+  console.log('[Gmail] direct access: USER type=' + typeof gmailUser + ' PASS type=' + typeof gmailPass);
+  console.log('[Gmail] USER value:', gmailUser ? gmailUser.substring(0, 8) + '...' : 'UNDEFINED');
+  console.log('[Gmail] PASS value:', gmailPass ? 'SET (len=' + gmailPass.length + ')' : 'UNDEFINED');
+  console.log('[Gmail] first 20 env keys:', allKeys.slice(0, 20));
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
