@@ -851,6 +851,7 @@ return (<div>
   const pageTitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Billing" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "APIs & Integrations" : "Settings";
   const pageSubtitle = allowedTabs && allowedTabs.length === 1 && allowedTabs[0] === "billing" ? "Plans, usage, invoices and top-ups" : allowedTabs && allowedTabs.includes("api") && !allowedTabs.includes("billing") ? "Integrations, API keys and webhook configuration" : "Integrations, API keys, channels, billing & team management";
 
+  console.log('[Settings] rendering, activeTab=' + activeTab + ' resolvedTenantId=' + resolvedTenantId + ' demoMode=' + demoMode + ' emailTenantId=' + emailTenantId);
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
