@@ -16,6 +16,7 @@ function createTransport(user, pass) {
 }
 
 module.exports = async function handler(req, res) {
+  try {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   var allKeys = Object.keys(process.env);
@@ -39,7 +40,7 @@ module.exports = async function handler(req, res) {
 
   if (!to) return res.status(400).json({ error: 'to is required' });
   if (!gmailUser || !gmailPass) {
-    return res.status(500).json({ error: 'not configured', keys_found: gmailKeys, user_set: !!gmailUser, pass_set: !!gmailPass });
+    return res.status(500).json({ error: 'not configured', keys_found: gmailKeysAny, user_set: !!gmailUser, pass_set: !!gmailPass });
   }
 
   try {
@@ -63,5 +64,9 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     console.error('[send-email-gmail] error:', e.message);
     return res.status(500).json({ error: e.message });
+  }
+  } catch (fatal) {
+    console.error('[send-email-gmail] FATAL:', fatal.message, fatal.stack);
+    return res.status(500).json({ error: 'Internal error: ' + fatal.message });
   }
 };
