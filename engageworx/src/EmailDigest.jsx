@@ -873,7 +873,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                                     </div>
                                   )}
                                 </div>
-                                <div style={{ marginTop: 8, padding: 12, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: (fu.sig_type === 'reply' ? fu.signature_reply : fu.signature_first) || '' }} />
+                                <div style={{ marginTop: 8, padding: 12, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, overflowX: 'auto', maxWidth: '100%', display: 'block', width: '100%' }} dangerouslySetInnerHTML={{ __html: (fu.sig_type === 'reply' ? fu.signature_reply : fu.signature_first) || '' }} />
                               </div>
                             )}
                           </>) : (
@@ -936,7 +936,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                   <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{fuPreview.draft}</div>
                   {(fuPreview.signature_first || fuPreview.signature_reply) && (
-                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #e8eaf0', borderRadius: 8, backgroundColor: '#fafafa' }} dangerouslySetInnerHTML={{ __html: (fuPreview.sig_type === 'reply' ? fuPreview.signature_reply : fuPreview.signature_first) || '' }} />
+                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #e8eaf0', borderRadius: 8, backgroundColor: '#fafafa', overflowX: 'auto', maxWidth: '100%', display: 'block', width: '100%' }} dangerouslySetInnerHTML={{ __html: (fuPreview.sig_type === 'reply' ? fuPreview.signature_reply : fuPreview.signature_first) || '' }} />
                   )}
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -1143,7 +1143,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                                   )}
                                 </div>
                                 {vc.calendly_cta && <div style={{ color: colors.primary, fontSize: 12, marginBottom: 8 }}>{vc.calendly_cta}</div>}
-                                <div style={{ marginTop: 8, padding: 12, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: (vc.sig_type === 'reply' ? vc.signature_reply : vc.signature_first) || '' }} />
+                                <div style={{ marginTop: 8, padding: 12, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'rgba(255,255,255,0.02)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5, overflowX: 'auto', maxWidth: '100%', display: 'block', width: '100%' }} dangerouslySetInnerHTML={{ __html: (vc.sig_type === 'reply' ? vc.signature_reply : vc.signature_first) || '' }} />
                               </div>
                             )}
                           </>)}
@@ -1188,7 +1188,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     </div>
                   )}
                   {(vipPreview.signature_first || vipPreview.signature_reply) && (
-                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #e8eaf0', borderRadius: 8, backgroundColor: '#fafafa' }} dangerouslySetInnerHTML={{ __html: (vipPreview.sig_type === 'reply' ? vipPreview.signature_reply : vipPreview.signature_first) || '' }} />
+                    <div style={{ marginTop: 12, padding: 12, border: '1px solid #e8eaf0', borderRadius: 8, backgroundColor: '#fafafa', overflowX: 'auto', maxWidth: '100%', display: 'block', width: '100%' }} dangerouslySetInnerHTML={{ __html: (vipPreview.sig_type === 'reply' ? vipPreview.signature_reply : vipPreview.signature_first) || '' }} />
                   )}
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

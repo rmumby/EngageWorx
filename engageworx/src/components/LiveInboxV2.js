@@ -1125,7 +1125,7 @@ useEffect(() => {
                       whiteSpace: "pre-wrap", wordBreak: "break-word",
                     }}>
                       {isBot && <div style={{ color: C.accent || C.primary, fontSize: 9, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>🤖 AI Assistant</div>}
-                      {msg.text && /<[a-z][\s\S]*>/i.test(msg.text) ? <div style={{ whiteSpace: 'normal', padding: '4px 0' }} dangerouslySetInnerHTML={{ __html: msg.text }} /> : msg.text}
+                      {msg.text && /<[a-z][\s\S]*>/i.test(msg.text) ? <div style={{ whiteSpace: 'normal', padding: '4px 0', overflowX: 'auto', maxWidth: '100%', display: 'block', width: '100%' }} dangerouslySetInnerHTML={{ __html: msg.text }} /> : msg.text}
                     </div>
                     <div style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", gap: 6, marginTop: 2, alignItems: "center" }}>
                       <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time instanceof Date ? msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ''}</span>
