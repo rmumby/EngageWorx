@@ -22,6 +22,7 @@ function getTransport() {
 }
 
 module.exports = async function handler(req, res) {
+  console.log('[Gmail] env check: USER=' + !!process.env.GMAIL_SMTP_USER + ' PASS=' + !!process.env.GMAIL_SMTP_PASS + ' user_prefix=' + (process.env.GMAIL_SMTP_USER || '').substring(0, 5));
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   var b = req.body || {};
@@ -33,6 +34,7 @@ module.exports = async function handler(req, res) {
 
   if (!to) return res.status(400).json({ error: 'to is required' });
   if (!process.env.GMAIL_SMTP_USER || !process.env.GMAIL_SMTP_PASS) {
+    console.log('[Gmail] MISSING ENV: GMAIL_SMTP_USER=' + (process.env.GMAIL_SMTP_USER || 'undefined') + ' GMAIL_SMTP_PASS=' + (process.env.GMAIL_SMTP_PASS ? 'set' : 'undefined'));
     return res.status(500).json({ error: 'GMAIL_SMTP_USER and GMAIL_SMTP_PASS not configured' });
   }
 
