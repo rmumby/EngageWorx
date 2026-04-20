@@ -15,6 +15,9 @@ var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-975
 export default function EmailDigest({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
+  useEffect(function() {
+    return function() { console.log('[EmailDigest] UNMOUNTED at', new Date().toISOString()); };
+  }, []);
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
   var [filter, setFilter] = useState('pending');
@@ -916,6 +919,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     var cId = snapshot && snapshot.id;
                     var draftText = snapshot && snapshot.draft;
                     // Write to DigestStore SYNCHRONOUSLY before any React state changes
+                    console.log('[Followup Edit] writing draft to DigestStore, id=' + cId + ' len=' + (draftText || '').length);
                     if (cId && draftText) {
                       DigestStore.setDraft(cId, { draft: draftText, channel: snapshot.channel || 'email', generated: true });
                       setFollowups(function(prev) {
@@ -926,6 +930,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                       });
                     }
                     setFuPreview(null);
+                    setTimeout(function() { console.log('[DigestStore] fuDrafts after 1s:', JSON.stringify(DigestStore.fuDrafts)); console.log('[DigestStore] fuCards count:', DigestStore.getFuCards().length, 'with drafts:', DigestStore.getFuCards().filter(function(f) { return !!f.draft; }).length); }, 1000);
                     if (cId) {
                       setTimeout(function() {
                         var el = document.getElementById('followup-card-' + cId);
@@ -1031,9 +1036,11 @@ export default function EmailDigest({ C, currentTenantId }) {
                               e.preventDefault();
                               var dt = new Date(Date.now() + d * 86400000).toISOString();
                               // Write to DigestStore first (survives remount)
+                              console.log('[VIP] ' + d + 'd clicked for ' + vc.id + ', dt=' + dt);
                               DigestStore.setVipOverride(vc.id, { vip_followup_at: dt });
                               setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { vip_followup_at: dt }) : c; }); });
                               supabase.from('contacts').update({ vip_followup_at: dt }).eq('id', vc.id).then(function() {});
+                              setTimeout(function() { console.log('[DigestStore] vipOverrides after 1s:', JSON.stringify(DigestStore.vipOverrides)); }, 1000);
                             }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{d}d</button>;
                           })}
                           <button type="button" onClick={function(e) { e.stopPropagation(); setVipDatePicker(vipDatePicker === vc.id ? null : vc.id); }} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '6px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>📅 Date</button>
