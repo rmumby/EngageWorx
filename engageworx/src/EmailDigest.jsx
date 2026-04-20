@@ -13,7 +13,9 @@ var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-975
 
 export default function EmailDigest({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
+  var portalType = currentTenantId ? 'tenant' : 'sp_admin';
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
+  console.log('[EmailDigest] render: portal=' + portalType + ' resolvedTenantId=' + resolvedTenantId + ' currentTenantId=' + (currentTenantId || 'null'));
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
   var [filter, setFilter] = useState('pending');
@@ -28,8 +30,17 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [improving, setImproving] = useState(false);
   var [improveErr, setImproveErr] = useState(null);
 
+  useEffect(function() {
+    console.log('[EmailDigest] MOUNTED, portal=' + portalType + ' tenant=' + resolvedTenantId);
+    return function() { console.log('[EmailDigest] UNMOUNTED'); };
+  }, []);
+
   // ── Follow-up Generator state ──
   var [followups, setFollowups] = useState([]);
+  useEffect(function() {
+    var drafts = followups.filter(function(f) { return !!f.draft; });
+    console.log('[Followups] state changed: total=' + followups.length + ' withDrafts=' + drafts.length + (drafts.length > 0 ? ' ids=' + drafts.map(function(f) { return f.id; }).join(',') : ''));
+  }, [followups]);
   var [fuLoading, setFuLoading] = useState(false);
   var [fuGenerating, setFuGenerating] = useState(null);
   var [fuGeneratingAll, setFuGeneratingAll] = useState(false);
