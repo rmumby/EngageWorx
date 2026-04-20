@@ -44,6 +44,40 @@ async function resolveTenantForSender(senderEmail) {
   return null;
 }
 
+async function resolveTenantByRecipient(toAddresses) {
+  // Match To: addresses against channel_configs from_email per tenant
+  for (var i = 0; i < toAddresses.length; i++) {
+    var addr = (toAddresses[i] || '').toLowerCase().trim();
+    if (!addr || addr.indexOf('engwx.com') > -1) continue;
+    try {
+      var r = await supabase.from('channel_configs').select('tenant_id, config_encrypted')
+        .eq('channel', 'email');
+      if (r.data) {
+        for (var j = 0; j < r.data.length; j++) {
+          var cfg = r.data[j];
+          var fromEmail = (cfg.config_encrypted && cfg.config_encrypted.from_email || '').toLowerCase().trim();
+          if (fromEmail && fromEmail === addr) {
+            console.log('[Inbound] tenant matched by recipient: to=' + addr + ' tenant=' + cfg.tenant_id);
+            return cfg.tenant_id;
+          }
+        }
+      }
+    } catch (e) { console.warn('[Inbound] resolveTenantByRecipient error:', e.message); }
+    // Also try matching by domain against tenants
+    var domain = addr.split('@')[1] || '';
+    if (domain) {
+      try {
+        var t = await supabase.from('tenants').select('id').or('custom_domain.ilike.%' + domain + '%,website_url.ilike.%' + domain + '%').limit(1).maybeSingle();
+        if (t.data) {
+          console.log('[Inbound] tenant matched by recipient domain: ' + domain + ' tenant=' + t.data.id);
+          return t.data.id;
+        }
+      } catch (e) {}
+    }
+  }
+  return null;
+}
+
 async function checkSpam(tenantId, senderEmail, subject) {
   if (!tenantId) return { spam: false };
   try {
@@ -475,10 +509,16 @@ module.exports = async function handler(req, res) {
     var emailBody = text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
 
-    console.log('Processing email from:', senderEmail, 'subject:', subject);
+    console.log('[Inbound] from:', senderEmail, 'to:', toHeader, 'subject:', subject);
+    console.log('[Inbound] toParticipants:', toParticipants.map(function(p) { return p.email; }));
+
+    // ── Resolve tenant: try recipient first (To: header), then sender ──────
+    var recipientTenantId = await resolveTenantByRecipient(toParticipants.map(function(p) { return p.email; }));
+    var senderTenantId = await resolveTenantForSender(senderEmail);
+    console.log('[Inbound] tenant resolution: byRecipient=' + (recipientTenantId || 'none') + ' bySender=' + (senderTenantId || 'none'));
 
     // ── Per-tenant spam filter ────────────────────────────────────────────────
-    var spamTenantId = await resolveTenantForSender(senderEmail);
+    var spamTenantId = recipientTenantId || senderTenantId;
     var spamCheck = await checkSpam(spamTenantId, senderEmail, subject);
     if (spamCheck.spam) {
       console.log('🚫 Spam detected:', spamCheck.matched, 'from:', senderEmail);
