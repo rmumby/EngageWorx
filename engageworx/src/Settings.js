@@ -308,16 +308,18 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
+  var SP_TENANT_ID_SETTINGS = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+  var emailTenantId = resolvedTenantId || SP_TENANT_ID_SETTINGS;
   const [emailSendMethod, setEmailSendMethod] = useState('sendgrid');
   useEffect(function() {
-    if (!currentTenantId || demoMode) return;
+    if (!emailTenantId || demoMode) return;
     (async function() {
       try {
-        var r = await supabase.from('tenants').select('email_send_method').eq('id', currentTenantId).maybeSingle();
+        var r = await supabase.from('tenants').select('email_send_method').eq('id', emailTenantId).maybeSingle();
         if (r.data && r.data.email_send_method) setEmailSendMethod(r.data.email_send_method);
       } catch (e) {}
     })();
-  }, [currentTenantId, demoMode]);
+  }, [emailTenantId, demoMode]);
   const [vipFollowupDays, setVipFollowupDays] = useState(5);
   useEffect(function() {
     if (!currentTenantId || demoMode) return;
@@ -1294,7 +1296,7 @@ return (<div>
 
       {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} demoMode={demoMode} />}
 
-      {activeTab === "channels" && resolvedTenantId && !demoMode && (
+      {activeTab === "channels" && !demoMode && (
         <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid #FF6B35' })}>
           <h3 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Email Sending Method</h3>
           <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>Choose how outbound emails are sent. Gmail SMTP emails appear in your Gmail Sent folder.</p>
@@ -1306,7 +1308,7 @@ return (<div>
               var isActive = (emailSendMethod || 'sendgrid') === opt.id;
               return <button key={opt.id} onClick={async function() {
                 setEmailSendMethod(opt.id);
-                try { await supabase.from('tenants').update({ email_send_method: opt.id }).eq('id', resolvedTenantId); } catch (e) {}
+                try { await supabase.from('tenants').update({ email_send_method: opt.id }).eq('id', emailTenantId); } catch (e) {}
               }} style={{
                 flex: 1, padding: '12px 16px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
                 background: isActive ? '#FF6B35' + '15' : 'rgba(255,255,255,0.03)',
