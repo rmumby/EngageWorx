@@ -104,6 +104,7 @@ module.exports = async function handler(req, res) {
       feature: improve ? 'followup_improve' : 'followup_generate',
     });
 
+    console.log('[generate-followup] returning: draft=' + draft.trim().length + ' sig_first=' + signatureFirst.length + ' sig_reply=' + signatureReply.length);
     return res.status(200).json({ draft: draft.trim(), signature_first: signatureFirst, signature_reply: signatureReply });
   } catch (e) {
     console.error('[generate-followup] error:', e.message);

@@ -327,7 +327,12 @@ export default function EmailDigest({ C, currentTenantId }) {
     setFuSending(contact.id);
     try {
       var name = ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim();
-      // Create conversation + message in Live Inbox
+      // Build full body with signature for email
+      var fullBody = contact.draft;
+      if (contact.channel === 'email') {
+        var selectedSig = contact.sig_type === 'reply' ? contact.signature_reply : contact.signature_first;
+        if (selectedSig) fullBody = contact.draft + '\n\n' + selectedSig;
+      }
       var convRes = await supabase.from('conversations').insert({
         tenant_id: resolvedTenantId, contact_id: contact.id,
         channel: contact.channel, status: 'active',
@@ -339,15 +344,14 @@ export default function EmailDigest({ C, currentTenantId }) {
         tenant_id: resolvedTenantId, conversation_id: convRes.data.id,
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
-        body: contact.draft, status: 'delivered',
+        body: fullBody, status: 'delivered',
         metadata: { source: 'followup_generator', from_email: 'rob@engwx.com' },
         created_at: new Date().toISOString(),
       });
-      // Send via appropriate channel
       if (contact.channel === 'email' && contact.email) {
         await fetch('/api/send-digest-reply', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: contact.email, subject: 'Following up', body: contact.draft, from: 'rob@engwx.com' }),
+          body: JSON.stringify({ to: contact.email, subject: 'Following up', body: fullBody, from: 'rob@engwx.com' }),
         });
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
@@ -849,12 +853,26 @@ export default function EmailDigest({ C, currentTenantId }) {
                             {fu.phone && <span>{fu.phone}</span>}
                           </div>
 
-                          {fu.draft ? (
+                          {fu.draft ? (<>
                             <textarea value={fu.draft} onChange={function(e) {
                               var val = e.target.value;
                               setFollowups(function(prev) { return prev.map(function(f) { return f.id === fu.id ? Object.assign({}, f, { draft: val }) : f; }); });
                             }} rows={4} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.5 }} />
-                          ) : (
+                            {(fu.signature_first || fu.signature_reply) && (
+                              <div style={{ marginTop: 8, padding: '10px 12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                  <span style={{ color: colors.muted, fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 }}>Auto-appended on send</span>
+                                  {fu.signature_first && fu.signature_reply && (
+                                    <div style={{ display: 'flex', gap: 3, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 2 }}>
+                                      <button type="button" onMouseDown={function() { setFollowups(function(p) { return p.map(function(f) { return f.id === fu.id ? Object.assign({}, f, { sig_type: 'first' }) : f; }); }); }} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, background: (fu.sig_type || 'first') === 'first' ? colors.primary + '22' : 'transparent', color: (fu.sig_type || 'first') === 'first' ? colors.primary : colors.muted }}>✉️ Full</button>
+                                      <button type="button" onMouseDown={function() { setFollowups(function(p) { return p.map(function(f) { return f.id === fu.id ? Object.assign({}, f, { sig_type: 'reply' }) : f; }); }); }} style={{ padding: '2px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontSize: 9, fontWeight: 700, background: fu.sig_type === 'reply' ? colors.primary + '22' : 'transparent', color: fu.sig_type === 'reply' ? colors.primary : colors.muted }}>↩️ Reply</button>
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: (fu.sig_type === 'reply' ? fu.signature_reply : fu.signature_first) || '' }} />
+                              </div>
+                            )}
+                          </>) : (
                             <div style={{ color: colors.muted, fontSize: 12, fontStyle: 'italic', padding: '8px 0' }}>No message generated yet — click Generate or ✨ Generate All</div>
                           )}
 
@@ -913,6 +931,9 @@ export default function EmailDigest({ C, currentTenantId }) {
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                   <div style={{ color: '#374151', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{fuPreview.draft}</div>
+                  {(fuPreview.signature_first || fuPreview.signature_reply) && (
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e5e7eb' }} dangerouslySetInnerHTML={{ __html: (fuPreview.sig_type === 'reply' ? fuPreview.signature_reply : fuPreview.signature_first) || '' }} />
+                  )}
                 </div>
                 <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                   <button type="button" onClick={function(e) {
