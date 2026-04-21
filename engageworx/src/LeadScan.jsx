@@ -58,8 +58,17 @@ function parseVCard(text) {
   return result;
 }
 
+function _isLight() { return typeof document !== 'undefined' && document.body.classList.contains('light-mode'); }
+
 export default function LeadScan({ C, demoMode = false }) {
-  var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
+  var light = _isLight();
+  var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: light ? '#f9fafb' : '#080d1a', surface: light ? '#ffffff' : '#0d1425', border: light ? '#e5e7eb' : '#182440', text: light ? '#111827' : '#E8F4FD', muted: light ? '#374151' : '#6B8BAE' };
+  var lsText = light ? '#111827' : '#f1f5f9';
+  var lsMuted = light ? '#4b5563' : '#94a3b8';
+  var lsInputBg = light ? '#ffffff' : 'rgba(255,255,255,0.07)';
+  var lsInputBorder = light ? '#d1d5db' : 'rgba(255,255,255,0.14)';
+  var lsCardBg = light ? '#ffffff' : 'rgba(255,255,255,0.06)';
+  var lsCardBorder = light ? '#e5e7eb' : 'rgba(255,255,255,0.1)';
 
   var [mode, setMode]               = useState('home');
   var [form, setForm]               = useState({ name: '', company: '', email: '', phone: '', title: '', linkedinUrl: '', stage: 'inquiry', notes: '', urgency: 'Warm' });
@@ -287,7 +296,7 @@ export default function LeadScan({ C, demoMode = false }) {
 
   var inputStyle = {
     width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: 12, padding: '14px 16px', color: '#f1f5f9', fontSize: 17,
+    borderRadius: 12, padding: '14px 16px', color: lsText, fontSize: 17,
     fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
     WebkitAppearance: 'none', marginTop: 6,
   };
@@ -304,8 +313,8 @@ export default function LeadScan({ C, demoMode = false }) {
         <div style={{ maxWidth: 420, margin: '0 auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button onClick={function() { setShowLocationMgr(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: '#94a3b8', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>📍 Manage Locations</div>
+            <button onClick={function() { setShowLocationMgr(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: lsMuted, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+            <div style={{ fontSize: 18, fontWeight: 800, color: lsText }}>📍 Manage Locations</div>
           </div>
 
           <div style={{ fontSize: 13, color: colors.muted, marginBottom: 20, lineHeight: 1.6 }}>
@@ -321,7 +330,7 @@ export default function LeadScan({ C, demoMode = false }) {
                 onChange={function(e) { setNewLocationText(e.target.value); }}
                 onKeyDown={function(e) { if (e.key === 'Enter') handleAddLocation(); }}
                 placeholder="e.g. MWC Barcelona 2027"
-                style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '12px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none' }}
+                style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '12px 14px', color: lsText, fontSize: 15, fontFamily: 'inherit', outline: 'none' }}
               />
               <button
                 onClick={handleAddLocation}
@@ -375,7 +384,7 @@ export default function LeadScan({ C, demoMode = false }) {
             <span style={{ fontSize: 26 }}>✅</span>
             <div>
               <div style={{ color: '#10b981', fontWeight: 800, fontSize: 15 }}>{saved.name} saved!</div>
-              <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
+              <div style={{ color: lsMuted, fontSize: 12, marginTop: 2 }}>
                 {saved.location && <span>📍 {saved.location} · </span>}
                 Pipeline{saved.seq ? ' · ' + saved.seq : ''}
               </div>
@@ -385,7 +394,7 @@ export default function LeadScan({ C, demoMode = false }) {
 
         <div style={{ marginBottom: 22, textAlign: 'center' }}>
           <div style={{ width: 58, height: 58, background: 'linear-gradient(135deg, #00C9FF, #E040FB)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 10px', boxShadow: '0 8px 32px rgba(0,201,255,0.3)' }}>⚡</div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Lead Scan</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: lsText, letterSpacing: '-0.02em' }}>Lead Scan</div>
           <div style={{ fontSize: 13, color: colors.muted, marginTop: 3 }}>EngageWorx · Field Sales</div>
         </div>
 
@@ -402,7 +411,7 @@ export default function LeadScan({ C, demoMode = false }) {
             </select>
             <button
               onClick={function() { setShowLocationMgr(true); }}
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#94a3b8', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', fontWeight: 600 }}
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: lsMuted, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', fontWeight: 600 }}
             >＋ / ✕</button>
           </div>
           <div style={{ fontSize: 11, color: colors.muted, marginTop: 5 }}>Every lead saved is tagged with this location</div>
@@ -420,7 +429,7 @@ export default function LeadScan({ C, demoMode = false }) {
             <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
           </label>
 
-          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.08)', color: '#f1f5f9', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
+          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.08)', color: lsText, fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
             <span style={{ fontSize: 28, flexShrink: 0 }}>{aiReading ? '⏳' : '🪪'}</span>
             <div style={{ flex: 1 }}>
               <div>Scan Conference Badge</div>
@@ -429,7 +438,7 @@ export default function LeadScan({ C, demoMode = false }) {
             <input type="file" accept="image/*" capture="environment" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
           </label>
 
-          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(224,64,251,0.4)', background: 'rgba(224,64,251,0.08)', color: '#f1f5f9', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
+          <label style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(224,64,251,0.4)', background: 'rgba(224,64,251,0.08)', color: lsText, fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', boxSizing: 'border-box' }}>
             <span style={{ fontSize: 28, flexShrink: 0 }}>{aiReading ? '⏳' : '📷'}</span>
             <div style={{ flex: 1 }}>
               <div>Upload Card</div>
@@ -438,7 +447,7 @@ export default function LeadScan({ C, demoMode = false }) {
             <input type="file" accept="image/*" onChange={handleCardPhoto} style={{ display: 'none' }} disabled={aiReading} />
           </label>
 
-          <button onClick={function() { setMode('manual'); resetForm(); }} style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#f1f5f9', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
+          <button onClick={function() { setMode('manual'); resetForm(); }} style={{ width: '100%', padding: '18px 20px', borderRadius: 16, border: '2px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: lsText, fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
             <span style={{ fontSize: 28, flexShrink: 0 }}>✏️</span>
             <div style={{ flex: 1 }}>
               <div>Manual Entry</div>
@@ -454,7 +463,7 @@ export default function LeadScan({ C, demoMode = false }) {
             value={eventTag}
             onChange={function(e) { var v = e.target.value; setEventTag(v); saveEventTag(v); }}
             placeholder="e.g. CPExpo 2026, HIMSS, Mobile World Congress"
-            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: lsText, fontSize: 15, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
           />
           <div style={{ fontSize: 11, color: colors.muted, marginTop: 5 }}>Saved with every scan. Default remembered on this device.</div>
         </div>
@@ -462,7 +471,7 @@ export default function LeadScan({ C, demoMode = false }) {
         {/* Sequence selector */}
         <div style={{ marginTop: 22, width: '100%', maxWidth: 420 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: colors.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>Auto-Enrol in Sequence</div>
-          <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#f1f5f9', fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
+          <select value={selectedSeqId} onChange={function(e) { setSelectedSeqId(e.target.value); }} style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: lsText, fontSize: 15, fontFamily: 'inherit', outline: 'none', WebkitAppearance: 'none' }}>
             <option value="">None — don't enrol</option>
             {sequences.map(function(s) { return <option key={s.id} value={s.id}>{s.name}</option>; })}
           </select>
@@ -480,8 +489,8 @@ export default function LeadScan({ C, demoMode = false }) {
       <div style={{ maxWidth: 500, margin: '0 auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <button onClick={function() { setMode('home'); setError(''); setAiReading(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: '#94a3b8', fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
-          <div style={{ fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>{aiReading ? '🤖 AI Reading...' : 'New Lead'}</div>
+          <button onClick={function() { setMode('home'); setError(''); setAiReading(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: lsMuted, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+          <div style={{ fontSize: 17, fontWeight: 800, color: lsText }}>{aiReading ? '🤖 AI Reading...' : 'New Lead'}</div>
           {selectedLocation && (
             <div style={{ marginLeft: 'auto', fontSize: 11, color: '#00C9FF', background: 'rgba(0,201,255,0.1)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '4px 9px', fontWeight: 600 }}>
               📍 {selectedLocation}
@@ -493,7 +502,7 @@ export default function LeadScan({ C, demoMode = false }) {
           <div style={{ background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '16px 20px', marginBottom: 18, textAlign: 'center' }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>🤖</div>
             <div style={{ color: '#00C9FF', fontSize: 14, fontWeight: 700 }}>Claude is reading the card...</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 3 }}>Fields will fill in automatically</div>
+            <div style={{ color: lsMuted, fontSize: 12, marginTop: 3 }}>Fields will fill in automatically</div>
           </div>
         )}
 
@@ -554,7 +563,7 @@ export default function LeadScan({ C, demoMode = false }) {
               <div style={{ flex: 1, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 12, padding: '13px 14px', color: '#00C9FF', fontSize: 15, fontWeight: 600 }}>
                 📍 {selectedLocation || 'Not set'}
               </div>
-              <button onClick={function() { setShowLocationMgr(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: '#94a3b8', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+              <button onClick={function() { setShowLocationMgr(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: lsMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
             </div>
           </div>
 

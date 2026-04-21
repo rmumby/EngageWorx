@@ -41,10 +41,27 @@ function splitName(name) {
   return { first: parts[0] || "", last: parts.slice(1).join(" ") || "" };
 }
 
-const labelStyle = { fontSize: "11px", fontWeight: 700, color: "#8899aa", letterSpacing: "0.06em", textTransform: "uppercase" };
-const inputStyle = { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#f1f5f9", fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+function isLightMode() { return typeof document !== 'undefined' && document.body.classList.contains('light-mode'); }
+function T() {
+  var light = isLightMode();
+  return {
+    text: light ? '#111827' : '#f1f5f9',
+    muted: light ? '#374151' : '#8899aa',
+    mutedLight: light ? '#4b5563' : '#9aaabb',
+    bg: light ? '#f9fafb' : '#080d1a',
+    surface: light ? '#ffffff' : '#0f172a',
+    cardBg: light ? '#ffffff' : 'rgba(255,255,255,0.04)',
+    cardBorder: light ? '#e5e7eb' : 'rgba(255,255,255,0.08)',
+    inputBg: light ? '#ffffff' : 'rgba(255,255,255,0.05)',
+    inputBorder: light ? '#d1d5db' : 'rgba(255,255,255,0.1)',
+    inputText: light ? '#111827' : '#f1f5f9',
+  };
+}
+function labelStyle() { var t = T(); return { fontSize: "11px", fontWeight: 700, color: t.muted, letterSpacing: "0.06em", textTransform: "uppercase" }; }
+function inputStyleFn() { var t = T(); return { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: t.inputBg, border: "1px solid " + t.inputBorder, color: t.inputText, fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" }; }
 
 function LeadCard({ lead, onSelect, onUrgencyChange }) {
+  var t = T();
   const stage = STAGES.find((s) => s.id === lead.stage) || STAGES[0];
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
@@ -56,27 +73,27 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
   return (
     <div
       onClick={() => onSelect(lead)}
-      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid " + (stale ? "#ef4444" : "rgba(255,255,255,0.08)"), borderLeft: "3px solid " + stage.color, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
+      style={{ background: t.cardBg, border: "1px solid " + (stale ? "#ef4444" : t.cardBorder), borderLeft: "3px solid " + stage.color, borderRadius: "8px", padding: "14px 16px", cursor: "pointer", marginBottom: "8px", position: "relative", transition: "background 0.15s" }}
+      onMouseEnter={function(e) { e.currentTarget.style.background = isLightMode() ? '#f3f4f6' : 'rgba(255,255,255,0.08)'; }}
+      onMouseLeave={function(e) { e.currentTarget.style.background = t.cardBg; }}
     >
       <div style={{ position: "absolute", top: 6, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
         {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d</div>}
-        <div style={{ display: "flex", gap: 2 }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", gap: 2 }} onClick={function(e) { e.stopPropagation(); }}>
           {["Hot","Warm","Cold"].map(function(u) {
-            var uColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#9aaabb" }[u];
+            var uColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: t.mutedLight }[u];
             var isActive = lead.urgency === u;
             return (
               <span key={u}
                 onClick={function(e) { e.stopPropagation(); onUrgencyChange(lead.id, u); }}
-                style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700, background: isActive ? uColor + "33" : "rgba(255,255,255,0.04)", color: isActive ? uColor : "rgba(255,255,255,0.2)", border: "1px solid " + (isActive ? uColor + "44" : "rgba(255,255,255,0.06)") }}
+                style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, cursor: "pointer", fontWeight: 700, background: isActive ? uColor + "33" : (isLightMode() ? '#f3f4f6' : 'rgba(255,255,255,0.04)'), color: isActive ? uColor : t.muted, border: "1px solid " + (isActive ? uColor + "44" : t.cardBorder) }}
               >{u}</span>
             );
           })}
         </div>
       </div>
-      <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</div>
-      <div style={{ fontSize: "12px", color: "#b0bec5", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contactName || "—"}</div>
+      <div style={{ fontWeight: 700, fontSize: "14px", color: t.text, marginBottom: "2px", paddingRight: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</div>
+      <div style={{ fontSize: "12px", color: t.muted, marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contactName || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{lead.urgency === "Hot" ? "🔥" : lead.urgency === "Warm" ? "⚡" : "❄️"} {lead.urgency}</span>}
@@ -163,11 +180,11 @@ function ContactsPanel({ leadId, leadCompany }) {
       {showAdd && (
         <div style={{ background: "rgba(0,0,0,0.2)", borderRadius: "8px", padding: "12px", marginBottom: "10px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-            <div><label style={{ ...labelStyle, fontSize: "10px" }}>First Name *</label><input style={{ ...inputStyle, marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} placeholder="Jane" /></div>
-            <div><label style={{ ...labelStyle, fontSize: "10px" }}>Last Name</label><input style={{ ...inputStyle, marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} placeholder="Smith" /></div>
-            <div><label style={{ ...labelStyle, fontSize: "10px" }}>Email</label><input style={{ ...inputStyle, marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="jane@co.com" /></div>
-            <div><label style={{ ...labelStyle, fontSize: "10px" }}>Phone</label><input style={{ ...inputStyle, marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 0000" /></div>
-            <div style={{ gridColumn: "1 / -1" }}><label style={{ ...labelStyle, fontSize: "10px" }}>Title</label><input style={{ ...inputStyle, marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="CEO, VP Sales..." /></div>
+            <div><label style={{ ...labelStyle(), fontSize: "10px" }}>First Name *</label><input style={{ ...inputStyleFn(), marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} placeholder="Jane" /></div>
+            <div><label style={{ ...labelStyle(), fontSize: "10px" }}>Last Name</label><input style={{ ...inputStyleFn(), marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} placeholder="Smith" /></div>
+            <div><label style={{ ...labelStyle(), fontSize: "10px" }}>Email</label><input style={{ ...inputStyleFn(), marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="jane@co.com" /></div>
+            <div><label style={{ ...labelStyle(), fontSize: "10px" }}>Phone</label><input style={{ ...inputStyleFn(), marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 0000" /></div>
+            <div style={{ gridColumn: "1 / -1" }}><label style={{ ...labelStyle(), fontSize: "10px" }}>Title</label><input style={{ ...inputStyleFn(), marginTop: "3px", padding: "6px 9px", fontSize: "12px" }} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="CEO, VP Sales..." /></div>
           </div>
           <button onClick={handleAdd} disabled={saving || !form.first_name} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: "pointer", background: "#10b981", color: "#fff", border: "none" }}>{saving ? "Saving..." : "Save"}</button>
         </div>
@@ -196,6 +213,7 @@ function ContactsPanel({ leadId, leadCompany }) {
 }
 
 function Modal({ lead, onClose, onSave, tenantId }) {
+  var t = T();
   const split = splitName(lead.name);
   const [firstName, setFirstName] = useState(split.first);
   const [lastName, setLastName]   = useState(split.last);
@@ -326,17 +344,17 @@ function Modal({ lead, onClose, onSave, tenantId }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-      <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
+      <div style={{ background: t.surface, border: "1px solid " + t.cardBorder, borderRadius: "16px", width: "100%", maxWidth: "660px", maxHeight: "92vh", overflowY: "auto", padding: "28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
           <div>
-            <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
-            <div style={{ fontSize: "13px", color: "#9aaabb" }}>{fullName(firstName, lastName) || "No contact name"}</div>
+            <div style={{ fontSize: "20px", fontWeight: 800, color: t.text }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
+            <div style={{ fontSize: "13px", color: t.muted }}>{fullName(firstName, lastName) || "No contact name"}</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9aaabb", fontSize: "22px", cursor: "pointer" }}>X</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: t.muted, fontSize: "22px", cursor: "pointer" }}>X</button>
         </div>
 
         <div style={{ marginBottom: "18px" }}>
-          <label style={labelStyle}>Stage</label>
+          <label style={labelStyle()}>Stage</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
             {STAGES.map((s) => (
               <button key={s.id} onClick={() => setForm({ ...form, stage: s.id, last_action_at: new Date().toISOString().split("T")[0] })}
@@ -348,15 +366,15 @@ function Modal({ lead, onClose, onSave, tenantId }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-          <div style={{ gridColumn: "1 / -1" }}><label style={labelStyle}>Company *</label><input style={inputStyle} value={form.company||""} onChange={e=>setForm({...form,company:e.target.value})} placeholder="Acme Corp" /></div>
-          <div><label style={labelStyle}>First Name</label><input style={inputStyle} value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="Jane" /></div>
-          <div><label style={labelStyle}>Last Name</label><input style={inputStyle} value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Smith" /></div>
-          <div><label style={labelStyle}>Email</label><input style={inputStyle} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})} /></div>
+          <div style={{ gridColumn: "1 / -1" }}><label style={labelStyle()}>Company *</label><input style={inputStyleFn()} value={form.company||""} onChange={e=>setForm({...form,company:e.target.value})} placeholder="Acme Corp" /></div>
+          <div><label style={labelStyle()}>First Name</label><input style={inputStyleFn()} value={firstName} onChange={e=>setFirstName(e.target.value)} placeholder="Jane" /></div>
+          <div><label style={labelStyle()}>Last Name</label><input style={inputStyleFn()} value={lastName} onChange={e=>setLastName(e.target.value)} placeholder="Smith" /></div>
+          <div><label style={labelStyle()}>Email</label><input style={inputStyleFn()} type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})} /></div>
           <div>
-  <label style={labelStyle}>Phone</label>
+  <label style={labelStyle()}>Phone</label>
   <div style={{ display: 'flex', gap: 4 }}>
     <select
-      style={{ ...inputStyle, width: 'auto', paddingRight: 8 }}
+      style={{ ...inputStyleFn(), width: 'auto', paddingRight: 8 }}
       value={(form.phone||'').startsWith('+') ? (form.phone||'').split(' ')[0] : '+1'}
       onChange={e => {
         const num = (form.phone||'').replace(/^\+\d+\s?/, '');
@@ -435,7 +453,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
       <option value="+20">🇪🇬 +20</option>
     </select>
     <input
-      style={{ ...inputStyle, flex: 1 }}
+      style={{ ...inputStyleFn(), flex: 1 }}
       value={(form.phone||'').replace(/^\+\d+\s?/, '')}
       onChange={e => {
         const cc = (form.phone||'').startsWith('+') ? (form.phone||'').split(' ')[0] : '+1';
@@ -445,29 +463,29 @@ function Modal({ lead, onClose, onSave, tenantId }) {
     />
   </div>
 </div>
-          <div><label style={labelStyle}>Lead Type</label><select style={inputStyle} value={form.type||"Unknown"} onChange={e=>setForm({...form,type:e.target.value})}>{TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}</select></div>
+          <div><label style={labelStyle()}>Lead Type</label><select style={inputStyleFn()} value={form.type||"Unknown"} onChange={e=>setForm({...form,type:e.target.value})}>{TYPE_OPTIONS.map(t=><option key={t}>{t}</option>)}</select></div>
           <div>
-            <label style={labelStyle}>Urgency</label>
-            <select style={inputStyle} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>
+            <label style={labelStyle()}>Urgency</label>
+            <select style={inputStyleFn()} value={form.urgency||"Warm"} onChange={e=>setForm({...form,urgency:e.target.value})}>
               <option>Hot</option><option>Warm</option><option>Cold</option>
             </select>
           </div>
-          <div><label style={labelStyle}>Package</label><select style={inputStyle} value={form.package||""} onChange={e=>setForm({...form,package:e.target.value})}><option value="">Not selected</option>{PACKAGE_OPTIONS.map(p=><option key={p}>{p}</option>)}</select></div>
-          <div><label style={labelStyle}>Source</label><select style={inputStyle} value={form.source||"Website"} onChange={e=>setForm({...form,source:e.target.value})}>{SOURCE_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
-          <div><label style={labelStyle}>Go-Live Date</label><input type="date" style={inputStyle} value={form.go_live_date||""} onChange={e=>setForm({...form,go_live_date:e.target.value})} /></div>
-          <div><label style={labelStyle}>Last Action</label><input type="date" style={inputStyle} value={form.last_action_at||""} onChange={e=>setForm({...form,last_action_at:e.target.value})} /></div>
+          <div><label style={labelStyle()}>Package</label><select style={inputStyleFn()} value={form.package||""} onChange={e=>setForm({...form,package:e.target.value})}><option value="">Not selected</option>{PACKAGE_OPTIONS.map(p=><option key={p}>{p}</option>)}</select></div>
+          <div><label style={labelStyle()}>Source</label><select style={inputStyleFn()} value={form.source||"Website"} onChange={e=>setForm({...form,source:e.target.value})}>{SOURCE_OPTIONS.map(s=><option key={s}>{s}</option>)}</select></div>
+          <div><label style={labelStyle()}>Go-Live Date</label><input type="date" style={inputStyleFn()} value={form.go_live_date||""} onChange={e=>setForm({...form,go_live_date:e.target.value})} /></div>
+          <div><label style={labelStyle()}>Last Action</label><input type="date" style={inputStyleFn()} value={form.last_action_at||""} onChange={e=>setForm({...form,last_action_at:e.target.value})} /></div>
         </div>
 
         <div style={{ marginBottom: "12px" }}>
-          <label style={labelStyle}>Notes</label>
-          <textarea style={{ ...inputStyle, minHeight: "70px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
+          <label style={labelStyle()}>Notes</label>
+          <textarea style={{ ...inputStyleFn(), minHeight: "70px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
         </div>
 
         <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", marginBottom: "10px" }}>NEXT ACTION</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>
-            <div><label style={labelStyle}>Action</label><input style={inputStyle} value={form.next_action||""} onChange={e=>setForm({...form,next_action:e.target.value})} placeholder="e.g. Send proposal, Follow up call..." /></div>
-            <div><label style={labelStyle}>Due Date</label><input type="date" style={{ ...inputStyle, width: "160px" }} value={form.next_action_date||""} onChange={e=>setForm({...form,next_action_date:e.target.value})} /></div>
+            <div><label style={labelStyle()}>Action</label><input style={inputStyleFn()} value={form.next_action||""} onChange={e=>setForm({...form,next_action:e.target.value})} placeholder="e.g. Send proposal, Follow up call..." /></div>
+            <div><label style={labelStyle()}>Due Date</label><input type="date" style={{ ...inputStyleFn(), width: "160px" }} value={form.next_action_date||""} onChange={e=>setForm({...form,next_action_date:e.target.value})} /></div>
           </div>
           {form.next_action_date && new Date(form.next_action_date) < new Date() && (
             <div style={{ marginTop: 8, fontSize: 11, color: "#ef4444", fontWeight: 700 }}>Overdue: {daysSince(form.next_action_date)} days past due</div>
@@ -475,7 +493,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
         </div>
 
         <div style={{ marginBottom: "16px" }}>
-          <label style={labelStyle}>Quick Actions</label>
+          <label style={labelStyle()}>Quick Actions</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "7px" }}>
             {(NEXT_ACTIONS[form.stage]||[]).map(a=>(
               <button key={a} onClick={()=>setForm({ ...form, next_action: a, next_action_date: new Date(Date.now() + 2*86400000).toISOString().split("T")[0], notes: (form.notes?form.notes+"\n":"")+"-> "+a, last_action_at: new Date().toISOString().split("T")[0] })}
@@ -701,7 +719,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
         </div>
 
         <div style={{ display:"flex",gap:"8px",alignItems:"center",paddingBottom:"16px",flexWrap:"wrap" }}>
-          <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyle,width:"180px",marginTop:0,padding:"7px 11px" }} />
+          <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} style={{ ...inputStyleFn(),width:"180px",marginTop:0,padding:"7px 11px" }} />
           {["All",...TYPE_OPTIONS].map(t=>(
             <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>{t}</button>
           ))}
