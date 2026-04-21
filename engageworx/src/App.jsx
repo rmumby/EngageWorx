@@ -1674,8 +1674,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '10px 20px 0', flexShrink: 0, gap: 12 }}>
           <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
         </div>
         {page === "dashboard" && (
@@ -2423,7 +2423,7 @@ var spNavBase = [
       </div>
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
-        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '10px 20px 0', flexShrink: 0, gap: 12 }}>
           <PlatformUpdatesBell userId={profile?.id} audience="sp" />
         </div>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
