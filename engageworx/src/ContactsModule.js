@@ -268,7 +268,10 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
   );
 }
 
+var CM_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+
 export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, onNavigate }) {
+  var resolvedTenantId = currentTenantId || CM_SP_TENANT_ID;
   const [contacts, setContacts] = useState(() => demoMode ? DEMO_CONTACTS : []);
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState("list");
@@ -356,6 +359,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [existingEmailSet, setExistingEmailSet] = useState(new Set());
   const [editingContact, setEditingContact] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [convertingLead, setConvertingLead] = useState(false);
+  const [convertResult, setConvertResult] = useState(null);
   const [page, setPage] = useState(0);
   const pageSize = 15;
 
@@ -818,6 +823,36 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     setDeleting(false);
   };
 
+  async function convertToLead(contact) {
+    setConvertingLead(true); setConvertResult(null);
+    try {
+      if (contact.company) {
+        var existing = await supabase.from('leads').select('id, name, stage').ilike('company', contact.company).eq('tenant_id', resolvedTenantId).limit(1).maybeSingle();
+        if (existing.data) {
+          setConvertResult({ exists: true, leadId: existing.data.id, stage: existing.data.stage });
+          setConvertingLead(false);
+          return;
+        }
+      }
+      var leadName = contact.company || ((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || 'New Lead';
+      var ins = await supabase.from('leads').insert({
+        tenant_id: resolvedTenantId,
+        name: leadName, company: contact.company || null,
+        email: contact.email || null, phone: contact.mobile_phone || contact.phone || null,
+        title: contact.title || null, stage: 'inquiry', urgency: 'Warm', type: 'Direct Business',
+        source: 'Contact Convert', notes: contact.notes || '',
+        last_action_at: new Date().toISOString().split('T')[0],
+        last_activity_at: new Date().toISOString(),
+      }).select('id').single();
+      if (ins.error) throw ins.error;
+      if (ins.data && ins.data.id) {
+        await supabase.from('contacts').update({ pipeline_lead_id: ins.data.id }).eq('id', contact.id);
+        setConvertResult({ created: true, leadId: ins.data.id });
+      }
+    } catch (e) { setConvertResult({ error: e.message }); }
+    setConvertingLead(false);
+  }
+
   const openMergeModal = () => {
     if (selectedContacts.length < 2) { alert('Select at least 2 contacts to merge.'); return; }
     const chosen = contacts.filter(c => selectedContacts.includes(c.id));
@@ -986,6 +1021,21 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               try { localStorage.setItem('engwx_vip_queue', JSON.stringify(vipContact)); } catch (e) {}
               onNavigate('email-digest');
             }} style={{ background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.35)", borderRadius: 8, padding: "8px 16px", color: "#FFD600", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>⭐ VIP Outreach</button>}
+              {!c.pipeline_lead_id && !convertResult && (
+                <button type="button" onMouseDown={function() { convertToLead(c); }} disabled={convertingLead} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: convertingLead ? 0.5 : 1 }}>{convertingLead ? '⏳…' : '📈 Convert to Lead'}</button>
+              )}
+              {convertResult && convertResult.created && (
+                <span style={{ color: "#10b981", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>✅ Lead created — {onNavigate ? <button type="button" onMouseDown={function() { onNavigate('pipeline'); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', textDecoration: 'underline', padding: 0 }}>view in Pipeline</button> : 'view in Pipeline'}</span>
+              )}
+              {convertResult && convertResult.exists && (
+                <span style={{ color: "#f59e0b", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>Already in Pipeline ({convertResult.stage})</span>
+              )}
+              {convertResult && convertResult.error && (
+                <span style={{ color: "#ef4444", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>Error: {convertResult.error}</span>
+              )}
+              {c.pipeline_lead_id && !convertResult && (
+                <span style={{ color: "#6366f1", fontSize: 12, fontWeight: 600, padding: "8px 16px" }}>📈 In Pipeline</span>
+              )}
             <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ background: editingContact ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${editingContact ? C.primary : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "8px 16px", color: editingContact ? C.primary : "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
             <button onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "8px 16px", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", opacity: deleting ? 0.5 : 1 }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
           </div>
