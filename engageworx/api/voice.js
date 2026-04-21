@@ -17,6 +17,8 @@ function esc(s) {
 }
 
 module.exports = async function handler(req, res) {
+  console.error('[Voice] HIT', req.method, new Date().toISOString());
+  try {
   res.setHeader('Content-Type', 'text/xml; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
 
@@ -122,4 +124,9 @@ module.exports = async function handler(req, res) {
   '</Response>';
 
   return res.status(200).end(twiml);
+  } catch (err) {
+    console.error('[Voice] FATAL ERROR:', err.message, err.stack);
+    res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+    return res.status(200).end('<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna-Neural">We are experiencing technical difficulties. Please try again later.</Say></Response>');
+  }
 };
