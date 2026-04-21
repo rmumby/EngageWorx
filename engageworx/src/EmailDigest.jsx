@@ -678,7 +678,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         var resp = await fetch('/api/send-digest-reply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: a.email_from, subject: (a.email_subject && a.email_subject.startsWith('Re:')) ? a.email_subject : ('Re: ' + (a.email_subject || 'your message')), body: body }),
+          body: JSON.stringify({ to: a.email_from, subject: (a.email_subject && a.email_subject.startsWith('Re:')) ? a.email_subject : ('Re: ' + (a.email_subject || 'your message')), body: body, tenant_id: a.tenant_id || resolvedTenantId, from: 'rob@engwx.com' }),
         });
         var data = await resp.json();
         if (!data.success) throw new Error(data.error || 'send failed');
