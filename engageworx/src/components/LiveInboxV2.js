@@ -202,8 +202,11 @@ function timeAgo(date) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
+var LI_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+
 function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase, userProfile }) {
   const { t } = useTranslation();
+  var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
@@ -625,20 +628,20 @@ useEffect(function() {
       // Create or find contact if manual entry
       if (!contactId && supabase) {
         var isEmail = recipient.indexOf('@') > 0;
-        console.log('[NewConv] finding/creating contact: recipient=' + recipient + ' isEmail=' + isEmail + ' tenantId=' + currentTenantId);
+        console.log('[NewConv] finding/creating contact: recipient=' + recipient + ' isEmail=' + isEmail + ' tenantId=' + resolvedTenantId);
         if (isEmail) {
-          var ec = await supabase.from('contacts').select('id, first_name, last_name').eq('email', recipient).eq('tenant_id', currentTenantId).maybeSingle();
+          var ec = await supabase.from('contacts').select('id, first_name, last_name').eq('email', recipient).eq('tenant_id', resolvedTenantId).maybeSingle();
           if (ec.data) { contactId = ec.data.id; contactName = ((ec.data.first_name || '') + ' ' + (ec.data.last_name || '')).trim() || recipient; }
           else {
-            var ins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, email: recipient, first_name: recipient.split('@')[0], status: 'active' }).select('id').single();
+            var ins = await supabase.from('contacts').insert({ tenant_id: resolvedTenantId, email: recipient, first_name: recipient.split('@')[0], status: 'active' }).select('id').single();
             if (ins.error) console.error('[NewConv] contact insert error:', ins.error.message);
             if (ins.data) contactId = ins.data.id;
           }
         } else {
-          var pc = await supabase.from('contacts').select('id, first_name, last_name').eq('phone', recipient).eq('tenant_id', currentTenantId).maybeSingle();
+          var pc = await supabase.from('contacts').select('id, first_name, last_name').eq('phone', recipient).eq('tenant_id', resolvedTenantId).maybeSingle();
           if (pc.data) { contactId = pc.data.id; contactName = ((pc.data.first_name || '') + ' ' + (pc.data.last_name || '')).trim() || recipient; }
           else {
-            var pins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, phone: recipient, mobile_phone: recipient, first_name: recipient, status: 'active' }).select('id').single();
+            var pins = await supabase.from('contacts').insert({ tenant_id: resolvedTenantId, phone: recipient, mobile_phone: recipient, first_name: recipient, status: 'active' }).select('id').single();
             if (pins.error) console.error('[NewConv] contact insert error:', pins.error.message);
             if (pins.data) contactId = pins.data.id;
           }
@@ -646,9 +649,9 @@ useEffect(function() {
         console.log('[NewConv] contact resolved: id=' + contactId);
       }
       // Create conversation
-      console.log('[NewConv] creating conversation: tenant=' + currentTenantId + ' contact=' + contactId + ' channel=' + newConvChannel);
+      console.log('[NewConv] creating conversation: tenant=' + resolvedTenantId + ' contact=' + contactId + ' channel=' + newConvChannel);
       var convPayload = {
-        tenant_id: currentTenantId, contact_id: contactId || null,
+        tenant_id: resolvedTenantId, contact_id: contactId || null,
         channel: newConvChannel, status: 'active',
         subject: 'New: ' + contactName,
         last_message_at: new Date().toISOString(), unread_count: 0,
@@ -661,7 +664,7 @@ useEffect(function() {
       if (!convRes.data) throw new Error('Failed to create conversation: no data returned');
       // Insert message
       await supabase.from('messages').insert({
-        tenant_id: currentTenantId, conversation_id: convRes.data.id,
+        tenant_id: resolvedTenantId, conversation_id: convRes.data.id,
         contact_id: contactId, channel: newConvChannel,
         direction: 'outbound', sender_type: 'agent',
         body: newConvBody.trim(), status: 'delivered',
@@ -672,15 +675,15 @@ useEffect(function() {
       if (newConvChannel === 'sms' && recipient) {
         var smsEndpoint = recipient.indexOf('+48') === 0 ? '/api/poland-carrier?action=sms-outbound' : '/api/sms';
         var smsPayload = recipient.indexOf('+48') === 0
-          ? { to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId }
-          : { action: 'send', to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId };
+          ? { to: recipient, body: newConvBody.trim(), tenant_id: resolvedTenantId }
+          : { action: 'send', to: recipient, body: newConvBody.trim(), tenant_id: resolvedTenantId };
         try { await fetch(smsEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsPayload) }); } catch (e) {}
       }
       if (newConvChannel === 'email' && recipient) {
         try { await fetch('/api/send-digest-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, subject: 'Hello from ' + (contactName || 'us'), body: newConvBody.trim(), from: fromEmail || undefined }) }); } catch (e) {}
       }
       if (newConvChannel === 'whatsapp' && recipient) {
-        try { await fetch('/api/whatsapp-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, body: newConvBody.trim(), tenant_id: currentTenantId }) }); } catch (e) {}
+        try { await fetch('/api/whatsapp-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, body: newConvBody.trim(), tenant_id: resolvedTenantId }) }); } catch (e) {}
       }
       // Reset and close
       setNewConvOpen(false); setNewConvSearch(''); setNewConvResults([]); setNewConvContact(null); setNewConvManual(''); setNewConvBody(''); setNewConvChannel('sms');
@@ -688,7 +691,7 @@ useEffect(function() {
       if (!demoMode) {
         try {
           var convData = await supabase.from('conversations').select('*, contacts(id, first_name, last_name, email, phone, company, tags)')
-            .eq('tenant_id', currentTenantId).order('last_message_at', { ascending: false }).limit(100);
+            .eq('tenant_id', resolvedTenantId).order('last_message_at', { ascending: false }).limit(100);
           if (convData.data) {
             setConversations(convData.data.map(function(cv) {
               var ct = cv.contacts || {};
