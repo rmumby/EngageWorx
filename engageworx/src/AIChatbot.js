@@ -146,6 +146,15 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       setConfigLoading(true);
       try {
         const { supabase } = await import('./supabaseClient');
+        // Load from chatbot_configs first (primary source for bot name/prompt/kb)
+        try {
+          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', currentTenantId).maybeSingle();
+          if (cbR.data) {
+            if (cbR.data.bot_name) setBotName(cbR.data.bot_name);
+            if (cbR.data.system_prompt) setSystemPrompt(cbR.data.system_prompt);
+          }
+        } catch (e) {}
+        // Load channel configs for per-channel settings
         const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
         if (!error && data && data.length > 0) {
           var merged = { agentName: "Aria", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
@@ -158,7 +167,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
             if (cfg.channel && cfg.enabled) merged.channels[cfg.channel] = true;
           });
           setAiConfig(merged);
-          setBotName(merged.agentName);
+          if (merged.agentName && merged.agentName !== 'Aria') setBotName(merged.agentName);
           if (merged.kbSources && merged.kbSources.length > 0) setKbSources(merged.kbSources);
         }
       } catch (err) { console.error('AI config load error:', err); }

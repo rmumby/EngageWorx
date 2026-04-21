@@ -1649,7 +1649,6 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
                 <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
                 <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t('common.poweredBy')}</div>
             </>
           )}
         </div>
