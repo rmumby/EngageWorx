@@ -11,12 +11,12 @@ var DARK = {
 };
 
 var LIGHT = {
-  bg: '#F0F2F5', surface: '#FFFFFF', border: '#D1D9E6',
-  text: '#1a1a1a', muted: '#444444',
+  bg: '#f9fafb', surface: '#ffffff', border: '#e5e7eb',
+  text: '#111827', muted: '#4b5563',
   primary: '#0077B6', accent: '#7C3AED',
-  inputBg: '#FFFFFF', inputBorder: '#9CA3AF',
-  cardBg: '#FFFFFF', cardBorder: '#D1D9E6',
-  badgeBg: '#E5E7EB',
+  inputBg: '#ffffff', inputBorder: '#d1d5db',
+  cardBg: '#ffffff', cardBorder: '#e5e7eb',
+  badgeBg: '#f3f4f6',
   mode: 'light',
 };
 
@@ -93,12 +93,12 @@ export function ThemeProvider({ children }) {
 
       /* Force all text to be dark unless it's a primary/accent/status color */
       body, body * {
-        --lm-text: #1a1a1a;
-        --lm-muted: #444444;
-        --lm-label: #666666;
-        --lm-bg: #F0F2F5;
-        --lm-surface: #FFFFFF;
-        --lm-border: #D1D9E6;
+        --lm-text: #111827;
+        --lm-muted: #4b5563;
+        --lm-label: #6b7280;
+        --lm-bg: #f9fafb;
+        --lm-surface: #ffffff;
+        --lm-border: #e5e7eb;
       }
 
       /* All divs and spans with white/light text → dark */
@@ -112,7 +112,7 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #1a1a1a !important; }
+      { color: #111827 !important; }
 
       /* Portal text colors → dark */
       div[style*="color: #E8F4FD"], span[style*="color: #E8F4FD"],
@@ -121,28 +121,28 @@ export function ThemeProvider({ children }) {
       div[style*="color: #FFF0E8"], div[style*="color: #E8FFF2"], div[style*="color: #EDE8FF"],
       h1[style*="color: #E8F4FD"], h2[style*="color: #E8F4FD"], h3[style*="color: #E8F4FD"],
       p[style*="color: #E8F4FD"]
-      { color: #1a1a1a !important; }
+      { color: #111827 !important; }
 
       /* Muted text → readable gray */
       div[style*="color: #6B8BAE"], span[style*="color: #6B8BAE"],
       div[style*="color:#6B8BAE"], span[style*="color:#6B8BAE"],
       p[style*="color: #6B8BAE"], button[style*="color: #6B8BAE"],
       div[style*="color: #8B6B55"], div[style*="color: #4B8B65"], div[style*="color: #6B5B8B"]
-      { color: #444444 !important; }
+      { color: #374151 !important; }
 
       /* Semi-transparent white text (labels, subtitles) */
       [style*="rgba(255, 255, 255, 0.4)"], [style*="rgba(255,255,255,0.4)"]
-      { color: #666666 !important; }
+      { color: #4b5563 !important; }
       [style*="rgba(255, 255, 255, 0.5)"], [style*="rgba(255,255,255,0.5)"]
-      { color: #666666 !important; }
+      { color: #4b5563 !important; }
       [style*="rgba(255, 255, 255, 0.6)"], [style*="rgba(255,255,255,0.6)"]
-      { color: #444444 !important; }
+      { color: #374151 !important; }
       [style*="rgba(255, 255, 255, 0.7)"], [style*="rgba(255,255,255,0.7)"]
-      { color: #333333 !important; }
+      { color: #374151 !important; }
       [style*="rgba(255, 255, 255, 0.8)"], [style*="rgba(255,255,255,0.8)"]
-      { color: #1a1a1a !important; }
+      { color: #111827 !important; }
       [style*="rgba(255, 255, 255, 0.9)"], [style*="rgba(255,255,255,0.9)"]
-      { color: #1a1a1a !important; }
+      { color: #111827 !important; }
 
       /* ═══ BACKGROUNDS ═══ */
       /* Main dark backgrounds → light */
@@ -151,7 +151,7 @@ export function ThemeProvider({ children }) {
       [style*="background: #050810"], [style*="background:#050810"],
       [style*="background: #0c0a10"], [style*="background: #080d10"],
       [style*="background: #0a0810"]
-      { background: #F0F2F5 !important; }
+      { background: #f9fafb !important; }
 
       /* Surface/panel backgrounds → white */
       [style*="background: #0d1425"], [style*="background:#0d1425"],
@@ -159,65 +159,66 @@ export function ThemeProvider({ children }) {
       [style*="background: #0d1220"], [style*="background:#0d1220"],
       [style*="background: #141018"], [style*="background: #0d1518"],
       [style*="background: #110e1c"]
-      { background: #FFFFFF !important; }
+      { background: #ffffff !important; }
 
       /* Semi-transparent white/dark backgrounds (cards, panels) */
       [style*="background: rgba(255, 255, 255, 0.02)"], [style*="background: rgba(255,255,255,0.02)"]
-      { background: #F9FAFB !important; }
+      { background: #f9fafb !important; }
       [style*="background: rgba(255, 255, 255, 0.03)"], [style*="background: rgba(255,255,255,0.03)"]
-      { background: #FFFFFF !important; box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important; }
+      { background: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
       [style*="background: rgba(255, 255, 255, 0.04)"], [style*="background: rgba(255,255,255,0.04)"]
-      { background: #F3F4F6 !important; }
+      { background: #f3f4f6 !important; }
       [style*="background: rgba(255, 255, 255, 0.05)"], [style*="background: rgba(255,255,255,0.05)"]
-      { background: #F3F4F6 !important; }
+      { background: #f3f4f6 !important; }
       [style*="background: rgba(255, 255, 255, 0.06)"], [style*="background: rgba(255,255,255,0.06)"]
-      { background: #E5E7EB !important; }
+      { background: #e5e7eb !important; }
 
       /* Dark input backgrounds */
       [style*="background: rgba(0, 0, 0, 0.3)"], [style*="background: rgba(0,0,0,0.3)"]
-      { background: #FFFFFF !important; border-color: #9CA3AF !important; color: #1a1a1a !important; }
+      { background: #ffffff !important; border-color: #9CA3AF !important; color: #1a1a1a !important; }
       [style*="background: rgba(0, 0, 0, 0.2)"], [style*="background: rgba(0,0,0,0.2)"]
       { background: #F9FAFB !important; color: #1a1a1a !important; }
       [style*="background: rgba(0, 0, 0, 0.4)"], [style*="background: rgba(0,0,0,0.4)"]
-      { background: #FFFFFF !important; color: #1a1a1a !important; }
+      { background: #ffffff !important; color: #1a1a1a !important; }
 
       /* ═══ BORDERS ═══ */
       [style*="border: 1px solid #182440"], [style*="border-color: #182440"],
       [style*="border: 1px solid #1a2540"], [style*="border-color: #1a2540"]
-      { border-color: #D1D9E6 !important; }
+      { border-color: #e5e7eb !important; }
 
       [style*="border: 1px solid rgba(255, 255, 255"], [style*="border: 1px solid rgba(255,255,255"]
-      { border-color: #D1D9E6 !important; }
+      { border-color: #e5e7eb !important; }
 
       [style*="border-right: 1px solid"], [style*="border-bottom: 1px solid"]
-      { border-color: #D1D9E6 !important; }
+      { border-color: #e5e7eb !important; }
 
       /* ═══ LIVE INBOX SPECIFIC ═══ */
       [style*="background: rgba(0, 0, 0, 0.15)"],
-      [style*="background: rgba(0,0,0,0.15)"] { background: #F3F4F6 !important; }
+      [style*="background: rgba(0,0,0,0.15)"] { background: #f3f4f6 !important; }
       [style*="background: rgba(0, 0, 0, 0.2)"],
-      [style*="background: rgba(0,0,0,0.2)"] { background: #E5E7EB !important; }
+      [style*="background: rgba(0,0,0,0.2)"] { background: #e5e7eb !important; }
       [style*="background: rgba(0, 0, 0, 0.1)"],
-      [style*="background: rgba(0,0,0,0.1)"] { background: #F9FAFB !important; }
+      [style*="background: rgba(0,0,0,0.1)"] { background: #f9fafb !important; }
       [style*="border: 1px solid rgba(255, 255, 255, 0.04)"],
       [style*="border-bottom: 1px solid rgba(255, 255, 255, 0.04)"],
-      [style*="border-bottom: 1px solid rgba(255,255,255,0.04)"] { border-color: #E5E7EB !important; }
+      [style*="border-bottom: 1px solid rgba(255,255,255,0.04)"] { border-color: #e5e7eb !important; }
       [style*="border: 1px solid rgba(255, 255, 255, 0.06)"],
       [style*="border-right: 1px solid rgba(255, 255, 255, 0.06)"],
       [style*="border-right: 1px solid rgba(255,255,255,0.06)"],
       [style*="border-top: 1px solid rgba(255, 255, 255, 0.06)"],
-      [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #D1D9E6 !important; }
+      [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #e5e7eb !important; }
       [style*="color: rgba(255, 255, 255, 0.25)"],
-      [style*="color: rgba(255,255,255,0.25)"] { color: #666666 !important; }
+      [style*="color: rgba(255,255,255,0.25)"] { color: #4b5563 !important; }
       [style*="color: rgba(255, 255, 255, 0.3)"],
-      [style*="color: rgba(255,255,255,0.3)"] { color: #666666 !important; }
+      [style*="color: rgba(255,255,255,0.3)"] { color: #4b5563 !important; }
 
       /* ═══ FORM ELEMENTS ═══ */
       select, input, textarea {
-        color: #1a1a1a !important;
-        background: #FFFFFF !important;
-        border-color: #9CA3AF !important;
+        color: #111827 !important;
+        background: #ffffff !important;
+        border-color: #d1d5db !important;
       }
+      select option { color: #111827; background: #ffffff; }
 
       /* ═══ GLOBAL CATCH-ALL — override ALL white/light text on the page ═══ */
       div, span, p, h1, h2, h3, h4, h5, h6, label, a, li, td, th, button, pre, code {
@@ -234,22 +235,22 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #1a1a1a !important; }
+      { color: #111827 !important; }
 
       /* Force readable text everywhere via broad selectors */
-      [style*="color: rgb(255, 255, 255)"] { color: #1a1a1a !important; }
-      [style*="color: rgb(232, 244, 253)"] { color: #1a1a1a !important; }
-      [style*="color: rgb(226, 232, 240)"] { color: #1a1a1a !important; }
-      [style*="color: rgb(107, 139, 174)"] { color: #444444 !important; }
-      [style*="color: rgb(107, 91, 139)"] { color: #444444 !important; }
+      [style*="color: rgb(255, 255, 255)"] { color: #111827 !important; }
+      [style*="color: rgb(232, 244, 253)"] { color: #111827 !important; }
+      [style*="color: rgb(226, 232, 240)"] { color: #111827 !important; }
+      [style*="color: rgb(107, 139, 174)"] { color: #374151 !important; }
+      [style*="color: rgb(107, 91, 139)"] { color: #374151 !important; }
 
       /* ═══ TABLE OVERRIDES ═══ */
-      table { border-color: #D1D9E6 !important; }
-      th, td { border-color: #D1D9E6 !important; }
+      table { border-color: #e5e7eb !important; }
+      th, td { border-color: #e5e7eb !important; }
       th[style*="background: #0A0D14"], th[style*="background:#0A0D14"],
       th[style*="background: #0a0d14"], td[style*="background: #0a0d14"],
       tr[style*="background: #0A0D14"], tr[style*="background: #0a0d14"]
-      { background: #E5E7EB !important; }
+      { background: #e5e7eb !important; }
 
       /* ═══ SCROLLBAR ═══ */
       ::-webkit-scrollbar { width: 8px; }
@@ -315,14 +316,19 @@ export function useTheme() {
 
 // Helper: merge portal-specific colors with theme overrides
 export function getThemedColors(portalColors, themeObj) {
-  if (!themeObj || themeObj.mode === 'dark') return portalColors; // dark mode = use existing colors
-  // Light mode: override bg, surface, border, text, muted while keeping primary/accent
+  if (!themeObj || themeObj.mode === 'dark') return portalColors;
   return Object.assign({}, portalColors, {
     bg: LIGHT.bg,
     surface: LIGHT.surface,
     border: LIGHT.border,
     text: LIGHT.text,
     muted: LIGHT.muted,
+    inputBg: LIGHT.inputBg,
+    inputBorder: LIGHT.inputBorder,
+    cardBg: LIGHT.cardBg,
+    cardBorder: LIGHT.cardBorder,
+    badgeBg: LIGHT.badgeBg,
+    mode: 'light',
   });
 }
 
