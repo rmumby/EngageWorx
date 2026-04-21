@@ -391,6 +391,24 @@ export function ThemeProvider({ children }) {
     var hostname = window.location.hostname;
     var isPortal = hostname.startsWith('portal.') || hostname === 'localhost' || hostname === '127.0.0.1';
     if (!isPortal) return; // Don't override landing page colors
+    function parseRGB(c) {
+      if (!c) return null;
+      var m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      return m ? { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) } : null;
+    }
+    function luminance(rgb) {
+      return (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+    }
+    // Skip elements that should keep their color (status colors, badges)
+    var KEEP_COLORS = ['#00C9FF','#0077B6','#E040FB','#7C3AED','#FF3B30','#ef4444','#dc2626','#00E676','#10b981','#059669','#FFD600','#f59e0b','#d97706','#FF5252','#6366f1','#4f46e5','#25D366','#FF6B35','#ea580c','#FF9800'];
+    function isAccentColor(rgb) {
+      for (var i = 0; i < KEEP_COLORS.length; i++) {
+        var hex = KEEP_COLORS[i];
+        var hr = parseInt(hex.slice(1,3),16), hg = parseInt(hex.slice(3,5),16), hb = parseInt(hex.slice(5,7),16);
+        if (Math.abs(rgb.r - hr) < 20 && Math.abs(rgb.g - hg) < 20 && Math.abs(rgb.b - hb) < 20) return true;
+      }
+      return false;
+    }
     function fixColors() {
       var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
       for (var i = 0; i < allElements.length; i++) {
@@ -398,17 +416,26 @@ export function ThemeProvider({ children }) {
         var cs = window.getComputedStyle(el);
         var c = cs.color;
         var bg = cs.backgroundColor;
-        // White/near-white text → dark
-        if (c === 'rgb(255, 255, 255)' || c === 'rgb(232, 244, 253)' || c === 'rgb(226, 232, 240)' || c === 'rgb(255, 240, 232)' || c === 'rgb(232, 255, 242)' || c === 'rgb(237, 232, 255)') el.style.setProperty('color', '#1a1a1a', 'important');
-        // Muted text
-        if (c === 'rgb(107, 139, 174)' || c === 'rgb(139, 107, 85)' || c === 'rgb(75, 139, 101)' || c === 'rgb(107, 91, 139)') el.style.setProperty('color', '#444444', 'important');
-        // Semi-transparent white
-        if (c && c.startsWith('rgba(255, 255, 255,')) { var a = parseFloat(c.split(',')[3]); if (a < 0.5) el.style.setProperty('color', '#666666', 'important'); else el.style.setProperty('color', '#1a1a1a', 'important'); }
-        // Dark bgs
-        if (bg === 'rgb(8, 13, 26)' || bg === 'rgb(5, 8, 16)' || bg === 'rgb(10, 13, 20)' || bg === 'rgb(12, 10, 16)' || bg === 'rgb(8, 13, 16)' || bg === 'rgb(10, 8, 16)') el.style.setProperty('background-color', '#F0F2F5', 'important');
-        if (bg === 'rgb(13, 20, 37)' || bg === 'rgb(13, 18, 32)' || bg === 'rgb(20, 16, 24)' || bg === 'rgb(13, 21, 24)' || bg === 'rgb(17, 14, 28)') el.style.setProperty('background-color', '#FFFFFF', 'important');
-        if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) el.style.setProperty('background-color', '#FFFFFF', 'important'); }
-        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) el.style.setProperty('background-color', ba2 > 0.25 ? '#F3F4F6' : '#F9FAFB', 'important'); }
+        var rgb = parseRGB(c);
+        if (rgb && !isAccentColor(rgb)) {
+          var lum = luminance(rgb);
+          if (lum > 0.75) el.style.setProperty('color', '#111827', 'important');
+          else if (lum > 0.55) el.style.setProperty('color', '#374151', 'important');
+          else if (lum > 0.45) el.style.setProperty('color', '#4b5563', 'important');
+        }
+        // Semi-transparent white text
+        if (c && c.startsWith('rgba(255, 255, 255,')) {
+          var a = parseFloat(c.split(',')[3]);
+          if (a < 0.4) el.style.setProperty('color', '#6b7280', 'important');
+          else if (a < 0.7) el.style.setProperty('color', '#374151', 'important');
+          else el.style.setProperty('color', '#111827', 'important');
+        }
+        // Dark backgrounds → light
+        var bgRgb = parseRGB(bg);
+        if (bgRgb && luminance(bgRgb) < 0.15) el.style.setProperty('background-color', '#f9fafb', 'important');
+        else if (bgRgb && luminance(bgRgb) < 0.25) el.style.setProperty('background-color', '#ffffff', 'important');
+        if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) el.style.setProperty('background-color', '#ffffff', 'important'); }
+        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) el.style.setProperty('background-color', ba2 > 0.25 ? '#f3f4f6' : '#f9fafb', 'important'); }
       }
     }
     var t1 = setTimeout(fixColors, 100);
