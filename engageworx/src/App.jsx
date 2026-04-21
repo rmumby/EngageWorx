@@ -1600,7 +1600,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "flows", label: t('nav.flowBuilder'), icon: "⚡" },
     { id: "sequenceroster", label: t('nav.sequenceRoster'), icon: "📋" },
     { id: "sequences", label: t('nav.sequenceBuilder'), icon: "📝" },
-    { id: "chatbot", label: agentName || 'Aria', icon: "🤖" },
+    { id: "chatbot", label: (agentName || 'Aria') + ' AI', icon: "🤖" },
     { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
     { id: "analytics", label: t('nav.analytics'), icon: "📊" },
     { id: "branding", label: t('nav.branding'), icon: "🎨" },
@@ -1675,7 +1675,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       </div>
 
       <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12 }}>
           <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
         </div>
         {page === "dashboard" && (
@@ -1901,7 +1901,7 @@ var spNavBase = [
     { id: "contacts",         label: tSP('nav.contacts'),          icon: "👥" },
     { id: "inbox",            label: tSP('nav.liveInbox'),         icon: "💬" },
     { id: "helpdesk",         label: tSP('nav.helpDesk'),          icon: "🎫" },
-    { id: "chatbot",          label: spAgentName || 'Aria',         icon: "🤖" },
+    { id: "chatbot",          label: (spAgentName || 'Aria') + ' AI',  icon: "🤖" },
     { id: "flows",            label: tSP('nav.flowBuilder'),       icon: "⚡" },
     { id: "analytics",        label: tSP('nav.globalAnalytics'),   icon: "📊" },
     { id: "customer-success", label: tSP('nav.customerSuccess'),   icon: "📊", superadminOnly: true },
@@ -2423,7 +2423,7 @@ var spNavBase = [
       </div>
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
-        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
+        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12 }}>
           <PlatformUpdatesBell userId={profile?.id} audience="sp" />
         </div>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
