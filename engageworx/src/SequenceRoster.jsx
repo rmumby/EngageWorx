@@ -99,7 +99,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
                     <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{s.sequence_steps ? s.sequence_steps.length : 0} steps</div>
                   </button>
-                  <button onClick={async function(e) {
+                  <button type="button" onMouseDown={async function(e) {
                     e.stopPropagation();
                     try {
                       var activeCheck = await supabase.from('lead_sequences').select('id', { count: 'exact', head: true }).eq('sequence_id', s.id).eq('status', 'active');
