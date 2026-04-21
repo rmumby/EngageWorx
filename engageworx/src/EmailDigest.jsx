@@ -694,8 +694,18 @@ export default function EmailDigest({ C, currentTenantId }) {
   var today = new Date().toISOString().split('T')[0];
   var todayItems = items.filter(function(i) { return (i.created_at || '').startsWith(today); });
   var filtered = filter === 'all' ? items : items.filter(function(i) { return i.status === filter; });
-  // Split by source
-  var healthItems = filtered.filter(function(i) { return i.source === 'tenant_health'; });
+  var [healthDays, setHealthDays] = useState(7);
+  // Split by source — deduplicate health items: one per tenant, most recent, pending only
+  var healthRaw = filtered.filter(function(i) { return i.source === 'tenant_health'; });
+  var healthCutoff = new Date(Date.now() - healthDays * 86400000).toISOString();
+  var healthByTenant = {};
+  healthRaw.forEach(function(i) {
+    if (i.status !== 'pending') return;
+    if (i.created_at && i.created_at < healthCutoff) return;
+    var tid = i.tenant_id || 'unknown';
+    if (!healthByTenant[tid] || (i.created_at || '') > (healthByTenant[tid].created_at || '')) healthByTenant[tid] = i;
+  });
+  var healthItems = Object.values(healthByTenant).sort(function(a, b) { return (b.created_at || '').localeCompare(a.created_at || ''); }).slice(0, 10);
   var staleItems = filtered.filter(function(i) { return i.source === 'stale_lead'; });
   var inboundItems = filtered.filter(function(i) { return i.source !== 'stale_lead' && i.source !== 'tenant_health'; });
   var pendingStale = staleItems.filter(function(i) { return i.status === 'pending'; });
@@ -1265,12 +1275,26 @@ export default function EmailDigest({ C, currentTenantId }) {
 
           {healthItems.length > 0 && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>🩺 Tenant Health <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {healthItems.length}</span></h2>
+                <select value={healthDays} onChange={function(e) { setHealthDays(parseInt(e.target.value)); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 10px', color: '#fff', fontSize: 11, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                  <option value="3">Last 3 days</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="30">Last 30 days</option>
+                </select>
               </div>
-              <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>Tenants who haven't finished setup or have gone quiet — review and edit Aria's drafted re-engagement message before sending.</p>
+              <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>One entry per tenant (most recent). Actioned/dismissed items hidden. Max 10, sorted by most recent.</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {healthItems.map(function(a) { return renderActionCard(a); })}
+                {healthItems.map(function(a) { return (
+                  <div key={a.id} style={{ position: 'relative' }}>
+                    {renderActionCard(a)}
+                    <button type="button" onMouseDown={function() {
+                      if (!window.confirm('Mark this tenant as resolved? It will be hidden for 7 days.')) return;
+                      markDismissed(a.id);
+                    }} style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 6, padding: '4px 10px', color: '#10b981', cursor: 'pointer', fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>✓ Resolved</button>
+                  </div>
+                ); })}
               </div>
             </div>
           )}
