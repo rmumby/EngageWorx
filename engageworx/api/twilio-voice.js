@@ -257,6 +257,7 @@ module.exports = async function handler(req, res) {
       var ringTimeout = parseInt(config.ring_timeout_seconds, 10);
       if (!ringTimeout || isNaN(ringTimeout) || ringTimeout < 1) ringTimeout = 20;
       var withinHours = isBusinessHours(config);
+      console.log('[Voice] tenant=' + tenantId + ' autoAnswer=' + autoAnswer + ' raw=' + config.auto_answer + ' blockAfterHours=' + blockAfterHours + ' withinHours=' + withinHours + ' hasIVR=' + (departments.length > 0 ? departments.map(function(d){return d.name;}).join(',') : 'none') + ' greeting=' + (config.during_hours_greeting || config.greeting || 'default').substring(0, 40));
 
       var voicemailUrl = portalBase + '/api/twilio-voice?action=voicemail&tenant=' + tenantId;
       var voicemailUrlXml = voicemailUrl.replace(/&/g, '&amp;');
@@ -295,7 +296,7 @@ module.exports = async function handler(req, res) {
         var menuOptions = departments.filter(function(d) { return d.name; }).map(function(d) {
           return 'Press ' + d.digit + ' ' + (d.description || 'for ' + d.name);
         }).join('. ');
-        var ivrPrompt = recordingNotice + (config.greeting || 'Thank you for calling.') + ' ' + menuOptions + '. Or hold for our AI assistant.';
+        var ivrPrompt = recordingNotice + (config.during_hours_greeting || config.greeting || 'Thank you for calling.') + ' ' + menuOptions + '. Or hold for our AI assistant.';
 
         var routeUrl = portalBase + '/api/twilio-voice?action=route&tenant=' + tenantId;
         return sendTwiml(
@@ -310,8 +311,10 @@ module.exports = async function handler(req, res) {
 
       // ── AI mode — EngageWorx default, or any tenant without IVR ──
       var agentName = await getAgentName(tenantId);
-      var greeting = config.greeting ||
-        ('Hi there! Thanks for calling EngageWorx. I\'m ' + agentName + ', your AI assistant. How can I help you today?');
+      var businessName = 'EngageWorx';
+      try { var tnR = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle(); if (tnR.data) businessName = tnR.data.brand_name || tnR.data.name || businessName; } catch(e) {}
+      var greeting = config.during_hours_greeting || config.greeting ||
+        ('Hi there! Thanks for calling ' + businessName + '. I\'m ' + agentName + ', your AI assistant. How can I help you today?');
 
       return sendTwiml(
         gather(aiUrlXml, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help'),
