@@ -273,35 +273,40 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   var currentUserRole = userProfile && userProfile.role;
   var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
-    if (demoMode || !supabase || !currentTenantId) return;
+    if (demoMode || !supabase) return;
     (async function() {
       try {
-        var emails = [];
-        // Tenant's configured from_email (visible to all)
-        var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', 'email').maybeSingle();
-        if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
-          emails.push({ email: chR.data.config_encrypted.from_email, label: 'Tenant default', type: 'tenant' });
-        }
-        // Team member emails
-        var tmR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', currentTenantId);
-        (tmR.data || []).forEach(function(p) {
-          var senderAddr = p.sender_email || p.email;
-          if (!senderAddr) return;
-          if (emails.find(function(e) { return e.email === senderAddr; })) return;
-          // Admin sees all team senders; reps see only their own
-          if (isAdmin || p.id === currentUserId) {
-            emails.push({ email: senderAddr, label: p.full_name || senderAddr.split('@')[0], type: 'team', profileId: p.id, role: p.role });
+        var emails = [
+          { email: 'rob@engwx.com', label: 'Rob', type: 'default' },
+          { email: 'hello@engwx.com', label: 'Hello', type: 'default' },
+        ];
+        // Tenant's configured from_email
+        try {
+          var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
+          if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
+            var tenantEmail = chR.data.config_encrypted.from_email;
+            if (!emails.find(function(e) { return e.email === tenantEmail; })) {
+              emails.unshift({ email: tenantEmail, label: 'Tenant default', type: 'tenant' });
+            }
           }
-        });
+        } catch (e) {}
+        // Team member emails
+        try {
+          var tmR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', resolvedTenantId);
+          (tmR.data || []).forEach(function(p) {
+            var senderAddr = p.sender_email || p.email;
+            if (!senderAddr) return;
+            if (emails.find(function(e) { return e.email === senderAddr; })) return;
+            if (isAdmin || p.id === currentUserId) {
+              emails.push({ email: senderAddr, label: p.full_name || senderAddr.split('@')[0], type: 'team', profileId: p.id, role: p.role });
+            }
+          });
+        } catch (e) {}
         setSenderEmails(emails);
-        // Default: rep's own email if available, else tenant default
-        if (emails.length > 0 && !fromEmail) {
-          var own = currentUserId && emails.find(function(e) { return e.profileId === currentUserId; });
-          setFromEmail(own ? own.email : emails[0].email);
-        }
+        if (!fromEmail) setFromEmail('rob@engwx.com');
       } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
     })();
-  }, [currentTenantId, demoMode, supabase, currentUserId, isAdmin]);
+  }, [resolvedTenantId, demoMode, supabase]);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
@@ -1463,6 +1468,15 @@ useEffect(function() {
                 })}
               </div>
             </div>
+
+            {newConvChannel === 'email' && senderEmails.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>From</label>
+                <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                  {senderEmails.map(function(se) { return <option key={se.email} value={se.email}>{se.email}</option>; })}
+                </select>
+              </div>
+            )}
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>Message</label>
