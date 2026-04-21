@@ -1629,10 +1629,16 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         <div style={{ marginBottom: 28, paddingLeft: cpSidebarCollapsed ? 0 : 8, textAlign: cpSidebarCollapsed ? "center" : "left" }}>
           {cpSidebarCollapsed ? (
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{(tenant.brand.name || "").substring(0, 2)}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{(tenant.brand.name || "").substring(0, 2)}</div>
+              <div style={{ marginTop: 8, textAlign: 'center' }}><PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" /></div>
+            </div>
           ) : (
             <>
-              <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
+                <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
+              </div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t('common.poweredBy')}</div>
             </>
           )}
@@ -1674,10 +1680,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '10px 20px 0', flexShrink: 0, gap: 12 }}>
-          <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
-        </div>
+      <div style={{ flex: 1, overflowY: (page === "inbox" || page === "flows") ? "hidden" : "auto", height: (page === "inbox" || page === "flows") ? "100vh" : "auto", minWidth: 0 }}>
         {page === "dashboard" && (
           <div style={{ padding: cpIsMobile ? "20px 14px" : "32px 36px" }}>
             <div style={{ marginBottom: 28 }}>
@@ -2350,10 +2353,16 @@ var spNavBase = [
         {/* Header */}
         <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
           {sidebarCollapsed ? (
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.primary }}>EW</div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: C.primary }}>EW</div>
+              <div style={{ marginTop: 8, textAlign: 'center' }}><PlatformUpdatesBell userId={profile?.id} audience="sp" /></div>
+            </div>
           ) : (
             <>
-              <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+                <PlatformUpdatesBell userId={profile?.id} audience="sp" />
+              </div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
               <div style={{ marginTop: 8 }}><Badge color={C.primary}>🌐 Super Admin</Badge></div>
             </>
@@ -2423,9 +2432,6 @@ var spNavBase = [
       </div>
 
       <div style={{ position: 'fixed', top: 0, left: isMobile ? 0 : (sidebarCollapsed ? 64 : 240), right: 0, bottom: 0, overflowY: (spPage === "inbox" || spPage === "flows" || spPage === "helpdesk") ? "hidden" : "auto", transition: "left 0.25s ease", display: "flex", flexDirection: "column", background: C.bg, zIndex: 50 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '10px 20px 0', flexShrink: 0, gap: 12 }}>
-          <PlatformUpdatesBell userId={profile?.id} audience="sp" />
-        </div>
         {spPage === "dashboard" && <SuperAdminDashboard tenant={TENANTS.serviceProvider} onDrillDown={pushDrill} C={C} demoMode={demoMode} liveTenants={liveTenants} liveStats={liveStats} />}
         {spPage === "tenants" && <TenantManagement C={C} demoMode={demoMode} onDrillDown={pushDrill} refreshLiveData={refreshLiveData} />}
         {spPage === "hierarchy" && <HierarchyView C={C} onDrillDown={pushDrill} />}

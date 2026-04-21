@@ -41,14 +41,14 @@ function splitName(name) {
   return { first: parts[0] || "", last: parts.slice(1).join(" ") || "" };
 }
 
-const labelStyle = { fontSize: "11px", fontWeight: 700, color: "#475569", letterSpacing: "0.06em", textTransform: "uppercase" };
+const labelStyle = { fontSize: "11px", fontWeight: 700, color: "#8899aa", letterSpacing: "0.06em", textTransform: "uppercase" };
 const inputStyle = { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#f1f5f9", fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
 
 function LeadCard({ lead, onSelect, onUrgencyChange }) {
   const stage = STAGES.find((s) => s.id === lead.stage) || STAGES[0];
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
-  const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#64748b" }[lead.urgency] || "#64748b";
+  const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#9aaabb" }[lead.urgency] || "#9aaabb";
   const nextActionOverdue = lead.next_action_date && new Date(lead.next_action_date) < new Date();
   const displayName = lead.company || lead.name;
   const contactName = (lead.name && lead.name !== lead.email && !lead.name.includes('@')) ? lead.name : null;
@@ -64,7 +64,7 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
         {stale && <div style={{ fontSize: "10px", color: "#ef4444", fontFamily: "monospace", fontWeight: 700 }}>{days}d</div>}
         <div style={{ display: "flex", gap: 2 }} onClick={(e) => e.stopPropagation()}>
           {["Hot","Warm","Cold"].map(function(u) {
-            var uColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#64748b" }[u];
+            var uColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#9aaabb" }[u];
             var isActive = lead.urgency === u;
             return (
               <span key={u}
@@ -76,7 +76,7 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
         </div>
       </div>
       <div style={{ fontWeight: 700, fontSize: "14px", color: "#f1f5f9", marginBottom: "2px", paddingRight: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</div>
-      <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contactName || "—"}</div>
+      <div style={{ fontSize: "12px", color: "#b0bec5", marginBottom: "6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{contactName || "—"}</div>
       <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", alignItems: "center" }}>
         <span style={{ fontSize: "10px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", padding: "2px 7px", borderRadius: "4px" }}>{lead.type || "Unknown"}</span>
         {lead.urgency && <span style={{ fontSize: "10px", color: urgencyColor, fontWeight: 700 }}>{lead.urgency === "Hot" ? "🔥" : lead.urgency === "Warm" ? "⚡" : "❄️"} {lead.urgency}</span>}
@@ -89,9 +89,9 @@ function LeadCard({ lead, onSelect, onUrgencyChange }) {
       </div>
       {(lead.next_action || lead.next_action_date) && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: 11, color: nextActionOverdue ? "#ef4444" : "#94a3b8", fontWeight: nextActionOverdue ? 700 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+          <span style={{ fontSize: 11, color: nextActionOverdue ? "#ef4444" : "#b0bec5", fontWeight: nextActionOverdue ? 700 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
             ⚡ {lead.next_action || ""}
-            {lead.next_action_date && <span style={{ marginLeft: 4, color: nextActionOverdue ? "#ef4444" : "#64748b", fontWeight: 700 }}>· {new Date(lead.next_action_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+            {lead.next_action_date && <span style={{ marginLeft: 4, color: nextActionOverdue ? "#ef4444" : "#9aaabb", fontWeight: 700 }}>· {new Date(lead.next_action_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
           </span>
         </div>
       )}
@@ -172,7 +172,7 @@ function ContactsPanel({ leadId, leadCompany }) {
           <button onClick={handleAdd} disabled={saving || !form.first_name} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", fontWeight: 700, cursor: "pointer", background: "#10b981", color: "#fff", border: "none" }}>{saving ? "Saving..." : "Save"}</button>
         </div>
       )}
-      {loading ? <div style={{ fontSize: "12px", color: "#475569" }}>Loading...</div>
+      {loading ? <div style={{ fontSize: "12px", color: "#8899aa" }}>Loading...</div>
         : contacts.length === 0 ? <div style={{ fontSize: "12px", color: "#334155" }}>No contacts yet.</div>
         : (
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -181,7 +181,7 @@ function ContactsPanel({ leadId, leadCompany }) {
                 <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "linear-gradient(135deg, #10b981, #6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "#fff", flexShrink: 0 }}>{(c.first_name || "?")[0]}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "13px", fontWeight: 600, color: "#f1f5f9" }}>{c.first_name} {c.last_name || ""}</div>
-                  <div style={{ fontSize: "11px", color: "#475569" }}>{[c.title, c.email].filter(Boolean).join(" · ")}</div>
+                  <div style={{ fontSize: "11px", color: "#8899aa" }}>{[c.title, c.email].filter(Boolean).join(" · ")}</div>
                 </div>
                 <div style={{ display: "flex", gap: "4px" }}>
                   {c.email && <a href={"mailto:" + c.email} style={{ padding: "3px 7px", borderRadius: "4px", fontSize: "10px", background: "rgba(99,102,241,0.1)", color: "#a5b4fc", textDecoration: "none" }}>✉</a>}
@@ -330,9 +330,9 @@ function Modal({ lead, onClose, onSave, tenantId }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
           <div>
             <div style={{ fontSize: "20px", fontWeight: 800, color: "#f1f5f9" }}>{form.company || fullName(firstName, lastName) || "New Lead"}</div>
-            <div style={{ fontSize: "13px", color: "#64748b" }}>{fullName(firstName, lastName) || "No contact name"}</div>
+            <div style={{ fontSize: "13px", color: "#9aaabb" }}>{fullName(firstName, lastName) || "No contact name"}</div>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "22px", cursor: "pointer" }}>X</button>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#9aaabb", fontSize: "22px", cursor: "pointer" }}>X</button>
         </div>
 
         <div style={{ marginBottom: "18px" }}>
@@ -340,7 +340,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
             {STAGES.map((s) => (
               <button key={s.id} onClick={() => setForm({ ...form, stage: s.id, last_action_at: new Date().toISOString().split("T")[0] })}
-                style={{ padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: form.stage === s.id ? s.color : "rgba(255,255,255,0.05)", color: form.stage === s.id ? "#fff" : "#94a3b8", border: "1px solid " + (form.stage === s.id ? s.color : "rgba(255,255,255,0.08)"), transition: "all 0.15s" }}>
+                style={{ padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: form.stage === s.id ? s.color : "rgba(255,255,255,0.05)", color: form.stage === s.id ? "#fff" : "#b0bec5", border: "1px solid " + (form.stage === s.id ? s.color : "rgba(255,255,255,0.08)"), transition: "all 0.15s" }}>
                 {s.icon} {s.label}
               </button>
             ))}
@@ -507,7 +507,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
             {enrolStatus && <div style={{ marginBottom:8,fontSize:12,color:"#10b981",fontWeight:600 }}>{enrolStatus}</div>}
             <div style={{ display:"flex",gap:"8px",flexWrap:"wrap" }}>
               {sequences.length === 0
-                ? <div style={{ fontSize:"12px",color:"#475569" }}>No sequences available.</div>
+                ? <div style={{ fontSize:"12px",color:"#8899aa" }}>No sequences available.</div>
                 : sequences.map(function(s) {
                   return (
                     <button key={s.id} onClick={async function(){
@@ -534,7 +534,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
               <div style={{ fontSize:"13px",color:"#10b981" }}>Tenant created, stage updated to Sandbox Shared.</div>
             ) : (
               <div>
-                <div style={{ fontSize:"12px",color:"#475569",marginBottom:"10px" }}>Creates a trial tenant, migrates contacts, moves stage to Sandbox Shared.</div>
+                <div style={{ fontSize:"12px",color:"#8899aa",marginBottom:"10px" }}>Creates a trial tenant, migrates contacts, moves stage to Sandbox Shared.</div>
                 <button onClick={handleConvertToSandbox} disabled={converting||!form.company}
                   style={{ padding:"8px 16px",borderRadius:"7px",background:"rgba(16,185,129,0.2)",color:"#10b981",border:"1px solid rgba(16,185,129,0.3)",fontWeight:700,fontSize:"12px",cursor:"pointer" }}>
                   {converting ? "Converting..." : "Convert to Sandbox"}
@@ -552,7 +552,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
             </button>
           </div>
           {aiText ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
-            : <div style={{ fontSize:"12px",color:"#475569" }}>Click to get AI-powered next actions for this lead.</div>}
+            : <div style={{ fontSize:"12px",color:"#8899aa" }}>Click to get AI-powered next actions for this lead.</div>}
         </div>
 
         {saveError && <div style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:"8px",padding:"10px 14px",marginBottom:"12px",color:"#ef4444",fontSize:"13px" }}>{saveError}</div>}
@@ -562,7 +562,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
             {saving?"Saving...":"Save Lead"}
           </button>
           {!isNew && <button onClick={handleDelete} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(239,68,68,0.1)",color:"#ef4444",fontWeight:600,fontSize:"13px",border:"1px solid rgba(239,68,68,0.2)",cursor:"pointer" }}>Delete</button>}
-          <button onClick={onClose} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",color:"#94a3b8",fontWeight:600,fontSize:"14px",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer" }}>Cancel</button>
+          <button onClick={onClose} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",color:"#b0bec5",fontWeight:600,fontSize:"14px",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer" }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -682,7 +682,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
             <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
             <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>EngageWorx</span>
-            <span style={{ fontSize:"11px",color:"#475569",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
+            <span style={{ fontSize:"11px",color:"#8899aa",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",transition:"background 0.3s" }} />
               <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
@@ -695,7 +695,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
           {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},{l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"}].map(k=>(
             <div key={k.l}>
               <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
-              <div style={{ fontSize:"10px",color:"#475569",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
+              <div style={{ fontSize:"10px",color:"#8899aa",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
             </div>
           ))}
         </div>
@@ -706,8 +706,8 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
             <button key={t} onClick={()=>setFilterType(t)} style={{ padding:"6px 12px",borderRadius:"6px",fontSize:"11px",fontWeight:600,cursor:"pointer",background:"rgba(168,85,247,0.15)",color:"#c084fc",border:"1px solid rgba(168,85,247,0.3)" }}>{t}</button>
           ))}
           <div style={{ marginLeft:"auto",display:"flex",gap:"6px",flexWrap:"wrap" }}>
-            <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#475569" }}>Actions</button>
-            <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#475569" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
+            <button onClick={()=>setShowActions(!showActions)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:showActions?"rgba(99,102,241,0.3)":"rgba(255,255,255,0.03)",color:showActions?"#a5b4fc":"#8899aa" }}>Actions</button>
+            <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#8899aa" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
             <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
               {[
                 { id: "active",    label: "✅ Active",    count: leads.filter(l => !l.archived && l.qualified !== false).length },
@@ -718,7 +718,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
                   border: "none", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none",
                   background: viewMode === tab.id ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.03)",
-                  color: viewMode === tab.id ? "#a5b4fc" : "#475569",
+                  color: viewMode === tab.id ? "#a5b4fc" : "#8899aa",
                 }}>{tab.label} ({tab.count})</button>
               ))}
             </div>
@@ -733,11 +733,11 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
               })}
             </div>
             {isSuperAdmin && <button onClick={() => setValidateOpen(true)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(99,102,241,0.4)",background:"rgba(99,102,241,0.15)",color:"#a5b4fc",marginLeft:4 }}>🔍 Validate Existing</button>}
-            <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#475569" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
-            <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#475569" }}>Urgency</button>
-            <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#475569" }}>Stage</button>
-            <button onClick={()=>{ if(sortBy==="next_action_date") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("next_action_date");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="next_action_date"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="next_action_date"?"#a5b4fc":"#475569" }}>Due Date</button>
-            <button onClick={()=>{ if(sortBy==="created_at") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("created_at");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="created_at"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="created_at"?"#a5b4fc":"#475569" }}>Date</button>
+            <button onClick={()=>{ if(sortBy==="company") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("company");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="company"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="company"?"#a5b4fc":"#8899aa" }}>A-Z {sortBy==="company"?(sortDir==="asc"?"^":"v"):""}</button>
+            <button onClick={()=>{ if(sortBy==="urgency") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("urgency");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="urgency"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="urgency"?"#a5b4fc":"#8899aa" }}>Urgency</button>
+            <button onClick={()=>{ if(sortBy==="stage") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("stage");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="stage"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="stage"?"#a5b4fc":"#8899aa" }}>Stage</button>
+            <button onClick={()=>{ if(sortBy==="next_action_date") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("next_action_date");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="next_action_date"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="next_action_date"?"#a5b4fc":"#8899aa" }}>Due Date</button>
+            <button onClick={()=>{ if(sortBy==="created_at") setSortDir(d=>d==="asc"?"desc":"asc"); else{setSortBy("created_at");setSortDir("asc");} }} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:sortBy==="created_at"?"rgba(99,102,241,0.2)":"rgba(255,255,255,0.03)",color:sortBy==="created_at"?"#a5b4fc":"#8899aa" }}>Date</button>
           </div>
         </div>
       </div>
@@ -753,12 +753,12 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
-                      <div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div>
+                      <div style={{ fontSize:10,color:"#9aaabb" }}>{l.next_action||"No action set"}</div>
                     </div>
                     <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{l.next_action_date}</div>
                   </div>
                 ))}
-              {todayActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{todayActions.length-5} more</div>}
+              {todayActions.length > 5 && <div style={{ fontSize:11,color:"#8899aa",marginTop:4 }}>+{todayActions.length-5} more</div>}
             </div>
             <div style={{ background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,padding:14 }}>
               <div style={{ fontSize:11,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>This Week ({weekActions.length})</div>
@@ -768,12 +768,12 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
-                      <div style={{ fontSize:10,color:"#64748b" }}>{l.next_action||"No action set"}</div>
+                      <div style={{ fontSize:10,color:"#9aaabb" }}>{l.next_action||"No action set"}</div>
                     </div>
                     <div style={{ fontSize:10,color:"#f59e0b",fontWeight:700,flexShrink:0,marginLeft:6 }}>{new Date(l.next_action_date).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</div>
                   </div>
                 ))}
-              {weekActions.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{weekActions.length-5} more</div>}
+              {weekActions.length > 5 && <div style={{ fontSize:11,color:"#8899aa",marginTop:4 }}>+{weekActions.length-5} more</div>}
             </div>
             <div style={{ background:"rgba(99,102,241,0.06)",border:"1px solid rgba(99,102,241,0.15)",borderRadius:10,padding:14 }}>
               <div style={{ fontSize:11,fontWeight:700,color:"#a5b4fc",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>Gone Quiet ({staleLeads.length})</div>
@@ -783,12 +783,12 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
-                      <div style={{ fontSize:10,color:"#64748b" }}>{(STAGES.find(s=>s.id===l.stage)||{}).label||l.stage}</div>
+                      <div style={{ fontSize:10,color:"#9aaabb" }}>{(STAGES.find(s=>s.id===l.stage)||{}).label||l.stage}</div>
                     </div>
                     <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{daysSince(l.last_action_at)}d</div>
                   </div>
                 ))}
-              {staleLeads.length > 5 && <div style={{ fontSize:11,color:"#475569",marginTop:4 }}>+{staleLeads.length-5} more</div>}
+              {staleLeads.length > 5 && <div style={{ fontSize:11,color:"#8899aa",marginTop:4 }}>+{staleLeads.length-5} more</div>}
             </div>
           </div>
         </div>
@@ -855,7 +855,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
               <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
                 <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
                   <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
-                  <span style={{ fontSize:"11px",fontWeight:700,color:"#64748b",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
+                  <span style={{ fontSize:"11px",fontWeight:700,color:"#9aaabb",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
                   <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
                 </div>
                 <div style={{ background:surface,borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid " + border }}>
