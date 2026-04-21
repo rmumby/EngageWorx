@@ -212,6 +212,26 @@ export function ThemeProvider({ children }) {
       [style*="color: rgba(255, 255, 255, 0.3)"],
       [style*="color: rgba(255,255,255,0.3)"] { color: #4b5563 !important; }
 
+      /* ═══ PIPELINE / LEAD DETAIL ═══ */
+      [style*="background: #0f172a"], [style*="background:#0f172a"]
+      { background: #ffffff !important; border-color: #e5e7eb !important; }
+      [style*="color: #f1f5f9"], [style*="color:#f1f5f9"]
+      { color: #111827 !important; }
+      [style*="color: #8899aa"], [style*="color:#8899aa"]
+      { color: #4b5563 !important; }
+      [style*="color: #9aaabb"], [style*="color:#9aaabb"]
+      { color: #4b5563 !important; }
+      [style*="color: #b0bec5"], [style*="color:#b0bec5"]
+      { color: #374151 !important; }
+      [style*="color: #a5b4fc"], [style*="color:#a5b4fc"]
+      { color: #4f46e5 !important; }
+      [style*="color: #fcd34d"], [style*="color:#fcd34d"]
+      { color: #b45309 !important; }
+      [style*="color: #34d399"], [style*="color:#34d399"]
+      { color: #047857 !important; }
+      [style*="background: rgba(255, 255, 255, 0.05)"], [style*="background: rgba(255,255,255,0.05)"]
+      { background: #f3f4f6 !important; }
+
       /* ═══ FORM ELEMENTS ═══ */
       select, input, textarea {
         color: #111827 !important;
