@@ -238,25 +238,36 @@ module.exports = async function handler(req, res) {
     // INBOUND — Entry point for all calls
     // ═══════════════════════════════════════════════════════════════
     if (action === 'inbound') {
+      var SP_TID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+      var toNum = body.To || '';
       var voiceConfig = null;
       var config = {};
       var tenantId = null;
 
-      try {
-        voiceConfig = await getVoiceConfig(body.To || '');
-        config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
-        tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
-      } catch(e) { console.warn('Config lookup error:', e.message); }
-
-      // Default to SP tenant — also load its config if we fell back
-      if (!tenantId) {
-        tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+      // Force SP tenant for the EngageWorx main number — skip DB lookup entirely
+      if (toNum.indexOf('7869827800') > -1) {
+        tenantId = SP_TID;
+        console.log('[Voice] FORCED SP tenant for EngageWorx number ' + toNum);
         try {
-          var spCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'voice').eq('enabled', true).maybeSingle();
+          var spCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', SP_TID).eq('channel', 'voice').eq('enabled', true).maybeSingle();
           if (spCfg.data) config = spCfg.data.config_encrypted || {};
-          console.log('[Voice] SP fallback — loaded config, auto_answer=' + (config.auto_answer || 'not set'));
         } catch(e) {}
+      } else {
+        try {
+          voiceConfig = await getVoiceConfig(toNum);
+          config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
+          tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
+        } catch(e) { console.warn('Config lookup error:', e.message); }
+
+        if (!tenantId) {
+          tenantId = SP_TID;
+          try {
+            var spCfg2 = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', SP_TID).eq('channel', 'voice').eq('enabled', true).maybeSingle();
+            if (spCfg2.data) config = spCfg2.data.config_encrypted || {};
+          } catch(e) {}
+        }
       }
+      console.log('[Voice] resolved tenant=' + tenantId + ' auto_answer=' + (config.auto_answer || 'NOT SET') + ' greeting=' + ((config.during_hours_greeting || config.greeting || '').substring(0, 40) || 'default'));
 
       var voice = defaultVoiceFor(body.To);
       if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.[\w-]+/); if (vm) voice = vm[0]; }
