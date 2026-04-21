@@ -272,7 +272,7 @@ module.exports = async function handler(req, res) {
       var voice = defaultVoiceFor(body.To);
       if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.[\w-]+/); if (vm) voice = vm[0]; }
 
-      var recordingNotice = (config.recording_enabled !== 'Disabled') ? 'This call may be recorded. ' : '';
+      var recordingNotice = (String(config.recording_enabled || '').toLowerCase() === 'enabled' && String(config.show_recording_notice || '').toLowerCase() === 'true') ? 'This call may be recorded. ' : '';
 
       // Log the call
       try {
@@ -341,7 +341,8 @@ module.exports = async function handler(req, res) {
         var menuOptions = departments.filter(function(d) { return d.name; }).map(function(d) {
           return 'Press ' + d.digit + ' ' + (d.description || 'for ' + d.name);
         }).join('. ');
-        var ivrPrompt = recordingNotice + (config.during_hours_greeting || config.greeting || 'Thank you for calling.') + ' ' + menuOptions + '. Or hold for our AI assistant.';
+        var ivrBase = config.during_hours_greeting || config.greeting || 'Thank you for calling.';
+        var ivrPrompt = recordingNotice + ivrBase + ' ' + menuOptions + '. Or stay on the line to speak with us.';
 
         var routeUrl = portalBase + '/api/twilio-voice?action=route&tenant=' + tenantId;
         return sendTwiml(
@@ -354,12 +355,19 @@ module.exports = async function handler(req, res) {
         );
       }
 
-      // ── AI mode — EngageWorx default, or any tenant without IVR ──
+      // ── AI mode — use during_hours_greeting verbatim if set ──
       var agentName = await getAgentName(tenantId);
       var businessName = 'EngageWorx';
       try { var tnR = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle(); if (tnR.data) businessName = tnR.data.brand_name || tnR.data.name || businessName; } catch(e) {}
-      var greeting = config.during_hours_greeting || config.greeting ||
-        ('Hi there! Thanks for calling ' + businessName + '. I\'m ' + agentName + ', your AI assistant. How can I help you today?');
+
+      var greeting;
+      if (config.during_hours_greeting) {
+        greeting = config.during_hours_greeting;
+      } else if (config.greeting) {
+        greeting = config.greeting;
+      } else {
+        greeting = 'Hi, you\'ve reached ' + businessName + '. I\'m ' + agentName + '. How can I help you?';
+      }
 
       return sendTwiml(
         gather(aiUrlXml, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help'),
