@@ -396,14 +396,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Debounced email duplicate check on add form
   useEffect(() => {
-    if (demoMode || !currentTenantId || !newContact.email || !showAddContact) { setEmailWarning(null); return; }
+    if (demoMode || !resolvedTenantId || !newContact.email || !showAddContact) { setEmailWarning(null); return; }
     var em = newContact.email.trim().toLowerCase();
     if (em.length < 5 || !em.includes('@')) { setEmailWarning(null); return; }
     var timer = setTimeout(function() {
       fetch('/api/contacts?action=check-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: currentTenantId, email: em }),
+        body: JSON.stringify({ tenant_id: resolvedTenantId, email: em }),
       })
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -717,18 +717,18 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         const PERSONAL = ['gmail.com','googlemail.com','yahoo.com','yahoo.co.uk','hotmail.com','outlook.com','live.com','icloud.com','me.com','mac.com','aol.com','protonmail.com','proton.me','msn.com','ymail.com'];
         if (domain && PERSONAL.indexOf(domain) === -1) {
           try {
-            const { data: hit } = await supabase.from('companies').select('id').eq('tenant_id', currentTenantId).eq('domain', domain).maybeSingle();
+            const { data: hit } = await supabase.from('companies').select('id').eq('tenant_id', resolvedTenantId).eq('domain', domain).maybeSingle();
             if (hit && hit.id) companyId = hit.id;
             else {
               const brand = newContact.company || (domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1));
-              const { data: ins } = await supabase.from('companies').insert({ tenant_id: currentTenantId, name: brand, domain: domain, website_url: 'https://' + domain }).select('id').single();
+              const { data: ins } = await supabase.from('companies').insert({ tenant_id: resolvedTenantId, name: brand, domain: domain, website_url: 'https://' + domain }).select('id').single();
               if (ins) companyId = ins.id;
             }
           } catch (e) { console.warn('[Companies] link error:', e.message); }
         }
       }
       const { error } = await supabase.from('contacts').insert({
-        tenant_id: currentTenantId,
+        tenant_id: resolvedTenantId,
         first_name: newContact.firstName,
         last_name: newContact.lastName,
         email: newContact.email || null,
@@ -743,7 +743,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       if (error) throw error;
       const { data, error: fetchError } = await supabase
         .from('contacts').select('*')
-        .eq('tenant_id', currentTenantId)
+        .eq('tenant_id', resolvedTenantId)
         .order('created_at', { ascending: false });
       if (fetchError) throw fetchError;
       setContacts((data || []).map(mapContact));
