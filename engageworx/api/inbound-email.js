@@ -240,7 +240,9 @@ module.exports = async function handler(req, res) {
       // Find or create conversation
       const { data: existingConv } = await supabase
         .from('conversations').select('id')
-        .eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId).limit(1);
+        .eq('contact_id', contactId).eq('channel', 'email').eq('tenant_id', tenantId)
+        .in('status', ['active', 'waiting', 'snoozed'])
+        .order('last_message_at', { ascending: false }).limit(1);
 
       if (existingConv?.length > 0) {
         conversationId = existingConv[0].id;

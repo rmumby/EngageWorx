@@ -496,22 +496,50 @@ useEffect(function() {
           });
         }
 
-        // 4. Assemble
-        var result = convos.map(function(conv) {
+        // 4. Deduplicate: keep only the most recent conversation per contact+channel
+        var dedupKey = {};
+        var dedupConvos = [];
+        convos.forEach(function(conv) {
+          var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
+          var ts = conv.last_message_at || conv.created_at || '';
+          if (!dedupKey[key]) {
+            dedupKey[key] = { idx: dedupConvos.length, ts: ts, msgCount: 1 };
+            dedupConvos.push(conv);
+          } else {
+            dedupKey[key].msgCount++;
+            if (ts > dedupKey[key].ts) {
+              dedupKey[key].ts = ts;
+              dedupConvos[dedupKey[key].idx] = conv;
+            }
+          }
+        });
+
+        // 5. Assemble
+        var result = dedupConvos.map(function(conv) {
           var c = contactMap[conv.contact_id];
-          var name = c 
+          var name = c
   ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown'
   : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : conv.channel === 'email' ? 'Email Conversation' : 'Unknown');
           var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
-          var convMsgs = msgMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+          var allMsgs = [];
+          var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
+          convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).forEach(function(cv) {
+            var msgs = msgMap[cv.id] || [];
+            allMsgs = allMsgs.concat(msgs);
+          });
+          allMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
+          if (allMsgs.length === 0) {
+            allMsgs = [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+          }
+          var totalUnreadForGroup = convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).reduce(function(sum, cv) { return sum + (cv.unread_count || 0); }, 0);
           return {
             id: conv.id,
             contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
             channel: (conv.channel || 'email').toLowerCase(),
-            messages: convMsgs,
+            messages: allMsgs,
             status: conv.status || 'active',
             assignedTo: null,
-            unread: conv.unread_count || 0,
+            unread: totalUnreadForGroup,
             lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
             isTyping: false,
             priority: conv.priority || 'normal',
@@ -532,31 +560,45 @@ useEffect(function() {
           var callData = callResult.data || [];
           console.log('📞 Found', callData.length, 'calls');
           
-          var callConvos = callData.map(function(call) {
-            var callMsgs = [];
-            if (call.transcript) {
-              callMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-            }
-            if (call.recording_url) {
-              callMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
-            }
-            if (callMsgs.length === 0) {
-              callMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-            }
-            var callerNum = call.from_number || 'Unknown';
+          // Group calls by from_number — show one conversation per caller with all calls as messages
+          var callsByNumber = {};
+          callData.forEach(function(call) {
+            var num = call.from_number || 'Unknown';
+            if (!callsByNumber[num]) callsByNumber[num] = [];
+            callsByNumber[num].push(call);
+          });
+
+          var callConvos = Object.keys(callsByNumber).map(function(callerNum) {
+            var calls = callsByNumber[callerNum];
+            var allCallMsgs = [];
+            var hasVoicemail = false;
+            calls.forEach(function(call) {
+              if (call.transcript) {
+                allCallMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              }
+              if (call.recording_url) {
+                allCallMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
+                hasVoicemail = true;
+              }
+              if (!call.transcript && !call.recording_url) {
+                allCallMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+              }
+            });
+            allCallMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
+            var latestCall = calls[0];
             return {
-              id: 'call_' + call.id,
-              contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
+              id: 'call_' + latestCall.id,
+              contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: hasVoicemail ? ['Voicemail'] : [] },
               channel: 'voice',
-              messages: callMsgs,
+              messages: allCallMsgs,
               status: 'active',
               assignedTo: null,
-              unread: call.status === 'completed' ? 0 : 1,
-              lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
+              unread: calls.filter(function(c) { return c.status !== 'completed'; }).length,
+              lastActivity: latestCall.started_at ? new Date(latestCall.started_at) : new Date(),
               isTyping: false,
               priority: 'normal',
-              subject: 'Voice call from ' + callerNum,
-              tenant_id: call.tenant_id,
+              subject: calls.length > 1 ? calls.length + ' calls from ' + callerNum : 'Voice call from ' + callerNum,
+              tenant_id: latestCall.tenant_id,
               contact_id: null,
             };
           });
@@ -653,23 +695,36 @@ useEffect(function() {
         }
         console.log('[NewConv] contact resolved: id=' + contactId);
       }
-      // Create conversation
-      console.log('[NewConv] creating conversation: tenant=' + resolvedTenantId + ' contact=' + contactId + ' channel=' + newConvChannel);
-      var convPayload = {
-        tenant_id: resolvedTenantId, contact_id: contactId || null,
-        channel: newConvChannel, status: 'active',
-        subject: 'New: ' + contactName,
-        last_message_at: new Date().toISOString(), unread_count: 0,
-      };
-      var convRes = await supabase.from('conversations').insert(convPayload).select('id').single();
-      if (convRes.error) {
-        console.error('[NewConv] INSERT ERROR:', convRes.error.message, convRes.error.details, convRes.error.hint, 'payload:', JSON.stringify(convPayload));
-        throw new Error('Failed to create conversation: ' + convRes.error.message);
+      // Find existing active conversation or create new one
+      var existingConvId = null;
+      if (contactId && supabase) {
+        var existCheck = await supabase.from('conversations').select('id').eq('tenant_id', resolvedTenantId).eq('contact_id', contactId).eq('channel', newConvChannel).in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+        if (existCheck.data) existingConvId = existCheck.data.id;
       }
-      if (!convRes.data) throw new Error('Failed to create conversation: no data returned');
+      var convId;
+      if (existingConvId) {
+        console.log('[NewConv] reusing existing conversation:', existingConvId);
+        await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'active' }).eq('id', existingConvId);
+        convId = existingConvId;
+      } else {
+        console.log('[NewConv] creating conversation: tenant=' + resolvedTenantId + ' contact=' + contactId + ' channel=' + newConvChannel);
+        var convPayload = {
+          tenant_id: resolvedTenantId, contact_id: contactId || null,
+          channel: newConvChannel, status: 'active',
+          subject: 'New: ' + contactName,
+          last_message_at: new Date().toISOString(), unread_count: 0,
+        };
+        var convRes = await supabase.from('conversations').insert(convPayload).select('id').single();
+        if (convRes.error) {
+          console.error('[NewConv] INSERT ERROR:', convRes.error.message, convRes.error.details, convRes.error.hint, 'payload:', JSON.stringify(convPayload));
+          throw new Error('Failed to create conversation: ' + convRes.error.message);
+        }
+        if (!convRes.data) throw new Error('Failed to create conversation: no data returned');
+        convId = convRes.data.id;
+      }
       // Insert message
       await supabase.from('messages').insert({
-        tenant_id: resolvedTenantId, conversation_id: convRes.data.id,
+        tenant_id: resolvedTenantId, conversation_id: convId,
         contact_id: contactId, channel: newConvChannel,
         direction: 'outbound', sender_type: 'agent',
         body: newConvBody.trim(), status: 'delivered',

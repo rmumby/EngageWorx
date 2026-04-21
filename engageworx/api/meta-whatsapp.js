@@ -120,7 +120,8 @@ module.exports = async function handler(req, res) {
         .eq('tenant_id', tenantId)
         .eq('contact_id', contactId)
         .eq('channel', 'whatsapp')
-        .order('created_at', { ascending: false })
+        .in('status', ['active', 'waiting', 'snoozed'])
+        .order('last_message_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 

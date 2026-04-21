@@ -207,11 +207,12 @@ if (existing.data) {
 }
       }
       // Sync to chatbot_configs so message handlers pick up business knowledge
-      await supabase.from('chatbot_configs').update({
+      await supabase.from('chatbot_configs').upsert({
+        tenant_id: currentTenantId,
         bot_name: aiConfig.agentName,
         knowledge_base: aiConfig.businessInfo,
         channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
-      }).eq('tenant_id', currentTenantId);
+      }, { onConflict: 'tenant_id' });
       setConfigSaved(true);
       setKbUploadState("idle");
       setTimeout(function() { setConfigSaved(false); }, 3000);

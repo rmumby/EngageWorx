@@ -350,7 +350,7 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
 }
 
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
-function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData }) {
+function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, currentTenantId }) {
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
@@ -398,7 +398,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
     setCreateError(null);
     try {
       var slug = newTenant.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
-      var tenantRes = await supabase.from('tenants').insert({
+      var insertPayload = {
         name: newTenant.companyName,
         slug: slug,
         plan: newTenant.plan,
@@ -408,7 +408,11 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
         channels_enabled: ['sms', 'email'],
         tenant_type: newTenant.type,
         custom_domain: newTenant.domain || null,
-      }).select().single();
+      };
+      if (currentTenantId) {
+        insertPayload.parent_tenant_id = currentTenantId;
+      }
+      var tenantRes = await supabase.from('tenants').insert(insertPayload).select().single();
       if (tenantRes.error) throw new Error(tenantRes.error.message);
       // Link user as admin team member. If user doesn't exist, invite via Supabase auth.
       var userRes = await supabase.from('user_profiles').select('id').ilike('email', newTenant.email).maybeSingle();
@@ -544,10 +548,14 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
-        const { data, error } = await supabase
+        var tenantQuery = supabase
           .from('tenants')
           .select('*')
           .order('created_at', { ascending: false });
+        if (currentTenantId) {
+          tenantQuery = tenantQuery.eq('parent_tenant_id', currentTenantId);
+        }
+        const { data, error } = await tenantQuery;
         if (!error && data) {
           const mapped = data.map(t => ({
             id: t.id,
@@ -587,7 +595,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData })
       } catch (err) { console.error('Tenant fetch error:', err); }
       setTenantsLoading(false);
     })();
-  }, [demoResult, demoMode]); // Refetch after demo creation or mode change
+  }, [demoResult, demoMode, currentTenantId]); // Refetch after demo creation, mode change, or tenant switch
 
   const inputStyleTM = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const themePresets = [
@@ -1735,7 +1743,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
-        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function() {}} />}
+        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function() {}} currentTenantId={tenantId} />}
         {page === "hierarchy" && entityTier === 'csp' && <HierarchyView C={C} />}
         {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
         {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}

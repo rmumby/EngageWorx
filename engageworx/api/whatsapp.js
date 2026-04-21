@@ -258,7 +258,7 @@ module.exports = async function handler(req, res) {
           }
 
           if (contactId) {
-            var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
+            var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
             var conversationId = convResult.data ? convResult.data.id : null;
 
             if (!conversationId) {
@@ -423,7 +423,7 @@ module.exports = async function handler(req, res) {
           // Find or create conversation
           var conversationId = null;
           if (contactId) {
-            var cv = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
+            var cv = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
             if (cv.data) {
               conversationId = cv.data.id;
               await supabase.from('conversations').update({
