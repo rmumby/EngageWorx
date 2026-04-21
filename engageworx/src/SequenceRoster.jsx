@@ -101,7 +101,15 @@ export default function SequenceRoster({ C, currentTenantId }) {
                   </button>
                   <button onClick={async function(e) {
                     e.stopPropagation();
-                    if (!window.confirm('Delete sequence "' + s.name + '"? This cannot be undone.')) return;
+                    try {
+                      var activeCheck = await supabase.from('lead_sequences').select('id', { count: 'exact', head: true }).eq('sequence_id', s.id).eq('status', 'active');
+                      var activeCount = activeCheck.count || 0;
+                      if (activeCount > 0) {
+                        alert('Cannot delete "' + s.name + '" — ' + activeCount + ' contact(s) are actively enrolled. Pause or complete their enrolments first.');
+                        return;
+                      }
+                    } catch (checkErr) {}
+                    if (!window.confirm('Delete "' + s.name + '"? This will remove all steps and unenroll all contacts.')) return;
                     try {
                       await supabase.from('lead_sequences').delete().eq('sequence_id', s.id);
                       await supabase.from('sequence_steps').delete().eq('sequence_id', s.id);
@@ -109,7 +117,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
                       if (selectedSeq === s.id) setSelectedSeq(null);
                       setSequences(function(prev) { return prev.filter(function(seq) { return seq.id !== s.id; }); });
                     } catch(err) { alert('Delete failed: ' + err.message); }
-                  }} style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '4px 7px', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', lineHeight: 1 }}>✕</button>
+                  }} title="Delete sequence" style={{ position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6, padding: '4px 7px', color: '#ef4444', cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', lineHeight: 1 }}>🗑️</button>
                 </div>
               );
             })}
