@@ -1711,12 +1711,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && (
-          <div>
-            <div style={{ padding: '24px 32px 0' }}>
-              <SupportRequestForm tenantId={tenantId} userEmail={cpAuth && cpAuth.user ? cpAuth.user.email : null} userName={cpAuth && cpAuth.profile ? cpAuth.profile.full_name : null} C={C} />
-            </div>
-            <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} demoMode={false} />
-          </div>
+          <HelpDeskModule tenantId={tenantId} userRole="tenant" C={C} demoMode={false} />
         )}
         {page === "sequences" && <SequenceBuilder C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "sequenceroster" && <SequenceRoster C={C} currentTenantId={tenantId} demoMode={false} />}
