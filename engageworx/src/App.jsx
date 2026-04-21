@@ -1655,6 +1655,14 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           ))}
         </nav>
         <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+          {!cpSidebarCollapsed ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+              <span style={{ fontSize: 12, color: C.muted }}>🌙 Theme</span>
+              <ThemeToggle />
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", marginBottom: 2 }}><ThemeToggle /></div>
+          )}
           <button onClick={() => setCpSidebarCollapsed(!cpSidebarCollapsed)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, justifyContent: cpSidebarCollapsed ? "center" : "flex-start", padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             <span>{cpSidebarCollapsed ? "»" : "«"}</span>
             {!cpSidebarCollapsed && <span>Collapse</span>}
