@@ -147,27 +147,28 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       try {
         const { supabase } = await import('./supabaseClient');
         // Load from chatbot_configs first (primary source for bot name/prompt/kb)
+        var cbBotName = null;
         try {
           var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', currentTenantId).maybeSingle();
           if (cbR.data) {
-            if (cbR.data.bot_name) setBotName(cbR.data.bot_name);
+            if (cbR.data.bot_name) { cbBotName = cbR.data.bot_name; setBotName(cbR.data.bot_name); }
             if (cbR.data.system_prompt) setSystemPrompt(cbR.data.system_prompt);
           }
         } catch (e) {}
         // Load channel configs for per-channel settings
         const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
         if (!error && data && data.length > 0) {
-          var merged = { agentName: "Aria", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
+          var merged = { agentName: cbBotName || "Aria", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
           data.forEach(function(cfg) {
             var c = cfg.config_encrypted || {};
-            if (c.ai_agent_name) merged.agentName = c.ai_agent_name;
+            if (c.ai_agent_name && !cbBotName) merged.agentName = c.ai_agent_name;
             if (c.ai_business_info && c.ai_business_info.length > (merged.businessInfo || '').length) merged.businessInfo = c.ai_business_info;
             if (c.kb_sources) merged.kbSources = c.kb_sources;
             if (c.ai_enabled !== undefined) merged.aiEnabled = c.ai_enabled;
             if (cfg.channel && cfg.enabled) merged.channels[cfg.channel] = true;
           });
           setAiConfig(merged);
-          if (merged.agentName && merged.agentName !== 'Aria') setBotName(merged.agentName);
+          setBotName(merged.agentName);
           if (merged.kbSources && merged.kbSources.length > 0) setKbSources(merged.kbSources);
         }
       } catch (err) { console.error('AI config load error:', err); }

@@ -3,6 +3,102 @@ import { useTranslation } from 'react-i18next';
 import { DEMO_CONVERSATIONS } from '../demoFixtures';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
+function dedupConversations(convos, contactMap, msgMap) {
+  var dedupKey = {};
+  var dedupList = [];
+  convos.forEach(function(conv) {
+    var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
+    var ts = conv.last_message_at || conv.created_at || '';
+    if (!dedupKey[key]) {
+      dedupKey[key] = { idx: dedupList.length, ts: ts };
+      dedupList.push(conv);
+    } else {
+      if (ts > dedupKey[key].ts) {
+        dedupKey[key].ts = ts;
+        dedupList[dedupKey[key].idx] = conv;
+      }
+    }
+  });
+  return dedupList.map(function(conv) {
+    var c = contactMap ? contactMap[conv.contact_id] : null;
+    var name = c
+      ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown'
+      : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : conv.channel === 'email' ? 'Email Conversation' : 'Unknown');
+    var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
+    var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
+    var allMsgs = [];
+    if (msgMap) {
+      convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).forEach(function(cv) {
+        var msgs = msgMap[cv.id] || [];
+        allMsgs = allMsgs.concat(msgs);
+      });
+      allMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
+    }
+    if (allMsgs.length === 0) {
+      allMsgs = [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
+    }
+    var totalUnread = convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).reduce(function(sum, cv) { return sum + (cv.unread_count || 0); }, 0);
+    return {
+      id: conv.id,
+      contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
+      channel: (conv.channel || 'email').toLowerCase(),
+      messages: allMsgs,
+      status: conv.status || 'active',
+      assignedTo: null,
+      unread: totalUnread,
+      lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
+      isTyping: false,
+      priority: conv.priority || 'normal',
+      subject: conv.subject || '',
+      tenant_id: conv.tenant_id,
+      contact_id: conv.contact_id,
+    };
+  });
+}
+
+function groupCallsByNumber(callData) {
+  var callsByNumber = {};
+  callData.forEach(function(call) {
+    var num = call.from_number || 'Unknown';
+    if (!callsByNumber[num]) callsByNumber[num] = [];
+    callsByNumber[num].push(call);
+  });
+  return Object.keys(callsByNumber).map(function(callerNum) {
+    var calls = callsByNumber[callerNum];
+    var allCallMsgs = [];
+    var hasVoicemail = false;
+    calls.forEach(function(call) {
+      if (call.transcript) {
+        allCallMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+      }
+      if (call.recording_url) {
+        allCallMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '\ud83c\udf99\ufe0f Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '\ud83d\udcde', status: 'online' }, read: true, delivered: true });
+        hasVoicemail = true;
+      }
+      if (!call.transcript && !call.recording_url) {
+        allCallMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') \u2014 ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
+      }
+    });
+    allCallMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
+    var latestCall = calls[0];
+    return {
+      id: 'call_' + latestCall.id,
+      contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '\ud83d\udcde', channel: 'voice', tags: hasVoicemail ? ['Voicemail'] : [] },
+      channel: 'voice',
+      messages: allCallMsgs,
+      status: 'active',
+      assignedTo: null,
+      unread: calls.filter(function(c) { return c.status !== 'completed'; }).length,
+      lastActivity: latestCall.started_at ? new Date(latestCall.started_at) : new Date(),
+      isTyping: false,
+      priority: 'normal',
+      subject: calls.length > 1 ? calls.length + ' calls from ' + callerNum : 'Voice call from ' + callerNum,
+      tenant_id: latestCall.tenant_id,
+      contact_id: null,
+    };
+  });
+}
+
 const AGENTS = [
   { id: "a1", name: "Sarah M.", avatar: "SM", status: "online" },
   { id: "a2", name: "James K.", avatar: "JK", status: "online" },
@@ -373,42 +469,19 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             });
           }
           
-          var assembled = convos.map(function(conv) {
-            var c = cMap[conv.contact_id];
-           var name = c ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown' : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : 'Unknown');
-            var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
-            var msgs = mMap[conv.id] || [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
-            return {
-              id: conv.id, contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
-              channel: (conv.channel || 'email').toLowerCase(), messages: msgs, status: conv.status || 'active', assignedTo: null,
-              unread: conv.unread_count || 0, lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
-              isTyping: false, priority: conv.priority || 'normal', subject: conv.subject || '', tenant_id: conv.tenant_id, contact_id: conv.contact_id,
-            };
-          });
-          
+          var assembled = dedupConversations(convos, cMap, mMap);
+
           // Also fetch calls for polling
           try {
             var pollCallQuery = viewLevel === 'tenant'
               ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
               : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
             var pollCallResult = await pollCallQuery;
-            var pollCalls = (pollCallResult.data || []).map(function(call) {
-              var cMsgs = [];
-              if (call.transcript) cMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-              if (call.recording_url) cMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
-              if (cMsgs.length === 0) cMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ')', time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-              return {
-                id: 'call_' + call.id, contact: { name: call.from_number || 'Unknown', phone: call.from_number || '', email: '', company: '', avatar: '📞', channel: 'voice', tags: call.disposition === 'voicemail' ? ['Voicemail'] : [] },
-                channel: 'voice', messages: cMsgs, status: 'active',
-                assignedTo: null, unread: 0, lastActivity: call.started_at ? new Date(call.started_at) : new Date(),
-                isTyping: false, priority: 'normal', subject: 'Voice call from ' + (call.from_number || 'Unknown'),
-                tenant_id: call.tenant_id, contact_id: null,
-              };
-            });
+            var pollCalls = groupCallsByNumber(pollCallResult.data || []);
             assembled = assembled.concat(pollCalls);
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
-          
+
           setConversations(assembled);
           
           // Also refresh selected conversation messages
@@ -496,62 +569,11 @@ useEffect(function() {
           });
         }
 
-        // 4. Deduplicate: keep only the most recent conversation per contact+channel
-        var dedupKey = {};
-        var dedupConvos = [];
-        convos.forEach(function(conv) {
-          var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
-          var ts = conv.last_message_at || conv.created_at || '';
-          if (!dedupKey[key]) {
-            dedupKey[key] = { idx: dedupConvos.length, ts: ts, msgCount: 1 };
-            dedupConvos.push(conv);
-          } else {
-            dedupKey[key].msgCount++;
-            if (ts > dedupKey[key].ts) {
-              dedupKey[key].ts = ts;
-              dedupConvos[dedupKey[key].idx] = conv;
-            }
-          }
-        });
+        // 4. Deduplicate and assemble
+        var result = dedupConversations(convos, contactMap, msgMap);
+        console.log('🟢 Assembled', result.length, 'deduped conversations from', convos.length, 'raw');
 
-        // 5. Assemble
-        var result = dedupConvos.map(function(conv) {
-          var c = contactMap[conv.contact_id];
-          var name = c
-  ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown'
-  : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : conv.channel === 'email' ? 'Email Conversation' : 'Unknown');
-          var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
-          var allMsgs = [];
-          var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
-          convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).forEach(function(cv) {
-            var msgs = msgMap[cv.id] || [];
-            allMsgs = allMsgs.concat(msgs);
-          });
-          allMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
-          if (allMsgs.length === 0) {
-            allMsgs = [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
-          }
-          var totalUnreadForGroup = convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).reduce(function(sum, cv) { return sum + (cv.unread_count || 0); }, 0);
-          return {
-            id: conv.id,
-            contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
-            channel: (conv.channel || 'email').toLowerCase(),
-            messages: allMsgs,
-            status: conv.status || 'active',
-            assignedTo: null,
-            unread: totalUnreadForGroup,
-            lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
-            isTyping: false,
-            priority: conv.priority || 'normal',
-            subject: conv.subject || '',
-            tenant_id: conv.tenant_id,
-            contact_id: conv.contact_id,
-          };
-        });
-
-        console.log('🟢 Assembled', result.length, 'conversations');
-        
-        // 5. Fetch calls and add as voice conversations
+        // 5. Fetch calls and add as grouped voice conversations
         try {
           var callQuery = viewLevel === 'tenant'
             ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
@@ -559,56 +581,13 @@ useEffect(function() {
           var callResult = await callQuery;
           var callData = callResult.data || [];
           console.log('📞 Found', callData.length, 'calls');
-          
-          // Group calls by from_number — show one conversation per caller with all calls as messages
-          var callsByNumber = {};
-          callData.forEach(function(call) {
-            var num = call.from_number || 'Unknown';
-            if (!callsByNumber[num]) callsByNumber[num] = [];
-            callsByNumber[num].push(call);
-          });
-
-          var callConvos = Object.keys(callsByNumber).map(function(callerNum) {
-            var calls = callsByNumber[callerNum];
-            var allCallMsgs = [];
-            var hasVoicemail = false;
-            calls.forEach(function(call) {
-              if (call.transcript) {
-                allCallMsgs.push({ id: 'tx_' + call.id, from: 'contact', text: call.transcript, time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-              }
-              if (call.recording_url) {
-                allCallMsgs.push({ id: 'rec_' + call.id, from: 'bot', text: '🎙️ Voicemail recording available', time: call.started_at ? new Date(call.started_at) : new Date(), agent: { id: 'bot', name: 'Voice System', avatar: '📞', status: 'online' }, read: true, delivered: true });
-                hasVoicemail = true;
-              }
-              if (!call.transcript && !call.recording_url) {
-                allCallMsgs.push({ id: 'ph_' + call.id, from: 'contact', text: 'Voice call (' + (call.status || 'unknown') + ') — ' + (call.disposition || 'no voicemail'), time: call.started_at ? new Date(call.started_at) : new Date(), agent: null, read: true, delivered: true });
-              }
-            });
-            allCallMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
-            var latestCall = calls[0];
-            return {
-              id: 'call_' + latestCall.id,
-              contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '📞', channel: 'voice', tags: hasVoicemail ? ['Voicemail'] : [] },
-              channel: 'voice',
-              messages: allCallMsgs,
-              status: 'active',
-              assignedTo: null,
-              unread: calls.filter(function(c) { return c.status !== 'completed'; }).length,
-              lastActivity: latestCall.started_at ? new Date(latestCall.started_at) : new Date(),
-              isTyping: false,
-              priority: 'normal',
-              subject: calls.length > 1 ? calls.length + ' calls from ' + callerNum : 'Voice call from ' + callerNum,
-              tenant_id: latestCall.tenant_id,
-              contact_id: null,
-            };
-          });
-          
+          var callConvos = groupCallsByNumber(callData);
           result = result.concat(callConvos);
           result.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
         } catch (callErr) {
           console.warn('Calls fetch error:', callErr.message);
         }
-        
+
         console.log('🟢 Total items (conversations + calls):', result.length);
         setConversations(result);
       } catch (err) {
@@ -747,17 +726,18 @@ useEffect(function() {
       }
       // Reset and close
       setNewConvOpen(false); setNewConvSearch(''); setNewConvResults([]); setNewConvContact(null); setNewConvManual(''); setNewConvBody(''); setNewConvChannel('sms');
-      // Reload conversations
+      // Reload conversations with dedup
       if (!demoMode) {
         try {
-          var convData = await supabase.from('conversations').select('*, contacts(id, first_name, last_name, email, phone, company, tags)')
-            .eq('tenant_id', resolvedTenantId).order('last_message_at', { ascending: false }).limit(100);
-          if (convData.data) {
-            setConversations(convData.data.map(function(cv) {
-              var ct = cv.contacts || {};
-              return { id: cv.id, contact_id: cv.contact_id, tenant_id: cv.tenant_id, channel: cv.channel || 'sms', status: cv.status || 'active', subject: cv.subject, priority: cv.priority || 'normal', unread: cv.unread_count || 0, lastActivity: new Date(cv.last_message_at || cv.created_at), contact: { name: ((ct.first_name || '') + ' ' + (ct.last_name || '')).trim() || 'Unknown', email: ct.email || '', phone: ct.phone || '', company: ct.company || '', avatar: ((ct.first_name || '?')[0] + (ct.last_name || '?')[0]).toUpperCase(), tags: ct.tags || [] }, messages: [], isTyping: false, assignedTo: null };
-            }));
+          var reloadConvResult = await supabase.from('conversations').select('*').eq('tenant_id', resolvedTenantId).order('last_message_at', { ascending: false }).limit(200);
+          var reloadConvos = reloadConvResult.data || [];
+          var reloadCIds = [...new Set(reloadConvos.map(function(c) { return c.contact_id; }).filter(Boolean))];
+          var reloadContactMap = {};
+          if (reloadCIds.length > 0) {
+            var reloadCResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', reloadCIds);
+            if (reloadCResult.data) reloadCResult.data.forEach(function(c) { reloadContactMap[c.id] = c; });
           }
+          setConversations(dedupConversations(reloadConvos, reloadContactMap, null));
         } catch (e) {}
       }
     } catch (e) { alert('Error: ' + e.message); }

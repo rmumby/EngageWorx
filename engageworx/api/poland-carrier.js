@@ -290,7 +290,8 @@ async function sendViaTwilioFallback(to, body, fromNumber) {
   var sid = process.env.TWILIO_ACCOUNT_SID;
   var token = process.env.TWILIO_AUTH_TOKEN;
   var twilioFrom = fromNumber || process.env.TWILIO_PHONE_NUMBER;
-  if (!sid || !token || !twilioFrom) return { ok: false, error: 'Twilio fallback not configured' };
+  console.error('[TwilioFallback] config check: SID=' + (sid ? sid.substring(0, 8) + '...' : 'MISSING') + ' token=' + (token ? 'set' : 'MISSING') + ' from=' + twilioFrom + ' to=' + to);
+  if (!sid || !token || !twilioFrom) return { ok: false, error: 'Twilio fallback not configured: SID=' + !!sid + ' token=' + !!token + ' from=' + twilioFrom };
   try {
     var url = 'https://api.twilio.com/2010-04-01/Accounts/' + sid + '/Messages.json';
     var params = new URLSearchParams();
@@ -303,9 +304,10 @@ async function sendViaTwilioFallback(to, body, fromNumber) {
       body: params.toString(),
     });
     var d = await r.json().catch(function() { return null; });
-    console.error('[TwilioFallback] to=' + to + ' status=' + r.status + ' sid=' + (d && d.sid));
-    return { ok: r.ok, status: r.status, sid: d && d.sid, transport: 'twilio_fallback' };
-  } catch (e) { console.error('[TwilioFallback] error:', e.message); return { ok: false, error: e.message }; }
+    console.error('[TwilioFallback] to=' + to + ' from=' + twilioFrom + ' status=' + r.status + ' sid=' + (d && d.sid) + ' error=' + (d && d.message ? d.message : 'none'));
+    if (d && d.code) console.error('[TwilioFallback] Twilio error code=' + d.code + ' message=' + d.message);
+    return { ok: r.ok, status: r.status, sid: d && d.sid, error_code: d && d.code, error_message: d && d.message, transport: 'twilio_fallback' };
+  } catch (e) { console.error('[TwilioFallback] EXCEPTION:', e.message); return { ok: false, error: e.message }; }
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -445,7 +447,7 @@ module.exports = async function handler(req, res) {
         await supabase.from('debug_logs').insert({
           endpoint: 'poland-carrier', action: 'sms-inbound-complete',
           payload: { from: from, to: to, text: (text || '').substring(0, 100) },
-          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, ai_reply: reply ? reply.substring(0, 100) : null, ai_reply_sent: !!(reply && sent && sent.ok), send_transport: sent && sent.transport, send_error: sent && !sent.ok ? (sent.error || JSON.stringify(sent.body || '').substring(0, 100)) : null },
+          result: { tenant_id: cfg.tenant_id, contact_id: contactId, conversation_id: conversationId, ai_reply: reply ? reply.substring(0, 100) : null, ai_reply_sent: !!(reply && sent && sent.ok), send_transport: sent && sent.transport, twilio_sid: sent && sent.sid, twilio_error_code: sent && sent.error_code, twilio_error_message: sent && sent.error_message, send_error: sent && !sent.ok ? (sent.error || sent.error_message || JSON.stringify(sent.body || '').substring(0, 100)) : null },
           created_at: new Date().toISOString(),
         });
       } catch (logErr) {}
