@@ -625,11 +625,13 @@ useEffect(function() {
       // Create or find contact if manual entry
       if (!contactId && supabase) {
         var isEmail = recipient.indexOf('@') > 0;
+        console.log('[NewConv] finding/creating contact: recipient=' + recipient + ' isEmail=' + isEmail + ' tenantId=' + currentTenantId);
         if (isEmail) {
           var ec = await supabase.from('contacts').select('id, first_name, last_name').eq('email', recipient).eq('tenant_id', currentTenantId).maybeSingle();
           if (ec.data) { contactId = ec.data.id; contactName = ((ec.data.first_name || '') + ' ' + (ec.data.last_name || '')).trim() || recipient; }
           else {
             var ins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, email: recipient, first_name: recipient.split('@')[0], status: 'active' }).select('id').single();
+            if (ins.error) console.error('[NewConv] contact insert error:', ins.error.message);
             if (ins.data) contactId = ins.data.id;
           }
         } else {
@@ -637,18 +639,26 @@ useEffect(function() {
           if (pc.data) { contactId = pc.data.id; contactName = ((pc.data.first_name || '') + ' ' + (pc.data.last_name || '')).trim() || recipient; }
           else {
             var pins = await supabase.from('contacts').insert({ tenant_id: currentTenantId, phone: recipient, mobile_phone: recipient, first_name: recipient, status: 'active' }).select('id').single();
+            if (pins.error) console.error('[NewConv] contact insert error:', pins.error.message);
             if (pins.data) contactId = pins.data.id;
           }
         }
+        console.log('[NewConv] contact resolved: id=' + contactId);
       }
       // Create conversation
-      var convRes = await supabase.from('conversations').insert({
-        tenant_id: currentTenantId, contact_id: contactId,
+      console.log('[NewConv] creating conversation: tenant=' + currentTenantId + ' contact=' + contactId + ' channel=' + newConvChannel);
+      var convPayload = {
+        tenant_id: currentTenantId, contact_id: contactId || null,
         channel: newConvChannel, status: 'active',
         subject: 'New: ' + contactName,
         last_message_at: new Date().toISOString(), unread_count: 0,
-      }).select('id').single();
-      if (!convRes.data) throw new Error('Failed to create conversation');
+      };
+      var convRes = await supabase.from('conversations').insert(convPayload).select('id').single();
+      if (convRes.error) {
+        console.error('[NewConv] INSERT ERROR:', convRes.error.message, convRes.error.details, convRes.error.hint, 'payload:', JSON.stringify(convPayload));
+        throw new Error('Failed to create conversation: ' + convRes.error.message);
+      }
+      if (!convRes.data) throw new Error('Failed to create conversation: no data returned');
       // Insert message
       await supabase.from('messages').insert({
         tenant_id: currentTenantId, conversation_id: convRes.data.id,
