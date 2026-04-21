@@ -69,19 +69,46 @@ function isBusinessHours(config) {
 
 // ─── Get voice config for this number ────────────────────────────────────────
 async function getVoiceConfig(toNumber) {
+  var SP_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
   var result = await supabase.from('channel_configs').select('*, tenant:tenant_id(id, name)').eq('channel', 'voice').eq('enabled', true);
   if (result.error || !result.data || result.data.length === 0) return null;
-  var match = result.data.find(function(c) {
-    var cfg = c.config_encrypted || {};
+  var normalizedTo = toNumber.replace(/[\s\-\(\)]/g, '');
+  var toDigits = normalizedTo.replace(/[^0-9]/g, '');
+
+  function buildFullNumber(cfg) {
     var countryCode = (cfg.phone_country || '').match(/\+\d+/);
     countryCode = countryCode ? countryCode[0] : '+1';
     var localNum = (cfg.phone_number || '').replace(/[\s\-\(\)]/g, '').replace(/^0+/, '');
-    if (!localNum) return false;
-    var fullConfigNumber = countryCode + localNum;
-    var normalizedTo = toNumber.replace(/[\s\-\(\)]/g, '');
-    return fullConfigNumber === normalizedTo || normalizedTo.endsWith(localNum.slice(-9)) || normalizedTo.endsWith(fullConfigNumber.slice(-10));
+    return { full: countryCode + localNum, local: localNum };
+  }
+
+  // Pass 1: exact match
+  var exactMatch = result.data.find(function(c) {
+    var nums = buildFullNumber(c.config_encrypted || {});
+    return nums.full === normalizedTo || nums.full.replace(/[^0-9+]/g, '') === normalizedTo;
   });
-  return match || null;
+  if (exactMatch) { console.log('[getVoiceConfig] exact match tenant=' + exactMatch.tenant_id); return exactMatch; }
+
+  // Pass 2: SP tenant match (prioritize SP over random fuzzy matches)
+  var spMatch = result.data.find(function(c) { return c.tenant_id === SP_ID; });
+  if (spMatch) {
+    var spNums = buildFullNumber(spMatch.config_encrypted || {});
+    var spDigits = spNums.full.replace(/[^0-9]/g, '');
+    if (toDigits.endsWith(spDigits.slice(-10)) || spDigits.endsWith(toDigits.slice(-10))) {
+      console.log('[getVoiceConfig] SP tenant match'); return spMatch;
+    }
+  }
+
+  // Pass 3: fuzzy match (last resort)
+  var fuzzy = result.data.find(function(c) {
+    var nums = buildFullNumber(c.config_encrypted || {});
+    var cfgDigits = nums.full.replace(/[^0-9]/g, '');
+    return toDigits.endsWith(cfgDigits.slice(-10)) || cfgDigits.endsWith(toDigits.slice(-10));
+  });
+  if (fuzzy) { console.log('[getVoiceConfig] fuzzy match tenant=' + fuzzy.tenant_id); return fuzzy; }
+
+  console.log('[getVoiceConfig] no match for ' + toNumber);
+  return null;
 }
 
 // ─── Get AI chatbot config for tenant ────────────────────────────────────────
@@ -221,8 +248,15 @@ module.exports = async function handler(req, res) {
         tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
       } catch(e) { console.warn('Config lookup error:', e.message); }
 
-      // Default to SP tenant
-      if (!tenantId) tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+      // Default to SP tenant — also load its config if we fell back
+      if (!tenantId) {
+        tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+        try {
+          var spCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'voice').eq('enabled', true).maybeSingle();
+          if (spCfg.data) config = spCfg.data.config_encrypted || {};
+          console.log('[Voice] SP fallback — loaded config, auto_answer=' + (config.auto_answer || 'not set'));
+        } catch(e) {}
+      }
 
       var voice = defaultVoiceFor(body.To);
       if (config.tts_voice) { var vm = String(config.tts_voice).match(/Polly\.[\w-]+/); if (vm) voice = vm[0]; }
