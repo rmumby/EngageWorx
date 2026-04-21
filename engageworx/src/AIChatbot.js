@@ -514,20 +514,6 @@ saveAIConfig(newSources);
           {activeTab === "personality" && (
             <div>
               <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Bot Identity</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div>
-                    <label style={label}>Bot Name</label>
-                    <input value={botName} onChange={e => setBotName(e.target.value)} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={label}>Greeting Message</label>
-                    <input value={greeting} onChange={e => setGreeting(e.target.value)} style={inputStyle} />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ ...card, marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Personality Preset</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                   {PERSONALITIES.map(p => (
