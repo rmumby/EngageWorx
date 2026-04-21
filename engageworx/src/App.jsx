@@ -1556,11 +1556,13 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [page, setPage] = useState("dashboard");
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [entityTier, setEntityTier] = useState('tenant');
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed').eq('id', tenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier').eq('id', tenantId).maybeSingle();
+        if (data && data.entity_tier) setEntityTier(data.entity_tier);
         const isSuper = cpAuth && cpAuth.profile && cpAuth.profile.role === 'superadmin';
         if (!isSuper && data && data.aup_accepted && !data.onboarding_completed) setNeedsOnboarding(true);
       } catch (e) {}
@@ -1596,17 +1598,25 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "inbox", label: t('nav.liveInbox'), icon: "💬" },
     { id: "support", label: t('nav.helpDesk'), icon: "🎫" },
     { id: "contacts", label: t('nav.contacts'), icon: "👥" },
+    entityTier === 'csp' ? { id: "pipeline", label: t('nav.pipeline'), icon: "📈" } : null,
+    entityTier === 'csp' ? { id: "import", label: t('nav.importLeads'), icon: "📥" } : null,
+    entityTier === 'csp' ? { id: "lead-scan", label: t('nav.leadScan'), icon: "📲" } : null,
     { id: "campaigns", label: t('nav.campaigns'), icon: "🚀" },
     { id: "flows", label: t('nav.flowBuilder'), icon: "⚡" },
     { id: "sequenceroster", label: t('nav.sequenceRoster'), icon: "📋" },
     { id: "sequences", label: t('nav.sequenceBuilder'), icon: "📝" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
-    { id: "analytics", label: t('nav.analytics'), icon: "📊" },
+    entityTier === 'csp' ? { id: "tenants", label: t('nav.tenantManagement'), icon: "🏢" } : null,
+    entityTier === 'csp' ? { id: "hierarchy", label: t('nav.hierarchy'), icon: "🌳" } : null,
+    entityTier === 'csp' ? { id: "analytics-global", label: t('nav.globalAnalytics'), icon: "📊" } : null,
+    entityTier !== 'csp' ? { id: "analytics", label: t('nav.analytics'), icon: "📊" } : null,
+    entityTier === 'csp' ? { id: "customer-success", label: t('nav.customerSuccess'), icon: "📈" } : null,
+    entityTier === 'csp' ? { id: "tcr-queue", label: "TCR Queue", icon: "📋" } : null,
     { id: "branding", label: t('nav.branding'), icon: "🎨" },
     { id: "sms-registration", label: t('nav.smsRegistration'), icon: "📋" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
-  ];
+  ].filter(Boolean);
 
   if (needsOnboarding) {
     return <OnboardingWizard tenantId={tenantId} onComplete={() => setNeedsOnboarding(false)} />;
@@ -1721,6 +1731,16 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
         )}
         {page === "sms-registration" && <TCRRegistration tenantId={tenantId} C={C} />}
+        {page === "pipeline" && entityTier === 'csp' && (
+          <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
+        )}
+        {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
+        {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
+        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function() {}} />}
+        {page === "hierarchy" && entityTier === 'csp' && <HierarchyView C={C} />}
+        {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
+        {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}
+        {page === "tcr-queue" && entityTier === 'csp' && <TCRQueue C={C} />}
         {page === "branding" && (
           <div style={{ padding: "32px 36px", maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
