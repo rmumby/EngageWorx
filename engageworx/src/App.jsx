@@ -1565,6 +1565,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [entityTier, setEntityTier] = useState('tenant');
+  const [cspDrillTenant, setCspDrillTenant] = useState(null);
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
@@ -1628,6 +1629,10 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
   if (needsOnboarding) {
     return <OnboardingWizard tenantId={tenantId} onComplete={() => setNeedsOnboarding(false)} />;
+  }
+
+  if (cspDrillTenant) {
+    return <CustomerPortal tenantId={cspDrillTenant} onBack={function() { setCspDrillTenant(null); }} liveTenants={liveTenants} onLogout={onLogout} />;
   }
 
   return (
@@ -1743,7 +1748,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
-        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function() {}} currentTenantId={tenantId} />}
+        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={setCspDrillTenant} currentTenantId={tenantId} />}
         {page === "hierarchy" && entityTier === 'csp' && <HierarchyView C={C} />}
         {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
         {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}

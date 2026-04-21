@@ -207,12 +207,16 @@ if (existing.data) {
 }
       }
       // Sync to chatbot_configs so message handlers pick up business knowledge
-      await supabase.from('chatbot_configs').upsert({
+      var cbPayload = {
         tenant_id: currentTenantId,
         bot_name: aiConfig.agentName,
+        system_prompt: systemPrompt,
         knowledge_base: aiConfig.businessInfo,
         channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
-      }, { onConflict: 'tenant_id' });
+      };
+      console.log('[AIChatbot] saving chatbot_configs:', JSON.stringify(cbPayload));
+      await supabase.from('chatbot_configs').upsert(cbPayload, { onConflict: 'tenant_id' });
+      setBotName(aiConfig.agentName);
       setConfigSaved(true);
       setKbUploadState("idle");
       setTimeout(function() { setConfigSaved(false); }, 3000);

@@ -1366,10 +1366,19 @@ useEffect(function() {
                 {[
                   { label: selectedConv.status === 'resolved' ? "Reopen" : "Resolve", icon: selectedConv.status === 'resolved' ? "🔄" : "✅", action: function() {
                     var newStatus = selectedConv.status === 'resolved' ? 'active' : 'resolved';
-                    if (supabase) supabase.from('conversations').update({ status: newStatus }).eq('id', selectedConv.id).then(function() {
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; });
-                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
-                    });
+                    if (supabase) {
+                      var updateQuery = supabase.from('conversations').update({ status: newStatus });
+                      if (selectedConv.contact_id) {
+                        updateQuery = updateQuery.eq('contact_id', selectedConv.contact_id).eq('channel', selectedConv.channel).eq('tenant_id', selectedConv.tenant_id);
+                      } else {
+                        updateQuery = updateQuery.eq('id', selectedConv.id);
+                      }
+                      updateQuery.then(function() {
+                        setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
+                        if (newStatus === 'resolved') { setSelectedConv(null); }
+                        else { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; }); }
+                      });
+                    }
                   }},
                   { label: selectedConv.priority === 'high' ? "Un-Urgent" : "Mark Urgent", icon: selectedConv.priority === 'high' ? "⬇️" : "🔴", action: function() {
                     var newPriority = selectedConv.priority === 'high' ? 'normal' : 'high';
