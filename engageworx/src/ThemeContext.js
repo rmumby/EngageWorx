@@ -85,6 +85,14 @@ export function ThemeProvider({ children }) {
   var theme = mode === 'dark' ? DARK : LIGHT;
   var isDark = mode === 'dark';
 
+  // Sync body class for CSS targeting
+  useEffect(function() {
+    if (typeof document !== 'undefined') {
+      document.body.classList.toggle('dark-mode', isDark);
+      document.body.classList.toggle('light-mode', !isDark);
+    }
+  }, [isDark]);
+
   // Global CSS overrides for light mode — forces readable text on white backgrounds
   var isPortalHost = (typeof window !== 'undefined') && (window.location.hostname.startsWith('portal.') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
   var lightModeCSS = (!isDark && isPortalHost) ? (
@@ -318,6 +326,61 @@ export function ThemeProvider({ children }) {
 
       /* ═══ PLACEHOLDER TEXT ═══ */
       ::placeholder { color: #9ca3af !important; opacity: 1 !important; }
+
+      /* ═══ NUCLEAR: force ALL text dark in light mode ═══ */
+      body.light-mode p,
+      body.light-mode span,
+      body.light-mode div,
+      body.light-mode h1,
+      body.light-mode h2,
+      body.light-mode h3,
+      body.light-mode h4,
+      body.light-mode h5,
+      body.light-mode label,
+      body.light-mode td,
+      body.light-mode th,
+      body.light-mode li,
+      body.light-mode pre,
+      body.light-mode code {
+        color: #111827;
+      }
+
+      /* Re-apply primary/accent/status colors after the nuclear reset */
+      body.light-mode [style*="color: #00C9FF"], body.light-mode [style*="color:#00C9FF"],
+      body.light-mode [style*="color: #0077B6"], body.light-mode [style*="color:#0077B6"]
+      { color: #0077B6 !important; }
+      body.light-mode [style*="color: #E040FB"], body.light-mode [style*="color:#E040FB"],
+      body.light-mode [style*="color: #7C3AED"], body.light-mode [style*="color:#7C3AED"]
+      { color: #7C3AED !important; }
+      body.light-mode [style*="color: #FF3B30"], body.light-mode [style*="color:#FF3B30"],
+      body.light-mode [style*="color: #ef4444"], body.light-mode [style*="color:#ef4444"]
+      { color: #dc2626 !important; }
+      body.light-mode [style*="color: #00E676"], body.light-mode [style*="color:#00E676"],
+      body.light-mode [style*="color: #10b981"], body.light-mode [style*="color:#10b981"]
+      { color: #059669 !important; }
+      body.light-mode [style*="color: #FFD600"], body.light-mode [style*="color:#FFD600"],
+      body.light-mode [style*="color: #f59e0b"], body.light-mode [style*="color:#f59e0b"]
+      { color: #d97706 !important; }
+      body.light-mode [style*="color: #FF5252"], body.light-mode [style*="color:#FF5252"]
+      { color: #dc2626 !important; }
+      body.light-mode [style*="color: #6366f1"], body.light-mode [style*="color:#6366f1"]
+      { color: #4f46e5 !important; }
+      body.light-mode [style*="color: #25D366"], body.light-mode [style*="color:#25D366"]
+      { color: #059669 !important; }
+      body.light-mode [style*="color: #FF6B35"], body.light-mode [style*="color:#FF6B35"]
+      { color: #ea580c !important; }
+
+      /* Keep buttons with colored backgrounds white text */
+      body.light-mode button[style*="background: linear-gradient"],
+      body.light-mode button[style*="background: #10b981"],
+      body.light-mode button[style*="background: #00C9FF"],
+      body.light-mode button[style*="background: #FF3B30"],
+      body.light-mode button[style*="background: #ef4444"] {
+        color: #ffffff !important;
+      }
+      body.light-mode button[style*="color: #000"] {
+        color: #000000 !important;
+      }
     ` }} />
   ) : null;
 
