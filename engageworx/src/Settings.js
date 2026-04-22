@@ -1219,7 +1219,8 @@ return (<div>
               {resolvedTenantId && !demoMode && (
                 <WhatsAppEmbeddedSignup tenantId={resolvedTenantId} C={C} appId={process.env.REACT_APP_FACEBOOK_APP_ID || ''} />
               )}
-              {resolvedTenantId && !demoMode && (
+              {/* WhatsApp Templates temporarily hidden — api/whatsapp-templates returns 500 */}
+              {false && resolvedTenantId && !demoMode && (
                 <WhatsAppTemplatesTab tenantId={resolvedTenantId} C={C} />
               )}
               {resolvedTenantId && !demoMode && (

@@ -1298,7 +1298,7 @@ export default function EmailDigest({ C, currentTenantId }) {
               </div>
             </div>
           )}
-          {staleItems.length > 0 && (
+          {false && staleItems.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>🔄 Stale Lead Actions <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {staleItems.length}</span></h2>

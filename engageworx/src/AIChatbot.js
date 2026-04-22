@@ -675,7 +675,7 @@ saveAIConfig(newSources);
                   <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Escalation Rules</h2>
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the bot should hand off to a human agent</p>
                 </div>
-                <button style={btnPrimary}>+ Add Rule</button>
+                <button disabled style={Object.assign({}, btnPrimary, { opacity: 0.4, cursor: 'not-allowed' })} title="Coming in next release — use presets below for now">+ Add Rule</button>
               </div>
               <div style={{ display: "grid", gap: 10 }}>
                 {ESCALATION_RULES.map(rule => (
