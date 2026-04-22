@@ -342,6 +342,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelConfigs, setChannelConfigs] = useState({});
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [channelSaving, setChannelSaving] = useState(null);
+  const [channelSavedId, setChannelSavedId] = useState(null);
+  const [channelSavedConfig, setChannelSavedConfig] = useState(null);
+  const [showSavedConfig, setShowSavedConfig] = useState(false);
   const [aiTonePreviews, setAiTonePreviews] = useState({});
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
@@ -574,11 +577,27 @@ if (!tenantId) {
     } catch (e) { /* fall through to insert */ }
 
     const existingConfig = (existingRow && existingRow.config_encrypted) || {};
-    const newConfig = config !== undefined ? config : existingConfig;
+    var newConfig = config !== undefined ? config : existingConfig;
     const newEnabled = enabled !== undefined ? enabled : !!(existingRow && existingRow.enabled);
-    // Only merge fields that have actual values — never overwrite existing with blank
+
+    // Populate default values for select fields that were never touched by the user
+    // (displayed visually as first option but never written to state)
+    if (config !== undefined) {
+      var chDef = CHANNEL_DEFS.find(function(c) { return c.id === channelId; });
+      if (chDef && chDef.fields) {
+        chDef.fields.forEach(function(f) {
+          if (f.type === 'select' && f.options && f.options.length > 0) {
+            if (newConfig[f.key] === undefined || newConfig[f.key] === null) {
+              newConfig[f.key] = existingConfig[f.key] || f.options[0];
+            }
+          }
+        });
+      }
+    }
+
+    // Filter out undefined/null but preserve empty strings (user may have intentionally cleared)
     const filteredNew = Object.fromEntries(
-      Object.entries(newConfig).filter(([k, v]) => v !== '' && v !== null && v !== undefined)
+      Object.entries(newConfig).filter(([k, v]) => v !== null && v !== undefined)
     );
     const mergedConfig = { ...existingConfig, ...filteredNew };
     const payload = {
@@ -594,7 +613,15 @@ if (!tenantId) {
     } else {
       ({ error } = await supabase.from("channel_configs").insert(payload));
     }
-    if (error) alert("Error saving: " + error.message); else loadChannelConfigs();
+    if (error) {
+      alert("Error saving: " + error.message);
+    } else {
+      setChannelSavedId(channelId);
+      setChannelSavedConfig(mergedConfig);
+      setShowSavedConfig(false);
+      setTimeout(function() { setChannelSavedId(null); }, 5000);
+      loadChannelConfigs();
+    }
     setChannelSaving(null);
   };
 
@@ -1139,10 +1166,17 @@ return (<div>
                           const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
                           return (<div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div><div style={{ display: "flex", gap: 6 }}>{dayNames.map((d, i) => (<button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>))}</div></div>);
                         })()}
-                        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
                           <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
                           <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).eq("tenant_id", _tid).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                          {channelSavedId === ch.id && <span style={{ color: "#00E676", fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
+                          {channelSavedId === ch.id && channelSavedConfig && (
+                            <button onClick={() => setShowSavedConfig(!showSavedConfig)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif", textDecoration: "underline" }}>{showSavedConfig ? "Hide config" : "View saved config"}</button>
+                          )}
                         </div>
+                        {channelSavedId === ch.id && showSavedConfig && channelSavedConfig && (
+                          <pre style={{ marginTop: 8, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 12, fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{JSON.stringify(channelSavedConfig, null, 2)}</pre>
+                        )}
                       </>
                     )}
                     {!isEnabled && <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>Enable this channel to configure your {ch.label} integration.</div>}
