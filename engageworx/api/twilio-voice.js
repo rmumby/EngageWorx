@@ -229,11 +229,12 @@ async function saveConversationHistory(callSid, history) {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
+  var body = req.body || {};
+  console.log('🔵 Voice webhook:', { method: req.method, url: req.url, action: req.query.action, to: body.To, from: body.From, callSid: body.CallSid });
   res.setHeader('Content-Type', 'text/xml; charset=utf-8');
   if (req.method !== 'POST') return res.status(200).end(twiml(say('Method not allowed.') + '<Hangup/>'));
 
   var action = req.query.action || 'inbound';
-  var body = req.body || {};
   console.log('📞 Voice:', action, 'To:', body.To, 'From:', body.From, 'Speech:', (body.SpeechResult || '').substring(0, 60));
 
   try {
