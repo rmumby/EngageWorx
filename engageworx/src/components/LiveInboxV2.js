@@ -4,32 +4,52 @@ import { DEMO_CONVERSATIONS } from '../demoFixtures';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 function dedupConversations(convos, contactMap, msgMap) {
-  var dedupKey = {};
-  var dedupList = [];
+  // First pass: deduplicate by conversation id (prevents poll duplication)
+  var byId = {};
   convos.forEach(function(conv) {
-    var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
+    var existing = byId[conv.id];
+    if (!existing) { byId[conv.id] = conv; return; }
     var ts = conv.last_message_at || conv.created_at || '';
-    if (!dedupKey[key]) {
-      dedupKey[key] = { idx: dedupList.length, ts: ts };
+    var existTs = existing.last_message_at || existing.created_at || '';
+    if (ts > existTs) byId[conv.id] = conv;
+  });
+  var uniqueConvos = Object.values(byId);
+
+  // Second pass: group by contact_id+channel (only for conversations that have a contact_id)
+  var groupKey = {};
+  var dedupList = [];
+  uniqueConvos.forEach(function(conv) {
+    if (!conv.contact_id) {
+      dedupList.push(conv);
+      return;
+    }
+    var key = conv.contact_id + '::' + (conv.channel || 'email');
+    var ts = conv.last_message_at || conv.created_at || '';
+    if (!groupKey[key]) {
+      groupKey[key] = { idx: dedupList.length, ts: ts };
       dedupList.push(conv);
     } else {
-      if (ts > dedupKey[key].ts) {
-        dedupKey[key].ts = ts;
-        dedupList[dedupKey[key].idx] = conv;
+      if (ts > groupKey[key].ts) {
+        groupKey[key].ts = ts;
+        dedupList[groupKey[key].idx] = conv;
       }
     }
   });
+
   return dedupList.map(function(conv) {
     var c = contactMap ? contactMap[conv.contact_id] : null;
     var name = c
       ? ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone || 'Unknown'
       : (conv.subject ? conv.subject.replace('Re: ', '').split('<')[0].trim() : conv.channel === 'email' ? 'Email Conversation' : 'Unknown');
     var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?';
-    var key = (conv.contact_id || 'no_contact') + '::' + (conv.channel || 'email');
     var allMsgs = [];
     if (msgMap) {
-      convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).forEach(function(cv) {
-        var msgs = msgMap[cv.id] || [];
+      // Collect messages from all conversations in this group
+      var groupConvIds = conv.contact_id
+        ? uniqueConvos.filter(function(cv) { return cv.contact_id === conv.contact_id && (cv.channel || 'email') === (conv.channel || 'email'); }).map(function(cv) { return cv.id; })
+        : [conv.id];
+      groupConvIds.forEach(function(cid) {
+        var msgs = msgMap[cid] || [];
         allMsgs = allMsgs.concat(msgs);
       });
       allMsgs.sort(function(a, b) { return (a.time || 0) - (b.time || 0); });
@@ -37,7 +57,9 @@ function dedupConversations(convos, contactMap, msgMap) {
     if (allMsgs.length === 0) {
       allMsgs = [{ id: 'ph_' + conv.id, from: 'contact', text: conv.subject || 'New conversation', time: conv.last_message_at ? new Date(conv.last_message_at) : new Date(), agent: null, read: true, delivered: true }];
     }
-    var totalUnread = convos.filter(function(cv) { return ((cv.contact_id || 'no_contact') + '::' + (cv.channel || 'email')) === key; }).reduce(function(sum, cv) { return sum + (cv.unread_count || 0); }, 0);
+    var totalUnread = conv.contact_id
+      ? uniqueConvos.filter(function(cv) { return cv.contact_id === conv.contact_id && (cv.channel || 'email') === (conv.channel || 'email'); }).reduce(function(sum, cv) { return sum + (cv.unread_count || 0); }, 0)
+      : (conv.unread_count || 0);
     return {
       id: conv.id,
       contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
@@ -999,11 +1021,7 @@ useEffect(function() {
                         {conv.contact.name}
                         {((conv.metadata && conv.metadata.language === 'pl') || (conv.contact.phone || '').indexOf('+48') === 0) && <span style={{ marginLeft: 6, background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 3, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>PL</span>}
                       </span>
-                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#00E676" }} />
-            <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>Live</span>
-          </div>
+                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{conv.lastActivity ? (typeof conv.lastActivity.toLocaleDateString === 'function' ? (new Date().toDateString() === conv.lastActivity.toDateString() ? conv.lastActivity.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : conv.lastActivity.toLocaleDateString([], { month: 'short', day: 'numeric' })) : '') : ''}</span>
                     </div>
                     <div style={{ color: conv.unread > 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {conv.isTyping ? <span style={{ color: C.primary, fontStyle: "italic" }}>typing...</span> : (lastMsg.from === "contact" ? "" : `${lastMsg.agent?.name || "You"}: `)}
