@@ -90,6 +90,8 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [previewInput, setPreviewInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedDemo, setSelectedDemo] = useState(null);
+  const [escalationToggles, setEscalationToggles] = useState({});
+  const [escalationEditSaved, setEscalationEditSaved] = useState(null);
   const previewEndRef = useRef(null);
 
   // Email signatures (per-tenant, stored on chatbot_configs)
@@ -668,7 +670,10 @@ saveAIConfig(newSources);
           )}
 
           {/* ESCALATION RULES TAB */}
-          {activeTab === "escalation" && (
+          {activeTab === "escalation" && (() => {
+            var ruleToggles = {};
+            ESCALATION_RULES.forEach(function(r) { ruleToggles[r.id] = r.enabled; });
+            return (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
@@ -678,8 +683,10 @@ saveAIConfig(newSources);
                 <button disabled style={Object.assign({}, btnPrimary, { opacity: 0.4, cursor: 'not-allowed' })} title="Coming in next release — use presets below for now">+ Add Rule</button>
               </div>
               <div style={{ display: "grid", gap: 10 }}>
-                {ESCALATION_RULES.map(rule => (
-                  <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "40px 1fr 180px 100px 80px 80px", alignItems: "center", gap: 14, opacity: rule.enabled ? 1 : 0.5, borderLeft: `4px solid ${rule.priority === "high" ? "#FF3B30" : rule.priority === "medium" ? "#FFD600" : "#6B8BAE"}` }}>
+                {ESCALATION_RULES.map(rule => {
+                  var isOn = escalationToggles[rule.id] !== undefined ? escalationToggles[rule.id] : rule.enabled;
+                  return (
+                  <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "40px 1fr 180px 100px 80px 80px", alignItems: "center", gap: 14, opacity: isOn ? 1 : 0.5, borderLeft: `4px solid ${rule.priority === "high" ? "#FF3B30" : rule.priority === "medium" ? "#FFD600" : "#6B8BAE"}` }}>
                     <div style={{ fontSize: 24, textAlign: "center" }}>{rule.icon}</div>
                     <div>
                       <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{rule.name}</div>
@@ -693,16 +700,18 @@ saveAIConfig(newSources);
                       <span style={badge(rule.priority === "high" ? "#FF3B30" : rule.priority === "medium" ? "#FFD600" : "#6B8BAE")}>{rule.priority}</span>
                     </div>
                     <div style={{ textAlign: "center" }}>
-                      <div style={{ width: 40, height: 22, borderRadius: 11, cursor: "pointer", position: "relative", background: rule.enabled ? C.primary : "rgba(255,255,255,0.1)", transition: "all 0.2s" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: rule.enabled ? 20 : 2, transition: "all 0.2s" }} />
+                      <div onClick={function() { setEscalationToggles(function(prev) { var n = Object.assign({}, prev); n[rule.id] = !isOn; return n; }); }} style={{ width: 40, height: 22, borderRadius: 11, cursor: "pointer", position: "relative", background: isOn ? C.primary : "rgba(255,255,255,0.1)", transition: "all 0.2s" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: isOn ? 20 : 2, transition: "all 0.2s" }} />
                       </div>
                     </div>
-                    <button style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Edit</button>
+                    <button onClick={function() { setEscalationEditSaved(rule.id); setTimeout(function() { setEscalationEditSaved(null); }, 1500); }} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>{escalationEditSaved === rule.id ? '✓ Saved' : 'Edit'}</button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ANALYTICS TAB */}
           {activeTab === "analytics" && (
