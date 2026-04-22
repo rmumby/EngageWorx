@@ -466,7 +466,7 @@ saveAIConfig(newSources);
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       {/* Personal */}
                       <div style={{ background: "rgba(0,201,255,0.04)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 10, padding: 14 }}>
-                        <div style={{ color: "#00C9FF", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🧑 Personal (rob@engwx.com)</div>
+                        <div style={{ color: "#00C9FF", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🧑 Personal</div>
                         <label style={label}>From name</label>
                         <input value={sigFromName} onChange={e => setSigFromName(e.target.value)} style={inputStyle} />
                         <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
@@ -483,7 +483,7 @@ saveAIConfig(newSources);
 
                       {/* Team / AI */}
                       <div style={{ background: "rgba(224,64,251,0.04)", border: "1px solid rgba(224,64,251,0.2)", borderRadius: 10, padding: 14 }}>
-                        <div style={{ color: "#E040FB", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🤖 Team / Aria (hello@engwx.com)</div>
+                        <div style={{ color: "#E040FB", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>{'🤖 Team / ' + (botName || 'AI')}</div>
                         <label style={label}>From name</label>
                         <input value={teamSigFromName} onChange={e => setTeamSigFromName(e.target.value)} style={inputStyle} />
                         <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
