@@ -41,6 +41,7 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
     { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
     { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome.", rows: 6 },
+    { key: "ai_omni_bcc", label: "BCC for AI Omni Emails", placeholder: "admin@yourcompany.com", hint: "All AI-drafted outbound emails from AI Omni Digest (stale actions, follow-ups, digest replies) will be BCC'd to this address. Leave blank to disable." },
     { key: "api_key", label: "SendGrid API Key", type: "password", hint: "Get your API key from sendgrid.com → Settings → API Keys. Create a key with Full Access or Restricted Access (Mail Send)." },
     { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
   ]},

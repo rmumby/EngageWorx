@@ -449,13 +449,13 @@ Respond ONLY with valid JSON (no markdown backticks):
             'Authorization': `Bearer ${RESEND_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
+          body: JSON.stringify(Object.assign({
             from: `${replyFromName} <${replyFromEmail}>`,
             to: [senderEmail],
             subject: parsed.reply_subject || `Re: ${emailSubject}`,
             html: emailHtml,
             reply_to: replyFromEmail,
-          }),
+          }, emailChannelConfig.ai_omni_bcc && emailChannelConfig.ai_omni_bcc !== senderEmail ? { bcc: [emailChannelConfig.ai_omni_bcc] } : {})),
         });
         console.log(`✉️ Auto-reply sent from ${replyFromEmail} to ${senderEmail}`);
       } catch (sendErr) {

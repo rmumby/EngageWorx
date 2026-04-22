@@ -173,6 +173,7 @@ async function analyzeAndActionEmail(ctx) {
         if (cfg.from_email && String(cfg.from_email).trim()) { aiCtx.fromEmail = String(cfg.from_email).trim(); aiCtx.replyTo = aiCtx.fromEmail; }
         if (cfg.from_name && String(cfg.from_name).trim()) aiCtx.fromName = String(cfg.from_name).trim();
         if (cfg.reply_to && String(cfg.reply_to).trim()) aiCtx.replyTo = String(cfg.reply_to).trim();
+        if (cfg.ai_omni_bcc && String(cfg.ai_omni_bcc).indexOf('@') > 0) aiCtx.aiOmniBcc = String(cfg.ai_omni_bcc).trim();
       } catch (e) {}
     }
 
@@ -249,14 +250,16 @@ async function analyzeAndActionEmail(ctx) {
           // Send from the matched tenant's configured email identity — never hard-code hello@engwx.com.
           var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
           var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
-          await sgMail.send({
+          var autoReplyPayload = {
             to: sender,
             from: { email: aiCtx.fromEmail, name: sigInfo.fromName || aiCtx.fromName },
             replyTo: aiCtx.replyTo,
             subject: replySubj,
             text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
             html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
-          });
+          };
+          if (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) autoReplyPayload.bcc = { email: aiCtx.aiOmniBcc };
+          await sgMail.send(autoReplyPayload);
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
           try {
             var _eum = require('./_usage-meter');

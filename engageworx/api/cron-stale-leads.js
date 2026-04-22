@@ -100,14 +100,22 @@ async function executeAction(supabase, lead, decision) {
         var _sig = require('./_email-signature');
         var sigInfo = await _sig.getSignature(supabase, { tenantId: lead.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'followup' });
         var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g, '&lt;') + '</div>';
-        await sgMail.send({
+        var stalePayload = {
           to: lead.email,
           from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigInfo.fromName || 'EngageWorx' },
           replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
           subject: 'Checking in',
           text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName),
           html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
-        });
+        };
+        if (lead.tenant_id) {
+          try {
+            var bccCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', lead.tenant_id).eq('channel', 'email').maybeSingle();
+            var bccAddr = bccCfg.data && bccCfg.data.config_encrypted && bccCfg.data.config_encrypted.ai_omni_bcc;
+            if (bccAddr && bccAddr.indexOf('@') > 0 && bccAddr !== lead.email) stalePayload.bcc = { email: bccAddr };
+          } catch (e) {}
+        }
+        await sgMail.send(stalePayload);
         return true;
       }
     } catch (e) { console.warn('[StaleLeads] Send error:', e.message); }

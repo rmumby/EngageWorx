@@ -27,6 +27,16 @@ module.exports = async function handler(req, res) {
 
   var fromEmail = fromOverride || process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com';
 
+  // Load AI Omni BCC address
+  var aiOmniBcc = null;
+  if (tenantId) {
+    try {
+      var bccCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
+      var bccVal = bccCfg.data && bccCfg.data.config_encrypted && bccCfg.data.config_encrypted.ai_omni_bcc;
+      if (bccVal && bccVal.indexOf('@') > 0 && bccVal !== to && bccVal !== fromEmail) aiOmniBcc = bccVal;
+    } catch (e) {}
+  }
+
   // Load signature
   var _sig = require('./_email-signature');
   var sigInfo = await _sig.getSignature(supabase, { tenantId: tenantId, fromEmail: fromEmail, isFirstTouch: false, closingKind: 'reply' });
@@ -48,13 +58,15 @@ module.exports = async function handler(req, res) {
         var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
         var htmlFull = _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml);
         var textFull = _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName);
-        var info = await transport.sendMail({
+        var gmailOpts = {
           from: fromEmail,
           to: to,
           subject: subject,
           text: textFull,
           html: htmlFull,
-        });
+        };
+        if (aiOmniBcc) gmailOpts.bcc = aiOmniBcc;
+        var info = await transport.sendMail(gmailOpts);
         console.log('[send-digest-reply] Gmail sent to=' + to + ' messageId=' + info.messageId);
         return res.status(200).json({ success: true, method: 'gmail', messageId: info.messageId });
       } catch (err) {
@@ -70,14 +82,16 @@ module.exports = async function handler(req, res) {
     var sgMail = require('@sendgrid/mail');
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     var bodyHtml2 = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
-    await sgMail.send({
+    var sgPayload = {
       to: to,
       from: { email: fromEmail, name: sigInfo.fromName || 'EngageWorx' },
       replyTo: fromEmail,
       subject: subject,
       text: _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml2, sigInfo.closingLine, sigInfo.signatureHtml),
-    });
+    };
+    if (aiOmniBcc) sgPayload.bcc = { email: aiOmniBcc };
+    await sgMail.send(sgPayload);
     console.log('[send-digest-reply] SendGrid sent to=' + to);
     return res.status(200).json({ success: true, method: 'sendgrid' });
   } catch (err) {

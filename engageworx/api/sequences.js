@@ -45,11 +45,14 @@ async function sendStep(supabase, step, lead, tenant) {
   if (step.channel === 'email') {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     var emailConfig = { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), fromName: 'Rob at EngageWorx' };
+    var aiOmniBcc = null;
     try {
       var ccRes = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenant.id).eq('channel', 'email').single();
       if (ccRes.data && ccRes.data.config_encrypted) {
         if (ccRes.data.config_encrypted.from_email) emailConfig.from = ccRes.data.config_encrypted.from_email;
         if (ccRes.data.config_encrypted.from_name) emailConfig.fromName = ccRes.data.config_encrypted.from_name;
+        var bccVal = ccRes.data.config_encrypted.ai_omni_bcc;
+        if (bccVal && bccVal.indexOf('@') > 0 && bccVal !== lead.email) aiOmniBcc = bccVal;
       }
     } catch(e) {}
 
@@ -63,13 +66,15 @@ async function sendStep(supabase, step, lead, tenant) {
       '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
     var bodyClose = '</div>';
 
-    await sgMail.send({
+    var seqPayload = {
       to: lead.email,
       from: { email: emailConfig.from, name: sigInfo.fromName || emailConfig.fromName },
       subject: step.subject || 'Following up from EngageWorx',
       text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
-    });
+    };
+    if (aiOmniBcc) seqPayload.bcc = { email: aiOmniBcc };
+    await sgMail.send(seqPayload);
     console.log('[Sequences] Email sent to:', lead.email, 'step:', step.step_number);
     return true;
   }
