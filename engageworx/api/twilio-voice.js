@@ -133,9 +133,13 @@ async function getAgentName(tenantId) {
 // ─── Call AI ──────────────────────────────────────────────────────────────────
 async function callAI(userMessage, conversationHistory, chatbotConfig) {
   try {
-    var systemPrompt = (chatbotConfig && chatbotConfig.system_prompt)
+    var basePrompt = (chatbotConfig && chatbotConfig.system_prompt)
       ? chatbotConfig.system_prompt
       : ('You are ' + ((chatbotConfig && chatbotConfig.bot_name) || 'Aria') + ', a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.');
+
+    var noGreetingRule = '\n\nCRITICAL RULE: The greeting has already been spoken to the caller via TTS before this conversation started. Do NOT greet them again. Do NOT say "hi", "hello", "how can I help you", "how may I assist you", or any similar opening phrase. Respond directly to what the caller said. If the caller greets you with "hi" or "hello", acknowledge briefly and move to substance — for example "Hey — what can I help you with today?" but never repeat the full greeting.';
+
+    var systemPrompt = basePrompt + noGreetingRule;
 
     var knowledgeBase = (chatbotConfig && chatbotConfig.knowledge_base) ? chatbotConfig.knowledge_base : '';
     if (knowledgeBase) systemPrompt += '\n\nKnowledge base:\n' + knowledgeBase;
@@ -373,13 +377,11 @@ module.exports = async function handler(req, res) {
         greeting = 'Hi, you\'ve reached ' + businessName + '. I\'m ' + agentName + '. How can I help you?';
       }
 
-      // Say greeting verbatim first, then Gather for AI conversation
+      // Say greeting verbatim, then silently listen for caller's first utterance
       return sendTwiml(
         say(recordingNotice + greeting, voice) +
-        '<Gather input="speech" action="' + aiUrlXml + '" method="POST" speechTimeout="2" timeout="5" language="en-US" hints="demo, pricing, features, book, schedule, Calendly, hello, help">' +
-        say('How can I help you?', voice) +
+        '<Gather input="speech" action="' + aiUrlXml + '" method="POST" speechTimeout="3" timeout="8" language="en-US" hints="demo, pricing, features, book, schedule, Calendly, hello, help">' +
         '</Gather>' +
-        say('I did not catch that. Please try again.', voice) +
         '<Redirect>' + aiUrlXml + '</Redirect>',
         'ai-answer'
       );
