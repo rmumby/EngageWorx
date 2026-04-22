@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
   var email = (body.email || '').trim().toLowerCase();
   var role = body.role || 'agent';
   if (!tenantId || !email) return res.status(400).json({ error: 'tenant_id and email required' });
-  if (['admin', 'agent'].indexOf(role) === -1) return res.status(400).json({ error: 'role must be admin or agent' });
+  if (['admin', 'agent', 'viewer'].indexOf(role) === -1) return res.status(400).json({ error: 'role must be admin, agent, or viewer' });
 
   var supabase = getSupabase();
 
@@ -59,18 +59,25 @@ module.exports = async function handler(req, res) {
 
     // 4. Upsert the tenant_members row. Strict tenant scope; idempotent on (user_id, tenant_id).
     var existingMember = await supabase.from('tenant_members').select('id, role, status').eq('user_id', userId).eq('tenant_id', tenantId).maybeSingle();
+    var alreadyMember = false;
     if (existingMember.data && existingMember.data.id) {
-      await supabase.from('tenant_members').update({ role: role, status: 'active', updated_at: new Date().toISOString() }).eq('id', existingMember.data.id);
+      if (existingMember.data.status === 'active' && existingMember.data.role === role && !invited) {
+        alreadyMember = true;
+      } else {
+        await supabase.from('tenant_members').update({ role: role, status: 'active', updated_at: new Date().toISOString() }).eq('id', existingMember.data.id);
+      }
     } else {
-      await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenantId, role: role, status: 'active' });
+      await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenantId, role: role, status: 'active', joined_at: new Date().toISOString() });
     }
 
+    console.log('[invite-member] ' + (alreadyMember ? 'already member' : invited ? 'invited new' : 'linked existing') + ' ' + email + ' → ' + t.data.name + ' as ' + role);
     return res.status(200).json({
       success: true,
       invited: invited,
+      already_member: alreadyMember,
       user_id: userId,
       email: email,
-      tenant_name: t.data.name,
+      tenant_name: t.data.name || t.data.brand_name,
       role: role,
     });
   } catch (err) {

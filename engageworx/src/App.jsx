@@ -1084,6 +1084,7 @@ setDemoCreating(false);
                         <select data-field={"invite_role_" + c.id} defaultValue="agent" style={Object.assign({}, inputStyleTM, { width: 120 })}>
                           <option value="admin">Admin</option>
                           <option value="agent">Agent</option>
+                          <option value="viewer">Viewer</option>
                         </select>
                         <button onClick={async function() {
                           var emailEl = document.querySelector('[data-field="invite_email_' + c.id + '"]');
@@ -1099,9 +1100,15 @@ setDemoCreating(false);
                             });
                             var d = await r.json();
                             if (!r.ok) throw new Error(d.error || 'Invite failed');
-                            alert(d.invited ? '✅ Invite sent to ' + email + ' — they will confirm via email, then be added as ' + role + '.' : '✅ ' + email + ' added to ' + d.tenant_name + ' as ' + role + '.');
+                            if (d.already_member) {
+                              alert('ℹ️ ' + email + ' is already a member of ' + (d.tenant_name || 'this tenant') + '.');
+                            } else if (d.invited) {
+                              alert('✅ Team member added — invite email sent to ' + email + '. They will be added as ' + role + ' when they sign in.');
+                            } else {
+                              alert('✅ ' + email + ' added to ' + (d.tenant_name || 'this tenant') + ' as ' + role + ' successfully.');
+                            }
                             if (emailEl) emailEl.value = '';
-                          } catch (e) { alert('Error: ' + e.message); }
+                          } catch (e) { alert('❌ Error: ' + e.message); }
                         }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: 'none', borderRadius: 8, padding: '8px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>
                       </div>
                       <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 6 }}>Existing users are added immediately. New users receive an email invite and join the tenant on first sign-in.</div>
