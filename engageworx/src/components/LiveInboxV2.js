@@ -1386,25 +1386,36 @@ useEffect(function() {
                       });
                     }
                   }},
-                  { label: "Mark as Spam", icon: "🛡️", action: function() {
-                    var senderAddr = ((selectedConv.contact && selectedConv.contact.email) || '').toLowerCase().trim();
-                    var domain = senderAddr.split('@')[1] || '';
+                  { label: "Block Sender", icon: "🛡️", action: function(e) {
+                    var senderAddr = ((selectedConv.contact && selectedConv.contact.email) || selectedConv.contact.phone || '').toLowerCase().trim();
+                    var domain = senderAddr.indexOf('@') > -1 ? senderAddr.split('@')[1] : '';
+                    var useExact = e && e.shiftKey;
+                    var blockEntry = useExact ? senderAddr : domain;
                     var tId = selectedConv.tenant_id || currentTenantId;
-                    if (!window.confirm('Mark this conversation as spam' + (domain ? ' and block "' + domain + '" for future messages' : '') + '?')) return;
+                    var contactId = selectedConv.contact_id;
+                    if (!blockEntry) { alert('No sender address to block.'); return; }
+                    if (!window.confirm('Block "' + blockEntry + '"?\n\nThis will:\n• Add to blocked senders list\n• Resolve this conversation\n• Delete the contact\n\n(Hold Shift + click to block exact address instead of domain)')) return;
                     if (!supabase) return;
-                    supabase.from('conversations').update({ status: 'spam' }).eq('id', selectedConv.id).then(function() {
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: 'spam' }) : prev; });
-                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: 'spam' }) : c; }); });
+                    // 1. Add to tenant blocked_domains
+                    supabase.from('tenants').select('blocked_domains').eq('id', tId).maybeSingle().then(function(r) {
+                      var existing = (r.data && Array.isArray(r.data.blocked_domains)) ? r.data.blocked_domains : [];
+                      if (existing.indexOf(blockEntry) === -1) {
+                        supabase.from('tenants').update({ blocked_domains: existing.concat([blockEntry]) }).eq('id', tId);
+                      }
                     });
-                    if (domain && tId) {
-                      supabase.from('tenants').select('blocked_domains').eq('id', tId).maybeSingle().then(function(r) {
-                        var existing = (r.data && Array.isArray(r.data.blocked_domains)) ? r.data.blocked_domains : [];
-                        if (existing.indexOf(domain) === -1) {
-                          var next = existing.concat([domain]);
-                          supabase.from('tenants').update({ blocked_domains: next }).eq('id', tId);
-                        }
-                      });
+                    // 2. Resolve all conversations for this contact
+                    if (contactId) {
+                      supabase.from('conversations').update({ status: 'resolved' }).eq('contact_id', contactId).eq('tenant_id', tId);
+                    } else {
+                      supabase.from('conversations').update({ status: 'resolved' }).eq('id', selectedConv.id);
                     }
+                    // 3. Delete the contact
+                    if (contactId) {
+                      supabase.from('contacts').delete().eq('id', contactId).eq('tenant_id', tId);
+                    }
+                    // 4. Update local state
+                    setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                    setSelectedConv(null);
                   }},
                   { label: "Add Note", icon: "📝", action: function() {
                     var note = window.prompt('Add a note to this conversation:');

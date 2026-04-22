@@ -499,11 +499,33 @@ module.exports = async function handler(req, res) {
     var toParticipants = parseAddrList(toHeader);
     var ccParticipants = parseAddrList(ccHeader);
 
-    // Skip bounces, auto-replies, or mail from ourselves
-    var skipPatterns = ['mailer-daemon', 'postmaster', 'no-reply', 'noreply', 'engwx.com'];
-    if (skipPatterns.some(function(p) { return senderEmail.toLowerCase().includes(p); })) {
-      console.log('Skipping auto/bounce email from:', senderEmail);
-      return res.status(200).json({ skipped: true });
+    // ── INGESTION FILTER — runs BEFORE any DB writes ──────────────────────
+    var fromLower = (senderEmail || '').toLowerCase().trim();
+    // (a) Domain blocklist
+    if (/@([a-z0-9-]+\.)*linkedin\.com$/i.test(fromLower) ||
+        /@([a-z0-9-]+\.)*facebook(mail)?\.com$/i.test(fromLower) ||
+        /@([a-z0-9-]+\.)*fb\.com$/i.test(fromLower) ||
+        /@mailer-daemon\./i.test(fromLower) ||
+        /@postmaster\./i.test(fromLower)) {
+      console.log('🚫 Blocked domain: ' + fromLower);
+      return res.status(200).json({ skipped: true, reason: 'blocked_domain' });
+    }
+    // (b) Local-part blocklist
+    if (/^(no-?reply|noreply|do-?not-?reply|automated|notifications?|bounce|mailer-daemon|postmaster|invitations|inmail-hit-reply|updates|alerts|digest|newsletter|mailing|list-manager)@/i.test(fromLower)) {
+      console.log('🚫 Blocked local-part: ' + fromLower);
+      return res.status(200).json({ skipped: true, reason: 'blocked_local_part' });
+    }
+    // (c) Header-based blocklist
+    var rawHdrs = (body.headers || '').toLowerCase();
+    if (/list-unsubscribe/i.test(rawHdrs) || /precedence:\s*(bulk|list)/i.test(rawHdrs) ||
+        /auto-submitted:\s*(auto-generated|auto-replied)/i.test(rawHdrs) || /x-auto-response-suppress/i.test(rawHdrs)) {
+      console.log('🚫 Blocked bulk/automated headers from: ' + fromLower);
+      return res.status(200).json({ skipped: true, reason: 'bulk_headers' });
+    }
+    // Skip mail from ourselves
+    if (fromLower.indexOf('engwx.com') !== -1) {
+      console.log('🚫 Skipping internal email from: ' + fromLower);
+      return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
     var emailBody = text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -516,6 +538,27 @@ module.exports = async function handler(req, res) {
     var recipientTenantId = await resolveTenantByRecipient(toParticipants.map(function(p) { return p.email; }));
     var senderTenantId = await resolveTenantForSender(senderEmail);
     console.log('[Inbound] tenant resolution: byRecipient=' + (recipientTenantId || 'none') + ' bySender=' + (senderTenantId || 'none'));
+
+    // (d) Per-tenant blocked_domains check
+    var blockCheckTenantId = recipientTenantId || senderTenantId;
+    if (blockCheckTenantId) {
+      try {
+        var tbRes = await supabase.from('tenants').select('blocked_domains').eq('id', blockCheckTenantId).maybeSingle();
+        var tBlocked = (tbRes.data && Array.isArray(tbRes.data.blocked_domains)) ? tbRes.data.blocked_domains : [];
+        if (tBlocked.length > 0) {
+          var sDomain = fromLower.split('@')[1] || '';
+          var blocked = tBlocked.some(function(entry) {
+            entry = (entry || '').toLowerCase().trim();
+            if (entry.indexOf('@') > -1) return fromLower === entry;
+            return sDomain === entry || sDomain.endsWith('.' + entry);
+          });
+          if (blocked) {
+            console.log('🚫 Blocked by tenant blocklist: ' + fromLower);
+            return res.status(200).json({ skipped: true, reason: 'tenant_blocklist' });
+          }
+        }
+      } catch (e) { console.log('Tenant blocklist check error:', e.message); }
+    }
 
     // ── Per-tenant spam filter ────────────────────────────────────────────────
     var spamTenantId = recipientTenantId || senderTenantId;

@@ -93,11 +93,42 @@ module.exports = async function handler(req, res) {
     const senderEmail = (senderMatch[1] || senderRaw || '').trim().toLowerCase();
     const senderName = (senderRaw || '').replace(/<[^>]+>/, '').trim() || senderEmail;
 
-    // Skip auto-replies
-    const skipPatterns = ['noreply', 'no-reply', 'mailer-daemon', 'postmaster', 'bounce', 'auto-reply', 'autoreply'];
-    if (skipPatterns.some(p => senderEmail.includes(p))) {
-      console.log(`Skipping auto-reply from ${senderEmail}`);
-      return res.status(200).json({ skipped: true, reason: 'auto-reply' });
+    // ── INGESTION FILTER — runs BEFORE any DB writes ──────────────────────
+    // (a) Domain blocklist
+    if (/@([a-z0-9-]+\.)*linkedin\.com$/i.test(senderEmail) ||
+        /@([a-z0-9-]+\.)*facebook(mail)?\.com$/i.test(senderEmail) ||
+        /@([a-z0-9-]+\.)*fb\.com$/i.test(senderEmail) ||
+        /@mailer-daemon\./i.test(senderEmail) ||
+        /@postmaster\./i.test(senderEmail)) {
+      console.log('🚫 Blocked domain: ' + senderEmail);
+      return res.status(200).json({ skipped: true, reason: 'blocked_domain' });
+    }
+
+    // (b) Local-part blocklist
+    if (/^(no-?reply|noreply|do-?not-?reply|automated|notifications?|bounce|mailer-daemon|postmaster|invitations|inmail-hit-reply|updates|alerts|digest|newsletter|mailing|list-manager)@/i.test(senderEmail)) {
+      console.log('🚫 Blocked local-part: ' + senderEmail);
+      return res.status(200).json({ skipped: true, reason: 'blocked_local_part' });
+    }
+
+    // (c) Header-based blocklist — bulk/automated mail
+    var rawHeaders = (fields.headers || fields.header || '').toLowerCase();
+    if (rawHeaders) {
+      if (/list-unsubscribe/i.test(rawHeaders)) {
+        console.log('🚫 Blocked bulk/automated headers from: ' + senderEmail + ' (list-unsubscribe)');
+        return res.status(200).json({ skipped: true, reason: 'bulk_headers' });
+      }
+      if (/precedence:\s*(bulk|list)/i.test(rawHeaders)) {
+        console.log('🚫 Blocked bulk/automated headers from: ' + senderEmail + ' (precedence)');
+        return res.status(200).json({ skipped: true, reason: 'bulk_headers' });
+      }
+      if (/auto-submitted:\s*(auto-generated|auto-replied)/i.test(rawHeaders)) {
+        console.log('🚫 Blocked bulk/automated headers from: ' + senderEmail + ' (auto-submitted)');
+        return res.status(200).json({ skipped: true, reason: 'bulk_headers' });
+      }
+      if (/x-auto-response-suppress/i.test(rawHeaders)) {
+        console.log('🚫 Blocked bulk/automated headers from: ' + senderEmail + ' (x-auto-response-suppress)');
+        return res.status(200).json({ skipped: true, reason: 'bulk_headers' });
+      }
     }
 
     // ── Step 1: Match tenant by recipient email via channel_configs ──
@@ -139,6 +170,24 @@ module.exports = async function handler(req, res) {
       console.log('Tenant match error:', e.message);
       tenantId = EW_SP_TENANT_ID;
     }
+
+    // (d) Per-tenant blocked_domains check
+    try {
+      var tenantBlockRes = await supabase.from('tenants').select('blocked_domains').eq('id', tenantId).maybeSingle();
+      var blockedDomains = (tenantBlockRes.data && Array.isArray(tenantBlockRes.data.blocked_domains)) ? tenantBlockRes.data.blocked_domains : [];
+      if (blockedDomains.length > 0) {
+        var senderDomain = senderEmail.split('@')[1] || '';
+        var isBlocked = blockedDomains.some(function(entry) {
+          entry = (entry || '').toLowerCase().trim();
+          if (entry.indexOf('@') > -1) return senderEmail === entry;
+          return senderDomain === entry || senderDomain.endsWith('.' + entry);
+        });
+        if (isBlocked) {
+          console.log('🚫 Blocked by tenant blocklist: ' + senderEmail);
+          return res.status(200).json({ skipped: true, reason: 'tenant_blocklist' });
+        }
+      }
+    } catch (e) { console.log('Tenant blocklist check error:', e.message); }
 
     // ── Step 2: Resolve all config values from Supabase — no hardcoded fallbacks ──
     const replyFromEmail = emailChannelConfig.from_email;

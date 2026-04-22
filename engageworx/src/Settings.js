@@ -1187,7 +1187,7 @@ return (<div>
                     <input value={newBlockedDomain} onChange={e => setNewBlockedDomain(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addBlockedDomain(); } }} placeholder="e.g. linkedin.com or noreply@" style={Object.assign({}, inputStyle, { flex: 1 })} />
                     <button onClick={addBlockedDomain} disabled={!newBlockedDomain.trim() || emailFilterSaving} style={Object.assign({}, btnSec, { padding: '8px 14px', fontSize: 12 })}>+ Add</button>
                   </div>
-                  <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Matches anywhere in the sender address (e.g. <code>linkedin.com</code> blocks jobs@linkedin.com; <code>noreply@</code> blocks any noreply@ address).</div>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Enter a domain (e.g. <code>linkedin.com</code>) to block all mail from that domain and its subdomains, or a full address (e.g. <code>spam@example.com</code>) for exact match only. Blocked senders are rejected before any contact or conversation is created.</div>
                 </div>
 
                 <div style={{ marginTop: 18 }}>
