@@ -55,9 +55,21 @@ const CHANNEL_DEFS = [
   ]},
   { id: "voice", label: "Voice", icon: "📞", color: "#FFD600", fields: [
     { key: "_ai_note", label: "AI Agent Settings", type: "note", text: "AI agent name and business knowledge are configured in the AI Chatbot Studio (sidebar menu)." },
-    { key: "phone_country", label: "Country", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)", "🇵🇱 Poland (+48)"] },
+    { key: "phone_country", label: "Country", type: "select", options: [
+      { value: "+1", label: "🇺🇸 US (+1)" }, { value: "+44", label: "🇬🇧 UK (+44)" }, { value: "+1-CA", label: "🇨🇦 Canada (+1)" },
+      { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
+      { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
+    ]},
     { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
-    { key: "tts_voice", label: "TTS Voice", type: "select", options: ["Polly.Joanna-Neural (US Female Natural)", "Polly.Joanna (US Female)", "Polly.Matthew-Neural (US Male Natural)", "Polly.Matthew (US Male)", "Polly.Amy-Neural (UK Female Natural)", "Polly.Brian-Neural (UK Male Natural)", "Polly.Ewa-Neural (Polish Female Natural)"] },
+    { key: "tts_voice", label: "TTS Voice", type: "select", options: [
+      { value: "Polly.Joanna-Neural", label: "Polly.Joanna-Neural (US Female Natural)" },
+      { value: "Polly.Joanna", label: "Polly.Joanna (US Female)" },
+      { value: "Polly.Matthew-Neural", label: "Polly.Matthew-Neural (US Male Natural)" },
+      { value: "Polly.Matthew", label: "Polly.Matthew (US Male)" },
+      { value: "Polly.Amy-Neural", label: "Polly.Amy-Neural (UK Female Natural)" },
+      { value: "Polly.Brian-Neural", label: "Polly.Brian-Neural (UK Male Natural)" },
+      { value: "Polly.Ewa-Neural", label: "Polly.Ewa-Neural (Polish Female Natural)" },
+    ]},
     { key: "during_hours_greeting", label: "During-Hours Greeting", placeholder: "Thank you for calling [Business]. Our AI assistant will help you now.", aiAssist: true, aiContext: "Professional during-hours phone greeting." },
     { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "You've reached [Business]. We're currently closed.", aiAssist: true, aiContext: "Professional after-hours phone greeting." },
     { key: "voicemail_greeting", label: "Voicemail Greeting", type: "textarea", placeholder: "Hi, you've reached [Business]. We can't take your call right now. Please leave your name, number, and a short message after the tone and we'll get back to you shortly.", aiAssist: true, aiContext: "Friendly voicemail greeting read by TTS when the caller reaches voicemail.", hint: "AI reads this via TTS when the call rolls to voicemail." },
@@ -65,7 +77,12 @@ const CHANNEL_DEFS = [
     { key: "ring_timeout_seconds", label: "Ring Timeout (seconds before voicemail)", placeholder: "20", hint: "Ignored when Auto-Answer is enabled. Default 20." },
     { key: "block_after_hours", label: "After-Hours → Straight to Voicemail", type: "select", options: ["Disabled", "Enabled"], hint: "When enabled, calls outside business hours skip the ring and go directly to voicemail." },
     { key: "voicemail_notify_digest", label: "Email Voicemail to Digest Recipient", type: "select", options: ["Enabled", "Disabled"], hint: "Sends the audio recording + transcript to the tenant's digest email address." },
-    { key: "timezone", label: "Timezone", type: "select", options: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London"] },
+    { key: "timezone", label: "Timezone", type: "select", options: [
+      { value: "America/New_York", label: "Eastern (New York)" }, { value: "America/Chicago", label: "Central (Chicago)" },
+      { value: "America/Denver", label: "Mountain (Denver)" }, { value: "America/Los_Angeles", label: "Pacific (Los Angeles)" },
+      { value: "Europe/London", label: "UK (London)" }, { value: "Europe/Warsaw", label: "Poland (Warsaw)" },
+      { value: "Europe/Berlin", label: "Central Europe (Berlin)" }, { value: "Australia/Sydney", label: "Australia (Sydney)" },
+    ]},
     { key: "business_hours_start", label: "Open", placeholder: "9", hint: "24-hour format" },
     { key: "business_hours_end", label: "Close", placeholder: "17", hint: "24-hour format" },
     { key: "recording_enabled", label: "Call Recording", type: "select", options: ["Enabled", "Disabled"] },
@@ -588,7 +605,8 @@ if (!tenantId) {
         chDef.fields.forEach(function(f) {
           if (f.type === 'select' && f.options && f.options.length > 0) {
             if (newConfig[f.key] === undefined || newConfig[f.key] === null) {
-              newConfig[f.key] = existingConfig[f.key] || f.options[0];
+              var firstOpt = typeof f.options[0] === 'object' ? f.options[0].value : f.options[0];
+              newConfig[f.key] = existingConfig[f.key] || firstOpt;
             }
           }
         });
@@ -853,7 +871,18 @@ const disconnectCalendly = async () => {
     const businessName = configData["business_name"] || configData["from_name"] || "";
     if (f.type === "note") return (<div style={{ background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 12, color: "#6B8BAE", lineHeight: 1.6 }}><div>ℹ️ {f.text}</div></div>);
     if (f.type === "ai_tone") { const previewKey = ch.id + "_" + f.key; const preview = aiTonePreviews[previewKey] || ""; return (<div><textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={f.rows || 5} style={{ ...inputStyle, resize: "vertical", minHeight: 100 }} /><button onClick={() => aiTonePreview(configData[f.key], businessName, (p) => setAiTonePreviews(prev => ({ ...prev, [previewKey]: p })))} style={btnAI}>✨ Preview Tone</button>{preview && <div style={{ marginTop: 10, background: "rgba(0,201,255,0.06)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 8, padding: "12px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, fontStyle: "italic" }}>{preview}<button onClick={() => setAiTonePreviews(prev => ({ ...prev, [previewKey]: "" }))} style={{ display: "block", background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 10, cursor: "pointer", marginTop: 8, padding: 0 }}>Dismiss</button></div>}</div>); }
-    if (f.type === "select") return (<select value={configData[f.key] || f.options?.[0] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>{(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}</select>);
+    if (f.type === "select") {
+      var opts = (f.options || []).map(function(o) { return typeof o === 'object' ? o : { value: o, label: o }; });
+      var optValues = opts.map(function(o) { return o.value; });
+      var currentVal = configData[f.key];
+      // If stored value matches a label (legacy corrupted data), map it back to value
+      if (currentVal && optValues.indexOf(currentVal) === -1) {
+        var matchByLabel = opts.find(function(o) { return o.label === currentVal; });
+        if (matchByLabel) currentVal = matchByLabel.value;
+      }
+      var defaultVal = opts.length > 0 ? opts[0].value : '';
+      return (<select value={currentVal || defaultVal} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} style={inputStyle}>{opts.map(function(o) { return <option key={o.value} value={o.value}>{o.label}</option>; })}</select>);
+    }
     if (f.type === "textarea") return (<div><textarea value={configData[f.key] || ""} onChange={e => updateChannelField(ch.id, f.key, e.target.value)} placeholder={f.placeholder || ""} rows={4} style={{ ...inputStyle, resize: "vertical", minHeight: 80 }} />{f.aiAssist && <button onClick={() => aiAssistField(ch.id, f.key, configData[f.key] || "", f.aiContext || "", businessName)} style={btnAI}>✨ AI Assist</button>}</div>);
     const isPasswordField = f.type === "password";
 const hasSavedValue = !!(channelConfigs[ch.id]?.config_encrypted?.[f.key]);
