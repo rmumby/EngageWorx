@@ -60,12 +60,13 @@ module.exports = async function handler(req, res) {
     var senderEmail = ((fromRaw.match(/<([^>]+)>/) || [])[1] || fromRaw).trim().toLowerCase();
     var emailBody = (text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()).substring(0, 4000);
 
-    // Identify the tenant. Preferred: the BCC address `track+{slug}@engwx.com` embeds the
+    // Identify the tenant. Preferred: the BCC address `track+{slug}@track.engwx.com` embeds the
     // tenant's unique slug so we don't rely on sender matching. Fall back to user_profiles /
     // digest_email lookup for the legacy `track@engwx.com` alias or edge cases.
     var tenantId = null;
     var allRecipientsRaw = [body.to, body.cc, body.bcc, body.envelope].filter(Boolean).join(' ').toLowerCase();
-    var slugMatch = allRecipientsRaw.match(/track\+([a-z0-9]{4,})@engwx\.com/);
+    // Match both new track.engwx.com and legacy engwx.com
+    var slugMatch = allRecipientsRaw.match(/track\+([a-z0-9]{4,})@(?:track\.)?engwx\.com/);
     if (slugMatch) {
       try {
         var ts = await supabase.from('tenants').select('id').eq('email_tracking_slug', slugMatch[1]).maybeSingle();
@@ -91,7 +92,7 @@ module.exports = async function handler(req, res) {
 
     // Primary recipient = first To address that isn't a tracking alias
     var recipients = parseAddrList(toHeader).concat(parseAddrList(ccHeader))
-      .filter(function(e) { return e !== senderEmail && e.indexOf('track@') !== 0 && e.indexOf('track+') !== 0 && e.indexOf('bcc@') !== 0; });
+      .filter(function(e) { return e !== senderEmail && !/^track[\+@]/.test(e) && !/^bcc@/.test(e) && e.indexOf('@track.engwx.com') === -1; });
     if (recipients.length === 0) {
       return res.status(200).json({ skipped: 'no_recipient' });
     }

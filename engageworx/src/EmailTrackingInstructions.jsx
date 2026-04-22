@@ -23,7 +23,7 @@ export default function EmailTrackingInstructions({ tenantId, C, compact }) {
     })();
   }, [tenantId]);
 
-  var bcc = slug ? 'track+' + slug + '@engwx.com' : 'track+…@engwx.com';
+  var bcc = slug ? 'track+' + slug + '@track.engwx.com' : 'track+…@track.engwx.com';
 
   function copy() {
     try {

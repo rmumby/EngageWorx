@@ -744,7 +744,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 14, background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 10, marginBottom: 18 }}>
           <div style={{ fontSize: 22 }}>💡</div>
           <div style={{ flex: 1, color: '#cbd5e1', fontSize: 13, lineHeight: 1.6 }}>
-            <strong style={{ color: '#0ea5e9' }}>Tracking tip —</strong> you received {trackingGap.inboundCount} reply{trackingGap.inboundCount === 1 ? '' : 'ies'} in the last 7 days{trackingGap.sample ? ' (latest from ' + trackingGap.sample + ')' : ''} but none of your outbound emails were tracked. Add <code style={{ color: '#0ea5e9', background: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>track+{trackingGap.slug}@engwx.com</code> to your BCC to see the full thread.
+            <strong style={{ color: '#0ea5e9' }}>Tracking tip —</strong> you received {trackingGap.inboundCount} reply{trackingGap.inboundCount === 1 ? '' : 'ies'} in the last 7 days{trackingGap.sample ? ' (latest from ' + trackingGap.sample + ')' : ''} but none of your outbound emails were tracked. Add <code style={{ color: '#0ea5e9', background: 'rgba(0,0,0,0.3)', padding: '1px 6px', borderRadius: 4, fontFamily: 'monospace' }}>track+{trackingGap.slug}@track.engwx.com</code> to your BCC to see the full thread.
             <a href="#" onClick={function(e) { e.preventDefault(); window.location.href = '/?page=settings&tab=channels'; }} style={{ color: '#0ea5e9', marginLeft: 8, fontWeight: 700 }}>Setup →</a>
           </div>
         </div>
