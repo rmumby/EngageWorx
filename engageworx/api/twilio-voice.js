@@ -313,13 +313,16 @@ module.exports = async function handler(req, res) {
         return res.status(200).end(response);
       };
 
+      // Resolve greeting text — single source of truth from channel_configs only
+      var greetingDuring = config.during_hours_greeting || config.greeting || '';
+      var greetingAfter = config.after_hours_greeting || '';
+
       // After-hours → straight to voicemail if blocking is enabled
       if (blockAfterHours && !withinHours) {
-        // Play a brief greeting before redirect so caller never hears dead air,
-        // and never returns empty TwiML if the redirect target somehow fails.
         var afterHoursVoice = defaultVoiceFor(body.To);
+        var afterHoursText = greetingAfter || 'Thank you for calling. We are currently closed. Please leave a message after the tone.';
         return sendTwiml(
-          say('Thank you for calling. Please hold while we connect you to voicemail.', afterHoursVoice) +
+          say(afterHoursText, afterHoursVoice) +
           '<Redirect>' + voicemailUrlXml + '</Redirect>',
           'after-hours-voicemail'
         );
@@ -341,7 +344,7 @@ module.exports = async function handler(req, res) {
         var menuOptions = departments.filter(function(d) { return d.name; }).map(function(d) {
           return 'Press ' + d.digit + ' ' + (d.description || 'for ' + d.name);
         }).join('. ');
-        var ivrBase = config.during_hours_greeting || config.greeting || 'Thank you for calling.';
+        var ivrBase = greetingDuring || 'Thank you for calling.';
         var ivrPrompt = recordingNotice + ivrBase + ' ' + menuOptions + '. Or stay on the line to speak with us.';
 
         var routeUrl = portalBase + '/api/twilio-voice?action=route&tenant=' + tenantId;
@@ -355,22 +358,29 @@ module.exports = async function handler(req, res) {
         );
       }
 
-      // ── AI mode — use during_hours_greeting verbatim if set ──
-      var agentName = await getAgentName(tenantId);
-      var businessName = 'EngageWorx';
-      try { var tnR = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle(); if (tnR.data) businessName = tnR.data.brand_name || tnR.data.name || businessName; } catch(e) {}
-
+      // ── AI mode — speak greeting verbatim, then listen for caller ──
       var greeting;
-      if (config.during_hours_greeting) {
-        greeting = config.during_hours_greeting;
-      } else if (config.greeting) {
-        greeting = config.greeting;
+      if (withinHours && greetingDuring) {
+        greeting = greetingDuring;
+      } else if (!withinHours && greetingAfter) {
+        greeting = greetingAfter;
+      } else if (greetingDuring) {
+        greeting = greetingDuring;
       } else {
+        var agentName = await getAgentName(tenantId);
+        var businessName = 'EngageWorx';
+        try { var tnR = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle(); if (tnR.data) businessName = tnR.data.brand_name || tnR.data.name || businessName; } catch(e) {}
         greeting = 'Hi, you\'ve reached ' + businessName + '. I\'m ' + agentName + '. How can I help you?';
       }
 
+      // Say greeting verbatim first, then Gather for AI conversation
       return sendTwiml(
-        gather(aiUrlXml, voice, recordingNotice + greeting, 'demo, pricing, features, book, schedule, Calendly, hello, help'),
+        say(recordingNotice + greeting, voice) +
+        '<Gather input="speech" action="' + aiUrlXml + '" method="POST" speechTimeout="2" timeout="5" language="en-US" hints="demo, pricing, features, book, schedule, Calendly, hello, help">' +
+        say('How can I help you?', voice) +
+        '</Gather>' +
+        say('I did not catch that. Please try again.', voice) +
+        '<Redirect>' + aiUrlXml + '</Redirect>',
         'ai-answer'
       );
     }

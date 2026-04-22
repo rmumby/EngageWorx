@@ -363,6 +363,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [bulkActing, setBulkActing] = useState(false);
   const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
+  const openedConvIdsRef = useRef(new Set());
 
   // Load sender email options — admin sees all, reps see only their own
   var currentUserId = userProfile && userProfile.id;
@@ -482,8 +483,15 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
 
+          // Preserve locally-read state for opened conversations
+          var openedIds = openedConvIdsRef.current;
+          if (openedIds.size > 0) {
+            assembled = assembled.map(function(c) {
+              return openedIds.has(c.id) ? Object.assign({}, c, { unread: 0 }) : c;
+            });
+          }
           setConversations(assembled);
-          
+
           // Also refresh selected conversation messages
           if (selectedConv) {
             var selMsgs = mMap[selectedConv.id];
@@ -961,7 +969,7 @@ useEffect(function() {
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={function() { if (selectMode) { toggleConvSelect(conv.id); return; } setSelectedConv(conv); if (isMobile) setMobileShowChat(true); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id).then(function() {}); } } }} style={{
+              <div key={conv.id} onClick={function() { if (selectMode) { toggleConvSelect(conv.id); return; } setSelectedConv(conv); if (isMobile) setMobileShowChat(true); openedConvIdsRef.current.add(conv.id); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id); supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('conversation_id', conv.id).eq('direction', 'inbound').is('read_at', null); } } }} style={{
                 padding: "16px 16px", cursor: "pointer", transition: "background 0.15s",
                 background: selectedConvIds.indexOf(conv.id) > -1 ? C.primary + "18" : (isSelected ? C.primary + "15" : "transparent"),
                 borderLeft: selectedConvIds.indexOf(conv.id) > -1 ? "3px solid " + C.primary : (isSelected ? "3px solid " + C.primary : "3px solid transparent"),
