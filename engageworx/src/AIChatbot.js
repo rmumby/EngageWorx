@@ -90,8 +90,11 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [previewInput, setPreviewInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedDemo, setSelectedDemo] = useState(null);
-  const [escalationToggles, setEscalationToggles] = useState({});
-  const [escalationEditSaved, setEscalationEditSaved] = useState(null);
+  const [escRules, setEscRules] = useState([]);
+  const [escLoading, setEscLoading] = useState(false);
+  const [escSaving, setEscSaving] = useState(null);
+  const [escModal, setEscModal] = useState(null);
+  const [escError, setEscError] = useState(null);
   const previewEndRef = useRef(null);
 
   // Email signatures (per-tenant, stored on chatbot_configs)
@@ -141,6 +144,18 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     } catch (e) { alert('Error: ' + e.message); }
     setSigSaving(false);
   };
+
+  async function loadEscalationRules() {
+    if (!currentTenantId || demoMode) return;
+    setEscLoading(true);
+    try {
+      var r = await fetch('/api/escalation-rules?tenantId=' + currentTenantId);
+      var d = await r.json();
+      if (d.rules) setEscRules(d.rules);
+    } catch (e) { console.warn('Escalation rules load error:', e.message); }
+    setEscLoading(false);
+  }
+  useEffect(function() { loadEscalationRules(); }, [currentTenantId, demoMode]); // eslint-disable-line
 
   useEffect(() => {
     if (!currentTenantId || demoMode) return;
@@ -670,48 +685,101 @@ saveAIConfig(newSources);
           )}
 
           {/* ESCALATION RULES TAB */}
-          {activeTab === "escalation" && (() => {
-            var ruleToggles = {};
-            ESCALATION_RULES.forEach(function(r) { ruleToggles[r.id] = r.enabled; });
-            return (
+          {activeTab === "escalation" && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
                   <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Escalation Rules</h2>
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the bot should hand off to a human agent</p>
                 </div>
-                <button disabled style={Object.assign({}, btnPrimary, { opacity: 0.4, cursor: 'not-allowed' })} title="Coming in next release — use presets below for now">+ Add Rule</button>
+                <button onClick={function() { setEscModal({ rule_name: '', description: '', trigger_type: 'keyword', trigger_config: { keywords: [] }, action_type: 'notify_admin', action_config: {}, priority: 10, active: true, _isNew: true }); }} style={btnPrimary}>+ Add Rule</button>
               </div>
+              {escError && <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '8px 12px', color: '#FF3B30', fontSize: 12, marginBottom: 12 }}>{escError}</div>}
+              {escLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading rules...</div> : (
               <div style={{ display: "grid", gap: 10 }}>
-                {ESCALATION_RULES.map(rule => {
-                  var isOn = escalationToggles[rule.id] !== undefined ? escalationToggles[rule.id] : rule.enabled;
+                {escRules.length === 0 && <div style={{ color: C.muted, textAlign: 'center', padding: 30 }}>No escalation rules configured. Click "+ Add Rule" to create one.</div>}
+                {escRules.map(function(rule) {
+                  var pColor = rule.priority <= 3 ? '#FF3B30' : rule.priority <= 7 ? '#FFD600' : '#6B8BAE';
+                  var triggerLabel = rule.trigger_type === 'keyword' ? 'Keywords: ' + ((rule.trigger_config && rule.trigger_config.keywords) || []).join(', ') : rule.trigger_type === 'sentiment' ? 'Negative sentiment' : rule.trigger_type === 'vip_match' ? 'VIP contact' : rule.trigger_type;
+                  var actionLabel = (rule.action_type || '').replace(/_/g, ' ');
                   return (
-                  <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "40px 1fr 180px 100px 80px 80px", alignItems: "center", gap: 14, opacity: isOn ? 1 : 0.5, borderLeft: `4px solid ${rule.priority === "high" ? "#FF3B30" : rule.priority === "medium" ? "#FFD600" : "#6B8BAE"}` }}>
-                    <div style={{ fontSize: 24, textAlign: "center" }}>{rule.icon}</div>
+                  <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 180px 80px 60px 60px", alignItems: "center", gap: 14, opacity: rule.active ? 1 : 0.5, borderLeft: '4px solid ' + pColor }}>
                     <div>
-                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{rule.name}</div>
-                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{rule.trigger}</div>
+                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{rule.rule_name}</div>
+                      {rule.description && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{rule.description}</div>}
+                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{triggerLabel}</div>
                     </div>
                     <div>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{rule.action}</div>
-                      <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>Channel: {rule.channel}</div>
+                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{actionLabel}</div>
+                      <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>Priority: {rule.priority}</div>
                     </div>
                     <div style={{ textAlign: "center" }}>
-                      <span style={badge(rule.priority === "high" ? "#FF3B30" : rule.priority === "medium" ? "#FFD600" : "#6B8BAE")}>{rule.priority}</span>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div onClick={function() { setEscalationToggles(function(prev) { var n = Object.assign({}, prev); n[rule.id] = !isOn; return n; }); }} style={{ width: 40, height: 22, borderRadius: 11, cursor: "pointer", position: "relative", background: isOn ? C.primary : "rgba(255,255,255,0.1)", transition: "all 0.2s" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: isOn ? 20 : 2, transition: "all 0.2s" }} />
+                      <div onClick={async function() {
+                        setEscSaving(rule.id);
+                        try {
+                          var r = await fetch('/api/escalation-rules', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rule.id, tenant_id: currentTenantId, active: !rule.active }) });
+                          if (r.ok) { setEscRules(function(prev) { return prev.map(function(x) { return x.id === rule.id ? Object.assign({}, x, { active: !x.active }) : x; }); }); }
+                          else { var d = await r.json(); setEscError(d.error || 'Toggle failed'); }
+                        } catch (e) { setEscError(e.message); }
+                        setEscSaving(null);
+                      }} style={{ width: 40, height: 22, borderRadius: 11, cursor: escSaving === rule.id ? 'wait' : 'pointer', position: "relative", background: rule.active ? C.primary : "rgba(255,255,255,0.1)", transition: "all 0.2s" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: rule.active ? 20 : 2, transition: "all 0.2s" }} />
                       </div>
                     </div>
-                    <button onClick={function() { setEscalationEditSaved(rule.id); setTimeout(function() { setEscalationEditSaved(null); }, 1500); }} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>{escalationEditSaved === rule.id ? '✓ Saved' : 'Edit'}</button>
+                    <button onClick={function() { setEscModal(Object.assign({}, rule, { _isNew: false })); }} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Edit</button>
+                    <button onClick={async function() {
+                      if (!window.confirm('Delete rule "' + rule.rule_name + '"?')) return;
+                      try {
+                        await fetch('/api/escalation-rules', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rule.id, tenant_id: currentTenantId }) });
+                        setEscRules(function(prev) { return prev.filter(function(x) { return x.id !== rule.id; }); });
+                      } catch (e) { setEscError(e.message); }
+                    }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: 14 }}>✕</button>
                   </div>
                   );
                 })}
               </div>
+              )}
+              {/* Edit/Add Modal */}
+              {escModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setEscModal(null); }}>
+                  <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto' }}>
+                    <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>{escModal._isNew ? 'Add Escalation Rule' : 'Edit Rule'}</h3>
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Rule Name *</label><input value={escModal.rule_name} onChange={function(e) { setEscModal(Object.assign({}, escModal, { rule_name: e.target.value })); }} style={inputStyle} /></div>
+                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Description</label><input value={escModal.description || ''} onChange={function(e) { setEscModal(Object.assign({}, escModal, { description: e.target.value })); }} style={inputStyle} /></div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Trigger Type</label><select value={escModal.trigger_type} onChange={function(e) { setEscModal(Object.assign({}, escModal, { trigger_type: e.target.value })); }} style={inputStyle}><option value="keyword">Keyword match</option><option value="sentiment">Negative sentiment</option><option value="vip_match">VIP contact</option><option value="custom">Custom</option></select></div>
+                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Action</label><select value={escModal.action_type} onChange={function(e) { setEscModal(Object.assign({}, escModal, { action_type: e.target.value })); }} style={inputStyle}><option value="notify_admin">Notify admin</option><option value="escalate_human">Escalate to human</option><option value="tag_conversation">Tag conversation</option><option value="create_ticket">Create ticket</option></select></div>
+                      </div>
+                      {escModal.trigger_type === 'keyword' && (
+                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Keywords (comma-separated)</label><input value={((escModal.trigger_config && escModal.trigger_config.keywords) || []).join(', ')} onChange={function(e) { setEscModal(Object.assign({}, escModal, { trigger_config: { keywords: e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean) } })); }} placeholder="lawyer, lawsuit, legal action" style={inputStyle} /></div>
+                      )}
+                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Priority (1=highest, 10=default)</label><input type="number" min="1" max="99" value={escModal.priority} onChange={function(e) { setEscModal(Object.assign({}, escModal, { priority: parseInt(e.target.value) || 10 })); }} style={inputStyle} /></div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'flex-end' }}>
+                      <button onClick={function() { setEscModal(null); }} style={btnSecondary}>Cancel</button>
+                      <button onClick={async function() {
+                        if (!escModal.rule_name) { setEscError('Rule name is required'); return; }
+                        setEscSaving('modal');
+                        try {
+                          var payload = { tenant_id: currentTenantId, rule_name: escModal.rule_name, description: escModal.description, trigger_type: escModal.trigger_type, trigger_config: escModal.trigger_config || {}, action_type: escModal.action_type, action_config: escModal.action_config || {}, priority: escModal.priority, active: escModal.active !== false };
+                          var method = escModal._isNew ? 'POST' : 'PATCH';
+                          if (!escModal._isNew) payload.id = escModal.id;
+                          var r = await fetch('/api/escalation-rules', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                          var d = await r.json();
+                          if (!r.ok) { setEscError(d.error || 'Save failed'); setEscSaving(null); return; }
+                          setEscModal(null);
+                          setEscError(null);
+                          loadEscalationRules();
+                        } catch (e) { setEscError(e.message); }
+                        setEscSaving(null);
+                      }} disabled={escSaving === 'modal'} style={Object.assign({}, btnPrimary, { opacity: escSaving === 'modal' ? 0.6 : 1 })}>{escSaving === 'modal' ? 'Saving...' : escModal._isNew ? 'Create Rule' : 'Save Changes'}</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            );
-          })()}
+          )}
 
           {/* ANALYTICS TAB */}
           {activeTab === "analytics" && (

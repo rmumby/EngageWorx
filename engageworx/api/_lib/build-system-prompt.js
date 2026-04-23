@@ -79,9 +79,28 @@ async function buildSystemPrompt(opts) {
     sections.push('RECENT CONVERSATION:\n' + conversationContext);
   }
 
-  // (g) Escalation rules
+  // (g) Platform escalation rules base
   if (platform.escalation_rules_base) {
     sections.push(platform.escalation_rules_base);
+  }
+
+  // (h) Tenant-specific escalation rules
+  if (tenantId) {
+    try {
+      var erRes = await supabase.from('escalation_rules').select('rule_name, description, trigger_type, trigger_config, action_type, action_config, priority').eq('tenant_id', tenantId).eq('active', true).order('priority', { ascending: true });
+      if (erRes.data && erRes.data.length > 0) {
+        var ruleLines = erRes.data.map(function(r) {
+          var trigger = r.trigger_type;
+          if (r.trigger_type === 'keyword' && r.trigger_config && r.trigger_config.keywords) trigger = 'keywords: ' + r.trigger_config.keywords.join(', ');
+          else if (r.trigger_type === 'sentiment') trigger = 'negative sentiment detected';
+          else if (r.trigger_type === 'vip_match') trigger = 'contact is a VIP';
+          var action = r.action_type.replace(/_/g, ' ');
+          return '- ' + r.rule_name + (r.description ? ' (' + r.description + ')' : '') + '. Trigger: ' + trigger + '. Action: ' + action + '.';
+        });
+        sections.push('TENANT ESCALATION RULES:\nIn addition to platform defaults, this tenant has configured the following escalation rules. When any of these triggers are detected in the conversation, apply the corresponding action and notify appropriately.\n' + ruleLines.join('\n'));
+        console.log('\ud83c\udfaf Escalation rules loaded for prompt:', { tenantId: tenantId, ruleCount: erRes.data.length, priorityMin: erRes.data[0].priority });
+      }
+    } catch (e) { console.warn('[buildSystemPrompt] escalation_rules query error:', e.message); }
   }
 
   var prompt = sections.join(SEPARATOR);
