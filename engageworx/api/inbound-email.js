@@ -6,6 +6,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { buildSystemPrompt } = require('./_lib/build-system-prompt');
+const { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -422,6 +423,8 @@ module.exports = async function handler(req, res) {
 
       // Save message row first (status=pending), then send, then update with result
       var outMsgId = null;
+      var replyThreadId = generateThreadId();
+      var replyToAddr = makeReplyToAddress(replyThreadId);
       if (conversationId && tenantId && parsed.reply_body) {
         var insResult = await supabase.from('messages').insert({
           tenant_id: tenantId,
@@ -432,6 +435,7 @@ module.exports = async function handler(req, res) {
           sender_type: 'bot',
           body: parsed.reply_body,
           status: 'pending',
+          metadata: { reply_thread_id: replyThreadId, reply_to_address: replyToAddr },
           created_at: new Date().toISOString(),
         }).select('id').single();
         if (insResult.error) console.error('❌ AI reply save error:', insResult.error.message);
@@ -459,7 +463,7 @@ module.exports = async function handler(req, res) {
           var sgPayload = {
             to: senderEmail,
             from: { email: replyFromEmail, name: replyFromName },
-            replyTo: replyFromEmail,
+            replyTo: { email: replyToAddr, name: replyFromName },
             subject: replySubject,
             html: emailHtml,
           };
@@ -484,7 +488,7 @@ module.exports = async function handler(req, res) {
             to: [senderEmail],
             subject: replySubject,
             html: emailHtml,
-            reply_to: replyFromEmail,
+            reply_to: replyToAddr,
           };
           if (bccList.length > 0) resendPayload.bcc = bccList;
           console.log('📤 Resend send attempt:', { to: senderEmail, from: replyFromEmail, message_id: outMsgId });

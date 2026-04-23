@@ -84,6 +84,14 @@ export default function EmailTrackingInstructions({ tenantId, C, compact }) {
           </div>
         </>
       )}
+      {!compact && (
+        <div style={{ marginTop: 14, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, padding: 14 }}>
+          <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>↩️ Reply Capture</div>
+          <p style={{ color: '#cbd5e1', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+            Emails sent from the portal (Aria auto-replies, sequences, digest follow-ups) automatically include a reply-to address that routes customer replies back into Live Inbox. No setup required — replies thread into the original conversation automatically.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

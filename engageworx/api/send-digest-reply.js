@@ -27,6 +27,11 @@ module.exports = async function handler(req, res) {
 
   var fromEmail = fromOverride || process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com';
 
+  // Generate reply-to threading
+  var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
+  var replyThreadId = generateThreadId();
+  var replyToAddr = makeReplyToAddress(replyThreadId);
+
   // Load AI Omni BCC address
   var aiOmniBcc = null;
   if (tenantId) {
@@ -61,6 +66,7 @@ module.exports = async function handler(req, res) {
         var gmailOpts = {
           from: fromEmail,
           to: to,
+          replyTo: replyToAddr,
           subject: subject,
           text: textFull,
           html: htmlFull,
@@ -68,7 +74,7 @@ module.exports = async function handler(req, res) {
         if (aiOmniBcc) gmailOpts.bcc = aiOmniBcc;
         var info = await transport.sendMail(gmailOpts);
         console.log('[send-digest-reply] Gmail sent to=' + to + ' messageId=' + info.messageId);
-        return res.status(200).json({ success: true, method: 'gmail', messageId: info.messageId });
+        return res.status(200).json({ success: true, method: 'gmail', messageId: info.messageId, reply_thread_id: replyThreadId });
       } catch (err) {
         console.error('[send-digest-reply] Gmail error:', err.message, '— falling back to SendGrid');
         sendMethod = 'sendgrid';
@@ -85,7 +91,7 @@ module.exports = async function handler(req, res) {
     var sgPayload = {
       to: to,
       from: { email: fromEmail, name: sigInfo.fromName || 'EngageWorx' },
-      replyTo: fromEmail,
+      replyTo: { email: replyToAddr, name: sigInfo.fromName || 'EngageWorx' },
       subject: subject,
       text: _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml2, sigInfo.closingLine, sigInfo.signatureHtml),
@@ -93,7 +99,7 @@ module.exports = async function handler(req, res) {
     if (aiOmniBcc) sgPayload.bcc = { email: aiOmniBcc };
     await sgMail.send(sgPayload);
     console.log('[send-digest-reply] SendGrid sent to=' + to);
-    return res.status(200).json({ success: true, method: 'sendgrid' });
+    return res.status(200).json({ success: true, method: 'sendgrid', reply_thread_id: replyThreadId });
   } catch (err) {
     console.error('[send-digest-reply] SendGrid error:', err.message);
     return res.status(500).json({ error: err.message });

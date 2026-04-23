@@ -5,6 +5,7 @@
 // message into the matched contact's conversation so Live Inbox shows the full thread.
 
 var { createClient } = require('@supabase/supabase-js');
+var { extractThreadId, resolveReplyThread } = require('./_lib/reply-thread');
 
 function getSupabase() {
   return createClient(
@@ -59,6 +60,52 @@ module.exports = async function handler(req, res) {
     var html = body.html || '';
     var senderEmail = ((fromRaw.match(/<([^>]+)>/) || [])[1] || fromRaw).trim().toLowerCase();
     var emailBody = (text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()).substring(0, 4000);
+
+    // ── Check for reply+ prefix — inbound reply to a portal-originated outbound ──
+    var allAddresses = [toHeader, body.cc, body.bcc, body.envelope].filter(Boolean).join(' ').toLowerCase();
+    var replyAddrMatch = allAddresses.match(/reply\+([a-f0-9]+)@/i);
+    if (replyAddrMatch) {
+      var threadId = replyAddrMatch[1];
+      console.log('📥 Reply-inbound received:', { thread_id: threadId, from: senderEmail });
+      var original = await resolveReplyThread(supabase, threadId);
+      if (original) {
+        // Insert reply as inbound message on the original conversation
+        var replyMsg = await supabase.from('messages').insert({
+          tenant_id: original.tenant_id,
+          conversation_id: original.conversation_id,
+          contact_id: original.contact_id,
+          channel: 'email',
+          direction: 'inbound',
+          sender_type: 'contact',
+          body: emailBody,
+          status: 'delivered',
+          metadata: { from: senderEmail, subject: subject, reply_thread_id: threadId, source: 'reply_routing' },
+          created_at: new Date().toISOString(),
+        }).select('id').single();
+        // Update conversation
+        await supabase.from('conversations').update({
+          last_message_at: new Date().toISOString(),
+          status: 'active',
+        }).eq('id', original.conversation_id);
+        // Increment unread
+        await supabase.rpc('increment_field', { table_name: 'conversations', field_name: 'unread_count', row_id: original.conversation_id }).catch(function() {
+          supabase.from('conversations').update({ unread_count: 1 }).eq('id', original.conversation_id);
+        });
+        console.log('✅ Reply threaded:', { thread_id: threadId, conversation_id: original.conversation_id, message_id: replyMsg.data && replyMsg.data.id });
+        return res.status(200).json({ success: true, type: 'reply_threaded', conversation_id: original.conversation_id, message_id: replyMsg.data && replyMsg.data.id });
+      } else {
+        // Orphaned reply — save for manual review
+        console.warn('⚠️ Reply thread not found:', { thread_id: threadId, from: senderEmail });
+        try {
+          await supabase.from('debug_logs').insert({
+            endpoint: 'track-outbound', action: 'orphaned_reply',
+            payload: { thread_id: threadId, from: senderEmail, subject: subject, body: emailBody.substring(0, 500) },
+            created_at: new Date().toISOString(),
+          });
+        } catch (e) {}
+        return res.status(200).json({ success: true, type: 'orphaned_reply', thread_id: threadId });
+      }
+    }
 
     // Identify the tenant. Preferred: the BCC address `track+{slug}@track.engwx.com` embeds the
     // tenant's unique slug so we don't rely on sender matching. Fall back to user_profiles /

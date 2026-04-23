@@ -2,6 +2,7 @@
 var sgMail = require('@sendgrid/mail');
 var { createClient } = require('@supabase/supabase-js');
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
+var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -243,10 +244,12 @@ async function analyzeAndActionEmail(ctx) {
           // Send from the matched tenant's configured email identity — never hard-code hello@engwx.com.
           var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
           var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
+          var eiThreadId = generateThreadId();
+          var eiReplyTo = makeReplyToAddress(eiThreadId);
           var autoReplyPayload = {
             to: sender,
             from: { email: aiCtx.fromEmail, name: sigInfo.fromName || aiCtx.fromName },
-            replyTo: aiCtx.replyTo,
+            replyTo: { email: eiReplyTo, name: sigInfo.fromName || aiCtx.fromName },
             subject: replySubj,
             text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
             html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),

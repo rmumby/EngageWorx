@@ -10,6 +10,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var sgMail = require('@sendgrid/mail');
+var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 
 function getSupabase() {
   return createClient(
@@ -66,9 +67,12 @@ async function sendStep(supabase, step, lead, tenant) {
       '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
     var bodyClose = '</div>';
 
+    var seqThreadId = generateThreadId();
+    var seqReplyTo = makeReplyToAddress(seqThreadId);
     var seqPayload = {
       to: lead.email,
       from: { email: emailConfig.from, name: sigInfo.fromName || emailConfig.fromName },
+      replyTo: { email: seqReplyTo, name: sigInfo.fromName || emailConfig.fromName },
       subject: step.subject || 'Following up from EngageWorx',
       text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
