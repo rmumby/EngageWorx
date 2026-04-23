@@ -72,6 +72,7 @@ function parseMultipart(req) {
 }
 
 module.exports = async function handler(req, res) {
+  console.log('🔵 [inbound-email.js] HANDLER HIT:', new Date().toISOString(), req.method);
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'POST only' });
   }
@@ -425,7 +426,9 @@ module.exports = async function handler(req, res) {
       var outMsgId = null;
       var replyThreadId = generateThreadId();
       var replyToAddr = makeReplyToAddress(replyThreadId);
+      console.log('📝 [inbound-email] Outbound save: conversationId=' + (conversationId || 'null') + ' tenantId=' + (tenantId || 'null') + ' contactId=' + (contactId || 'null') + ' has_reply_body=' + !!(parsed.reply_body));
       if (conversationId && tenantId && parsed.reply_body) {
+        console.log('📝 [inbound-email] Inserting outbound message:', { conversation_id: conversationId, body_preview: (parsed.reply_body || '').substring(0, 50) });
         var insResult = await supabase.from('messages').insert({
           tenant_id: tenantId,
           conversation_id: conversationId,
@@ -438,14 +441,16 @@ module.exports = async function handler(req, res) {
           metadata: { reply_thread_id: replyThreadId, reply_to_address: replyToAddr },
           created_at: new Date().toISOString(),
         }).select('id').single();
-        if (insResult.error) console.error('❌ AI reply save error:', insResult.error.message);
-        else { outMsgId = insResult.data.id; console.log('💾 AI reply saved:', outMsgId); }
+        if (insResult.error) console.error('❌ [inbound-email] Outbound message INSERT error:', insResult.error.message, insResult.error.details, insResult.error.hint);
+        else { outMsgId = insResult.data.id; console.log('✅ [inbound-email] Outbound message saved:', outMsgId); }
 
         await supabase.from('conversations').update({
           last_message_at: new Date().toISOString(),
           status: 'waiting',
           unread_count: 0,
         }).eq('id', conversationId);
+      } else {
+        console.error('⚠️ [inbound-email] Skipped outbound insert — missing:', { conversationId: conversationId || 'null', tenantId: tenantId || 'null', has_reply_body: !!(parsed.reply_body) });
       }
 
       // Build BCC list

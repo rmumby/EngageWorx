@@ -258,31 +258,39 @@ async function analyzeAndActionEmail(ctx) {
           await sgMail.send(autoReplyPayload);
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
           // Save outbound message to Live Inbox
+          console.log('📝 [email-inbound] Outbound save: starting. ctx.conversationId=' + (ctx.conversationId || 'null') + ' match.contactId=' + (match.contactId || 'null') + ' match.tenantId=' + (match.tenantId || 'null'));
           var outConvId = ctx.conversationId || null;
           if (!outConvId && match.contactId && match.tenantId) {
             try {
               var convLookup = await supabase.from('conversations').select('id').eq('contact_id', match.contactId).eq('tenant_id', match.tenantId).eq('channel', 'email').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
-              if (convLookup.data) outConvId = convLookup.data.id;
-            } catch (e) {}
+              if (convLookup.data) { outConvId = convLookup.data.id; console.log('📝 [email-inbound] Found existing conversation:', outConvId); }
+              else console.log('📝 [email-inbound] No existing conversation found, will create');
+              if (convLookup.error) console.error('📝 [email-inbound] Conv lookup error:', convLookup.error.message);
+            } catch (e) { console.error('📝 [email-inbound] Conv lookup exception:', e.message); }
           }
           if (!outConvId && match.contactId && match.tenantId) {
             try {
               var newConv = await supabase.from('conversations').insert({ tenant_id: match.tenantId, contact_id: match.contactId, channel: 'email', status: 'waiting', subject: replySubj, last_message_at: new Date().toISOString(), unread_count: 0 }).select('id').single();
-              if (newConv.data) outConvId = newConv.data.id;
-            } catch (e) {}
+              if (newConv.data) { outConvId = newConv.data.id; console.log('📝 [email-inbound] Created new conversation:', outConvId); }
+              if (newConv.error) console.error('📝 [email-inbound] Conv insert error:', newConv.error.message, newConv.error.details);
+            } catch (e) { console.error('📝 [email-inbound] Conv insert exception:', e.message); }
           }
-          if (outConvId) {
+          if (!outConvId) {
+            console.error('❌ [email-inbound] No conversation_id — skipping outbound message insert. contactId=' + (match.contactId || 'null') + ' tenantId=' + (match.tenantId || 'null'));
+          } else {
+            console.log('📝 [email-inbound] Inserting outbound message:', { conversation_id: outConvId, body_preview: (decision.reply_draft || '').substring(0, 50) });
             try {
-              await supabase.from('messages').insert({
+              var outIns = await supabase.from('messages').insert({
                 tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
                 channel: 'email', direction: 'outbound', sender_type: 'bot',
                 body: decision.reply_draft, status: 'sent',
                 metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, from: aiCtx.fromEmail, to: sender, subject: replySubj },
                 created_at: new Date().toISOString(),
-              });
+              }).select('id').single();
+              if (outIns.error) console.error('❌ [email-inbound] Outbound message INSERT error:', outIns.error.message, outIns.error.details, outIns.error.hint);
+              else console.log('✅ [email-inbound] Outbound message saved:', outIns.data.id);
               await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
-              console.log('💾 Outbound reply saved to Live Inbox:', { conversation_id: outConvId });
-            } catch (saveErr) { console.error('❌ Outbound message save failed:', saveErr.message); }
+            } catch (saveErr) { console.error('❌ [email-inbound] Outbound message save exception:', saveErr.message, saveErr.stack); }
           }
           try {
             var _eum = require('./_usage-meter');
@@ -476,7 +484,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    console.log('email-inbound received:', typeof req.body, Object.keys(req.body || {}));
+    console.log('🔵 [email-inbound.js] HANDLER HIT:', new Date().toISOString(), typeof req.body, Object.keys(req.body || {}));
 
     var body = req.body || {};
 
