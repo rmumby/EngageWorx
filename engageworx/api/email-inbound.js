@@ -257,6 +257,33 @@ async function analyzeAndActionEmail(ctx) {
           if (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) autoReplyPayload.bcc = { email: aiCtx.aiOmniBcc };
           await sgMail.send(autoReplyPayload);
           if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+          // Save outbound message to Live Inbox
+          var outConvId = ctx.conversationId || null;
+          if (!outConvId && match.contactId && match.tenantId) {
+            try {
+              var convLookup = await supabase.from('conversations').select('id').eq('contact_id', match.contactId).eq('tenant_id', match.tenantId).eq('channel', 'email').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+              if (convLookup.data) outConvId = convLookup.data.id;
+            } catch (e) {}
+          }
+          if (!outConvId && match.contactId && match.tenantId) {
+            try {
+              var newConv = await supabase.from('conversations').insert({ tenant_id: match.tenantId, contact_id: match.contactId, channel: 'email', status: 'waiting', subject: replySubj, last_message_at: new Date().toISOString(), unread_count: 0 }).select('id').single();
+              if (newConv.data) outConvId = newConv.data.id;
+            } catch (e) {}
+          }
+          if (outConvId) {
+            try {
+              await supabase.from('messages').insert({
+                tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
+                channel: 'email', direction: 'outbound', sender_type: 'bot',
+                body: decision.reply_draft, status: 'sent',
+                metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, from: aiCtx.fromEmail, to: sender, subject: replySubj },
+                created_at: new Date().toISOString(),
+              });
+              await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
+              console.log('💾 Outbound reply saved to Live Inbox:', { conversation_id: outConvId });
+            } catch (saveErr) { console.error('❌ Outbound message save failed:', saveErr.message); }
+          }
           try {
             var _eum = require('./_usage-meter');
             _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
