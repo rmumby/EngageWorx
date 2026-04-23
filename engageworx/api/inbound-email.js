@@ -420,29 +420,10 @@ module.exports = async function handler(req, res) {
         </div>
       `;
 
-      try {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(Object.assign({
-            from: `${replyFromName} <${replyFromEmail}>`,
-            to: [senderEmail],
-            subject: parsed.reply_subject || `Re: ${emailSubject}`,
-            html: emailHtml,
-            reply_to: replyFromEmail,
-          }, emailChannelConfig.ai_omni_bcc && emailChannelConfig.ai_omni_bcc !== senderEmail ? { bcc: [emailChannelConfig.ai_omni_bcc] } : {})),
-        });
-        console.log(`✉️ Auto-reply sent from ${replyFromEmail} to ${senderEmail}`);
-      } catch (sendErr) {
-        console.error('Resend error:', sendErr.message);
-      }
-
-      // ── Save AI reply to Live Inbox — outside Resend try/catch so it always runs ──
+      // Save message row first (status=pending), then send, then update with result
+      var outMsgId = null;
       if (conversationId && tenantId && parsed.reply_body) {
-        const { error: outErr } = await supabase.from('messages').insert({
+        var insResult = await supabase.from('messages').insert({
           tenant_id: tenantId,
           conversation_id: conversationId,
           contact_id: contactId,
@@ -450,17 +431,93 @@ module.exports = async function handler(req, res) {
           direction: 'outbound',
           sender_type: 'bot',
           body: parsed.reply_body,
-          status: 'delivered',
+          status: 'pending',
           created_at: new Date().toISOString(),
-        });
-        if (outErr) console.error('❌ AI reply save error:', outErr.message);
-        else console.log('✅ AI reply saved to Live Inbox');
+        }).select('id').single();
+        if (insResult.error) console.error('❌ AI reply save error:', insResult.error.message);
+        else { outMsgId = insResult.data.id; console.log('💾 AI reply saved:', outMsgId); }
 
         await supabase.from('conversations').update({
           last_message_at: new Date().toISOString(),
           status: 'waiting',
           unread_count: 0,
         }).eq('id', conversationId);
+      }
+
+      // Build BCC list
+      var bccList = [];
+      if (emailChannelConfig.ai_omni_bcc && emailChannelConfig.ai_omni_bcc !== senderEmail) bccList.push(emailChannelConfig.ai_omni_bcc);
+
+      var sendResult = { ok: false, provider: null, messageId: null, error: null };
+      var replySubject = parsed.reply_subject || 'Re: ' + emailSubject;
+
+      // Try SendGrid first (primary)
+      if (process.env.SENDGRID_API_KEY) {
+        try {
+          var sgMail = require('@sendgrid/mail');
+          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+          var sgPayload = {
+            to: senderEmail,
+            from: { email: replyFromEmail, name: replyFromName },
+            replyTo: replyFromEmail,
+            subject: replySubject,
+            html: emailHtml,
+          };
+          if (bccList.length > 0) sgPayload.bcc = bccList.map(function(e) { return { email: e }; });
+          console.log('📤 SendGrid send attempt:', { to: senderEmail, from: replyFromEmail, message_id: outMsgId });
+          var sgRes = await sgMail.send(sgPayload);
+          var sgMsgId = sgRes && sgRes[0] && sgRes[0].headers && sgRes[0].headers['x-message-id'];
+          sendResult = { ok: true, provider: 'sendgrid', messageId: sgMsgId || null, error: null };
+          console.log('✅ SendGrid send success:', { message_id: outMsgId, sg_message_id: sgMsgId });
+        } catch (sgErr) {
+          var sgErrMsg = sgErr.response ? JSON.stringify(sgErr.response.body || sgErr.response.statusCode) : sgErr.message;
+          console.error('❌ SendGrid send failed:', { message_id: outMsgId, error: sgErrMsg });
+          sendResult = { ok: false, provider: 'sendgrid', messageId: null, error: sgErrMsg };
+        }
+      }
+
+      // Fallback to Resend if SendGrid failed or unavailable
+      if (!sendResult.ok && RESEND_API_KEY) {
+        try {
+          var resendPayload = {
+            from: replyFromName + ' <' + replyFromEmail + '>',
+            to: [senderEmail],
+            subject: replySubject,
+            html: emailHtml,
+            reply_to: replyFromEmail,
+          };
+          if (bccList.length > 0) resendPayload.bcc = bccList;
+          console.log('📤 Resend send attempt:', { to: senderEmail, from: replyFromEmail, message_id: outMsgId });
+          var resendRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + RESEND_API_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify(resendPayload),
+          });
+          var resendData = await resendRes.json().catch(function() { return {}; });
+          if (resendRes.ok) {
+            sendResult = { ok: true, provider: 'resend', messageId: resendData.id || null, error: null };
+            console.log('✅ Resend send success:', { message_id: outMsgId, resend_id: resendData.id });
+          } else {
+            sendResult = { ok: false, provider: 'resend', messageId: null, error: JSON.stringify(resendData) };
+            console.error('❌ Resend send failed:', { message_id: outMsgId, error: resendData });
+          }
+        } catch (resendErr) {
+          console.error('❌ Resend exception:', { message_id: outMsgId, error: resendErr.message });
+          sendResult = { ok: false, provider: 'resend', messageId: null, error: resendErr.message };
+        }
+      }
+
+      if (!sendResult.ok && !process.env.SENDGRID_API_KEY && !RESEND_API_KEY) {
+        console.error('❌ No email provider configured — reply not sent:', { message_id: outMsgId });
+        sendResult.error = 'No email provider configured (SENDGRID_API_KEY and RESEND_API_KEY both missing)';
+      }
+
+      // Update message row with send result
+      if (outMsgId) {
+        var msgUpdate = sendResult.ok
+          ? { status: 'sent', provider: sendResult.provider, provider_message_id: sendResult.messageId, sent_at: new Date().toISOString() }
+          : { status: 'failed', provider: sendResult.provider, error_message: (sendResult.error || 'unknown').substring(0, 500) };
+        await supabase.from('messages').update(msgUpdate).eq('id', outMsgId);
       }
 
     } else if (!emailAllowed && notifyEmail) {
