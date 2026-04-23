@@ -3,6 +3,7 @@ var sgMail = require('@sendgrid/mail');
 var { createClient } = require('@supabase/supabase-js');
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
+var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -874,6 +875,13 @@ module.exports = async function handler(req, res) {
     } catch (inboxErr) {
       console.error('🔴 Live Inbox error:', inboxErr.message, inboxErr.stack);
     }
+
+    // ── Check escalation triggers ──────────────────────────────────────────────
+    checkEscalationTriggers({
+      supabase: supabase, tenantId: EW_TENANT_ID, inboundBody: emailBody,
+      contactId: contactId, conversationId: conversationId,
+      contactInfo: senderEmail,
+    }).catch(function(e) { console.warn('[email-inbound] Escalation trigger check error:', e.message); });
 
     // ── Halt sequences on reply ───────────────────────────────────────────────
     pauseSequencesForContact(senderEmail).catch(function() {});

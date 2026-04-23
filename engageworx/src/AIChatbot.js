@@ -95,6 +95,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [escSaving, setEscSaving] = useState(null);
   const [escModal, setEscModal] = useState(null);
   const [escError, setEscError] = useState(null);
+  const [escTeamMembers, setEscTeamMembers] = useState([]);
   const previewEndRef = useRef(null);
 
   // Email signatures (per-tenant, stored on chatbot_configs)
@@ -153,6 +154,15 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       var d = await r.json();
       if (d.rules) setEscRules(d.rules);
     } catch (e) { console.warn('Escalation rules load error:', e.message); }
+    try {
+      var { supabase } = await import('./supabaseClient');
+      var tmRes = await supabase.from('tenant_members').select('user_id, role').eq('tenant_id', currentTenantId).eq('status', 'active');
+      if (tmRes.data && tmRes.data.length > 0) {
+        var userIds = tmRes.data.map(function(m) { return m.user_id; });
+        var upRes = await supabase.from('user_profiles').select('id, full_name, email, phone_number').in('id', userIds);
+        if (upRes.data) setEscTeamMembers(upRes.data);
+      }
+    } catch (e) { console.warn('Team members load error:', e.message); }
     setEscLoading(false);
   }
   useEffect(function() { loadEscalationRules(); }, [currentTenantId, demoMode]); // eslint-disable-line
@@ -712,6 +722,7 @@ saveAIConfig(newSources);
                     <div>
                       <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{actionLabel}</div>
                       <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>Priority: {rule.priority}</div>
+                      {!(rule.action_config && rule.action_config.notify_user_id) && <div style={{ color: '#FFD600', fontSize: 10, marginTop: 2 }} title="No team member assigned — notifications will not fire">⚠️ No notify target</div>}
                     </div>
                     <div style={{ textAlign: "center" }}>
                       <div onClick={async function() {
@@ -755,6 +766,28 @@ saveAIConfig(newSources);
                         <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Keywords (comma-separated)</label><input value={((escModal.trigger_config && escModal.trigger_config.keywords) || []).join(', ')} onChange={function(e) { setEscModal(Object.assign({}, escModal, { trigger_config: { keywords: e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean) } })); }} placeholder="lawyer, lawsuit, legal action" style={inputStyle} /></div>
                       )}
                       <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Priority (1=highest, 10=default)</label><input type="number" min="1" max="99" value={escModal.priority} onChange={function(e) { setEscModal(Object.assign({}, escModal, { priority: parseInt(e.target.value) || 10 })); }} style={inputStyle} /></div>
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginTop: 4 }}>
+                        <div style={{ color: '#FFD600', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>🔔 Notification Settings</div>
+                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Notify team member</label>
+                          <select value={(escModal.action_config && escModal.action_config.notify_user_id) || ''} onChange={function(e) { var ac = Object.assign({}, escModal.action_config || {}); ac.notify_user_id = e.target.value || null; setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={inputStyle}>
+                            <option value="">— Select team member —</option>
+                            {escTeamMembers.map(function(m) { return <option key={m.id} value={m.id}>{(m.full_name || m.email || 'Unknown') + ' (' + (m.email || '') + ')'}</option>; })}
+                          </select>
+                        </div>
+                        <div style={{ marginTop: 8 }}><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Notification channels</label>
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                            {[{ id: 'email', label: '📧 Email', enabled: true }, { id: 'sms', label: '💬 SMS', enabled: true }, { id: 'voice', label: '📞 Voice', enabled: false }, { id: 'whatsapp', label: '📱 WhatsApp', enabled: false }].map(function(ch) {
+                              var channels = (escModal.action_config && escModal.action_config.channels) || [];
+                              var isChecked = channels.indexOf(ch.id) !== -1;
+                              return <label key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 6, color: ch.enabled ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 12, cursor: ch.enabled ? 'pointer' : 'not-allowed' }} title={ch.enabled ? '' : 'Coming soon'}>
+                                <input type="checkbox" checked={isChecked} disabled={!ch.enabled} onChange={function() { var ac = Object.assign({}, escModal.action_config || {}); var chs = (ac.channels || []).slice(); if (isChecked) chs = chs.filter(function(c) { return c !== ch.id; }); else chs.push(ch.id); ac.channels = chs; setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={{ accentColor: C.primary }} />{ch.label}</label>;
+                            })}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 8 }}><label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={(escModal.action_config && escModal.action_config.include_conversation_link) !== false} onChange={function() { var ac = Object.assign({}, escModal.action_config || {}); ac.include_conversation_link = !(ac.include_conversation_link !== false); setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={{ accentColor: C.primary }} />Include conversation link in notification</label>
+                        </div>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'flex-end' }}>
                       <button onClick={function() { setEscModal(null); }} style={btnSecondary}>Cancel</button>

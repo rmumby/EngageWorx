@@ -7,6 +7,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { buildSystemPrompt } = require('./_lib/build-system-prompt');
 const { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
+const { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -339,6 +340,13 @@ module.exports = async function handler(req, res) {
     } catch (inboxErr) {
       console.log('Live Inbox wiring error:', inboxErr.message);
     }
+
+    // ── Step 5b: Check escalation triggers ──
+    checkEscalationTriggers({
+      supabase: supabase, tenantId: tenantId, inboundBody: emailBody,
+      contactId: contactId, conversationId: conversationId,
+      contactInfo: senderEmail,
+    }).catch(function(e) { console.warn('[inbound-email] Escalation trigger check error:', e.message); });
 
     // ── Step 6: AI classification and reply — only if config is complete ──
     if (!replyFromEmail || !replyFromName) {
