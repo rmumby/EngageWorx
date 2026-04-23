@@ -1,5 +1,6 @@
 // /api/twilio-voice.js — EngageWorx Voice System with configurable AI assistant
 const { createClient } = require('@supabase/supabase-js');
+const { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -131,18 +132,19 @@ async function getAgentName(tenantId) {
 }
 
 // ─── Call AI ──────────────────────────────────────────────────────────────────
-async function callAI(userMessage, conversationHistory, chatbotConfig) {
+async function callAI(userMessage, conversationHistory, chatbotConfig, tenantId) {
   try {
-    var basePrompt = (chatbotConfig && chatbotConfig.system_prompt)
-      ? chatbotConfig.system_prompt
-      : ('You are ' + ((chatbotConfig && chatbotConfig.bot_name) || 'Aria') + ', a warm and professional AI assistant for EngageWorx — an AI-powered communications platform. You help callers learn about the platform, answer questions about features and pricing, and book demos. Keep responses concise — this is a phone call, so 1-3 sentences maximum. Speak naturally as if in conversation. If someone wants to book a demo or learn more, offer to text them a Calendly booking link. Pricing: SMB plans from $99-499/month. CSP/reseller plans from $499/month. Key features: AI SMS, WhatsApp, Voice, Email, Pipeline CRM, Live Inbox, Sequences, and integrations with Calendly, Typeform, HubSpot and more.');
+    var conversationStr = (conversationHistory || []).map(function(m) { return m.role + ': ' + m.content; }).join('\n');
+    var systemPrompt = await buildSystemPrompt({
+      tenantId: tenantId,
+      channel: 'voice',
+      conversationContext: conversationStr || null,
+      supabase: supabase,
+    });
 
     var noGreetingRule = '\n\nCRITICAL RULE: The greeting has already been spoken to the caller via TTS before this conversation started. Do NOT greet them again. Do NOT say "hi", "hello", "how can I help you", "how may I assist you", or any similar opening phrase. Respond directly to what the caller said. If the caller greets you with "hi" or "hello", acknowledge briefly and move to substance — for example "Hey — what can I help you with today?" but never repeat the full greeting.';
 
-    var systemPrompt = basePrompt + noGreetingRule;
-
-    var knowledgeBase = (chatbotConfig && chatbotConfig.knowledge_base) ? chatbotConfig.knowledge_base : '';
-    if (knowledgeBase) systemPrompt += '\n\nKnowledge base:\n' + knowledgeBase;
+    systemPrompt += noGreetingRule;
 
     var messages = (conversationHistory || []).slice(-10); // last 5 exchanges
     messages.push({ role: 'user', content: userMessage });
@@ -431,7 +433,7 @@ module.exports = async function handler(req, res) {
       // Load history, get chatbot config, call AI
       var history = await getConversationHistory(replyCallSid);
       var chatbotCfg = await getChatbotConfig(replyTenantId);
-      var aiResult = await callAI(speechResult, history, chatbotCfg);
+      var aiResult = await callAI(speechResult, history, chatbotCfg, replyTenantId);
       var aiText = aiResult.text || 'I\'m sorry, I had a little trouble with that. Could you rephrase your question?';
 
       // Save updated history

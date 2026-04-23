@@ -5,6 +5,7 @@
 // New tenants self-configure via Settings → Channels → Email in the portal
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -353,34 +354,11 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 800,
-        system: `You are the AI email assistant for ${replyFromName}. You handle incoming emails professionally and helpfully.
-
-${businessInfo ? `Business information:\n${businessInfo}` : `You represent ${replyFromName}. Answer questions helpfully and professionally.`}
-
-${replyPhone ? `Support phone: ${replyPhone}` : ''}
-${replyWebsite ? `Website: ${replyWebsite}` : ''}
-${replyFromEmail ? `Email: ${replyFromEmail}` : ''}
-
-Your job:
-1. Classify the intent (sales_inquiry, partnership, support, demo_request, pricing, spam, other)
-2. Write a warm, professional, concise reply (3-5 sentences max)
-3. For sales/demo/partnership: express interest, highlight relevant value, offer to schedule a call
-4. For support: acknowledge and offer help
-5. For spam: do not reply (set intent to "spam", should_reply to false)
-6. Always sign off as "The ${replyFromName} Team"
-7. Never make up features or services
-8. Do not use markdown formatting in the email body
-
-Respond ONLY with valid JSON (no markdown backticks):
-{
-  "intent": "sales_inquiry|partnership|support|demo_request|pricing|spam|other",
-  "sentiment": "positive|neutral|negative",
-  "should_reply": true|false,
-  "reply_subject": "Re: <original subject>",
-  "reply_body": "Your reply text here",
-  "notify_admin": true|false,
-  "summary": "One-line summary for internal tracking"
-}`,
+        system: (await buildSystemPrompt({ tenantId: tenantId, channel: 'email', supabase: supabase })) +
+          '\n\n' + (replyPhone ? 'Support phone: ' + replyPhone + '\n' : '') +
+          (replyWebsite ? 'Website: ' + replyWebsite + '\n' : '') +
+          (replyFromEmail ? 'Email: ' + replyFromEmail + '\n' : '') +
+          '\n\nYour job:\n1. Classify the intent (sales_inquiry, partnership, support, demo_request, pricing, spam, other)\n2. Write a warm, professional, concise reply (3-5 sentences max)\n3. For sales/demo/partnership: express interest, highlight relevant value, offer to schedule a call\n4. For support: acknowledge and offer help\n5. For spam: do not reply (set intent to "spam", should_reply to false)\n6. Always sign off as "The ' + (replyFromName || 'Support') + ' Team"\n7. Never make up features or services\n8. Do not use markdown formatting in the email body\n\nRespond ONLY with valid JSON (no markdown backticks):\n{"intent": "sales_inquiry|partnership|support|demo_request|pricing|spam|other", "sentiment": "positive|neutral|negative", "should_reply": true|false, "reply_subject": "Re: <original subject>", "reply_body": "Your reply text here", "notify_admin": true|false, "summary": "One-line summary for internal tracking"}',
         messages: [{
           role: 'user',
           content: `New email received:\nFrom: ${senderName} <${senderEmail}>\nSubject: ${emailSubject}\nBody: ${emailBody.substring(0, 3000)}`,

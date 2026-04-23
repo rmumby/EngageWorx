@@ -10,6 +10,7 @@
 // derive from the config row matching the inbound "To" number.
 
 var { createClient } = require('@supabase/supabase-js');
+var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 function getSupabase() {
   return createClient(
@@ -115,22 +116,12 @@ async function ensureConversation(supabase, tenantId, contactId, channel) {
 async function aiReplyForSms(supabase, tenantId, lang, body) {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   // Load tenant chatbot config for personalized replies
-  var botName = 'Aria';
-  var businessName = 'EngageWorx';
-  var knowledgeBase = '';
-  try {
-    var cb = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', tenantId).maybeSingle();
-    if (cb.data) {
-      botName = cb.data.bot_name || botName;
-      knowledgeBase = cb.data.knowledge_base || '';
-    }
-    var tn = await supabase.from('tenants').select('name, brand_name').eq('id', tenantId).maybeSingle();
-    if (tn.data) businessName = tn.data.brand_name || tn.data.name || businessName;
-  } catch (e) {}
-  var system = lang === 'pl'
-    ? 'Jesteś ' + botName + ', asystentem AI firmy ' + businessName + '. Odpowiadaj zwięźle po polsku (max 160 znaków). Zachowaj profesjonalny ton.'
-    : 'You are ' + botName + ', AI assistant for ' + businessName + '. Reply briefly in English (max 160 chars). Be helpful and professional.';
-  if (knowledgeBase) system += '\n\nBusiness context:\n' + knowledgeBase.substring(0, 500);
+  var system = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase });
+  if (lang === 'pl') {
+    system += '\n\nLANGUAGE RULE: Respond in Polish (max 160 characters). Zachowaj profesjonalny ton.';
+  } else {
+    system += '\n\nLANGUAGE RULE: Reply briefly in English (max 160 chars).';
+  }
   try {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

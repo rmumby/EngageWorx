@@ -3,6 +3,7 @@
 // Tenant is identified by Phone Number ID stored in channel_configs
 
 var { createClient } = require('@supabase/supabase-js');
+var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'engwx-meta-webhook-2026';
 
@@ -172,8 +173,7 @@ module.exports = async function handler(req, res) {
           var Anthropic = require('@anthropic-ai/sdk');
           var anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-          var systemPrompt = chatbot.system_prompt || 'You are a helpful assistant. Keep replies under 160 characters.';
-          if (chatbot.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbot.knowledge_base;
+          var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'whatsapp', supabase: supabase });
 
           var aiRes = await anthropic.messages.create({
             model: 'claude-haiku-4-5',

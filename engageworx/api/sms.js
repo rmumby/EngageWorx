@@ -4,6 +4,7 @@
 // POST /api/sms?action=webhook → Twilio inbound/status webhook
 
 const { createClient } = require('@supabase/supabase-js');
+const { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 function getSupabase() {
   return createClient(
@@ -240,24 +241,19 @@ async function getAIReply(supabase, tenantId, message, channel) {
     var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { console.log('[AI] No Anthropic key'); return null; }
 
-    var systemPrompt = 'You are a helpful assistant. Keep replies under 160 characters for SMS. No markdown.';
     var channelsActive = ['sms', 'whatsapp', 'email'];
-
     if (tenantId) {
       try {
-        var chatbotResult = await supabase.from('chatbot_configs').select('system_prompt, channels_active, personality_preset, knowledge_base').eq('tenant_id', tenantId).single();
-        if (chatbotResult.data) {
-          if (chatbotResult.data.system_prompt) systemPrompt = chatbotResult.data.system_prompt + ' Keep replies under 160 characters for SMS. No markdown.';
-          if (chatbotResult.data.channels_active) channelsActive = chatbotResult.data.channels_active;
-          if (chatbotResult.data.knowledge_base) systemPrompt += '\n\nKnowledge Base:\n' + chatbotResult.data.knowledge_base;
-        }
-      } catch (e) { console.log('[AI] Chatbot config lookup failed:', e.message); }
+        var chatbotResult = await supabase.from('chatbot_configs').select('channels_active').eq('tenant_id', tenantId).maybeSingle();
+        if (chatbotResult.data && chatbotResult.data.channels_active) channelsActive = chatbotResult.data.channels_active;
+      } catch (e) {}
     }
-
     if (!channelsActive.includes(channel)) {
       console.log('[AI] Channel', channel, 'not active — skipping');
       return null;
     }
+
+    var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase });
 
     var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

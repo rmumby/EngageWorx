@@ -3,6 +3,7 @@
 // POST /api/whatsapp?action=template   → Send template message with variables
 // POST /api/whatsapp?action=webhook    → Inbound messages + status callbacks
 // GET  /api/whatsapp?action=status     → Check WhatsApp sender status
+var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 var { createClient } = require('@supabase/supabase-js');
 
@@ -501,7 +502,7 @@ module.exports = async function handler(req, res) {
                   body: JSON.stringify({
                     model: 'claude-sonnet-4-20250514',
                     max_tokens: 300,
-                    system: 'You are ' + agentName + ', a friendly AI assistant on WhatsApp. Keep responses SHORT (2-3 sentences max), conversational, mobile-friendly. No markdown or formatting.' + (businessInfo ? '\n\nBusiness info:\n' + businessInfo : ''),
+                    system: await buildSystemPrompt({ tenantId: tenantId, channel: 'whatsapp', supabase: supabase }),
                     messages: [{ role: 'user', content: messageBody }],
                   }),
                 });

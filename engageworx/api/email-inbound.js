@@ -1,6 +1,7 @@
 // /api/email-inbound.js — Inbound email handler via SendGrid Inbound Parse
 var sgMail = require('@sendgrid/mail');
 var { createClient } = require('@supabase/supabase-js');
+var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -177,20 +178,12 @@ async function analyzeAndActionEmail(ctx) {
       } catch (e) {}
     }
 
-    // 3a. Build a tenant-scoped system prompt — the master SP gets EngageWorx pricing
-    //     boilerplate; other tenants get ONLY their own knowledge base.
-    var systemPrompt;
-    if (aiCtx.systemPromptOverride) {
-      systemPrompt = aiCtx.systemPromptOverride;
-    } else if (aiCtx.isMasterSP) {
-      systemPrompt = 'You are ' + aiCtx.agentName + ', the AI assistant for EngageWorx. Analyze an inbound email and decide ONE action.' +
-        '\n\nPricing: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom.' +
-        '\nFeatures: SMS, WhatsApp, Email, Voice, RCS, AI chatbot, CSP white-label, commissions.';
-    } else {
-      systemPrompt = 'You are ' + aiCtx.agentName + ', the AI assistant for ' + aiCtx.businessName + '. Analyze an inbound email and decide ONE action.' +
-        '\n\nUse only the business knowledge below to answer factual questions. If the answer is not in the knowledge base, route the ticket to review.';
-    }
-    if (aiCtx.knowledgeBase) systemPrompt += '\n\n=== Business knowledge base ===\n' + aiCtx.knowledgeBase + '\n=== end knowledge base ===';
+    // 3a. Build layered system prompt
+    var systemPrompt = await buildSystemPrompt({
+      tenantId: match.tenantId,
+      channel: 'email',
+      supabase: supabase,
+    });
     systemPrompt += '\n\nReturn STRICT JSON: {"action": "advance_stage"|"enroll_sequence"|"review"|"auto_reply"|"no_action", "reasoning": "1-2 sentences", "summary": "body in 1 sentence", "reply_draft": "text if auto_reply else null", "new_stage": "stage id if advance_stage else null", "sequence_name": "name to enroll else null"}' +
       '\n\nStages: inquiry, demo_shared, sandbox_shared, opportunity, package_selection, go_live, customer, dormant.' +
       '\nUse auto_reply ONLY for simple factual questions answerable from the business knowledge above. Everything else → review with a suggested reply_draft.';
