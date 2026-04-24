@@ -335,9 +335,21 @@ module.exports = async function handler(req, res) {
         );
       }
 
-      // Auto-answer disabled → simulate ring then roll to voicemail (no human line to dial in AI-only mode)
+      // Auto-answer disabled → dial forward_to number, or pause then voicemail
       if (!autoAnswer && !hasIVR) {
-        // Pause is measured in seconds; cap at 60 so Twilio does not complain.
+        var forwardTo = (config.forward_to || '').trim();
+        if (forwardTo && /^\+\d{7,15}$/.test(forwardTo)) {
+          var dialTimeout = Math.min(Math.max(ringTimeout, 5), 60);
+          console.log('[Voice] Dialing forward_to=' + forwardTo + ' timeout=' + dialTimeout + 's tenant=' + tenantId);
+          return sendTwiml(
+            '<Dial timeout="' + dialTimeout + '" action="' + voicemailUrlXml + '" answerOnBridge="true" callerId="' + escapeXml(body.From || '') + '">' +
+            '<Number>' + escapeXml(forwardTo) + '</Number>' +
+            '</Dial>',
+            'forward-to-dial'
+          );
+        }
+        // No forward_to → pause then voicemail
+        console.log('[Voice] auto_answer=Disabled, no forward_to — straight to voicemail. tenant=' + tenantId);
         var pauseLen = Math.min(Math.max(ringTimeout, 1), 60);
         return sendTwiml(
           '<Pause length="' + pauseLen + '"/>' +
