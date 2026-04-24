@@ -22,7 +22,11 @@ const NOTIFICATION_PREFS = [
 
 const CHANNEL_DEFS = [
   { id: "sms", label: "SMS", icon: "💬", color: "#00C9FF", fields: [
-    { key: "phone_country", label: "Country Code", type: "select", options: ["🇺🇸 US (+1)", "🇬🇧 UK (+44)", "🇨🇦 Canada (+1)", "🇦🇺 Australia (+61)", "🇩🇪 Germany (+49)", "🇫🇷 France (+33)", "🇪🇸 Spain (+34)", "🇮🇪 Ireland (+353)", "🇵🇱 Poland (+48)"] },
+    { key: "phone_country", label: "Country Code", type: "select", options: [
+      { value: "+1", label: "🇺🇸 US (+1)" }, { value: "+44", label: "🇬🇧 UK (+44)" }, { value: "+1-CA", label: "🇨🇦 Canada (+1)" },
+      { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
+      { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
+    ]},
     { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
     { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
     { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message." },
@@ -43,10 +47,10 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome.", rows: 6 },
     { key: "ai_omni_bcc", label: "BCC for AI Omni Emails", placeholder: "admin@yourcompany.com", hint: "All AI-drafted outbound emails from AI Omni Digest (stale actions, follow-ups, digest replies) will be BCC'd to this address. Leave blank to disable." },
     { key: "api_key", label: "SendGrid API Key", type: "password", hint: "Get your API key from sendgrid.com → Settings → API Keys. Create a key with Full Access or Restricted Access (Mail Send)." },
-    { key: "domain", label: "Email Domain (SP only)", placeholder: "mail.yourdomain.com", spOnly: true },
+    { key: "domain", label: "Sending Domain", placeholder: "mail.yourdomain.com", hint: "Your sending domain (e.g. yourbrand.com). Must be verified in your email provider before emails will deliver reliably." },
   ]},
   { id: "whatsapp", label: "WhatsApp for Business", icon: "📱", color: "#25D366", fields: [
-    { key: "business_account_id", label: "Business Account ID", placeholder: "Found in Meta Business Manager" },
+    { key: "waba_id", label: "WhatsApp Business Account ID (WABA)", placeholder: "Found in Meta Business Manager" },
     { key: "phone_number_id", label: "Phone Number ID" },
     { key: "access_token", label: "Meta System User Access Token", type: "password", hint: "Advanced: Found in Meta Business Manager → System Users → Generate Token." },
   ]},
@@ -75,7 +79,8 @@ const CHANNEL_DEFS = [
     { key: "after_hours_greeting", label: "After-Hours Greeting", placeholder: "You've reached [Business]. We're currently closed.", aiAssist: true, aiContext: "Professional after-hours phone greeting." },
     { key: "voicemail_greeting", label: "Voicemail Greeting", type: "textarea", placeholder: "Hi, you've reached [Business]. We can't take your call right now. Please leave your name, number, and a short message after the tone and we'll get back to you shortly.", aiAssist: true, aiContext: "Friendly voicemail greeting read by TTS when the caller reaches voicemail.", hint: "AI reads this via TTS when the call rolls to voicemail." },
     { key: "auto_answer", label: "Auto-Answer (AI picks up immediately)", type: "select", options: ["Disabled", "Enabled"], hint: "When enabled, the AI chatbot answers on ring 1 using the during-hours greeting." },
-    { key: "ring_timeout_seconds", label: "Ring Timeout (seconds before voicemail)", placeholder: "20", hint: "Ignored when Auto-Answer is enabled. Default 20." },
+    { key: "forward_to", label: "Forward calls to", placeholder: "+14155551234", hint: "When auto-answer is disabled, ring this number before falling through to voicemail. Must be E.164 format (e.g. +14155551234). Leave blank for voicemail-only.", showWhen: "auto_answer_disabled" },
+    { key: "ring_timeout_seconds", label: "Ring Timeout (seconds before voicemail)", placeholder: "20", type: "number", min: 5, max: 60, hint: "5-60 seconds. Ignored when Auto-Answer is enabled. Default 20." },
     { key: "block_after_hours", label: "After-Hours → Straight to Voicemail", type: "select", options: ["Disabled", "Enabled"], hint: "When enabled, calls outside business hours skip the ring and go directly to voicemail." },
     { key: "voicemail_notify_digest", label: "Email Voicemail to Digest Recipient", type: "select", options: ["Enabled", "Disabled"], hint: "Sends the audio recording + transcript to the tenant's digest email address." },
     { key: "timezone", label: "Timezone", type: "select", options: [
@@ -626,18 +631,24 @@ if (!tenantId) {
       var errs = []; var warns = [];
       if (ch === 'voice') {
         if (!cfg.phone_number) errs.push('Phone number required');
-        if (cfg.forward_to && cfg.phone_number && cfg.forward_to === cfg.phone_number) errs.push('Forward-to cannot match the Twilio DID');
+        if (cfg.forward_to && cfg.phone_number && cfg.forward_to === cfg.phone_number) errs.push('Forward-to cannot match the Twilio DID (routing loop)');
+        if (cfg.forward_to && !/^\+\d{7,15}$/.test(cfg.forward_to)) errs.push('Forward-to must be E.164 format (e.g. +14155551234)');
         var rt = parseInt(cfg.ring_timeout_seconds, 10);
         if (cfg.ring_timeout_seconds && !isNaN(rt) && (rt < 5 || rt > 60)) errs.push('Ring timeout must be 5-60 seconds');
         var oh = parseFloat(cfg.business_hours_start), ch2 = parseFloat(cfg.business_hours_end);
         if (!isNaN(oh) && !isNaN(ch2) && oh >= ch2) errs.push('Business hours: open must be before close');
+        if (cfg.auto_answer !== 'Enabled' && !cfg.forward_to) warns.push('Auto-answer is disabled and no forward-to number set — calls will go straight to voicemail');
       }
       if (ch === 'email') {
         if (!cfg.from_email) errs.push('From email address required');
         else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.from_email)) errs.push('Invalid from email format');
+        if (!cfg.domain) warns.push('No sending domain configured — may affect deliverability');
       }
       if (ch === 'sms' && !cfg.phone_number) errs.push('Phone number required for SMS');
-      if (ch === 'whatsapp' && !cfg.phone_number_id) errs.push('WhatsApp Phone Number ID required');
+      if (ch === 'whatsapp') {
+        if (!cfg.phone_number_id) errs.push('WhatsApp Phone Number ID required');
+        if (!cfg.waba_id && !cfg.business_account_id) errs.push('WhatsApp Business Account ID required');
+      }
       return { errors: errs, warnings: warns };
     })(channelId, mergedConfig);
 
@@ -932,6 +943,7 @@ return (<div>
     value={currentValue}
     onChange={e => updateChannelField(ch.id, f.key, e.target.value)}
     placeholder={isPasswordField && hasSavedValue && !currentValue ? '••••••••••••••••' : (f.placeholder || "")}
+    min={f.min} max={f.max}
     style={inputStyle}
   />
   {f.hint && <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{f.hint}</div>}
@@ -1214,7 +1226,7 @@ return (<div>
                     {isEnabled && (
                       <>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-                          {ch.fields.filter(f => { if (f.spOnly && viewLevel !== "sp") return false; if (f.showWhen === "byoc" && configData["_byoc_toggle"] !== "Enabled") return false; return true; }).map(f => (<div key={f.key}><label style={label}>{f.label}</label>{renderChannelField(ch, f, configData)}</div>))}
+                          {ch.fields.filter(f => { if (f.spOnly && viewLevel !== "sp") return false; if (f.showWhen === "byoc" && configData["_byoc_toggle"] !== "Enabled") return false; if (f.showWhen === "auto_answer_disabled" && configData["auto_answer"] === "Enabled") return false; return true; }).map(f => (<div key={f.key}><label style={label}>{f.label}</label>{renderChannelField(ch, f, configData)}</div>))}
                         </div>
                         {ch.id === "voice" && (() => {
                           const depts = configData.departments || [{ digit: "1", name: "", number: "" }, { digit: "2", name: "", number: "" }, { digit: "3", name: "", number: "" }];

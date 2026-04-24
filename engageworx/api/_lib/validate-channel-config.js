@@ -39,7 +39,7 @@ function validateChannelConfig(channel, config) {
 
   if (channel === 'whatsapp') {
     if (!c.phone_number_id) errors.push({ field: 'phone_number_id', message: 'WhatsApp Phone Number ID required' });
-    if (!c.business_account_id && !c.waba_id) errors.push({ field: 'business_account_id', message: 'WhatsApp Business Account ID required' });
+    if (!c.waba_id && !c.business_account_id) errors.push({ field: 'waba_id', message: 'WhatsApp Business Account ID (WABA) required' });
   }
 
   return { valid: errors.length === 0, errors: errors, warnings: warnings };
