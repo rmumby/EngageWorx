@@ -68,13 +68,15 @@ module.exports = async function handler(req, res) {
       var logRows = issues.map(function(iss) {
         return { run_at: runAt, tenant_id: iss.tenant_id, channel: iss.channel, severity: iss.severity, issue: iss.issue, config_snapshot: iss.config_snapshot || null };
       });
-      await supabase.from('channel_health_log').insert(logRows).catch(function(e) { console.warn('[ChannelHealth] Log insert error:', e.message); });
+      var logIns = await supabase.from('channel_health_log').insert(logRows);
+      if (logIns.error) console.warn('[ChannelHealth] Log insert error:', logIns.error.message);
     }
     // Also log an OK row per healthy tenant
     var healthyTenants = [...tenantsSeen].filter(function(tid) { return !issues.some(function(i) { return i.tenant_id === tid && i.severity === 'error'; }); });
     if (healthyTenants.length > 0) {
       var okRows = healthyTenants.map(function(tid) { return { run_at: runAt, tenant_id: tid, channel: 'all', severity: 'ok', issue: 'All channels healthy' }; });
-      await supabase.from('channel_health_log').insert(okRows).catch(function() {});
+      var okIns = await supabase.from('channel_health_log').insert(okRows);
+      if (okIns.error) console.warn('[ChannelHealth] OK log insert error:', okIns.error.message);
     }
 
     // Compose summary email
