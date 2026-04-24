@@ -19,6 +19,45 @@ function getSupabase() {
   );
 }
 
+function mergePlaceholders(text, lead, tenantName) {
+  if (!text) return text;
+  var firstName = (lead.name || '').split(' ')[0] || (lead.email || '').split('@')[0] || 'there';
+  var lastName = (lead.name || '').split(' ').slice(1).join(' ') || '';
+  var fullName = ((lead.name || '').trim()) || firstName;
+  var company = lead.company || lead.company_name || 'your team';
+  var email = lead.email || '';
+  var platform = tenantName || 'EngageWorx';
+
+  var map = {
+    'firstname': firstName, 'first_name': firstName, 'first name': firstName,
+    'lastname': lastName, 'last_name': lastName, 'last name': lastName,
+    'fullname': fullName, 'full_name': fullName, 'full name': fullName, 'name': fullName,
+    'company': company, 'company_name': company,
+    'email': email,
+    'platform': platform,
+  };
+
+  var result = text;
+  // Replace [Placeholder] and {{placeholder}} patterns
+  result = result.replace(/\[([^\]]+)\]|{{([^}]+)}}/gi, function(match, bracket, curly) {
+    var key = (bracket || curly || '').trim().toLowerCase();
+    if (map[key] !== undefined) return map[key];
+    return match; // leave unrecognized placeholders for validation to catch
+  });
+
+  return result;
+}
+
+function validateNoPlaceholders(text) {
+  var remaining = [];
+  var re = /\[([A-Za-z_\s]+)\]|{{([A-Za-z_\s]+)}}/g;
+  var m;
+  while ((m = re.exec(text)) !== null) {
+    remaining.push(m[0]);
+  }
+  return remaining;
+}
+
 async function personaliseMessage(template, lead, tenantName) {
   try {
     var AnthropicSdk = require('@anthropic-ai/sdk');
@@ -31,17 +70,32 @@ async function personaliseMessage(template, lead, tenantName) {
     });
     return res.content[0].text.trim();
   } catch (e) {
-    return template
-      .replace(/\[FirstName\]/g, (lead.name || '').split(' ')[0] || 'there')
-      .replace(/\[Company\]/g, lead.company || 'your company')
-      .replace(/\[Platform\]/g, tenantName || 'EngageWorx');
+    return mergePlaceholders(template, lead, tenantName);
   }
 }
 
 async function sendStep(supabase, step, lead, tenant) {
   var body = step.ai_personalise
     ? await personaliseMessage(step.body_template, lead, tenant.name)
-    : step.body_template;
+    : mergePlaceholders(step.body_template, lead, tenant.name);
+
+  var subject = mergePlaceholders(step.subject || 'Following up from ' + (tenant.name || 'EngageWorx'), lead, tenant.name);
+
+  // Track merge info
+  var fallbacksUsed = [];
+  if (body.indexOf((lead.email || '').split('@')[0]) !== -1 && !(lead.name || '').trim()) fallbacksUsed.push('FirstName→email_prefix');
+  if (body.indexOf('your team') !== -1 && !(lead.company || lead.company_name)) fallbacksUsed.push('Company→your_team');
+
+  // Validate — refuse to send if unmerged placeholders remain
+  var bodyRemaining = validateNoPlaceholders(body);
+  var subjRemaining = validateNoPlaceholders(subject);
+  var allRemaining = bodyRemaining.concat(subjRemaining);
+  if (allRemaining.length > 0) {
+    console.error('🚫 Sequence send refused — unfilled placeholder:', { lead_id: lead.id, lead_email: lead.email, subject: subject, body_preview: body.substring(0, 80), missing: allRemaining });
+    return { refused: true, missing: allRemaining };
+  }
+
+  console.log('📧 Sequence render:', { lead_id: lead.id, step: step.step_number, fallbacks_used: fallbacksUsed });
 
   if (step.channel === 'email') {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -73,7 +127,7 @@ async function sendStep(supabase, step, lead, tenant) {
       to: lead.email,
       from: { email: emailConfig.from, name: sigInfo.fromName || emailConfig.fromName },
       replyTo: { email: seqReplyTo, name: sigInfo.fromName || emailConfig.fromName },
-      subject: step.subject || 'Following up from EngageWorx',
+      subject: subject,
       text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
     };
@@ -186,6 +240,12 @@ async function processDueSteps(supabase) {
       var tenant = tenantRes.data;
 
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
+
+      if (sent && sent.refused) {
+        await supabase.from('lead_sequences').update({ status: 'error', error_message: 'Unfilled placeholders: ' + sent.missing.join(', ') }).eq('id', enrolment.id);
+        errors++;
+        continue;
+      }
 
       if (sent) {
         var nextStepRes = await supabase
