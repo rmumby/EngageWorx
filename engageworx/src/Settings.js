@@ -363,6 +363,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelSavedId, setChannelSavedId] = useState(null);
   const [channelSavedConfig, setChannelSavedConfig] = useState(null);
   const [showSavedConfig, setShowSavedConfig] = useState(false);
+  const [channelWarnings, setChannelWarnings] = useState({});
   const [aiTonePreviews, setAiTonePreviews] = useState({});
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
@@ -619,6 +620,37 @@ if (!tenantId) {
       Object.entries(newConfig).filter(([k, v]) => v !== null && v !== undefined)
     );
     const mergedConfig = { ...existingConfig, ...filteredNew };
+
+    // Client-side config validation
+    var valResult = (function validateConfig(ch, cfg) {
+      var errs = []; var warns = [];
+      if (ch === 'voice') {
+        if (!cfg.phone_number) errs.push('Phone number required');
+        if (cfg.forward_to && cfg.phone_number && cfg.forward_to === cfg.phone_number) errs.push('Forward-to cannot match the Twilio DID');
+        var rt = parseInt(cfg.ring_timeout_seconds, 10);
+        if (cfg.ring_timeout_seconds && !isNaN(rt) && (rt < 5 || rt > 60)) errs.push('Ring timeout must be 5-60 seconds');
+        var oh = parseFloat(cfg.business_hours_start), ch2 = parseFloat(cfg.business_hours_end);
+        if (!isNaN(oh) && !isNaN(ch2) && oh >= ch2) errs.push('Business hours: open must be before close');
+      }
+      if (ch === 'email') {
+        if (!cfg.from_email) errs.push('From email address required');
+        else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.from_email)) errs.push('Invalid from email format');
+      }
+      if (ch === 'sms' && !cfg.phone_number) errs.push('Phone number required for SMS');
+      if (ch === 'whatsapp' && !cfg.phone_number_id) errs.push('WhatsApp Phone Number ID required');
+      return { errors: errs, warnings: warns };
+    })(channelId, mergedConfig);
+
+    if (valResult.errors.length > 0 && newEnabled) {
+      alert('Cannot save — validation errors:\n\n• ' + valResult.errors.join('\n• '));
+      setChannelSaving(null);
+      return;
+    }
+    if (valResult.warnings.length > 0) {
+      setChannelWarnings(function(prev) { var n = Object.assign({}, prev); n[channelId] = valResult.warnings; return n; });
+    } else {
+      setChannelWarnings(function(prev) { var n = Object.assign({}, prev); delete n[channelId]; return n; });
+    }
     const payload = {
       tenant_id: tenantId, channel: channelId, enabled: newEnabled,
       config_encrypted: mergedConfig,
@@ -1208,6 +1240,11 @@ return (<div>
                           <pre style={{ marginTop: 8, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 12, fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{JSON.stringify(channelSavedConfig, null, 2)}</pre>
                         )}
                       </>
+                    )}
+                    {channelWarnings[ch.id] && channelWarnings[ch.id].length > 0 && (
+                      <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>
+                        {channelWarnings[ch.id].map(function(w, i) { return <div key={i} style={{ color: '#eab308', fontSize: 11 }}>⚠️ {w}</div>; })}
+                      </div>
                     )}
                     {!isEnabled && <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>Enable this channel to configure your {ch.label} integration.</div>}
                   </div>
