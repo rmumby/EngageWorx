@@ -738,10 +738,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
           </button>
-          <button onClick={() => { setShowNew(true); setShowDemoForm(false); }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
-            + New Tenant
-          </button>
-          <button onClick={async function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); try { var r = await fetch('/api/platform-config'); var d = await r.json(); if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); } catch(e) {} }} style={{ background: '#10b98122', border: '1px solid #10b98155', borderRadius: 10, padding: '12px 24px', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          <button onClick={function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) { if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); }).catch(function(e) { console.warn('Platform config load error:', e.message); }); }} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🚀 Invite Tenant
           </button>
         </div>
@@ -2748,27 +2745,37 @@ var spNavBase = [
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>💳 Plans</h3>
-                  <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '110px 80px 100px 100px 60px 1fr 150px 32px', gap: 8, alignItems: 'center' }}>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Slug</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>$/mo</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Messages</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Contacts</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Seats</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Description</div>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Available To</div>
+                      <div></div>
+                    </div>
                     {(pc.plans || []).map(function(p, i) {
                       function updatePlan(key, val) { var plans = (pc.plans || []).slice(); plans[i] = Object.assign({}, plans[i]); plans[i][key] = val; updateAndSave('plans', plans); }
                       return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 70px 90px 90px 50px 1fr 140px 32px', gap: 6, alignItems: 'center' }}>
-                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="slug" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="$/mo" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="msg limit" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="contacts" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="seats" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Description" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
-                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '110px 80px 100px 100px 60px 1fr 150px 32px', gap: 8, alignItems: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 0' }}>
+                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="starter" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="99" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="5000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="10000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="3" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Plan description" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {(pc.customer_type_options || []).map(function(ct) {
                               var ctVal = typeof ct === 'object' ? ct.value : ct;
                               var ctLbl = typeof ct === 'object' ? (ct.label || ct.value) : ct;
                               var ctArr = p.customer_types || [];
                               var checked = ctArr.indexOf(ctVal) !== -1;
-                              return <label key={ctVal} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 9, color: checked ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={function() { var next = checked ? ctArr.filter(function(x) { return x !== ctVal; }) : ctArr.concat([ctVal]); updatePlan('customer_types', next); }} style={{ width: 12, height: 12, accentColor: C.primary }} />{ctLbl.split(' ')[0]}</label>;
+                              return <label key={ctVal} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: checked ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={function() { var next = checked ? ctArr.filter(function(x) { return x !== ctVal; }) : ctArr.concat([ctVal]); updatePlan('customer_types', next); }} style={{ width: 13, height: 13, accentColor: C.primary }} />{ctLbl.split(' ')[0]}</label>;
                             })}
                           </div>
-                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); updateAndSave('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); updateAndSave('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                         </div>
                       );
                     })}
