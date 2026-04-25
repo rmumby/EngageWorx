@@ -86,7 +86,6 @@ module.exports = async function handler(req, res) {
       message_limit: plan.message_limit,
       contact_limit: plan.contact_limit,
       user_seats: plan.user_seats,
-      industry: industry,
       website_url: website,
       brand_primary: '#00C9FF',
       brand_secondary: '#E040FB',
@@ -150,10 +149,14 @@ module.exports = async function handler(req, res) {
     else console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId);
 
     // 5. Create chatbot_configs
+    var businessContext = tenantName;
+    if (industry) businessContext += ' (' + industry + ')';
+    if (website) businessContext += ' — ' + website;
     var cbIns = await supabase.from('chatbot_configs').insert({
       tenant_id: newTenantId,
       bot_name: 'Aria',
       channels_active: ['sms', 'email'],
+      knowledge_base: businessContext,
     });
     if (cbIns.error) console.error('💬 chatbot_configs insert error:', cbIns.error.message);
     else console.log('💬 Chatbot config seeded for', newTenantId);
