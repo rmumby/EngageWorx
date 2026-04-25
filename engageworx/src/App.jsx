@@ -1,5 +1,5 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthProvider, useAuth } from './AuthContext';
 import PipelineDashboard from './components/PipelineDashboard';
 import { supabase } from './supabaseClient';
