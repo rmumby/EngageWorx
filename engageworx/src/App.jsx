@@ -354,6 +354,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [activeTab, setActiveTab] = useState("tenants");
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter' });
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState(null);
+  const [invitePlans, setInvitePlans] = useState([]);
+  const [inviteIndustries, setInviteIndustries] = useState([]);
   const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
   const [demoCreating, setDemoCreating] = useState(false);
   const [demoResult, setDemoResult] = useState(null);
@@ -534,6 +540,74 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   </div>
 )}
 
+{showInvite && (
+  <div style={{ background: "rgba(255,255,255,0.04)", border: '1px solid #10b98144', borderRadius: 14, padding: 28, marginBottom: 24 }}>
+    <h3 style={{ color: "#fff", margin: "0 0 20px" }}>🚀 Invite Tenant</h3>
+    {inviteResult ? (
+      <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 20 }}>
+        <div style={{ color: '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>✅ Tenant Created Successfully</div>
+        <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
+          <div><strong>Tenant ID:</strong> <code style={{ color: '#00C9FF' }}>{inviteResult.tenant_id}</code></div>
+          <div><strong>Welcome email:</strong> {inviteResult.welcome_email_sent ? '✅ Sent' : '❌ Failed'}</div>
+          <div><strong>Temp password:</strong> <code style={{ color: '#FFD600', fontFamily: 'monospace' }}>{inviteResult.temp_password_for_admin_display}</code></div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          {onDrillDown && <button onClick={function() { onDrillDown(inviteResult.tenant_id); setShowInvite(false); setInviteResult(null); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Open Tenant Portal</button>}
+          <button onClick={function() { setShowInvite(false); setInviteResult(null); setInviteForm({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter' }); window.location.reload(); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 20px', color: C.muted, cursor: 'pointer' }}>Close</button>
+        </div>
+      </div>
+    ) : (
+      <>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Company Name *</label>
+            <input value={inviteForm.tenant_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { tenant_name: e.target.value })); }} placeholder="Acme Corp" style={inputStyleTM} />
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Full Name *</label>
+            <input value={inviteForm.admin_full_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_full_name: e.target.value })); }} placeholder="Jane Smith" style={inputStyleTM} />
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Email *</label>
+            <input type="email" value={inviteForm.admin_email} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_email: e.target.value })); }} placeholder="jane@acme.com" style={inputStyleTM} />
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Website</label>
+            <input value={inviteForm.website} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { website: e.target.value })); }} placeholder="https://acme.com" style={inputStyleTM} />
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Plan</label>
+            <select value={inviteForm.plan_slug} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { plan_slug: e.target.value })); }} style={inputStyleTM}>
+              {invitePlans.length > 0 ? invitePlans.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' — $' + p.monthly_price + '/mo' : ' — Custom'}</option>; }) : <option value="starter">Starter</option>}
+            </select>
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Industry</label>
+            <select value={inviteForm.industry} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { industry: e.target.value })); }} style={inputStyleTM}>
+              <option value="">— Select —</option>
+              {inviteIndustries.map(function(ind) { return <option key={ind} value={ind}>{ind}</option>; })}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+          <button onClick={async function() {
+            if (!inviteForm.tenant_name || !inviteForm.admin_full_name || !inviteForm.admin_email) { alert('Company name, admin name, and admin email are required.'); return; }
+            setInviteLoading(true);
+            try {
+              var r = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, inviteForm, { inviter_tenant_id: currentTenantId || null })) });
+              var d = await r.json();
+              if (!r.ok) throw new Error(d.error || 'Invite failed');
+              setInviteResult(d);
+            } catch (e) { alert('Error: ' + e.message); }
+            setInviteLoading(false);
+          }} disabled={inviteLoading} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '10px 22px', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: inviteLoading ? 0.6 : 1 }}>{inviteLoading ? 'Creating...' : '🚀 Invite & Send Welcome Email'}</button>
+          <button onClick={function() { setShowInvite(false); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 22px', color: C.muted, cursor: 'pointer' }}>Cancel</button>
+        </div>
+      </>
+    )}
+  </div>
+)}
+
   // Fetch live tenants from Supabase (skip in demo mode)
   useEffect(() => {
     if (demoMode) {
@@ -639,6 +713,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           </button>
           <button onClick={() => { setShowNew(true); setShowDemoForm(false); }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
             + New Tenant
+          </button>
+          <button onClick={async function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); try { var r = await fetch('/api/platform-config'); var d = await r.json(); if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); } catch(e) {} }} style={{ background: '#10b98122', border: '1px solid #10b98155', borderRadius: 10, padding: '12px 24px', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+            🚀 Invite Tenant
           </button>
         </div>
       </div>
