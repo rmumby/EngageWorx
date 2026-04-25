@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
   var industry = body.industry || null;
   var website = body.website || null;
   var planSlug = body.plan_slug || 'starter';
-  var customerType = body.customer_type || 'direct';
+  var customerType = body.customer_type || null;
   var inviterTenantId = body.inviter_tenant_id || null;
 
   if (!tenantName || !adminName || !adminEmail) {
@@ -46,10 +46,24 @@ module.exports = async function handler(req, res) {
   var supabase = getSupabase();
   var pc = await getPlatformConfig(supabase);
 
+  // Validate platform_config is fully populated
+  var missingPc = [];
+  if (!pc.welcome_contact_source) missingPc.push('welcome_contact_source');
+  if (!pc.customer_type_options || !Array.isArray(pc.customer_type_options) || pc.customer_type_options.length === 0) missingPc.push('customer_type_options');
+  if (missingPc.length > 0) {
+    return res.status(400).json({ error: 'Platform Settings not yet configured. SP admin must populate ' + missingPc.join(', ') + ' in Platform Settings before tenant onboarding can run.' });
+  }
+
+  if (!customerType) {
+    return res.status(400).json({ error: 'customer_type required' });
+  }
+
   // Validate plan
   var plans = Array.isArray(pc.plans) ? pc.plans : [];
   var plan = plans.find(function(p) { return p.slug === planSlug; });
-  if (!plan) plan = { slug: planSlug, name: planSlug, monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3 };
+  if (!plan) {
+    return res.status(400).json({ error: 'Unknown plan: ' + planSlug + '. Configure plans in Platform Settings.' });
+  }
 
   try {
     // 1. Check admin email not already on another tenant
@@ -83,73 +97,85 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create tenant: ' + tenantIns.error.message });
     }
     var newTenantId = tenantIns.data.id;
-    console.log('[invite-tenant] Tenant created:', newTenantId, tenantName);
+    console.log('📋 Tenant created:', newTenantId, tenantName, customerType);
 
-    // 3. Create user profile (or link existing)
+    // 3. Create user profile
     var tempPassword = generateTempPassword();
-    var userId = existingUser.data ? existingUser.data.id : crypto.randomUUID();
     var nameParts = adminName.split(' ');
+    var firstName = nameParts[0] || adminName;
+    var lastName = nameParts.slice(1).join(' ') || '';
+    var userId = existingUser.data ? existingUser.data.id : crypto.randomUUID();
 
     if (existingUser.data) {
-      await supabase.from('user_profiles').update({
+      var upUpd = await supabase.from('user_profiles').update({
         tenant_id: newTenantId, role: 'admin', full_name: adminName,
         company_name: tenantName, status: 'active',
       }).eq('id', userId);
+      if (upUpd.error) console.error('👤 User update error:', upUpd.error.message);
+      else console.log('👤 User linked to tenant:', userId);
     } else {
       var userIns = await supabase.from('user_profiles').insert({
         id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin',
         full_name: adminName, company_name: tenantName, status: 'active',
       });
-      if (userIns.error) console.error('[invite-tenant] User insert error:', userIns.error.message);
+      if (userIns.error) console.error('👤 User insert error:', userIns.error.message);
+      else console.log('👤 User created:', userId, adminEmail);
     }
 
-    // Invite via Supabase Auth (sends magic link + creates auth.users)
+    // Verify tenant_id was set
+    var verifyUser = await supabase.from('user_profiles').select('tenant_id').eq('id', userId).maybeSingle();
+    if (!verifyUser.data || verifyUser.data.tenant_id !== newTenantId) {
+      console.error('👤 CRITICAL: user_profiles.tenant_id not set! Forcing update.');
+      await supabase.from('user_profiles').update({ tenant_id: newTenantId }).eq('id', userId);
+    }
+
+    // Invite via Supabase Auth
     try {
       await supabase.auth.admin.inviteUserByEmail(adminEmail, {
         data: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
       });
     } catch (authErr) {
-      console.warn('[invite-tenant] Auth invite failed (may already exist):', authErr.message);
+      console.warn('👤 Auth invite failed (may already exist):', authErr.message);
     }
 
     // 4. Create tenant_member
-    await supabase.from('tenant_members').insert({
+    var tmIns = await supabase.from('tenant_members').insert({
       tenant_id: newTenantId, user_id: userId, role: 'admin', status: 'active',
       joined_at: new Date().toISOString(),
       notify_on_escalation: true, notify_on_new_signup: true,
       notify_on_payment: true, notify_on_new_lead: true,
     });
+    if (tmIns.error) console.error('🤝 tenant_members insert error:', tmIns.error.message, tmIns.error.details);
+    else console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId);
 
-    // 5. Create chatbot_configs with platform defaults
-    await supabase.from('chatbot_configs').insert({
+    // 5. Create chatbot_configs
+    var cbIns = await supabase.from('chatbot_configs').insert({
       tenant_id: newTenantId,
       bot_name: 'Aria',
       channels_active: ['sms', 'email'],
     });
+    if (cbIns.error) console.error('💬 chatbot_configs insert error:', cbIns.error.message);
+    else console.log('💬 Chatbot config seeded for', newTenantId);
 
-    // 6. Create default escalation rules from platform_config
+    // 6. Create default escalation rules
     var defaultRules = Array.isArray(pc.default_escalation_rules) ? pc.default_escalation_rules : [];
     if (defaultRules.length > 0) {
       var ruleRows = defaultRules.map(function(r) {
         return {
-          tenant_id: newTenantId,
-          rule_name: r.rule_name,
-          description: r.description || null,
-          trigger_type: r.trigger_type,
-          trigger_config: r.trigger_config || {},
-          action_type: r.action_type,
-          action_config: r.action_config || {},
-          priority: r.priority || 10,
-          active: true,
+          tenant_id: newTenantId, rule_name: r.rule_name, description: r.description || null,
+          trigger_type: r.trigger_type, trigger_config: r.trigger_config || {},
+          action_type: r.action_type, action_config: r.action_config || {},
+          priority: r.priority || 10, active: true,
         };
       });
       var rulesIns = await supabase.from('escalation_rules').insert(ruleRows);
-      if (rulesIns.error) console.warn('[invite-tenant] Escalation rules insert error:', rulesIns.error.message);
+      if (rulesIns.error) console.error('🚨 Escalation rules insert error:', rulesIns.error.message);
+      else console.log('🚨 Escalation rules seeded:', ruleRows.length, 'rules');
     }
 
     // 7. Send welcome email
     var templateVars = {
-      admin_first_name: nameParts[0] || adminName,
+      admin_first_name: firstName,
       tenant_name: tenantName,
       platform_name: pc.platform_name,
       portal_url: pc.portal_url,
@@ -173,40 +199,49 @@ module.exports = async function handler(req, res) {
       subject: emailSubject,
       html: emailHtml,
     });
-
-    console.log('[invite-tenant] Welcome email:', emailResult.success ? 'sent' : 'failed — ' + emailResult.error);
+    console.log('📬 Welcome email:', emailResult.success ? 'sent to ' + adminEmail : 'FAILED — ' + emailResult.error);
 
     // 8. Log welcome email to new tenant's Live Inbox
-    try {
-      var contactIns = await supabase.from('contacts').insert({
-        tenant_id: newTenantId, email: pc.support_email,
-        first_name: pc.platform_name, last_name: 'Team', status: 'active',
+    var welcomeTags = Array.isArray(pc.welcome_contact_tags) ? pc.welcome_contact_tags : [];
+    var contactIns = await supabase.from('contacts').insert({
+      tenant_id: newTenantId, email: adminEmail,
+      first_name: firstName, last_name: lastName, status: 'active',
+      source: pc.welcome_contact_source || 'onboarding',
+      tags: welcomeTags,
+    }).select('id').single();
+
+    if (contactIns.error) {
+      console.error('📇 Contact insert error:', contactIns.error.message, contactIns.error.details);
+    } else {
+      var welcomeContactId = contactIns.data.id;
+      console.log('📇 Contact logged:', welcomeContactId);
+
+      var convIns = await supabase.from('conversations').insert({
+        tenant_id: newTenantId, contact_id: welcomeContactId, channel: 'email',
+        status: 'active', subject: emailSubject,
+        last_message_at: new Date().toISOString(), unread_count: 1,
       }).select('id').single();
-      var welcomeContactId = contactIns.data ? contactIns.data.id : null;
 
-      if (welcomeContactId) {
-        var convIns = await supabase.from('conversations').insert({
-          tenant_id: newTenantId, contact_id: welcomeContactId, channel: 'email',
-          status: 'active', subject: emailSubject,
-          last_message_at: new Date().toISOString(), unread_count: 1,
-        }).select('id').single();
-        var welcomeConvId = convIns.data ? convIns.data.id : null;
+      if (convIns.error) {
+        console.error('📨 Conversation insert error:', convIns.error.message, convIns.error.details);
+      } else {
+        var welcomeConvId = convIns.data.id;
+        console.log('📨 Conversation logged:', welcomeConvId);
 
-        if (welcomeConvId) {
-          await supabase.from('messages').insert({
-            tenant_id: newTenantId, conversation_id: welcomeConvId, contact_id: welcomeContactId,
-            channel: 'email', direction: 'outbound', sender_type: 'bot',
-            body: 'Welcome to ' + pc.platform_name + '! Your ' + tenantName + ' account is ready. Sign in at ' + pc.portal_url + ' with ' + adminEmail + '.',
-            status: 'sent', metadata: { source: 'onboarding', plan: plan.slug },
-            created_at: new Date().toISOString(),
-          });
-        }
+        var msgIns = await supabase.from('messages').insert({
+          tenant_id: newTenantId, conversation_id: welcomeConvId, contact_id: welcomeContactId,
+          channel: 'email', direction: 'outbound', sender_type: 'system',
+          body: emailHtml, status: 'sent', provider: 'sendgrid',
+          sent_at: new Date().toISOString(),
+          metadata: { source: 'onboarding', plan: plan.slug, subject: emailSubject },
+          created_at: new Date().toISOString(),
+        });
+        if (msgIns.error) console.error('📨 Message insert error:', msgIns.error.message, msgIns.error.details);
+        else console.log('📨 Message logged to Live Inbox');
       }
-    } catch (inboxErr) {
-      console.warn('[invite-tenant] Live Inbox log error:', inboxErr.message);
     }
 
-    console.log('[invite-tenant] Complete:', { tenant_id: newTenantId, admin: adminEmail, plan: plan.slug, type: customerType });
+    console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType });
 
     return res.status(200).json({
       success: true,
@@ -217,7 +252,7 @@ module.exports = async function handler(req, res) {
     });
 
   } catch (e) {
-    console.error('[invite-tenant] Error:', e.message);
+    console.error('[invite-tenant] Error:', e.message, e.stack);
     return res.status(500).json({ error: e.message });
   }
 };

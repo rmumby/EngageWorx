@@ -355,11 +355,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter' });
+  const [inviteForm, setInviteForm] = useState({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter', customer_type: '' });
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
   const [invitePlans, setInvitePlans] = useState([]);
   const [inviteIndustries, setInviteIndustries] = useState([]);
+  const [inviteCustomerTypes, setInviteCustomerTypes] = useState([]);
   const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
   const [demoCreating, setDemoCreating] = useState(false);
   const [demoResult, setDemoResult] = useState(null);
@@ -588,10 +589,18 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
               {inviteIndustries.map(function(ind) { return <option key={ind} value={ind}>{ind}</option>; })}
             </select>
           </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Customer Type *</label>
+            <select value={inviteForm.customer_type} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { customer_type: e.target.value })); }} style={inputStyleTM}>
+              <option value="">— Select —</option>
+              {inviteCustomerTypes.map(function(ct) { var val = typeof ct === 'object' ? ct.value : ct; var lbl = typeof ct === 'object' ? ct.label : ct; return <option key={val} value={val}>{lbl}</option>; })}
+            </select>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
           <button onClick={async function() {
             if (!inviteForm.tenant_name || !inviteForm.admin_full_name || !inviteForm.admin_email) { alert('Company name, admin name, and admin email are required.'); return; }
+            if (!inviteForm.customer_type) { alert('Customer type is required. If the dropdown is empty, SP admin must configure customer_type_options in Platform Settings.'); return; }
             setInviteLoading(true);
             try {
               var r = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, inviteForm, { inviter_tenant_id: currentTenantId || null })) });
@@ -714,7 +723,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <button onClick={() => { setShowNew(true); setShowDemoForm(false); }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer" }}>
             + New Tenant
           </button>
-          <button onClick={async function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); try { var r = await fetch('/api/platform-config'); var d = await r.json(); if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); } catch(e) {} }} style={{ background: '#10b98122', border: '1px solid #10b98155', borderRadius: 10, padding: '12px 24px', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          <button onClick={async function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); try { var r = await fetch('/api/platform-config'); var d = await r.json(); if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); } catch(e) {} }} style={{ background: '#10b98122', border: '1px solid #10b98155', borderRadius: 10, padding: '12px 24px', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🚀 Invite Tenant
           </button>
         </div>
@@ -2024,6 +2033,7 @@ var spNavBase = [
     { id: "demo",             label: tSP('nav.demoMode'),          icon: "🎯" },
     { id: "blog",             label: tSP('nav.blogManager'),       icon: "📝", superadminOnly: true },
     { id: "api",              label: tSP('nav.apisIntegrations'),  icon: "🔌" },
+    { id: "platform-settings", label: "Platform Settings",         icon: "🔧", superadminOnly: true },
     { id: "settings",         label: tSP('nav.settings'),          icon: "⚙️" },
   ];
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
@@ -2586,6 +2596,112 @@ var spNavBase = [
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}
+        {spPage === "platform-settings" && isSuperAdmin && (() => {
+          function PlatformSettingsPage() {
+            var [pc, setPc] = useState(null);
+            var [saving, setSaving] = useState(false);
+            var [saved, setSaved] = useState(false);
+            var [loading, setLoading] = useState(true);
+            useEffect(function() {
+              fetch('/api/platform-config?full=1').then(function(r) { return r.json(); }).then(function(d) { setPc(d); setLoading(false); }).catch(function() { setLoading(false); });
+            }, []);
+            function update(key, val) { setPc(function(prev) { var n = Object.assign({}, prev); n[key] = val; return n; }); }
+            async function save() {
+              setSaving(true);
+              try {
+                var r = await fetch('/api/platform-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pc) });
+                var d = await r.json();
+                if (!r.ok) throw new Error(d.error || 'Save failed');
+                setSaved(true); setTimeout(function() { setSaved(false); }, 3000);
+              } catch (e) { alert('Error: ' + e.message); }
+              setSaving(false);
+            }
+            if (loading) return <div style={{ padding: 40, color: C.muted, textAlign: 'center' }}>Loading...</div>;
+            if (!pc) return <div style={{ padding: 40, color: '#FF3B30' }}>Failed to load platform config</div>;
+            var sectionStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22, marginBottom: 16 };
+            var labelStyle = { color: C.muted, fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 };
+            var inputStyle2 = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+            return (
+              <div style={{ padding: '32px 40px', maxWidth: 900, fontFamily: "'DM Sans', sans-serif" }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <div><h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>🔧 Platform Settings</h1><p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Single source of truth — no hardcoded values anywhere</p></div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {saved && <span style={{ color: '#10b981', fontSize: 13, fontWeight: 700 }}>✓ Saved</span>}
+                    <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 10, padding: '10px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving...' : 'Save All'}</button>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏢 Brand</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div><label style={labelStyle}>Platform Name</label><input value={pc.platform_name || ''} onChange={function(e) { update('platform_name', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Headquarters</label><input value={pc.headquarters || ''} onChange={function(e) { update('headquarters', e.target.value); }} style={inputStyle2} /></div>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>📞 Contact</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div><label style={labelStyle}>Support Email</label><input value={pc.support_email || ''} onChange={function(e) { update('support_email', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Support Phone</label><input value={pc.support_phone || ''} onChange={function(e) { update('support_phone', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Portal URL</label><input value={pc.portal_url || ''} onChange={function(e) { update('portal_url', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Calendar URL</label><input value={pc.calendar_url || ''} onChange={function(e) { update('calendar_url', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Onboarding Guide URL</label><input value={pc.onboarding_guide_url || ''} onChange={function(e) { update('onboarding_guide_url', e.target.value); }} style={inputStyle2} /></div>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🚀 Onboarding</h3>
+                  <div style={{ display: 'grid', gap: 14 }}>
+                    <div><label style={labelStyle}>Welcome Email Subject Template</label><input value={pc.welcome_email_subject_template || ''} onChange={function(e) { update('welcome_email_subject_template', e.target.value); }} placeholder="Welcome to {platform_name} — your {tenant_name} account is ready" style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Welcome Email HTML Template</label><textarea value={pc.welcome_email_html_template || ''} onChange={function(e) { update('welcome_email_html_template', e.target.value); }} rows={10} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} /></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div><label style={labelStyle}>Welcome Contact Source</label><input value={pc.welcome_contact_source || ''} onChange={function(e) { update('welcome_contact_source', e.target.value); }} placeholder="e.g. platform_onboarding" style={inputStyle2} /></div>
+                      <div><label style={labelStyle}>Welcome Contact Tags (comma-separated)</label><input value={Array.isArray(pc.welcome_contact_tags) ? pc.welcome_contact_tags.join(', ') : ''} onChange={function(e) { update('welcome_contact_tags', e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean)); }} placeholder="onboarded, welcome" style={inputStyle2} /></div>
+                    </div>
+                    <div><label style={labelStyle}>Customer Type Options (one per line, format: value|Label)</label><textarea value={Array.isArray(pc.customer_type_options) ? pc.customer_type_options.map(function(ct) { return typeof ct === 'object' ? ct.value + '|' + ct.label : ct; }).join('\n') : ''} onChange={function(e) { var lines = e.target.value.split('\n').filter(function(l) { return l.trim(); }); update('customer_type_options', lines.map(function(l) { var parts = l.split('|'); return parts.length > 1 ? { value: parts[0].trim(), label: parts.slice(1).join('|').trim() } : parts[0].trim(); })); }} rows={5} placeholder={"direct|Direct Business Customer\ncsp_partner|CSP / Channel Partner\nagent|Agent / Reseller\ninternal|Internal"} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 12, resize: 'vertical' })} /></div>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>💳 Plans</h3>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {(pc.plans || []).map(function(p, i) {
+                      function updatePlan(key, val) { var plans = (pc.plans || []).slice(); plans[i] = Object.assign({}, plans[i]); plans[i][key] = val; update('plans', plans); }
+                      return (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '120px 80px 100px 100px 60px 1fr 32px', gap: 8, alignItems: 'center' }}>
+                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="slug" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="$/mo" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="msg limit" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="contacts" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="seats" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Description" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
+                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); update('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                        </div>
+                      );
+                    })}
+                    <button onClick={function() { var plans = (pc.plans || []).concat([{ slug: '', name: '', monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3, description: '' }]); update('plans', plans); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Plan</button>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏷️ Industries</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                    {(pc.industries || []).map(function(ind, i) {
+                      return <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: C.primary, fontWeight: 600 }}>{ind}<button onClick={function() { update('industries', (pc.industries || []).filter(function(_, j) { return j !== i; })); }} style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button></span>;
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input id="ps-new-industry" placeholder="New industry" style={Object.assign({}, inputStyle2, { flex: 1 })} onKeyDown={function(e) { if (e.key === 'Enter') { var v = e.target.value.trim(); if (v) { update('industries', (pc.industries || []).concat([v])); e.target.value = ''; } } }} />
+                    <button onClick={function() { var el = document.getElementById('ps-new-industry'); var v = (el.value || '').trim(); if (v) { update('industries', (pc.industries || []).concat([v])); el.value = ''; } }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 8, padding: '8px 14px', color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>+ Add</button>
+                  </div>
+                </div>
+                <div style={sectionStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🤖 Default Escalation Rules</h3>
+                  <pre style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, fontSize: 10, color: 'rgba(255,255,255,0.5)', overflow: 'auto', maxHeight: 200, whiteSpace: 'pre-wrap' }}>{JSON.stringify(pc.default_escalation_rules, null, 2)}</pre>
+                  <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Edit default escalation rules as JSON. These are seeded for each new tenant during onboarding.</div>
+                  <textarea value={JSON.stringify(pc.default_escalation_rules || [], null, 2)} onChange={function(e) { try { update('default_escalation_rules', JSON.parse(e.target.value)); } catch(err) {} }} rows={6} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical', marginTop: 8 })} />
+                </div>
+              </div>
+            );
+          }
+          return <PlatformSettingsPage />;
+        })()}
         {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

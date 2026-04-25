@@ -37,4 +37,6 @@ async function getPlatformConfig(supabase) {
   };
 }
 
-module.exports = { getPlatformConfig: getPlatformConfig };
+function _bustCache() { _cache = null; _cacheTime = 0; }
+
+module.exports = { getPlatformConfig: getPlatformConfig, _bustCache: _bustCache };

@@ -1,21 +1,54 @@
-// api/platform-config.js — Public GET for platform_config (plans, industries, platform_name)
-// Does NOT expose sensitive fields like email templates or escalation rule defaults
-
+// api/platform-config.js — GET public fields, GET ?full=1 for SP admin, PATCH for SP admin
+var { createClient } = require('@supabase/supabase-js');
 var { getPlatformConfig } = require('./_lib/platform-config');
 
 module.exports = async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  try {
-    var pc = await getPlatformConfig();
-    return res.status(200).json({
-      platform_name: pc.platform_name,
-      portal_url: pc.portal_url,
-      support_email: pc.support_email,
-      plans: pc.plans || [],
-      industries: pc.industries || [],
-    });
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  if (req.method === 'GET') {
+    try {
+      var pc = await getPlatformConfig();
+      if (req.query.full === '1') {
+        return res.status(200).json(pc);
+      }
+      return res.status(200).json({
+        platform_name: pc.platform_name,
+        portal_url: pc.portal_url,
+        support_email: pc.support_email,
+        plans: pc.plans || [],
+        industries: pc.industries || [],
+        customer_type_options: pc.customer_type_options || [],
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
   }
+
+  if (req.method === 'PATCH') {
+    var supabase = createClient(
+      process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+    var body = req.body || {};
+    var patch = {};
+    var allowedFields = ['platform_name', 'support_email', 'support_phone', 'portal_url', 'calendar_url', 'onboarding_guide_url', 'headquarters', 'welcome_email_subject_template', 'welcome_email_html_template', 'default_escalation_rules', 'plans', 'industries', 'welcome_contact_source', 'welcome_contact_tags', 'customer_type_options'];
+    allowedFields.forEach(function(f) { if (body[f] !== undefined) patch[f] = body[f]; });
+    patch.updated_at = new Date().toISOString();
+    try {
+      var existing = await supabase.from('platform_config').select('id').limit(1).maybeSingle();
+      if (!existing.data) return res.status(404).json({ error: 'No platform_config row found' });
+      var upd = await supabase.from('platform_config').update(patch).eq('id', existing.data.id);
+      if (upd.error) return res.status(500).json({ error: upd.error.message });
+      // Bust cache
+      require('./_lib/platform-config')._bustCache && require('./_lib/platform-config')._bustCache();
+      return res.status(200).json({ success: true });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  return res.status(405).json({ error: 'GET or PATCH only' });
 };
