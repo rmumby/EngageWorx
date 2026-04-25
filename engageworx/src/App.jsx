@@ -577,10 +577,34 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
             <input value={inviteForm.website} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { website: e.target.value })); }} placeholder="https://acme.com" style={inputStyleTM} />
           </div>
           <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Plan</label>
-            <select value={inviteForm.plan_slug} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { plan_slug: e.target.value })); }} style={inputStyleTM}>
-              {invitePlans.length > 0 ? invitePlans.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' — $' + p.monthly_price + '/mo' : ' — Custom'}</option>; }) : <option value="starter">Starter</option>}
-            </select>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Customer Type *</label>
+            {inviteCustomerTypes.length === 0 ? (
+              <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>Customer Type Options not configured. Go to Platform Settings → Onboarding to define types.</div>
+            ) : (
+              <select value={inviteForm.customer_type} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { customer_type: e.target.value, plan_slug: '' })); }} style={inputStyleTM}>
+                <option value="">Select customer type...</option>
+                {inviteCustomerTypes.map(function(ct) { var val = typeof ct === 'object' ? ct.value : ct; var lbl = typeof ct === 'object' ? ct.label : ct; return <option key={val} value={val}>{lbl}</option>; })}
+              </select>
+            )}
+          </div>
+          <div>
+            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Plan *</label>
+            {(() => {
+              var filteredPlans = invitePlans.filter(function(p) {
+                if (!inviteForm.customer_type) return true;
+                if (!p.customer_types || !Array.isArray(p.customer_types) || p.customer_types.length === 0) return true;
+                return p.customer_types.indexOf(inviteForm.customer_type) !== -1;
+              });
+              if (inviteForm.customer_type && filteredPlans.length === 0) {
+                return <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>No plans configured for this customer type. SP admin must add one in Platform Settings → Plans.</div>;
+              }
+              return (
+                <select value={inviteForm.plan_slug} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { plan_slug: e.target.value })); }} style={inputStyleTM}>
+                  <option value="">Select plan...</option>
+                  {filteredPlans.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' — $' + p.monthly_price + '/mo' : ' — Custom'}</option>; })}
+                </select>
+              );
+            })()}
           </div>
           <div>
             <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Industry</label>
@@ -589,18 +613,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
               {inviteIndustries.map(function(ind) { return <option key={ind} value={ind}>{ind}</option>; })}
             </select>
           </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Customer Type *</label>
-            <select value={inviteForm.customer_type} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { customer_type: e.target.value })); }} style={inputStyleTM}>
-              <option value="">— Select —</option>
-              {inviteCustomerTypes.map(function(ct) { var val = typeof ct === 'object' ? ct.value : ct; var lbl = typeof ct === 'object' ? ct.label : ct; return <option key={val} value={val}>{lbl}</option>; })}
-            </select>
-          </div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
           <button onClick={async function() {
             if (!inviteForm.tenant_name || !inviteForm.admin_full_name || !inviteForm.admin_email) { alert('Company name, admin name, and admin email are required.'); return; }
             if (!inviteForm.customer_type) { alert('Customer type is required. If the dropdown is empty, SP admin must configure customer_type_options in Platform Settings.'); return; }
+            if (!inviteForm.plan_slug) { alert('Plan is required. If no plans appear, SP admin must configure plans for this customer type in Platform Settings.'); return; }
             setInviteLoading(true);
             try {
               var r = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, inviteForm, { inviter_tenant_id: currentTenantId || null })) });
@@ -2732,20 +2750,29 @@ var spNavBase = [
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>💳 Plans</h3>
                   <div style={{ display: 'grid', gap: 8 }}>
                     {(pc.plans || []).map(function(p, i) {
-                      function updatePlan(key, val) { var plans = (pc.plans || []).slice(); plans[i] = Object.assign({}, plans[i]); plans[i][key] = val; update('plans', plans); }
+                      function updatePlan(key, val) { var plans = (pc.plans || []).slice(); plans[i] = Object.assign({}, plans[i]); plans[i][key] = val; updateAndSave('plans', plans); }
                       return (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '120px 80px 100px 100px 60px 1fr 32px', gap: 8, alignItems: 'center' }}>
-                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="slug" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="$/mo" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="msg limit" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="contacts" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="seats" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Description" style={Object.assign({}, inputStyle2, { fontSize: 11 })} />
-                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); update('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 70px 90px 90px 50px 1fr 140px 32px', gap: 6, alignItems: 'center' }}>
+                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="slug" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="$/mo" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="msg limit" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="contacts" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="seats" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Description" style={Object.assign({}, inputStyle2, { fontSize: 10 })} />
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {(pc.customer_type_options || []).map(function(ct) {
+                              var ctVal = typeof ct === 'object' ? ct.value : ct;
+                              var ctLbl = typeof ct === 'object' ? (ct.label || ct.value) : ct;
+                              var ctArr = p.customer_types || [];
+                              var checked = ctArr.indexOf(ctVal) !== -1;
+                              return <label key={ctVal} style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 9, color: checked ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={function() { var next = checked ? ctArr.filter(function(x) { return x !== ctVal; }) : ctArr.concat([ctVal]); updatePlan('customer_types', next); }} style={{ width: 12, height: 12, accentColor: C.primary }} />{ctLbl.split(' ')[0]}</label>;
+                            })}
+                          </div>
+                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); updateAndSave('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 14 }}>✕</button>
                         </div>
                       );
                     })}
-                    <button onClick={function() { var plans = (pc.plans || []).concat([{ slug: '', name: '', monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3, description: '' }]); update('plans', plans); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Plan</button>
+                    <button onClick={function() { var plans = (pc.plans || []).concat([{ slug: '', name: '', monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3, description: '', customer_types: [] }]); updateAndSave('plans', plans); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Plan</button>
                   </div>
                 </div>
                 <div style={sectionStyle}>
