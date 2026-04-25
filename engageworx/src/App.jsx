@@ -490,150 +490,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     }
     setCreateLoading(false);
   };
-  {showNew && (
-  <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${C.primary}44`, borderRadius: 14, padding: 28, marginBottom: 24 }}>
-    <h3 style={{ color: "#fff", margin: "0 0 20px" }}>Onboard New Tenant</h3>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Company Name *</label>
-        <input value={newTenant.companyName} onChange={e => setNewTenant({...newTenant, companyName: e.target.value})} placeholder="e.g. TechCorp Ltd" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }} />
-      </div>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>White-Label Brand Name</label>
-        <input value={newTenant.brandName} onChange={e => setNewTenant({...newTenant, brandName: e.target.value})} placeholder="e.g. TechEngage" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }} />
-      </div>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Admin Email *</label>
-        <input value={newTenant.email} onChange={e => setNewTenant({...newTenant, email: e.target.value})} placeholder="admin@techcorp.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }} />
-      </div>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Custom Domain</label>
-        <input value={newTenant.domain} onChange={e => setNewTenant({...newTenant, domain: e.target.value})} placeholder="messaging.techcorp.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }} />
-      </div>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
-        <select value={newTenant.plan} onChange={e => setNewTenant({...newTenant, plan: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }}>
-          <option value="starter">Starter $99/mo</option>
-<option value="growth">Growth $249/mo</option>
-<option value="pro">Pro $499/mo</option>
-<option value="enterprise">Enterprise</option>
-<option disabled>── CSP Partners ──</option>
-<option value="silver">Silver $499/mo</option>
-<option value="gold">Gold $1,499/mo</option>
-<option value="platinum">Platinum $3,999/mo</option>
-<option value="diamond">Diamond $7,999/mo</option>
-        </select>
-      </div>
-      <div>
-        <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Tenant Type</label>
-        <select value={newTenant.type} onChange={e => setNewTenant({...newTenant, type: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }}>
-          <option value="direct">Direct Business</option>
-          <option value="csp">CSP / Reseller</option>
-          <option value="agent">Agent</option>
-        </select>
-      </div>
-    </div>
-    {createError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 12 }}>{createError}</div>}
-    <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-      <button onClick={() => handleCreateTenant()} disabled={createLoading} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 8, padding: "10px 22px", color: "#000", fontWeight: 700, cursor: "pointer", opacity: createLoading ? 0.6 : 1 }}>{createLoading ? "Creating..." : "Create Tenant"}</button>
-      <button onClick={() => { setShowNew(false); setCreateError(null); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 22px", color: C.muted, cursor: "pointer" }}>Cancel</button>
-    </div>
-  </div>
-)}
+  // Legacy showNew form removed — Invite Tenant is the primary flow
 
-{showInvite && (
-  <div style={{ background: "rgba(255,255,255,0.04)", border: '1px solid #10b98144', borderRadius: 14, padding: 28, marginBottom: 24 }}>
-    <h3 style={{ color: "#fff", margin: "0 0 20px" }}>🚀 Invite Tenant</h3>
-    {inviteResult ? (
-      <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 20 }}>
-        <div style={{ color: '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>✅ Tenant Created Successfully</div>
-        <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
-          <div><strong>Tenant ID:</strong> <code style={{ color: '#00C9FF' }}>{inviteResult.tenant_id}</code></div>
-          <div><strong>Welcome email:</strong> {inviteResult.welcome_email_sent ? '✅ Sent' : '❌ Failed'}</div>
-          <div><strong>Temp password:</strong> <code style={{ color: '#FFD600', fontFamily: 'monospace' }}>{inviteResult.temp_password_for_admin_display}</code></div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-          {onDrillDown && <button onClick={function() { onDrillDown(inviteResult.tenant_id); setShowInvite(false); setInviteResult(null); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Open Tenant Portal</button>}
-          <button onClick={function() { setShowInvite(false); setInviteResult(null); setInviteForm({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter' }); window.location.reload(); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 20px', color: C.muted, cursor: 'pointer' }}>Close</button>
-        </div>
-      </div>
-    ) : (
-      <>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Company Name *</label>
-            <input value={inviteForm.tenant_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { tenant_name: e.target.value })); }} placeholder="Acme Corp" style={inputStyleTM} />
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Full Name *</label>
-            <input value={inviteForm.admin_full_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_full_name: e.target.value })); }} placeholder="Jane Smith" style={inputStyleTM} />
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Email *</label>
-            <input type="email" value={inviteForm.admin_email} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_email: e.target.value })); }} placeholder="jane@acme.com" style={inputStyleTM} />
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Website</label>
-            <input value={inviteForm.website} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { website: e.target.value })); }} placeholder="https://acme.com" style={inputStyleTM} />
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Customer Type *</label>
-            {inviteCustomerTypes.length === 0 ? (
-              <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>Customer Type Options not configured. Go to Platform Settings → Onboarding to define types.</div>
-            ) : (
-              <select value={inviteForm.customer_type} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { customer_type: e.target.value, plan_slug: '' })); }} style={inputStyleTM}>
-                <option value="">Select customer type...</option>
-                {inviteCustomerTypes.map(function(ct) { var val = typeof ct === 'object' ? ct.value : ct; var lbl = typeof ct === 'object' ? ct.label : ct; return <option key={val} value={val}>{lbl}</option>; })}
-              </select>
-            )}
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Plan *</label>
-            {(() => {
-              var filteredPlans = invitePlans.filter(function(p) {
-                if (!inviteForm.customer_type) return true;
-                if (!p.customer_types || !Array.isArray(p.customer_types) || p.customer_types.length === 0) return true;
-                return p.customer_types.indexOf(inviteForm.customer_type) !== -1;
-              });
-              if (inviteForm.customer_type && filteredPlans.length === 0) {
-                return <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>No plans configured for this customer type. SP admin must add one in Platform Settings → Plans.</div>;
-              }
-              return (
-                <select value={inviteForm.plan_slug} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { plan_slug: e.target.value })); }} style={inputStyleTM}>
-                  <option value="">Select plan...</option>
-                  {filteredPlans.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' — $' + p.monthly_price + '/mo' : ' — Custom'}</option>; })}
-                </select>
-              );
-            })()}
-          </div>
-          <div>
-            <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Industry</label>
-            <select value={inviteForm.industry} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { industry: e.target.value })); }} style={inputStyleTM}>
-              <option value="">— Select —</option>
-              {inviteIndustries.map(function(ind) { return <option key={ind} value={ind}>{ind}</option>; })}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-          <button onClick={async function() {
-            if (!inviteForm.tenant_name || !inviteForm.admin_full_name || !inviteForm.admin_email) { alert('Company name, admin name, and admin email are required.'); return; }
-            if (!inviteForm.customer_type) { alert('Customer type is required. If the dropdown is empty, SP admin must configure customer_type_options in Platform Settings.'); return; }
-            if (!inviteForm.plan_slug) { alert('Plan is required. If no plans appear, SP admin must configure plans for this customer type in Platform Settings.'); return; }
-            setInviteLoading(true);
-            try {
-              var r = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, inviteForm, { inviter_tenant_id: currentTenantId || null })) });
-              var d = await r.json();
-              if (!r.ok) throw new Error(d.error || 'Invite failed');
-              setInviteResult(d);
-            } catch (e) { alert('Error: ' + e.message); }
-            setInviteLoading(false);
-          }} disabled={inviteLoading} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '10px 22px', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: inviteLoading ? 0.6 : 1 }}>{inviteLoading ? 'Creating...' : '🚀 Invite & Send Welcome Email'}</button>
-          <button onClick={function() { setShowInvite(false); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 22px', color: C.muted, cursor: 'pointer' }}>Cancel</button>
-        </div>
-      </>
-    )}
-  </div>
-)}
+  // Invite Tenant modal moved inside return statement below
 
   // Fetch live tenants from Supabase (skip in demo mode)
   useEffect(() => {
@@ -738,11 +597,57 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
           </button>
-          <button onClick={function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) { if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); }).catch(function(e) { console.warn('Platform config load error:', e.message); }); }} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          <button onClick={function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) { if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); }).catch(function(e) { console.warn('Platform config load error:', e.message); }); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🚀 Invite Tenant
           </button>
         </div>
       </div>
+
+      {showInvite && (
+        <div style={{ background: "rgba(255,255,255,0.04)", border: '1px solid ' + C.primary + '44', borderRadius: 14, padding: 28, marginBottom: 24 }}>
+          <h3 style={{ color: "#fff", margin: "0 0 20px" }}>🚀 Invite Tenant</h3>
+          {inviteResult ? (
+            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 20 }}>
+              <div style={{ color: '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>✅ Tenant Created Successfully</div>
+              <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
+                <div><strong>Tenant ID:</strong> <code style={{ color: '#00C9FF' }}>{inviteResult.tenant_id}</code></div>
+                <div><strong>Welcome email:</strong> {inviteResult.welcome_email_sent ? '✅ Sent' : '❌ Failed'}</div>
+                <div><strong>Temp password:</strong> <code style={{ color: '#FFD600', fontFamily: 'monospace' }}>{inviteResult.temp_password_for_admin_display}</code></div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                {onDrillDown && <button onClick={function() { onDrillDown(inviteResult.tenant_id); setShowInvite(false); setInviteResult(null); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Open Tenant Portal</button>}
+                <button onClick={function() { setShowInvite(false); setInviteResult(null); setInviteForm({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: '', customer_type: '' }); window.location.reload(); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 20px', color: C.muted, cursor: 'pointer' }}>Close</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Company Name *</label><input value={inviteForm.tenant_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { tenant_name: e.target.value })); }} placeholder="Acme Corp" style={inputStyleTM} /></div>
+                <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Full Name *</label><input value={inviteForm.admin_full_name} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_full_name: e.target.value })); }} placeholder="Jane Smith" style={inputStyleTM} /></div>
+                <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Admin Email *</label><input type="email" value={inviteForm.admin_email} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { admin_email: e.target.value })); }} placeholder="jane@acme.com" style={inputStyleTM} /></div>
+                <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Website</label><input value={inviteForm.website} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { website: e.target.value })); }} placeholder="https://acme.com" style={inputStyleTM} /></div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Customer Type *</label>
+                  {inviteCustomerTypes.length === 0 ? (
+                    <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>Not configured. Go to Platform Settings → Onboarding.</div>
+                  ) : (
+                    <select value={inviteForm.customer_type} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { customer_type: e.target.value, plan_slug: '' })); }} style={inputStyleTM}><option value="">Select customer type...</option>{inviteCustomerTypes.map(function(ct) { var val = typeof ct === 'object' ? ct.value : ct; var lbl = typeof ct === 'object' ? ct.label : ct; return <option key={val} value={val}>{lbl}</option>; })}</select>
+                  )}
+                </div>
+                <div>
+                  <label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Plan *</label>
+                  {(() => { var fp = invitePlans.filter(function(p) { if (!inviteForm.customer_type) return true; if (!p.customer_types || p.customer_types.length === 0) return true; return p.customer_types.indexOf(inviteForm.customer_type) !== -1; }); if (inviteForm.customer_type && fp.length === 0) return <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', color: '#eab308', fontSize: 11 }}>No plans for this type. Configure in Platform Settings → Plans.</div>; return <select value={inviteForm.plan_slug} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { plan_slug: e.target.value })); }} style={inputStyleTM}><option value="">Select plan...</option>{fp.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' — $' + p.monthly_price + '/mo' : ' — Custom'}</option>; })}</select>; })()}
+                </div>
+                <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Industry</label><select value={inviteForm.industry} onChange={function(e) { setInviteForm(Object.assign({}, inviteForm, { industry: e.target.value })); }} style={inputStyleTM}><option value="">— Select —</option>{inviteIndustries.map(function(ind) { return <option key={ind} value={ind}>{ind}</option>; })}</select></div>
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                <button onClick={async function() { if (!inviteForm.tenant_name || !inviteForm.admin_full_name || !inviteForm.admin_email) { alert('Company name, admin name, and admin email are required.'); return; } if (!inviteForm.customer_type) { alert('Customer type is required.'); return; } if (!inviteForm.plan_slug) { alert('Plan is required.'); return; } setInviteLoading(true); try { var r = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, inviteForm, { inviter_tenant_id: currentTenantId || null })) }); var d = await r.json(); if (!r.ok) throw new Error(d.error || 'Invite failed'); setInviteResult(d); } catch (e) { alert('Error: ' + e.message); } setInviteLoading(false); }} disabled={inviteLoading} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 8, padding: '10px 22px', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: inviteLoading ? 0.6 : 1 }}>{inviteLoading ? 'Creating...' : '🚀 Invite & Send Welcome Email'}</button>
+                <button onClick={function() { setShowInvite(false); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 22px', color: C.muted, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 4, marginBottom: 28, background: "rgba(255,255,255,0.04)", padding: 4, borderRadius: 10, width: "fit-content" }}>
         {["tenants", "branding", "permissions", "billing"].map(t => (
