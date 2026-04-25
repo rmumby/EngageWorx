@@ -44,7 +44,8 @@ module.exports = async function handler(req, res) {
   }
 
   var supabase = getSupabase();
-  var pc = await getPlatformConfig(supabase);
+  // Use inviter's platform_config (CSP overrides SP defaults)
+  var pc = await getPlatformConfig(inviterTenantId, supabase);
 
   // Validate platform_config is fully populated
   var missingPc = [];

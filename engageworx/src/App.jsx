@@ -715,7 +715,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Tenant Management</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage white-label customers, branding & access</p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <CreateSandbox C={C} onCreated={function() { window.location.reload(); }} />
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
@@ -1710,6 +1710,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
     { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
     entityTier === 'csp' ? { id: "tenants", label: t('nav.tenantManagement'), icon: "🏢" } : null,
+    entityTier === 'csp' ? { id: "platform-settings", label: "Platform Settings", icon: "🔧" } : null,
     entityTier === 'csp' ? { id: "hierarchy", label: t('nav.hierarchy'), icon: "🌳" } : null,
     entityTier === 'csp' ? { id: "analytics-global", label: t('nav.globalAnalytics'), icon: "📊" } : null,
     entityTier !== 'csp' ? { id: "analytics", label: t('nav.analytics'), icon: "📊" } : null,
@@ -1842,6 +1843,63 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
         {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={setCspDrillTenant} currentTenantId={tenantId} />}
+        {page === "platform-settings" && entityTier === 'csp' && (() => {
+          function CSPPlatformSettings() {
+            var [cspPc, setCspPc] = useState(null);
+            var [cspLoading, setCspLoading] = useState(true);
+            var [cspLastSaved, setCspLastSaved] = useState(null);
+            var [cspFieldSaved, setCspFieldSaved] = useState({});
+            var cspSaveTimerRef = useRef({});
+            useEffect(function() {
+              fetch('/api/platform-config?full=1&tenant_id=' + tenantId).then(function(r) { return r.json(); }).then(function(d) { setCspPc(d); setCspLoading(false); }).catch(function() { setCspLoading(false); });
+            }, []);
+            function cspUpdateAndSave(key, val) {
+              setCspPc(function(prev) { var n = Object.assign({}, prev); n[key] = val; return n; });
+              if (cspSaveTimerRef.current[key]) clearTimeout(cspSaveTimerRef.current[key]);
+              cspSaveTimerRef.current[key] = setTimeout(function() {
+                var payload = {}; payload[key] = val;
+                fetch('/api/platform-config?tenant_id=' + tenantId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(function(r) {
+                  if (r.ok) { setCspFieldSaved(function(p) { var n = Object.assign({}, p); n[key] = true; return n; }); setCspLastSaved(new Date()); setTimeout(function() { setCspFieldSaved(function(p) { var n = Object.assign({}, p); delete n[key]; return n; }); }, 2000); }
+                }).catch(function() {});
+              }, 1500);
+            }
+            if (cspLoading) return <div style={{ padding: 40, color: C.muted, textAlign: 'center' }}>Loading...</div>;
+            if (!cspPc) return <div style={{ padding: 40, color: '#FF3B30' }}>Failed to load config</div>;
+            var sStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22, marginBottom: 16 };
+            var lStyle = { color: C.muted, fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 };
+            var iStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+            return (
+              <div style={{ padding: '32px 40px', maxWidth: 900 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <div><h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>🔧 Platform Settings</h1><p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Your overrides — empty fields inherit from platform defaults</p></div>
+                  {cspLastSaved && <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600 }}>Last saved {cspLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                </div>
+                <div style={sStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏢 Brand</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div><label style={lStyle}>Platform Name</label><input value={cspPc.platform_name || ''} onChange={function(e) { cspUpdateAndSave('platform_name', e.target.value); }} placeholder="(inherited from platform)" style={iStyle} /></div>
+                    <div><label style={lStyle}>Headquarters</label><input value={cspPc.headquarters || ''} onChange={function(e) { cspUpdateAndSave('headquarters', e.target.value); }} placeholder="(inherited)" style={iStyle} /></div>
+                  </div>
+                </div>
+                <div style={sStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>📞 Contact</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                    <div><label style={lStyle}>Support Email</label><input value={cspPc.support_email || ''} onChange={function(e) { cspUpdateAndSave('support_email', e.target.value); }} placeholder="(inherited)" style={iStyle} /></div>
+                    <div><label style={lStyle}>Support Phone</label><input value={cspPc.support_phone || ''} onChange={function(e) { cspUpdateAndSave('support_phone', e.target.value); }} placeholder="(inherited)" style={iStyle} /></div>
+                    <div><label style={lStyle}>Portal URL</label><input value={cspPc.portal_url || ''} onChange={function(e) { cspUpdateAndSave('portal_url', e.target.value); }} placeholder="(inherited)" style={iStyle} /></div>
+                    <div><label style={lStyle}>Calendar URL</label><input value={cspPc.calendar_url || ''} onChange={function(e) { cspUpdateAndSave('calendar_url', e.target.value); }} placeholder="(inherited)" style={iStyle} /></div>
+                  </div>
+                </div>
+                <div style={sStyle}>
+                  <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🚀 Onboarding</h3>
+                  <div><label style={lStyle}>Welcome Email Subject Template</label><input value={cspPc.welcome_email_subject_template || ''} onChange={function(e) { cspUpdateAndSave('welcome_email_subject_template', e.target.value); }} placeholder="(inherited from platform)" style={iStyle} /></div>
+                  <div style={{ marginTop: 12 }}><label style={lStyle}>Welcome Email HTML Template</label><textarea value={cspPc.welcome_email_html_template || ''} onChange={function(e) { cspUpdateAndSave('welcome_email_html_template', e.target.value); }} rows={8} placeholder="(inherited from platform)" style={Object.assign({}, iStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} /></div>
+                </div>
+              </div>
+            );
+          }
+          return <CSPPlatformSettings />;
+        })()}
         {page === "hierarchy" && entityTier === 'csp' && <HierarchyView C={C} />}
         {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
         {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}
@@ -2599,22 +2657,36 @@ var spNavBase = [
         {spPage === "platform-settings" && isSuperAdmin && (() => {
           function PlatformSettingsPage() {
             var [pc, setPc] = useState(null);
-            var [saving, setSaving] = useState(false);
-            var [saved, setSaved] = useState(false);
             var [loading, setLoading] = useState(true);
+            var [lastSaved, setLastSaved] = useState(null);
+            var [fieldSaved, setFieldSaved] = useState({});
+            var [fieldError, setFieldError] = useState({});
+            var saveTimerRef = useRef({});
             useEffect(function() {
               fetch('/api/platform-config?full=1').then(function(r) { return r.json(); }).then(function(d) { setPc(d); setLoading(false); }).catch(function() { setLoading(false); });
             }, []);
-            function update(key, val) { setPc(function(prev) { var n = Object.assign({}, prev); n[key] = val; return n; }); }
-            async function save() {
-              setSaving(true);
+            function updateAndSave(key, val) {
+              setPc(function(prev) { var n = Object.assign({}, prev); n[key] = val; return n; });
+              if (saveTimerRef.current[key]) clearTimeout(saveTimerRef.current[key]);
+              saveTimerRef.current[key] = setTimeout(function() { saveField(key, val); }, 1500);
+            }
+            async function saveField(key, val) {
               try {
-                var r = await fetch('/api/platform-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pc) });
+                var payload = {}; payload[key] = val;
+                var r = await fetch('/api/platform-config', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 var d = await r.json();
                 if (!r.ok) throw new Error(d.error || 'Save failed');
-                setSaved(true); setTimeout(function() { setSaved(false); }, 3000);
-              } catch (e) { alert('Error: ' + e.message); }
-              setSaving(false);
+                setFieldSaved(function(prev) { var n = Object.assign({}, prev); n[key] = true; return n; });
+                setFieldError(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; });
+                setLastSaved(new Date());
+                setTimeout(function() { setFieldSaved(function(prev) { var n = Object.assign({}, prev); delete n[key]; return n; }); }, 2000);
+              } catch (e) {
+                setFieldError(function(prev) { var n = Object.assign({}, prev); n[key] = e.message; return n; });
+              }
+            }
+            function saveNow(key, val) {
+              if (saveTimerRef.current[key]) clearTimeout(saveTimerRef.current[key]);
+              saveField(key, val !== undefined ? val : (pc && pc[key]));
             }
             if (loading) return <div style={{ padding: 40, color: C.muted, textAlign: 'center' }}>Loading...</div>;
             if (!pc) return <div style={{ padding: 40, color: '#FF3B30' }}>Failed to load platform config</div>;
@@ -2624,37 +2696,34 @@ var spNavBase = [
             return (
               <div style={{ padding: '32px 40px', maxWidth: 900, fontFamily: "'DM Sans', sans-serif" }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                  <div><h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>🔧 Platform Settings</h1><p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Single source of truth — no hardcoded values anywhere</p></div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {saved && <span style={{ color: '#10b981', fontSize: 13, fontWeight: 700 }}>✓ Saved</span>}
-                    <button onClick={save} disabled={saving} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 10, padding: '10px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving...' : 'Save All'}</button>
-                  </div>
+                  <div><h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>🔧 Platform Settings</h1><p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Single source of truth — changes auto-save on each field</p></div>
+                  {lastSaved && <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600 }}>Last saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏢 Brand</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                    <div><label style={labelStyle}>Platform Name</label><input value={pc.platform_name || ''} onChange={function(e) { update('platform_name', e.target.value); }} style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Headquarters</label><input value={pc.headquarters || ''} onChange={function(e) { update('headquarters', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Platform Name</label><input value={pc.platform_name || ''} onChange={function(e) { updateAndSave('platform_name', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Headquarters</label><input value={pc.headquarters || ''} onChange={function(e) { updateAndSave('headquarters', e.target.value); }} style={inputStyle2} /></div>
                   </div>
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>📞 Contact</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                    <div><label style={labelStyle}>Support Email</label><input value={pc.support_email || ''} onChange={function(e) { update('support_email', e.target.value); }} style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Support Phone</label><input value={pc.support_phone || ''} onChange={function(e) { update('support_phone', e.target.value); }} style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Portal URL</label><input value={pc.portal_url || ''} onChange={function(e) { update('portal_url', e.target.value); }} style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Calendar URL</label><input value={pc.calendar_url || ''} onChange={function(e) { update('calendar_url', e.target.value); }} style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Onboarding Guide URL</label><input value={pc.onboarding_guide_url || ''} onChange={function(e) { update('onboarding_guide_url', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Support Email</label><input value={pc.support_email || ''} onChange={function(e) { updateAndSave('support_email', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Support Phone</label><input value={pc.support_phone || ''} onChange={function(e) { updateAndSave('support_phone', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Portal URL</label><input value={pc.portal_url || ''} onChange={function(e) { updateAndSave('portal_url', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Calendar URL</label><input value={pc.calendar_url || ''} onChange={function(e) { updateAndSave('calendar_url', e.target.value); }} style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Onboarding Guide URL</label><input value={pc.onboarding_guide_url || ''} onChange={function(e) { updateAndSave('onboarding_guide_url', e.target.value); }} style={inputStyle2} /></div>
                   </div>
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🚀 Onboarding</h3>
                   <div style={{ display: 'grid', gap: 14 }}>
-                    <div><label style={labelStyle}>Welcome Email Subject Template</label><input value={pc.welcome_email_subject_template || ''} onChange={function(e) { update('welcome_email_subject_template', e.target.value); }} placeholder="Welcome to {platform_name} — your {tenant_name} account is ready" style={inputStyle2} /></div>
-                    <div><label style={labelStyle}>Welcome Email HTML Template</label><textarea value={pc.welcome_email_html_template || ''} onChange={function(e) { update('welcome_email_html_template', e.target.value); }} rows={10} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} /></div>
+                    <div><label style={labelStyle}>Welcome Email Subject Template</label><input value={pc.welcome_email_subject_template || ''} onChange={function(e) { updateAndSave('welcome_email_subject_template', e.target.value); }} placeholder="Welcome to {platform_name} — your {tenant_name} account is ready" style={inputStyle2} /></div>
+                    <div><label style={labelStyle}>Welcome Email HTML Template</label><textarea value={pc.welcome_email_html_template || ''} onChange={function(e) { updateAndSave('welcome_email_html_template', e.target.value); }} rows={10} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} /></div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                      <div><label style={labelStyle}>Welcome Contact Source</label><input value={pc.welcome_contact_source || ''} onChange={function(e) { update('welcome_contact_source', e.target.value); }} placeholder="e.g. platform_onboarding" style={inputStyle2} /></div>
-                      <div><label style={labelStyle}>Welcome Contact Tags (comma-separated)</label><input value={Array.isArray(pc.welcome_contact_tags) ? pc.welcome_contact_tags.join(', ') : ''} onChange={function(e) { update('welcome_contact_tags', e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean)); }} placeholder="onboarded, welcome" style={inputStyle2} /></div>
+                      <div><label style={labelStyle}>Welcome Contact Source</label><input value={pc.welcome_contact_source || ''} onChange={function(e) { updateAndSave('welcome_contact_source', e.target.value); }} placeholder="e.g. platform_onboarding" style={inputStyle2} /></div>
+                      <div><label style={labelStyle}>Welcome Contact Tags (comma-separated)</label><input value={Array.isArray(pc.welcome_contact_tags) ? pc.welcome_contact_tags.join(', ') : ''} onChange={function(e) { updateAndSave('welcome_contact_tags', e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean)); }} placeholder="onboarded, welcome" style={inputStyle2} /></div>
                     </div>
                     <div><label style={labelStyle}>Customer Type Options (one per line, format: value|Label)</label><textarea value={Array.isArray(pc.customer_type_options) ? pc.customer_type_options.map(function(ct) { return typeof ct === 'object' ? ct.value + '|' + ct.label : ct; }).join('\n') : ''} onChange={function(e) { var lines = e.target.value.split('\n').filter(function(l) { return l.trim(); }); update('customer_type_options', lines.map(function(l) { var parts = l.split('|'); return parts.length > 1 ? { value: parts[0].trim(), label: parts.slice(1).join('|').trim() } : parts[0].trim(); })); }} rows={5} placeholder={"direct|Direct Business Customer\ncsp_partner|CSP / Channel Partner\nagent|Agent / Reseller\ninternal|Internal"} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 12, resize: 'vertical' })} /></div>
                   </div>
@@ -2683,19 +2752,19 @@ var spNavBase = [
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏷️ Industries</h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                     {(pc.industries || []).map(function(ind, i) {
-                      return <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: C.primary, fontWeight: 600 }}>{ind}<button onClick={function() { update('industries', (pc.industries || []).filter(function(_, j) { return j !== i; })); }} style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button></span>;
+                      return <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: C.primary, fontWeight: 600 }}>{ind}<button onClick={function() { updateAndSave('industries', (pc.industries || []).filter(function(_, j) { return j !== i; })); }} style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button></span>;
                     })}
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input id="ps-new-industry" placeholder="New industry" style={Object.assign({}, inputStyle2, { flex: 1 })} onKeyDown={function(e) { if (e.key === 'Enter') { var v = e.target.value.trim(); if (v) { update('industries', (pc.industries || []).concat([v])); e.target.value = ''; } } }} />
-                    <button onClick={function() { var el = document.getElementById('ps-new-industry'); var v = (el.value || '').trim(); if (v) { update('industries', (pc.industries || []).concat([v])); el.value = ''; } }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 8, padding: '8px 14px', color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>+ Add</button>
+                    <input id="ps-new-industry" placeholder="New industry" style={Object.assign({}, inputStyle2, { flex: 1 })} onKeyDown={function(e) { if (e.key === 'Enter') { var v = e.target.value.trim(); if (v) { updateAndSave('industries', (pc.industries || []).concat([v])); e.target.value = ''; } } }} />
+                    <button onClick={function() { var el = document.getElementById('ps-new-industry'); var v = (el.value || '').trim(); if (v) { updateAndSave('industries', (pc.industries || []).concat([v])); el.value = ''; } }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 8, padding: '8px 14px', color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>+ Add</button>
                   </div>
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🤖 Default Escalation Rules</h3>
                   <pre style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: 12, fontSize: 10, color: 'rgba(255,255,255,0.5)', overflow: 'auto', maxHeight: 200, whiteSpace: 'pre-wrap' }}>{JSON.stringify(pc.default_escalation_rules, null, 2)}</pre>
                   <div style={{ color: C.muted, fontSize: 11, marginTop: 6 }}>Edit default escalation rules as JSON. These are seeded for each new tenant during onboarding.</div>
-                  <textarea value={JSON.stringify(pc.default_escalation_rules || [], null, 2)} onChange={function(e) { try { update('default_escalation_rules', JSON.parse(e.target.value)); } catch(err) {} }} rows={6} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical', marginTop: 8 })} />
+                  <textarea value={JSON.stringify(pc.default_escalation_rules || [], null, 2)} onChange={function(e) { try { updateAndSave('default_escalation_rules', JSON.parse(e.target.value)); } catch(err) {} }} rows={6} style={Object.assign({}, inputStyle2, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical', marginTop: 8 })} />
                 </div>
               </div>
             );
