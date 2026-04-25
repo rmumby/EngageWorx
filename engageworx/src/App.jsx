@@ -2662,41 +2662,50 @@ var spNavBase = [
                       <div></div>
                     </div>
                     {(pc.plans || []).map(function(p, i) {
-                      function updatePlan(key, val) { var plans = (pc.plans || []).slice(); plans[i] = Object.assign({}, plans[i]); plans[i][key] = val; updateAndSave('plans', plans); }
+                      function updatePlan(changes) {
+                        setPc(function(prev) {
+                          var plans = (prev.plans || []).slice();
+                          plans[i] = Object.assign({}, plans[i], changes);
+                          var updated = Object.assign({}, prev, { plans: plans });
+                          if (saveTimerRef.current['plans']) clearTimeout(saveTimerRef.current['plans']);
+                          saveTimerRef.current['plans'] = setTimeout(function() { saveField('plans', updated.plans); }, 1500);
+                          return updated;
+                        });
+                      }
                       return (
                         <div key={i} style={{ display: 'grid', gridTemplateColumns: '110px 80px 100px 100px 60px 1fr 150px 32px', gap: 8, alignItems: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: 8, padding: '8px 0' }}>
-                          <input value={p.slug || ''} onChange={function(e) { updatePlan('slug', e.target.value); updatePlan('name', e.target.value.charAt(0).toUpperCase() + e.target.value.slice(1)); }} placeholder="starter" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
-                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan('monthly_price', parseInt(e.target.value) || null); }} placeholder="99" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
-                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan('message_limit', parseInt(e.target.value) || 0); }} placeholder="5000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
-                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan('contact_limit', parseInt(e.target.value) || 0); }} placeholder="10000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
-                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan('user_seats', parseInt(e.target.value) || 0); }} placeholder="3" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
-                          <input value={p.description || ''} onChange={function(e) { updatePlan('description', e.target.value); }} placeholder="Plan description" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input value={p.slug || ''} onChange={function(e) { var v = e.target.value; updatePlan({ slug: v, name: v.charAt(0).toUpperCase() + v.slice(1) }); }} placeholder="starter" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.monthly_price || ''} onChange={function(e) { updatePlan({ monthly_price: parseInt(e.target.value) || null }); }} placeholder="99" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.message_limit || ''} onChange={function(e) { updatePlan({ message_limit: parseInt(e.target.value) || 0 }); }} placeholder="5000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.contact_limit || ''} onChange={function(e) { updatePlan({ contact_limit: parseInt(e.target.value) || 0 }); }} placeholder="10000" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input type="number" value={p.user_seats || ''} onChange={function(e) { updatePlan({ user_seats: parseInt(e.target.value) || 0 }); }} placeholder="3" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
+                          <input value={p.description || ''} onChange={function(e) { updatePlan({ description: e.target.value }); }} placeholder="Plan description" style={Object.assign({}, inputStyle2, { fontSize: 12 })} />
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {(pc.customer_type_options || []).map(function(ct) {
                               var ctVal = typeof ct === 'object' ? ct.value : ct;
                               var ctLbl = typeof ct === 'object' ? (ct.label || ct.value) : ct;
                               var ctArr = p.customer_types || [];
                               var checked = ctArr.indexOf(ctVal) !== -1;
-                              return <label key={ctVal} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: checked ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={function() { var next = checked ? ctArr.filter(function(x) { return x !== ctVal; }) : ctArr.concat([ctVal]); updatePlan('customer_types', next); }} style={{ width: 13, height: 13, accentColor: C.primary }} />{ctLbl.split(' ')[0]}</label>;
+                              return <label key={ctVal} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: checked ? '#fff' : 'rgba(255,255,255,0.3)', cursor: 'pointer' }}><input type="checkbox" checked={checked} onChange={function() { var next = checked ? ctArr.filter(function(x) { return x !== ctVal; }) : ctArr.concat([ctVal]); updatePlan({ customer_types: next }); }} style={{ width: 13, height: 13, accentColor: C.primary }} />{ctLbl.split(' ')[0]}</label>;
                             })}
                           </div>
-                          <button onClick={function() { var plans = (pc.plans || []).filter(function(_, j) { return j !== i; }); updateAndSave('plans', plans); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                          <button onClick={function() { setPc(function(prev) { var plans = (prev.plans || []).filter(function(_, j) { return j !== i; }); if (saveTimerRef.current['plans']) clearTimeout(saveTimerRef.current['plans']); saveTimerRef.current['plans'] = setTimeout(function() { saveField('plans', plans); }, 500); return Object.assign({}, prev, { plans: plans }); }); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 16 }}>✕</button>
                         </div>
                       );
                     })}
-                    <button onClick={function() { var plans = (pc.plans || []).concat([{ slug: '', name: '', monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3, description: '', customer_types: [] }]); updateAndSave('plans', plans); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Plan</button>
+                    <button onClick={function() { setPc(function(prev) { var plans = (prev.plans || []).concat([{ slug: '', name: '', monthly_price: null, message_limit: 5000, contact_limit: 10000, user_seats: 3, description: '', customer_types: [] }]); if (saveTimerRef.current['plans']) clearTimeout(saveTimerRef.current['plans']); saveTimerRef.current['plans'] = setTimeout(function() { saveField('plans', plans); }, 500); return Object.assign({}, prev, { plans: plans }); }); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Plan</button>
                   </div>
                 </div>
                 <div style={sectionStyle}>
                   <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>🏷️ Industries</h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                     {(pc.industries || []).map(function(ind, i) {
-                      return <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: C.primary, fontWeight: 600 }}>{ind}<button onClick={function() { updateAndSave('industries', (pc.industries || []).filter(function(_, j) { return j !== i; })); }} style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button></span>;
+                      return <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 14, padding: '4px 10px', fontSize: 12, color: C.primary, fontWeight: 600 }}>{ind}<button onClick={function() { setPc(function(prev) { var industries = (prev.industries || []).filter(function(_, j) { return j !== i; }); if (saveTimerRef.current['industries']) clearTimeout(saveTimerRef.current['industries']); saveTimerRef.current['industries'] = setTimeout(function() { saveField('industries', industries); }, 500); return Object.assign({}, prev, { industries: industries }); }); }} style={{ background: 'none', border: 'none', color: C.primary, cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button></span>;
                     })}
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input id="ps-new-industry" placeholder="New industry" style={Object.assign({}, inputStyle2, { flex: 1 })} onKeyDown={function(e) { if (e.key === 'Enter') { var v = e.target.value.trim(); if (v) { updateAndSave('industries', (pc.industries || []).concat([v])); e.target.value = ''; } } }} />
-                    <button onClick={function() { var el = document.getElementById('ps-new-industry'); var v = (el.value || '').trim(); if (v) { updateAndSave('industries', (pc.industries || []).concat([v])); el.value = ''; } }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 8, padding: '8px 14px', color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>+ Add</button>
+                    <input id="ps-new-industry" placeholder="New industry" style={Object.assign({}, inputStyle2, { flex: 1 })} onKeyDown={function(e) { if (e.key === 'Enter') { var v = e.target.value.trim(); if (v) { setPc(function(prev) { var industries = (prev.industries || []).concat([v]); if (saveTimerRef.current['industries']) clearTimeout(saveTimerRef.current['industries']); saveTimerRef.current['industries'] = setTimeout(function() { saveField('industries', industries); }, 500); return Object.assign({}, prev, { industries: industries }); }); e.target.value = ''; } } }} />
+                    <button onClick={function() { var el = document.getElementById('ps-new-industry'); var v = (el.value || '').trim(); if (v) { setPc(function(prev) { var industries = (prev.industries || []).concat([v]); if (saveTimerRef.current['industries']) clearTimeout(saveTimerRef.current['industries']); saveTimerRef.current['industries'] = setTimeout(function() { saveField('industries', industries); }, 500); return Object.assign({}, prev, { industries: industries }); }); el.value = ''; } }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 8, padding: '8px 14px', color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>+ Add</button>
                   </div>
                 </div>
                 <div style={sectionStyle}>
