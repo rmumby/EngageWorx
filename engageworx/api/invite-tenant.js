@@ -83,6 +83,7 @@ module.exports = async function handler(req, res) {
       plan: plan.slug,
       status: 'trial',
       tenant_type: customerType,
+      customer_type: customerType,
       channels_enabled: ['sms', 'email'],
       message_limit: plan.message_limit,
       contact_limit: plan.contact_limit,
