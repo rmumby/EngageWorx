@@ -135,7 +135,7 @@ function useLiveData(demoMode, isSPAdmin) {
           plan: t.plan,
           status: t.status,
           slug: t.slug,
-          tenant_type: t.tenant_type || 'business',
+          tenant_type: t.customer_type || t.tenant_type || 'business',
           parent_tenant_id: t.parent_tenant_id,
         };
       });
@@ -542,7 +542,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
             stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
             slug: t.slug,
             created_at: t.created_at,
-            tenant_type: t.tenant_type || 'business',
+            tenant_type: t.customer_type || t.tenant_type || 'business',
             parent_tenant_id: t.parent_tenant_id,
             entity_tier: t.entity_tier || 'tenant',
             parent_entity_id: t.parent_entity_id,
@@ -948,7 +948,7 @@ setDemoCreating(false);
                           var newType = e.target.value;
                           try {
                             var { supabase: sb } = await import('./supabaseClient');
-                            await sb.from('tenants').update({ tenant_type: newType }).eq('id', c.id);
+                            await sb.from('tenants').update({ tenant_type: newType, customer_type: newType }).eq('id', c.id);
                             c.tenant_type = newType;
                           } catch (err) { console.error('Type update error:', err); }
                         }} style={inputStyleTM}>

@@ -216,8 +216,9 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields: csp_tenant_id, email, password, company_name' });
     }
 
-    var cspCheck = await supabase.from('tenants').select('id, name, tenant_type').eq('id', cspTenantId).maybeSingle();
-    if (!cspCheck.data || !['csp', 'sp', 'agent'].includes(cspCheck.data.tenant_type)) {
+    var cspCheck = await supabase.from('tenants').select('id, name, tenant_type, customer_type').eq('id', cspTenantId).maybeSingle();
+    var cspType = (cspCheck.data && (cspCheck.data.customer_type || cspCheck.data.tenant_type)) || '';
+    if (!cspCheck.data || !['csp', 'csp_partner', 'sp', 'agent', 'internal'].includes(cspType)) {
       return res.status(403).json({ error: 'Not a valid CSP tenant' });
     }
 

@@ -45,11 +45,11 @@ export function AuthProvider({ children }) {
             try {
               const { data: tenantData } = await supabase
                 .from('tenants')
-                .select('tenant_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
+                .select('tenant_type, customer_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
                 .eq('id', memberData.tenant_id)
                 .maybeSingle();
               if (tenantData) {
-                profileData.tenant_type = tenantData.tenant_type;
+                profileData.tenant_type = tenantData.customer_type || tenantData.tenant_type;
                 profileData.entity_tier = tenantData.entity_tier;
                 profileData.aup_accepted = !!tenantData.aup_accepted;
                 profileData.kyc_status = tenantData.kyc_status || 'unverified';
@@ -70,16 +70,16 @@ export function AuthProvider({ children }) {
         setProfile({ id: userId, role: 'user' });
         return null;
       }
-      // Enrich profile with tenant_type + entity_tier
+      // Enrich profile with customer_type + entity_tier
       if (data && data.tenant_id && (!data.tenant_type || !data.entity_tier)) {
         try {
           const { data: tenantData } = await supabase
             .from('tenants')
-            .select('tenant_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
+            .select('tenant_type, customer_type, entity_tier, aup_accepted, kyc_status, sms_enabled')
             .eq('id', data.tenant_id)
             .maybeSingle();
           if (tenantData) {
-            data.tenant_type = tenantData.tenant_type;
+            data.tenant_type = tenantData.customer_type || tenantData.tenant_type;
             data.entity_tier = tenantData.entity_tier;
             data.aup_accepted = !!tenantData.aup_accepted;
             data.kyc_status = tenantData.kyc_status || 'unverified';
