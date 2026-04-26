@@ -109,9 +109,10 @@ module.exports = async function handler(req, res) {
     var userId = existingUser.data ? existingUser.data.id : null;
     var steps = { user_profile: false, tenant_member: false, password_verified: false };
 
-    if (!userId) {
-      // Create auth user first — this is the source of truth for user ID
-      try {
+    // Always ensure auth user exists with correct password — even if user_profiles row existed
+    try {
+      if (!userId) {
+        // No existing user_profiles row — create auth user from scratch
         var authRes = await supabase.auth.admin.createUser({
           email: adminEmail,
           password: tempPassword,
@@ -119,29 +120,29 @@ module.exports = async function handler(req, res) {
           user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
         });
         if (authRes.error) {
-          // User already exists in auth — find them and ensure confirmed
-          console.warn('👤 Auth createUser error:', authRes.error.message, '— looking up existing user');
+          console.warn('👤 Auth createUser error:', authRes.error.message, '— looking up existing auth user');
           var listRes = await supabase.auth.admin.listUsers();
           if (listRes.data && listRes.data.users) {
             var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === adminEmail; });
-            if (found) {
-              userId = found.id;
-              // Ensure email is confirmed and password is set
-              await supabase.auth.admin.updateUserById(userId, {
-                email_confirm: true,
-                password: tempPassword,
-                user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-              });
-              console.log('👤 Existing auth user updated + confirmed:', userId);
-            }
+            if (found) userId = found.id;
           }
         } else {
           userId = authRes.data.user.id;
           console.log('👤 Auth user created + confirmed:', userId);
         }
-      } catch (authErr) {
-        console.error('👤 Auth error:', authErr.message);
       }
+      // For ALL paths (new OR existing user), force password + email_confirm
+      if (userId) {
+        var updateRes = await supabase.auth.admin.updateUserById(userId, {
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
+        });
+        if (updateRes.error) console.error('👤 Auth updateUserById error:', updateRes.error.message);
+        else console.log('👤 Auth user password set + confirmed:', userId);
+      }
+    } catch (authErr) {
+      console.error('👤 Auth error:', authErr.message);
     }
 
     // Verify the password works by attempting a server-side sign-in
