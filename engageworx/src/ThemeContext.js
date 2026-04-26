@@ -409,6 +409,20 @@ export function ThemeProvider({ children }) {
       }
       return false;
     }
+    // Track original inline styles so we can restore them on cleanup
+    var originals = new Map();
+    function saveOriginal(el, prop) {
+      var key = el;
+      if (!originals.has(key)) originals.set(key, {});
+      var saved = originals.get(key);
+      if (!(prop in saved)) {
+        saved[prop] = el.style.getPropertyValue(prop) || null;
+      }
+    }
+    function setWithTracking(el, prop, val) {
+      saveOriginal(el, prop);
+      el.style.setProperty(prop, val, 'important');
+    }
     function fixColors() {
       var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
       for (var i = 0; i < allElements.length; i++) {
@@ -419,42 +433,44 @@ export function ThemeProvider({ children }) {
         var rgb = parseRGB(c);
         if (rgb && !isAccentColor(rgb)) {
           var lum = luminance(rgb);
-          if (lum > 0.75) el.style.setProperty('color', '#111827', 'important');
-          else if (lum > 0.55) el.style.setProperty('color', '#374151', 'important');
-          else if (lum > 0.45) el.style.setProperty('color', '#4b5563', 'important');
+          if (lum > 0.75) setWithTracking(el, 'color', '#111827');
+          else if (lum > 0.55) setWithTracking(el, 'color', '#374151');
+          else if (lum > 0.45) setWithTracking(el, 'color', '#4b5563');
         }
-        // Semi-transparent white text
         if (c && c.startsWith('rgba(255, 255, 255,')) {
           var a = parseFloat(c.split(',')[3]);
-          if (a < 0.4) el.style.setProperty('color', '#6b7280', 'important');
-          else if (a < 0.7) el.style.setProperty('color', '#374151', 'important');
-          else el.style.setProperty('color', '#111827', 'important');
+          if (a < 0.4) setWithTracking(el, 'color', '#6b7280');
+          else if (a < 0.7) setWithTracking(el, 'color', '#374151');
+          else setWithTracking(el, 'color', '#111827');
         }
-        // Dark backgrounds → light
         var bgRgb = parseRGB(bg);
-        if (bgRgb && luminance(bgRgb) < 0.15) el.style.setProperty('background-color', '#f9fafb', 'important');
-        else if (bgRgb && luminance(bgRgb) < 0.25) el.style.setProperty('background-color', '#ffffff', 'important');
-        if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) el.style.setProperty('background-color', '#ffffff', 'important'); }
-        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) el.style.setProperty('background-color', ba2 > 0.25 ? '#f3f4f6' : '#f9fafb', 'important'); }
+        if (bgRgb && luminance(bgRgb) < 0.15) setWithTracking(el, 'background-color', '#f9fafb');
+        else if (bgRgb && luminance(bgRgb) < 0.25) setWithTracking(el, 'background-color', '#ffffff');
+        if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) setWithTracking(el, 'background-color', '#ffffff'); }
+        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) setWithTracking(el, 'background-color', ba2 > 0.25 ? '#f3f4f6' : '#f9fafb'); }
       }
     }
     var t1 = setTimeout(fixColors, 100);
     var t2 = setTimeout(fixColors, 500);
     var t3 = setTimeout(fixColors, 1500);
     var t4 = setTimeout(fixColors, 3000);
-    // Run every 2 seconds for first 10 seconds to catch late-rendering components
     var interval = setInterval(fixColors, 2000);
     var t5 = setTimeout(function() { clearInterval(interval); }, 10000);
     var observer = new MutationObserver(function() { setTimeout(fixColors, 50); });
     observer.observe(document.body, { childList: true, subtree: true });
     return function() {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearInterval(interval); observer.disconnect();
-      // Remove ALL inline style overrides injected by fixColors
-      var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
-      for (var i = 0; i < allElements.length; i++) {
-        allElements[i].style.removeProperty('color');
-        allElements[i].style.removeProperty('background-color');
-      }
+      // Restore original inline styles for every element fixColors touched
+      originals.forEach(function(saved, el) {
+        Object.keys(saved).forEach(function(prop) {
+          if (saved[prop]) {
+            el.style.setProperty(prop, saved[prop]);
+          } else {
+            el.style.removeProperty(prop);
+          }
+        });
+      });
+      originals.clear();
     };
   }, [isDark, mode]);
 
