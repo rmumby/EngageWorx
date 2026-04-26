@@ -147,19 +147,23 @@ module.exports = async function handler(req, res) {
     console.log('👤 User ID resolved:', userId, adminEmail);
 
     // Insert or update user_profiles
+    var userProfilePayload = { id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin', full_name: adminName };
     if (existingUser.data) {
       var upUpd = await supabase.from('user_profiles').update({
         tenant_id: newTenantId, role: 'admin', full_name: adminName,
-        company_name: tenantName, status: 'active',
       }).eq('id', userId);
       if (upUpd.error) console.error('👤 User update error:', upUpd.error.message, upUpd.error.details);
       else { steps.user_profile = true; console.log('👤 User linked to tenant:', userId); }
     } else {
-      var userIns = await supabase.from('user_profiles').upsert({
-        id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin',
-        full_name: adminName, company_name: tenantName, status: 'active',
-      }, { onConflict: 'id' });
-      if (userIns.error) console.error('👤 User upsert error:', userIns.error.message, userIns.error.details, userIns.error.hint);
+      var userIns = await supabase.from('user_profiles').upsert(userProfilePayload, { onConflict: 'id' });
+      if (userIns.error) {
+        console.error('👤 User upsert error:', userIns.error.message, userIns.error.details, userIns.error.hint);
+        // Retry with minimal columns if a column doesn't exist
+        console.log('👤 Retrying with minimal columns...');
+        var retryIns = await supabase.from('user_profiles').upsert({ id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin' }, { onConflict: 'id' });
+        if (retryIns.error) console.error('👤 User retry error:', retryIns.error.message);
+        else { steps.user_profile = true; console.log('👤 User created (minimal):', userId); }
+      }
       else { steps.user_profile = true; console.log('👤 User created:', userId, adminEmail); }
     }
 
