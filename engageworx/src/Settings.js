@@ -46,7 +46,7 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
     { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome.", rows: 6 },
     { key: "ai_omni_bcc", label: "BCC for AI Omni Emails", placeholder: "admin@yourcompany.com", hint: "All AI-drafted outbound emails from AI Omni Digest (stale actions, follow-ups, digest replies) will be BCC'd to this address. Leave blank to disable." },
-    { key: "api_key", label: "SendGrid API Key", type: "password", hint: "Get your API key from sendgrid.com → Settings → API Keys. Create a key with Full Access or Restricted Access (Mail Send)." },
+    { key: "api_key", label: "Email API Key", type: "password", hint: "Provided by your email service. Create a key with Full Access or Mail Send permissions." },
     { key: "domain", label: "Sending Domain", placeholder: "mail.yourdomain.com", hint: "Your sending domain (e.g. yourbrand.com). Must be verified in your email provider before emails will deliver reliably." },
   ]},
   { id: "whatsapp", label: "WhatsApp for Business", icon: "📱", color: "#25D366", fields: [
@@ -1429,7 +1429,7 @@ return (<div>
                 } catch (e) {}
                 var r = await fetch('/api/send-digest-reply', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ to: fromEmail, subject: 'EngageWorx Test Email — Signature Preview', body: 'This is a test email from EngageWorx to verify delivery and signature rendering.\n\nIf you can see this message with your email signature below, everything is working correctly.\n\nSent via: ' + (emailSendMethod || 'sendgrid').toUpperCase() + '\nTimestamp: ' + new Date().toLocaleString(), tenant_id: emailTenantId, from: fromEmail }),
+                  body: JSON.stringify({ to: fromEmail, subject: 'EngageWorx Test Email — Signature Preview', body: 'This is a test email to verify delivery and signature rendering.\n\nIf you can see this message with your email signature below, everything is working correctly.\n\nTimestamp: ' + new Date().toLocaleString(), tenant_id: emailTenantId, from: fromEmail }),
                 });
                 var d = await r.json();
                 if (r.ok && d.success) setTestEmailResult({ ok: true, to: fromEmail, method: d.method || emailSendMethod });

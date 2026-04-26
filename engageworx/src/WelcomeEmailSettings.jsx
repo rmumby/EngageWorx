@@ -144,7 +144,7 @@ export default function WelcomeEmailSettings({ C, tenantId }) {
               <div>
                 <label style={labelStyle}>From Email</label>
                 <input value={settings.welcome_email_from} onChange={function(e) { update('welcome_email_from', e.target.value); }} placeholder="e.g. hello@engwx.com" style={inputStyle} />
-                <div style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>Must be a verified SendGrid sender</div>
+                <div style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>Must be a verified sender on your email domain</div>
               </div>
             </div>
           </div>

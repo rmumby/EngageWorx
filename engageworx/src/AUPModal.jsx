@@ -70,7 +70,7 @@ export default function AUPModal({ tenantId, onAccepted, onSignOut }) {
 
           <p><b>9. Suspension &amp; Termination.</b> We may suspend or terminate accounts that violate this policy without notice. Data will be preserved for 30 days after termination for retrieval on request, then deleted.</p>
 
-          <p><b>10. Carrier &amp; Provider Rules.</b> You also agree to the downstream terms of our providers (Twilio, SendGrid, Meta/WhatsApp). A violation of their rules is a violation of ours.</p>
+          <p><b>10. Carrier &amp; Provider Rules.</b> You also agree to the downstream terms of our infrastructure and messaging providers. A violation of their rules is a violation of ours.</p>
 
           <p><b>11. Reporting.</b> To report abuse, policy concerns, or a compromised account, email <a href="mailto:support@engwx.com" style={{ color: '#00C9FF' }}>support@engwx.com</a>. Emergencies (credential compromise, suspected fraud) can also call +1 (786) 982-7800.</p>
 

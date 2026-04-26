@@ -59,7 +59,7 @@ export default function EmailTrackingInstructions({ tenantId, C, compact }) {
               <ol style={{ margin: 0, paddingLeft: 18, color: '#cbd5e1', fontSize: 13, lineHeight: 1.7 }}>
                 <li>Open Gmail → ⚙ Settings → <strong>Filters and Blocked Addresses</strong> → <em>Create a new filter</em>.</li>
                 <li>In <strong>From</strong>, enter your own email address → <em>Create filter</em>.</li>
-                <li>Check <strong>Forward it to</strong> and click <em>add forwarding address</em> → paste <code style={{ color: colors.primary }}>{bcc}</code> → confirm the verification email that SendGrid sends back.</li>
+                <li>Check <strong>Forward it to</strong> and click <em>add forwarding address</em> → paste <code style={{ color: colors.primary }}>{bcc}</code> → confirm the verification email that arrives.</li>
                 <li>Alternative: install the <em>BccThis</em> / <em>Auto BCC for Gmail</em> Chrome extension and set a default BCC to the address above.</li>
                 <li>Send a test email to yourself to confirm the BCC is arriving — you should see the message appear in Live Inbox within a minute.</li>
               </ol>

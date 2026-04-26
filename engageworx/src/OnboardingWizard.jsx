@@ -26,7 +26,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
   // Step 3 (Email)
   var [fromEmail, setFromEmail] = useState('');
   var [fromName, setFromName] = useState('');
-  var [sendgridKey, setSendgridKey] = useState('');
+  var [emailApiKey, setEmailApiKey] = useState('');
   var [skipEmail, setSkipEmail] = useState(false);
 
   // Step 4 (AI)
@@ -57,7 +57,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     setWebsiteUrl('');
     setFromEmail('');
     setFromName('');
-    setSendgridKey('');
+    setEmailApiKey('');
     setSkipEmail(false);
     setAgentName('Aria');
     setBusinessDescription('');
@@ -128,7 +128,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           from_email: fromEmail.trim() || null,
           from_name: fromName.trim() || null,
         });
-        if (sendgridKey.trim()) emailCfg.api_key = sendgridKey.trim();
+        if (emailApiKey.trim()) emailCfg.api_key = emailApiKey.trim();
         var emailPayload = { tenant_id: tenantId, channel: 'email', enabled: true, status: 'connected', config_encrypted: emailCfg, updated_at: new Date().toISOString() };
         if (existing.data && existing.data.id) await supabase.from('channel_configs').update(emailPayload).eq('id', existing.data.id).eq('tenant_id', tenantId);
         else await supabase.from('channel_configs').insert(emailPayload);
@@ -203,10 +203,10 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
   async function testEmailConnection() {
     setEmailTestResult({ status: 'testing', msg: 'Testing…' });
     try {
-      if (!fromEmail.trim() || !sendgridKey.trim()) { setEmailTestResult({ status: 'error', msg: 'From email and API key are required.' }); return; }
-      // Light validation — full SendGrid test requires server side; here we just sanity-check format.
+      if (!fromEmail.trim() || !emailApiKey.trim()) { setEmailTestResult({ status: 'error', msg: 'From email and API key are required.' }); return; }
+      // Light validation — sanity-check format.
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fromEmail.trim())) { setEmailTestResult({ status: 'error', msg: 'From email format looks wrong.' }); return; }
-      if (sendgridKey.trim().indexOf('SG.') !== 0) { setEmailTestResult({ status: 'warn', msg: 'API key does not start with "SG." — double-check it' }); return; }
+      if (!emailApiKey.trim()) { setEmailTestResult({ status: 'error', msg: 'API key is required.' }); return; }
       setEmailTestResult({ status: 'ok', msg: 'Format looks good. Final delivery test will run on first send.' });
     } catch (e) { setEmailTestResult({ status: 'error', msg: e.message }); }
   }
@@ -315,11 +315,11 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     return (
       <div>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 6 }}>📧 Email channel</div>
-        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria sends customer replies, sequence emails, and notifications from this address. <a href="https://sendgrid.com" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>Get a SendGrid API key →</a></p>
+        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria sends customer replies, sequence emails, and notifications from this address. <a href="/docs/email-setup" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>Need help setting this up? →</a></p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label style={label}>From email</label><input value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} placeholder="hello@yourdomain.com" style={inputStyle} /></div>
           <div><label style={label}>From name</label><input value={fromName} onChange={function(e) { setFromName(e.target.value); }} placeholder={displayName || 'Your Company Name'} style={inputStyle} /></div>
-          <div style={{ gridColumn: 'span 2' }}><label style={label}>SendGrid API key</label><input type="password" value={sendgridKey} onChange={function(e) { setSendgridKey(e.target.value); }} placeholder="SG.xxx…" style={inputStyle} /></div>
+          <div style={{ gridColumn: 'span 2' }}><label style={label}>Email API Key</label><input type="password" value={emailApiKey} onChange={function(e) { setEmailApiKey(e.target.value); }} placeholder="Enter your API key" style={inputStyle} /></div>
         </div>
         <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
           <button onClick={testEmailConnection} style={btnSec}>Test connection</button>
