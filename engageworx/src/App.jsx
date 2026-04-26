@@ -1926,7 +1926,7 @@ function AppInner() {
   // Auto-route authenticated users directly to their portal
   useEffect(() => {
     if (isAuthenticated && profile && view === "login") {
-      if (profile.role === "superadmin") {
+      if (profile.role === "superadmin" || profile.role === "super_admin" || profile.role === "sp_admin") {
         setView("sp");
       } else if (profile.entity_tier === "master_agent" && profile.tenant_id) {
         setView("master_agent_" + profile.tenant_id);

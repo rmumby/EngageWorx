@@ -211,7 +211,8 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user && !!session;
-  const isSuperAdmin = profile?.role === 'superadmin';
+  const isSuperAdmin = profile?.role === 'superadmin' || profile?.role === 'super_admin' || profile?.role === 'sp_admin';
+  if (profile && profile.role) console.log('[Auth] role=' + profile.role + ' isSuperAdmin=' + (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin'));
   const isCSP = profile?.tenant_type === 'csp';
   const cspTenantId = isCSP ? profile?.tenant_id : null;
   const entityTier = profile?.entity_tier || null;

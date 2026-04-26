@@ -59,7 +59,7 @@ export default function PlatformUpdatesBell({ userId, audience }) {
       {open && (
         <>
           <div onClick={function() { setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
-          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, width: 360, maxHeight: 480, overflowY: 'auto', background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 12, zIndex: 201, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', padding: 12, fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, width: 360, maxWidth: 'calc(100vw - 60px)', maxHeight: 480, overflowY: 'auto', background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 12, zIndex: 201, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', padding: 12, fontFamily: "'DM Sans', sans-serif" }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 }}>
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>📢 What's new</div>
               <button onClick={function() { setOpen(false); }} style={{ background: 'none', border: 'none', color: '#6B8BAE', cursor: 'pointer', fontSize: 14 }}>✕</button>
