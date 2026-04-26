@@ -608,7 +608,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <h3 style={{ color: "#fff", margin: "0 0 20px" }}>🚀 Invite Tenant</h3>
           {inviteResult ? (
             <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 20 }}>
-              <div style={{ color: '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>✅ Tenant Created Successfully</div>
+              <div style={{ color: inviteResult.warnings && inviteResult.warnings.length > 0 ? '#eab308' : '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{inviteResult.warnings && inviteResult.warnings.length > 0 ? '⚠️ Tenant Created with Warnings' : '✅ Tenant Created Successfully'}</div>
+              {inviteResult.warnings && inviteResult.warnings.length > 0 && (
+                <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                  {inviteResult.warnings.map(function(w, wi) { return <div key={wi} style={{ color: '#eab308', fontSize: 12 }}>⚠️ {w}</div>; })}
+                </div>
+              )}
               <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
                 <div><strong>Tenant ID:</strong> <code style={{ color: '#00C9FF' }}>{inviteResult.tenant_id}</code></div>
                 <div><strong>Welcome email:</strong> {inviteResult.welcome_email_sent ? '✅ Sent' : '❌ Failed'}</div>

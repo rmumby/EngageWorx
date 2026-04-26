@@ -99,54 +99,79 @@ module.exports = async function handler(req, res) {
     var newTenantId = tenantIns.data.id;
     console.log('📋 Tenant created:', newTenantId, tenantName, customerType);
 
-    // 3. Create user profile
+    // 3. Create user via Supabase Auth FIRST — get the real auth user ID
     var tempPassword = generateTempPassword();
     var nameParts = adminName.split(' ');
     var firstName = nameParts[0] || adminName;
     var lastName = nameParts.slice(1).join(' ') || '';
-    var userId = existingUser.data ? existingUser.data.id : crypto.randomUUID();
+    var userId = existingUser.data ? existingUser.data.id : null;
+    var steps = { user_profile: false, tenant_member: false };
 
+    if (!userId) {
+      // Create auth user first — this is the source of truth for user ID
+      try {
+        var authRes = await supabase.auth.admin.createUser({
+          email: adminEmail,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
+        });
+        if (authRes.error) {
+          // User might already exist in auth but not in user_profiles
+          console.warn('👤 Auth createUser error (trying invite):', authRes.error.message);
+          var invRes = await supabase.auth.admin.inviteUserByEmail(adminEmail, {
+            data: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
+          });
+          if (invRes.data && invRes.data.user) userId = invRes.data.user.id;
+          else {
+            // Last resort: look up by email in auth
+            var listRes = await supabase.auth.admin.listUsers();
+            if (listRes.data && listRes.data.users) {
+              var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === adminEmail; });
+              if (found) userId = found.id;
+            }
+          }
+        } else {
+          userId = authRes.data.user.id;
+        }
+      } catch (authErr) {
+        console.error('👤 Auth error:', authErr.message);
+      }
+    }
+
+    if (!userId) {
+      // Still no user ID — generate one and hope user_profiles doesn't have FK to auth.users
+      userId = crypto.randomUUID();
+      console.warn('👤 No auth user created — using generated UUID:', userId);
+    }
+    console.log('👤 User ID resolved:', userId, adminEmail);
+
+    // Insert or update user_profiles
     if (existingUser.data) {
       var upUpd = await supabase.from('user_profiles').update({
         tenant_id: newTenantId, role: 'admin', full_name: adminName,
         company_name: tenantName, status: 'active',
       }).eq('id', userId);
-      if (upUpd.error) console.error('👤 User update error:', upUpd.error.message);
-      else console.log('👤 User linked to tenant:', userId);
+      if (upUpd.error) console.error('👤 User update error:', upUpd.error.message, upUpd.error.details);
+      else { steps.user_profile = true; console.log('👤 User linked to tenant:', userId); }
     } else {
-      var userIns = await supabase.from('user_profiles').insert({
+      var userIns = await supabase.from('user_profiles').upsert({
         id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin',
         full_name: adminName, company_name: tenantName, status: 'active',
-      });
-      if (userIns.error) console.error('👤 User insert error:', userIns.error.message);
-      else console.log('👤 User created:', userId, adminEmail);
-    }
-
-    // Verify tenant_id was set
-    var verifyUser = await supabase.from('user_profiles').select('tenant_id').eq('id', userId).maybeSingle();
-    if (!verifyUser.data || verifyUser.data.tenant_id !== newTenantId) {
-      console.error('👤 CRITICAL: user_profiles.tenant_id not set! Forcing update.');
-      await supabase.from('user_profiles').update({ tenant_id: newTenantId }).eq('id', userId);
-    }
-
-    // Invite via Supabase Auth
-    try {
-      await supabase.auth.admin.inviteUserByEmail(adminEmail, {
-        data: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-      });
-    } catch (authErr) {
-      console.warn('👤 Auth invite failed (may already exist):', authErr.message);
+      }, { onConflict: 'id' });
+      if (userIns.error) console.error('👤 User upsert error:', userIns.error.message, userIns.error.details, userIns.error.hint);
+      else { steps.user_profile = true; console.log('👤 User created:', userId, adminEmail); }
     }
 
     // 4. Create tenant_member
-    var tmIns = await supabase.from('tenant_members').insert({
+    var tmIns = await supabase.from('tenant_members').upsert({
       tenant_id: newTenantId, user_id: userId, role: 'admin', status: 'active',
       joined_at: new Date().toISOString(),
       notify_on_escalation: true, notify_on_new_signup: true,
       notify_on_payment: true, notify_on_new_lead: true,
-    });
-    if (tmIns.error) console.error('🤝 tenant_members insert error:', tmIns.error.message, tmIns.error.details);
-    else console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId);
+    }, { onConflict: 'user_id,tenant_id' });
+    if (tmIns.error) console.error('🤝 tenant_members upsert error:', tmIns.error.message, tmIns.error.details, tmIns.error.hint);
+    else { steps.tenant_member = true; console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId); }
 
     // 5. Create chatbot_configs
     var businessContext = tenantName;
@@ -245,7 +270,11 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType });
+    var warnings = [];
+    if (!steps.user_profile) warnings.push('user_profiles insert failed — admin may not be able to log in');
+    if (!steps.tenant_member) warnings.push('tenant_members insert failed — admin not linked to tenant');
+
+    console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType, steps: steps, warnings: warnings });
 
     return res.status(200).json({
       success: true,
@@ -253,6 +282,8 @@ module.exports = async function handler(req, res) {
       user_id: userId,
       welcome_email_sent: emailResult.success,
       temp_password_for_admin_display: tempPassword,
+      steps: steps,
+      warnings: warnings.length > 0 ? warnings : undefined,
     });
 
   } catch (e) {
