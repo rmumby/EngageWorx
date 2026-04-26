@@ -52,6 +52,16 @@ module.exports = async function handler(req, res) {
         updated_at: new Date().toISOString(),
       }).eq('id', cfgRes.data.id);
 
+      // Update provisioning stages for manual credential path
+      try {
+        var manualStages = ['meta_business_manager', 'waba_application', 'phone_number_registration', 'webhook_configured'];
+        for (var ms = 0; ms < manualStages.length; ms++) {
+          await supabase.from('whatsapp_provisioning').upsert({
+            tenant_id: tenantId, stage: manualStages[ms], status: 'done', updated_at: new Date().toISOString(),
+          }, { onConflict: 'tenant_id,stage' });
+        }
+      } catch (e) { console.warn('[WhatsApp Verify] Provisioning stage update error:', e.message); }
+
       console.log('[WhatsApp Verify] Connected:', displayNumber, verifiedName);
       return res.status(200).json({
         verified: true,

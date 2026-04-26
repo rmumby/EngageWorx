@@ -26,6 +26,9 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
   var [status, setStatus] = useState({ state: 'idle' }); // idle | loading | connected | error
   var [cfg, setCfg] = useState(null);
   var [manualMode, setManualMode] = useState(false);
+  var [provStages, setProvStages] = useState([]);
+  var [stageConfig, setStageConfig] = useState([]);
+  var [expandedStage, setExpandedStage] = useState(null);
 
   useEffect(function() {
     if (!tenantId) return;
@@ -38,6 +41,18 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
             setStatus({ state: 'connected', phone: r.data.config_encrypted.phone_number_display });
           }
         }
+      } catch (e) {}
+      // Load provisioning stages
+      try {
+        var pr = await fetch('/api/whatsapp-provisioning?tenant_id=' + tenantId);
+        var pd = await pr.json();
+        if (pd.stages) setProvStages(pd.stages);
+      } catch (e) {}
+      // Load stage labels from platform_config
+      try {
+        var pcr = await fetch('/api/platform-config?full=1');
+        var pcd = await pcr.json();
+        if (pcd.whatsapp_provisioning_stages) setStageConfig(pcd.whatsapp_provisioning_stages);
       } catch (e) {}
     })();
   }, [tenantId]);
@@ -116,7 +131,34 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
       {!appId && <div style={{ marginTop: 10, color: '#d97706', fontSize: 11 }}>⚠️ FACEBOOK_APP_ID not set on Vercel — Embedded Signup is disabled. Use manual setup for now.</div>}
       {manualMode && (
         <div style={{ marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 8, color: colors.muted, fontSize: 12 }}>
-          Manual fields appear in the channel card below (Phone Number ID, Business Account ID, Access Token). Fill those in if you already have Meta Graph API credentials.
+          Manual fields appear in the channel card below (Phone Number ID, Business Account ID, Access Token). Fill those in if you already have credentials.
+        </div>
+      )}
+      {stageConfig.length > 0 && (
+        <div style={{ marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
+          <div style={{ color: '#fff', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Setup Progress</div>
+          {stageConfig.map(function(sc) {
+            var stageData = provStages.find(function(s) { return s.stage === sc.key; });
+            var st = stageData ? stageData.status : 'not_started';
+            var icon = st === 'done' ? '✅' : st === 'in_progress' || st === 'submitted' ? '🔄' : st === 'rejected' ? '❌' : '○';
+            var stColor = st === 'done' ? '#25D366' : st === 'in_progress' || st === 'submitted' ? '#f59e0b' : st === 'rejected' ? '#FF3B30' : 'rgba(255,255,255,0.25)';
+            var isExpanded = expandedStage === sc.key;
+            return (
+              <div key={sc.key} style={{ marginBottom: 6 }}>
+                <div onClick={function() { if (st !== 'done') setExpandedStage(isExpanded ? null : sc.key); }} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: st !== 'done' ? 'pointer' : 'default', padding: '4px 0' }}>
+                  <span style={{ fontSize: 13 }}>{icon}</span>
+                  <span style={{ color: stColor, fontSize: 12, fontWeight: 600, flex: 1 }}>{sc.label}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>{sc.description}</span>
+                </div>
+                {isExpanded && st !== 'done' && (
+                  <div style={{ marginLeft: 26, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 6, fontSize: 11, color: colors.muted, lineHeight: 1.5 }}>
+                    {sc.help}
+                    {stageData && stageData.meta_error_message && <div style={{ color: '#FF3B30', marginTop: 4 }}>Error: {stageData.meta_error_message}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

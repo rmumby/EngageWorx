@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
     );
     var body = req.body || {};
     var patch = {};
-    var allowedFields = ['platform_name', 'support_email', 'support_phone', 'portal_url', 'calendar_url', 'onboarding_guide_url', 'headquarters', 'welcome_email_subject_template', 'welcome_email_html_template', 'default_escalation_rules', 'plans', 'industries', 'welcome_contact_source', 'welcome_contact_tags', 'customer_type_options'];
+    var allowedFields = ['platform_name', 'support_email', 'support_phone', 'portal_url', 'calendar_url', 'onboarding_guide_url', 'headquarters', 'welcome_email_subject_template', 'welcome_email_html_template', 'default_escalation_rules', 'plans', 'industries', 'welcome_contact_source', 'welcome_contact_tags', 'customer_type_options', 'whatsapp_provisioning_stages'];
     allowedFields.forEach(function(f) { if (body[f] !== undefined) patch[f] = body[f]; });
     // Prevent double-encoded JSON: if a JSONB field arrives as a string, parse it
     var jsonbFields = ['default_escalation_rules', 'plans', 'industries', 'welcome_contact_tags', 'customer_type_options'];

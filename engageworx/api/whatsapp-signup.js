@@ -105,6 +105,22 @@ module.exports = async function handler(req, res) {
       await supabase.from('channel_configs').insert(payload);
     }
 
+    // Update provisioning stages
+    var stages = [
+      { stage: 'meta_business_manager', status: 'done' },
+      { stage: 'waba_application', status: 'done' },
+      { stage: 'phone_number_registration', status: 'done' },
+      { stage: 'webhook_configured', status: subscribed ? 'done' : 'in_progress' },
+    ];
+    for (var si = 0; si < stages.length; si++) {
+      var stg = stages[si];
+      var stgIns = await supabase.from('whatsapp_provisioning').upsert({
+        tenant_id: tenantId, stage: stg.stage, status: stg.status, updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,stage' });
+      if (stgIns.error) console.warn('[WA signup] Stage update error:', stg.stage, stgIns.error.message);
+    }
+    console.log('[WA signup] Provisioning stages updated for tenant:', tenantId);
+
     return res.status(200).json({
       success: true,
       phone_number: phone.display_phone_number || phone.verified_name,
@@ -113,6 +129,13 @@ module.exports = async function handler(req, res) {
     });
   } catch (err) {
     console.error('[WA signup] error:', err.message);
+    // Track failed stage
+    try {
+      await supabase.from('whatsapp_provisioning').upsert({
+        tenant_id: tenantId, stage: 'waba_application', status: 'rejected',
+        meta_error_message: err.message, updated_at: new Date().toISOString(),
+      }, { onConflict: 'tenant_id,stage' });
+    } catch (e) {}
     return res.status(500).json({ error: err.message });
   }
 };
