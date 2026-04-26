@@ -911,7 +911,8 @@ const LandingPage = () => {
               <h4>Legal</h4>
               <a href="/privacy" onClick={(e) => { e.preventDefault(); setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
               <a href="/terms" onClick={(e) => { e.preventDefault(); setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }}>Terms of Service</a>
-              <a href="/smsconsent">SMS Consent</a>
+              <a href="/sms-terms" onClick={(e) => { e.preventDefault(); setLegalPage('smsterms'); window.history.pushState(null, '', '/sms-terms'); window.scrollTo(0,0); }}>SMS Program Terms</a>
+              <a href="/smsconsent" onClick={(e) => { e.preventDefault(); setLegalPage('smsconsent'); window.history.pushState(null, '', '/smsconsent'); window.scrollTo(0,0); }}>SMS Consent</a>
               <a href="/accessibility" onClick={(e) => { e.preventDefault(); setLegalPage('accessibility'); window.history.pushState(null, '', '/accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
           </div>
