@@ -108,9 +108,38 @@ const accessibility = [
   { type: 'p', text: 'US: File a complaint under the ADA at ada.gov. UK: Contact the Equality Advisory Support Service (EASS) at equalityadvisoryservice.com. EU: Contact your national equality body.' },
 ];
 
+const smsterms = [
+  { type: 'p', text: 'These SMS Program Terms govern your enrollment in and use of the EngageWorx SMS messaging program. By opting in, you agree to these terms in addition to the EngageWorx Terms of Service and Privacy Policy.' },
+  { type: 'h', text: '1. Program Name' },
+  { type: 'p', text: 'EngageWorx Account & Service Notifications' },
+  { type: 'h', text: '2. Program Description' },
+  { type: 'p', text: 'By opting in to the EngageWorx SMS program, you agree to receive recurring text messages from EngageWorx related to your account. Messages may include billing and invoice notifications, security and login alerts, support ticket updates, scheduled maintenance notices, platform usage alerts, and other service-related communications.' },
+  { type: 'h', text: '3. How to Opt In' },
+  { type: 'p', text: 'You may opt in to receive SMS messages from EngageWorx by submitting your phone number through the consent form at https://www.engwx.com/smsconsent and actively checking the consent checkbox, or by texting START to the EngageWorx number provided to you.' },
+  { type: 'h', text: '4. Message Frequency' },
+  { type: 'p', text: 'Message frequency varies based on your account activity and the notifications you have enabled. You may receive messages as often as daily depending on usage.' },
+  { type: 'h', text: '5. Message and Data Rates' },
+  { type: 'p', text: 'Message and data rates may apply. Please consult your mobile carrier for details on your messaging plan. EngageWorx does not charge for SMS messages, but standard carrier rates from your wireless provider will apply.' },
+  { type: 'h', text: '6. How to Opt Out' },
+  { type: 'p', text: 'You can cancel the SMS service at any time by texting STOP to the number from which you received messages. After you send STOP, we will send you a confirmation message that you have been unsubscribed. You will no longer receive SMS messages from EngageWorx unless you opt back in. You may also reply with any of the following keywords to opt out: STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, REVOKE, OPTOUT.' },
+  { type: 'h', text: '7. How to Get Help' },
+  { type: 'p', text: 'For assistance, reply HELP to any message you receive from EngageWorx, and we will respond with support information. You may also contact us directly at support@engwx.com or +1 (786) 982-7800.' },
+  { type: 'h', text: '8. Supported Carriers' },
+  { type: 'p', text: 'The EngageWorx SMS program is supported on major U.S. carriers including AT&T, Verizon Wireless, T-Mobile, Sprint, Boost Mobile, Cricket Wireless, MetroPCS, U.S. Cellular, Virgin Mobile, and others.' },
+  { type: 'h', text: '9. Carrier Liability Disclaimer' },
+  { type: 'p', text: 'Carriers are not liable for delayed or undelivered messages. Message delivery is subject to effective transmission from your wireless service provider and is outside the control of EngageWorx.' },
+  { type: 'h', text: '10. Privacy' },
+  { type: 'p', text: 'Your privacy is important to us. We will not share your phone number or SMS opt-in data with third parties for their marketing purposes. For details on how we collect, use, and protect your information, please review our Privacy Policy.' },
+  { type: 'h', text: '11. Changes to These Terms' },
+  { type: 'p', text: 'EngageWorx reserves the right to modify or terminate this SMS program at any time. We will notify users of material changes through SMS or by posting an updated version of these terms on this page.' },
+  { type: 'h', text: 'Contact' },
+  { type: 'p', text: 'For questions about these SMS Program Terms: support@engwx.com | +1 (786) 982-7800' },
+];
+
 export const legalPages = {
   privacy: { title: 'Privacy Policy', updated: 'February 26, 2026', sections: privacy },
   terms: { title: 'Terms of Service', updated: 'February 26, 2026', sections: terms },
   smsconsent: { title: 'SMS Consent Policy', updated: 'March 5, 2026', sections: smsconsent },
+  smsterms: { title: 'SMS Program Terms', updated: 'April 26, 2026', sections: smsterms },
   accessibility: { title: 'Accessibility Statement', updated: 'February 26, 2026', sections: accessibility },
 };
