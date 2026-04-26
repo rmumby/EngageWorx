@@ -447,7 +447,15 @@ export function ThemeProvider({ children }) {
     var t5 = setTimeout(function() { clearInterval(interval); }, 10000);
     var observer = new MutationObserver(function() { setTimeout(fixColors, 50); });
     observer.observe(document.body, { childList: true, subtree: true });
-    return function() { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearInterval(interval); observer.disconnect(); };
+    return function() {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); clearInterval(interval); observer.disconnect();
+      // Remove ALL inline style overrides injected by fixColors
+      var allElements = document.querySelectorAll('div, span, p, h1, h2, h3, h4, h5, button, label, a, td, th, pre, code, li, nav');
+      for (var i = 0; i < allElements.length; i++) {
+        allElements[i].style.removeProperty('color');
+        allElements[i].style.removeProperty('background-color');
+      }
+    };
   }, [isDark, mode]);
 
   return (
