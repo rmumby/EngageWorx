@@ -107,7 +107,7 @@ module.exports = async function handler(req, res) {
     var firstName = nameParts[0] || adminName;
     var lastName = nameParts.slice(1).join(' ') || '';
     var userId = existingUser.data ? existingUser.data.id : null;
-    var steps = { user_profile: false, tenant_member: false };
+    var steps = { user_profile: false, tenant_member: false, password_verified: false };
 
     if (!userId) {
       // Create auth user first — this is the source of truth for user ID
@@ -141,6 +141,38 @@ module.exports = async function handler(req, res) {
         }
       } catch (authErr) {
         console.error('👤 Auth error:', authErr.message);
+      }
+    }
+
+    // Verify the password works by attempting a server-side sign-in
+    var passwordVerified = false;
+    if (userId) {
+      try {
+        var { createClient: createAnonClient } = require('@supabase/supabase-js');
+        var anonSupabase = createAnonClient(
+          process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+          process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+        );
+        var signInRes = await anonSupabase.auth.signInWithPassword({ email: adminEmail, password: tempPassword });
+        if (signInRes.error) {
+          console.error('🔑 Password verification FAILED:', signInRes.error.message, '— forcing password reset');
+          var resetRes = await supabase.auth.admin.updateUserById(userId, { password: tempPassword, email_confirm: true });
+          if (resetRes.error) console.error('🔑 Password reset also failed:', resetRes.error.message);
+          else {
+            console.log('🔑 Password force-reset succeeded');
+            var reVerify = await anonSupabase.auth.signInWithPassword({ email: adminEmail, password: tempPassword });
+            passwordVerified = !reVerify.error;
+            if (reVerify.error) console.error('🔑 Re-verification after reset FAILED:', reVerify.error.message);
+            else console.log('🔑 Password verified after reset');
+          }
+        } else {
+          passwordVerified = true;
+          console.log('🔑 Password verified — login works');
+        }
+        // Sign out the test session
+        try { await anonSupabase.auth.signOut(); } catch (e) {}
+      } catch (verifyErr) {
+        console.warn('🔑 Password verification skipped:', verifyErr.message);
       }
     }
 
@@ -280,8 +312,10 @@ module.exports = async function handler(req, res) {
     }
 
     var warnings = [];
+    steps.password_verified = passwordVerified;
     if (!steps.user_profile) warnings.push('user_profiles insert failed — admin may not be able to log in');
     if (!steps.tenant_member) warnings.push('tenant_members insert failed — admin not linked to tenant');
+    if (!passwordVerified) warnings.push('Password verification failed — admin may need a manual password reset');
 
     console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType, steps: steps, warnings: warnings });
 
