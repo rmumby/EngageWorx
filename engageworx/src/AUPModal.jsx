@@ -92,7 +92,7 @@ export default function AUPModal({ tenantId, onAccepted, onSignOut }) {
               border: 'none', borderRadius: 10, padding: '10px 28px',
               color: scrolledToEnd && !saving ? '#000' : '#64748b',
               fontWeight: 800, cursor: scrolledToEnd && !saving ? 'pointer' : 'not-allowed', fontSize: 14,
-            }}>{saving ? 'Saving…' : '✓ Accept &amp; Continue'}</button>
+            }}>{saving ? 'Saving…' : '✓ Accept & Continue'}</button>
           </div>
         </div>
       </div>
