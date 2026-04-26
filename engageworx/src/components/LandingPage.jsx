@@ -25,6 +25,10 @@ const LandingPage = () => {
       setLegalPage('privacy');
     } else if (path === '/termsandconditions' || path === '/terms') {
       setLegalPage('terms');
+    } else if (path === '/sms-terms' || path === '/smsterms') {
+      setLegalPage('smsterms');
+    } else if (path === '/smsconsent' || path === '/sms-consent') {
+      setLegalPage('smsconsent');
     } else if (path === '/accessibility') {
       setLegalPage('accessibility');
     } else if (path === '/demo') {
@@ -889,11 +893,12 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="lp-footer-col">
-              <h4>Product</h4>
-              <a onClick={() => scrollTo('lp-channels')}>Channels</a>
-              <a onClick={() => scrollTo('lp-features')}>Features</a>
-              <a onClick={() => navigateTo('pricing')}>Pricing</a>
-              <a href={PORTAL_URL}>Login</a>
+              <h4>Legal</h4>
+              <a href="/privacy" onClick={(e) => { e.preventDefault(); setLegalPage('privacy'); window.history.pushState(null, '', '/privacy'); window.scrollTo(0,0); }}>Privacy Policy</a>
+              <a href="/terms" onClick={(e) => { e.preventDefault(); setLegalPage('terms'); window.history.pushState(null, '', '/terms'); window.scrollTo(0,0); }}>Terms of Service</a>
+              <a href="/sms-terms" onClick={(e) => { e.preventDefault(); setLegalPage('smsterms'); window.history.pushState(null, '', '/sms-terms'); window.scrollTo(0,0); }}>SMS Program Terms</a>
+              <a href="/smsconsent" onClick={(e) => { e.preventDefault(); setLegalPage('smsconsent'); window.history.pushState(null, '', '/smsconsent'); window.scrollTo(0,0); }}>SMS Consent</a>
+              <a href="/accessibility" onClick={(e) => { e.preventDefault(); setLegalPage('accessibility'); window.history.pushState(null, '', '/accessibility'); window.scrollTo(0,0); }}>Accessibility</a>
             </div>
             <div className="lp-footer-col">
               <h4>Company</h4>
