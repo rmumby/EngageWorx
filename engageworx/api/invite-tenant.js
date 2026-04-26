@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
   var website = body.website || null;
   var planSlug = body.plan_slug || 'starter';
   var customerType = body.customer_type || null;
+  console.log('📋 [invite-tenant] Input:', { tenant_name: tenantName, admin: adminEmail, customer_type: customerType, plan: planSlug });
   var inviterTenantId = body.inviter_tenant_id || null;
 
   if (!tenantName || !adminName || !adminEmail) {
@@ -97,7 +98,7 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create tenant: ' + tenantIns.error.message });
     }
     var newTenantId = tenantIns.data.id;
-    console.log('📋 Tenant created:', newTenantId, tenantName, customerType);
+    console.log('📋 Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
 
     // 3. Create user via Supabase Auth FIRST — get the real auth user ID
     var tempPassword = generateTempPassword();
