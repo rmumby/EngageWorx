@@ -118,22 +118,25 @@ module.exports = async function handler(req, res) {
           user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
         });
         if (authRes.error) {
-          // User might already exist in auth but not in user_profiles
-          console.warn('👤 Auth createUser error (trying invite):', authRes.error.message);
-          var invRes = await supabase.auth.admin.inviteUserByEmail(adminEmail, {
-            data: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-          });
-          if (invRes.data && invRes.data.user) userId = invRes.data.user.id;
-          else {
-            // Last resort: look up by email in auth
-            var listRes = await supabase.auth.admin.listUsers();
-            if (listRes.data && listRes.data.users) {
-              var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === adminEmail; });
-              if (found) userId = found.id;
+          // User already exists in auth — find them and ensure confirmed
+          console.warn('👤 Auth createUser error:', authRes.error.message, '— looking up existing user');
+          var listRes = await supabase.auth.admin.listUsers();
+          if (listRes.data && listRes.data.users) {
+            var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === adminEmail; });
+            if (found) {
+              userId = found.id;
+              // Ensure email is confirmed and password is set
+              await supabase.auth.admin.updateUserById(userId, {
+                email_confirm: true,
+                password: tempPassword,
+                user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
+              });
+              console.log('👤 Existing auth user updated + confirmed:', userId);
             }
           }
         } else {
           userId = authRes.data.user.id;
+          console.log('👤 Auth user created + confirmed:', userId);
         }
       } catch (authErr) {
         console.error('👤 Auth error:', authErr.message);
