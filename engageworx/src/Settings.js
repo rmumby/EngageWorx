@@ -369,6 +369,8 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelSavedConfig, setChannelSavedConfig] = useState(null);
   const [showSavedConfig, setShowSavedConfig] = useState(false);
   const [channelWarnings, setChannelWarnings] = useState({});
+  const [waVerifying, setWaVerifying] = useState(false);
+  const [waVerifyResult, setWaVerifyResult] = useState(null);
   const [aiTonePreviews, setAiTonePreviews] = useState({});
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
@@ -1240,9 +1242,25 @@ return (<div>
                           const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
                           return (<div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div><div style={{ display: "flex", gap: 6 }}>{dayNames.map((d, i) => (<button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>))}</div></div>);
                         })()}
-                        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
                           <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
-                          <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).eq("tenant_id", _tid).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                          {ch.id === 'whatsapp' ? (
+                            <button disabled={waVerifying} onClick={async function() {
+                              var tid = resolvedTenantId || currentTenantId;
+                              if (!tid) return;
+                              setWaVerifying(true); setWaVerifyResult(null);
+                              await saveChannelConfig(ch.id, configData, isEnabled);
+                              try {
+                                var r = await fetch('/api/whatsapp-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: tid }) });
+                                var d = await r.json();
+                                setWaVerifyResult(d);
+                                loadChannelConfigs();
+                              } catch (e) { setWaVerifyResult({ verified: false, message: e.message }); }
+                              setWaVerifying(false);
+                            }} style={{ ...btnSec, padding: "8px 14px", fontSize: 11, opacity: waVerifying ? 0.6 : 1 }}>{waVerifying ? 'Verifying...' : '🔍 Verify Credentials'}</button>
+                          ) : (
+                            <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).eq("tenant_id", _tid).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                          )}
                           {channelSavedId === ch.id && <span style={{ color: "#00E676", fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
                           {channelSavedId === ch.id && channelSavedConfig && (
                             <button onClick={() => setShowSavedConfig(!showSavedConfig)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif", textDecoration: "underline" }}>{showSavedConfig ? "Hide config" : "View saved config"}</button>
@@ -1252,6 +1270,25 @@ return (<div>
                           <pre style={{ marginTop: 8, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: 12, fontSize: 10, color: "rgba(255,255,255,0.5)", overflow: "auto", maxHeight: 300, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{JSON.stringify(channelSavedConfig, null, 2)}</pre>
                         )}
                       </>
+                    )}
+                    {ch.id === 'whatsapp' && waVerifyResult && (
+                      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: waVerifyResult.verified ? 'rgba(16,185,129,0.08)' : 'rgba(255,59,48,0.08)', border: '1px solid ' + (waVerifyResult.verified ? 'rgba(16,185,129,0.3)' : 'rgba(255,59,48,0.3)') }}>
+                        {waVerifyResult.verified ? (
+                          <div>
+                            <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>✅ Connected</div>
+                            {waVerifyResult.display_phone_number && <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 4 }}>Phone: {waVerifyResult.display_phone_number}</div>}
+                            {waVerifyResult.verified_name && <div style={{ color: '#cbd5e1', fontSize: 12 }}>Business: {waVerifyResult.verified_name}</div>}
+                          </div>
+                        ) : (
+                          <div style={{ color: '#FF3B30', fontSize: 12 }}>❌ {waVerifyResult.message || 'Verification failed'}</div>
+                        )}
+                      </div>
+                    )}
+                    {ch.id === 'whatsapp' && !waVerifyResult && configData.phone_number_display && (
+                      <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 8, background: 'rgba(37,211,102,0.06)', border: '1px solid rgba(37,211,102,0.2)' }}>
+                        <div style={{ color: '#25D366', fontWeight: 700, fontSize: 12 }}>✅ {configData.phone_number_display}{configData.verified_name ? ' · ' + configData.verified_name : ''}</div>
+                        {configData.last_verified_at && <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Last verified: {new Date(configData.last_verified_at).toLocaleString()}</div>}
+                      </div>
                     )}
                     {channelWarnings[ch.id] && channelWarnings[ch.id].length > 0 && (
                       <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '8px 12px', marginTop: 8 }}>
