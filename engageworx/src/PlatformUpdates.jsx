@@ -42,6 +42,7 @@ export default function PlatformUpdates({ C }) {
         body: body,
         target_audience: audience,
         published_at: doPublish ? new Date().toISOString() : (editing ? editing.published_at : null),
+        status: doPublish ? 'published' : (editing && editing.status === 'draft_pending_review' ? 'draft_pending_review' : 'draft'),
       };
       if (editing && editing.id) {
         await supabase.from('platform_updates').update(payload).eq('id', editing.id);
@@ -122,7 +123,7 @@ export default function PlatformUpdates({ C }) {
                           {u.published_at ? ' Published ' + new Date(u.published_at).toLocaleDateString() : ' Draft'}
                         </div>
                       </div>
-                      <span style={{ background: u.published_at ? 'rgba(16,185,129,0.15)' : 'rgba(217,119,6,0.15)', color: u.published_at ? '#10b981' : '#d97706', border: '1px solid ' + (u.published_at ? 'rgba(16,185,129,0.4)' : 'rgba(217,119,6,0.4)'), borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{u.published_at ? '● Live' : '○ Draft'}</span>
+                      <span style={{ background: u.published_at ? 'rgba(16,185,129,0.15)' : u.status === 'draft_pending_review' ? 'rgba(245,158,11,0.15)' : 'rgba(217,119,6,0.15)', color: u.published_at ? '#10b981' : u.status === 'draft_pending_review' ? '#f59e0b' : '#d97706', border: '1px solid ' + (u.published_at ? 'rgba(16,185,129,0.4)' : u.status === 'draft_pending_review' ? 'rgba(245,158,11,0.4)' : 'rgba(217,119,6,0.4)'), borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', flexShrink: 0 }}>{u.published_at ? '● Live' : u.status === 'draft_pending_review' ? '⏳ Pending Review' : u.status === 'rejected' ? '✕ Rejected' : '○ Draft'}</span>
                     </div>
                     {u.body && <div style={{ color: colors.muted, fontSize: 12, marginTop: 8, whiteSpace: 'pre-wrap', maxHeight: 60, overflow: 'hidden' }}>{u.body}</div>}
                     <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>

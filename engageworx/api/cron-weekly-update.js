@@ -81,9 +81,23 @@ module.exports = async function handler(req, res) {
   var stamp = weekStamp();
 
   try {
-    // 1. Pull recent commits
-    var { commits, source } = await fetchRecentCommits(7);
-    console.log('[WeeklyUpdate] Commits fetched:', commits.length, 'source:', source);
+    // 1. Pull recent release notes (preferred) or fall back to GitHub API
+    var releaseNotes = [];
+    try {
+      var rnRes = await supabase.from('release_notes').select('title, summary, feature_area, commit_message').eq('tenant_facing', true).gte('shipped_at', new Date(Date.now() - 7 * 86400000).toISOString()).order('shipped_at', { ascending: false });
+      releaseNotes = rnRes.data || [];
+    } catch (e) {}
+
+    var commits; var source;
+    if (releaseNotes.length > 0) {
+      commits = releaseNotes.map(function(rn) { return { message: (rn.title || '') + ': ' + (rn.summary || rn.commit_message || '') }; });
+      source = 'release_notes';
+    } else {
+      var fetched = await fetchRecentCommits(7);
+      commits = fetched.commits;
+      source = fetched.source;
+    }
+    console.log('[WeeklyUpdate] Source:', source, 'items:', commits.length);
 
     // 2. Ask Claude for the draft
     var markdown = await generateWithClaude(commits);
