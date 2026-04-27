@@ -902,7 +902,7 @@ useEffect(function() {
     return b.lastActivity - a.lastActivity;
   });
 
-  const totalUnread = conversations.reduce((s, c) => s + c.unread, 0);
+  const totalUnread = conversations.filter(c => c.status !== 'resolved' && c.status !== 'spam').reduce((s, c) => s + c.unread, 0);
   const activeCount = conversations.filter(c => c.status === "active" || c.status === "urgent").length;
   const waitingCount = conversations.filter(c => c.status === "waiting").length;
 
