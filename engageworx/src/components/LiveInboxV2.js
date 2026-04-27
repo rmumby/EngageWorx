@@ -361,7 +361,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (demoMode || !supabase || !currentTenantId) return;
     (async function() {
       try {
-        var r = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', 'email').maybeSingle();
+        var r = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
         if (r.data && r.data.config_encrypted && r.data.config_encrypted.from_email) setTenantFromEmail(r.data.config_encrypted.from_email);
       } catch (e) {}
     })();
@@ -473,12 +473,12 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Poll for new conversations every 15 seconds in live mode
   useEffect(() => {
     if (demoMode || !supabase) return;
-    if (effectiveViewLevel === 'tenant' && !currentTenantId) return;
+    if (effectiveViewLevel === 'tenant' && !resolvedTenantId) return;
     var pollInterval = setInterval(function() {
       (async function pollFetch() {
         try {
           var convQuery = effectiveViewLevel === 'tenant'
-            ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
+            ? supabase.from('conversations').select('*').eq('tenant_id', resolvedTenantId)
             : supabase.from('conversations').select('*');
           var convResult = await convQuery;
           var convos = (convResult.data || []).sort(function(a, b) { return (b.last_message_at || b.created_at || '').localeCompare(a.last_message_at || a.created_at || ''); });
@@ -512,7 +512,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           // Also fetch calls for polling
           try {
             var pollCallQuery = effectiveViewLevel === 'tenant'
-              ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+              ? supabase.from('calls').select('*').eq('tenant_id', resolvedTenantId).order('started_at', { ascending: false }).limit(50)
               : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
             var pollCallResult = await pollCallQuery;
             var pollCalls = groupCallsByNumber(pollCallResult.data || []);
@@ -550,11 +550,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [liveLoading, setLiveLoading] = useState(!demoMode);
 useEffect(function() {
   if (demoMode || !supabase) return;
-  if (effectiveViewLevel === 'tenant' && !currentTenantId) return;
+  if (effectiveViewLevel === 'tenant' && !resolvedTenantId) return;
   (async function() {
     try {
       var tmQuery = supabase.from('tenant_members').select('user_id, role').eq('status', 'active');
-      if (effectiveViewLevel === 'tenant') tmQuery = tmQuery.eq('tenant_id', currentTenantId);
+      if (effectiveViewLevel === 'tenant') tmQuery = tmQuery.eq('tenant_id', resolvedTenantId);
       var tmRes = await tmQuery;
       var memberData = tmRes.data || [];
       if (memberData.length === 0) return;
@@ -572,7 +572,7 @@ useEffect(function() {
 }, [demoMode, supabase, currentTenantId, viewLevel, scopeOwnOnly]);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
-    if (effectiveViewLevel === 'tenant' && !currentTenantId) { setLiveLoading(false); setConversations([]); return; }
+    if (effectiveViewLevel === 'tenant' && !resolvedTenantId) { setLiveLoading(false); setConversations([]); return; }
 
     async function fetchAll() {
       try {
@@ -580,7 +580,7 @@ useEffect(function() {
         console.log('🟡 currentTenantId:', currentTenantId, 'viewLevel:', viewLevel);
         // 1. Conversations
         const convQuery = effectiveViewLevel === 'tenant'
-          ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
+          ? supabase.from('conversations').select('*').eq('tenant_id', resolvedTenantId)
           : supabase.from('conversations').select('*');
         const { data: convData, error: convError } = await convQuery;
         if (convError) { console.warn('Conv error:', convError.message); setLiveLoading(false); return; }
@@ -621,7 +621,7 @@ useEffect(function() {
         // 5. Fetch calls and add as grouped voice conversations
         try {
           var callQuery = effectiveViewLevel === 'tenant'
-            ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
+            ? supabase.from('calls').select('*').eq('tenant_id', resolvedTenantId).order('started_at', { ascending: false }).limit(50)
             : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
           var callResult = await callQuery;
           var callData = callResult.data || [];
@@ -653,7 +653,7 @@ useEffect(function() {
     try {
       var pattern = '%' + query.trim() + '%';
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company')
-        .eq('tenant_id', currentTenantId)
+        .eq('tenant_id', resolvedTenantId)
         .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern + ',company.ilike.' + pattern)
         .limit(10);
       setNewConvResults(r.data || []);
