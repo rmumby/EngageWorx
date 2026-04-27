@@ -3,9 +3,12 @@ import { supabase } from './supabaseClient';
 
 var TIER_STYLE = {
   super_admin:  { label: 'SUPER ADMIN',  bg: '#00C9FF22', color: '#00C9FF', border: '#00C9FF44', icon: '⚡' },
+  internal:     { label: 'INTERNAL',     bg: '#00C9FF22', color: '#00C9FF', border: '#00C9FF44', icon: '⚡' },
   master_agent: { label: 'MASTER AGENT', bg: '#E040FB22', color: '#E040FB', border: '#E040FB44', icon: '👑' },
   agent:        { label: 'AGENT',        bg: '#FF6B3522', color: '#FF6B35', border: '#FF6B3544', icon: '🤝' },
   csp:          { label: 'CSP',          bg: '#7C4DFF22', color: '#7C4DFF', border: '#7C4DFF44', icon: '🏢' },
+  csp_partner:  { label: 'CSP PARTNER',  bg: '#7C4DFF22', color: '#7C4DFF', border: '#7C4DFF44', icon: '🏢' },
+  direct:       { label: 'DIRECT',       bg: '#10b98122', color: '#10b981', border: '#10b98144', icon: '🏪' },
   tenant:       { label: 'TENANT',       bg: '#6B8BAE22', color: '#6B8BAE', border: '#6B8BAE44', icon: '📇' },
 };
 
@@ -28,8 +31,12 @@ export default function HierarchyView({ C, onDrillDown }) {
   async function load() {
     setLoading(true);
     try {
-      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, parent_entity_id, referred_by, plan, status').order('name');
-      setAllTenants(res.data || []);
+      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, parent_tenant_id, referred_by, plan, status').order('name');
+      // Normalize: use parent_tenant_id (preferred) or parent_entity_id as the canonical parent
+      var normalized = (res.data || []).map(function(t) {
+        return Object.assign({}, t, { _parent: t.parent_tenant_id || t._parent || null, _type: t.customer_type || t.tenant_type || t.entity_tier || 'tenant' });
+      });
+      setAllTenants(normalized);
     } catch (e) { console.error('[Hierarchy] Load error:', e.message); }
     setLoading(false);
   }
@@ -38,7 +45,7 @@ export default function HierarchyView({ C, onDrillDown }) {
   var byParent = useMemo(function() {
     var idx = {};
     allTenants.forEach(function(t) {
-      var key = t.parent_entity_id || '_root';
+      var key = t._parent || '_root';
       if (!idx[key]) idx[key] = [];
       idx[key].push(t);
     });
@@ -104,7 +111,7 @@ export default function HierarchyView({ C, onDrillDown }) {
 
   // ── Determine the visible "roots" given the current drill-down path ──────
   var rootParentId = drillPath.length > 0 ? drillPath[drillPath.length - 1].id : '_root';
-  var visibleRoots = byParent[rootParentId] || (drillPath.length === 0 ? allTenants.filter(function(t) { return !t.parent_entity_id; }) : []);
+  var visibleRoots = byParent[rootParentId] || (drillPath.length === 0 ? allTenants.filter(function(t) { return !t._parent; }) : []);
 
   function drillInto(t) {
     setDrillPath(drillPath.concat([{ id: t.id, name: t.name }]));
@@ -132,7 +139,7 @@ export default function HierarchyView({ C, onDrillDown }) {
     if (!window.confirm('Move "' + moveModal.name + '" under ' + (targetId ? allTenants.find(function(t) { return t.id === targetId; })?.name || targetId : 'root (no parent)') + '?')) return;
     setMoving(true);
     try {
-      var upd = await supabase.from('tenants').update({ parent_entity_id: targetId }).eq('id', moveModal.id);
+      var upd = await supabase.from('tenants').update({ parent_tenant_id: targetId, parent_entity_id: targetId }).eq('id', moveModal.id);
       if (upd.error) throw upd.error;
       setMoveModal(null); setMoveTarget('');
       await load();
@@ -144,7 +151,7 @@ export default function HierarchyView({ C, onDrillDown }) {
     var kids = byParent[t.id] || [];
     var roll = rollups[t.id] || { count: 0, mrr: 0 };
     var isOpen = !!expanded[t.id];
-    var style = TIER_STYLE[t.entity_tier] || TIER_STYLE.tenant;
+    var style = TIER_STYLE[t._type] || TIER_STYLE[t.entity_tier] || TIER_STYLE.tenant;
     var matched = matchingIds && matchingIds[t.id] === true;
     var ownMrr = PLAN_MRR[t.plan] || 0;
     return (
@@ -174,7 +181,7 @@ export default function HierarchyView({ C, onDrillDown }) {
           {kids.length > 0 && (
             <button onClick={function() { drillInto(t); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Drill into this entity">⤵ Focus</button>
           )}
-          <button onClick={function(ev) { ev.stopPropagation(); setMoveModal({ id: t.id, name: t.name, currentParent: t.parent_entity_id }); setMoveTarget(t.parent_entity_id || ''); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: colors.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Change parent">↕ Move</button>
+          <button onClick={function(ev) { ev.stopPropagation(); setMoveModal({ id: t.id, name: t.name, currentParent: t._parent }); setMoveTarget(t._parent || ''); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: colors.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Change parent">↕ Move</button>
           {onDrillDown && t.entity_tier !== 'super_admin' && (
             <button onClick={function(ev) { ev.stopPropagation(); onDrillDown(t.id); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.35)', borderRadius: 6, padding: '4px 10px', color: '#00C9FF', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>View Portal →</button>
           )}
@@ -236,7 +243,7 @@ export default function HierarchyView({ C, onDrillDown }) {
       </div>
 
       <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 12, color: colors.muted, fontSize: 11, lineHeight: 1.6 }}>
-        <b>How this works:</b> Each node's children are tenants whose <code>parent_entity_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors. Click <strong>↕ Move</strong> to re-parent a tenant.
+        <b>How this works:</b> Each node's children are tenants whose <code>parent_tenant_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors. Click <strong>↕ Move</strong> to re-parent a tenant.
       </div>
 
       {/* Move Modal */}
@@ -249,7 +256,7 @@ export default function HierarchyView({ C, onDrillDown }) {
             <select value={moveTarget} onChange={function(e) { setMoveTarget(e.target.value); }} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 16 }}>
               <option value="">— Root (no parent) —</option>
               {allTenants.filter(function(t) { return t.id !== moveModal.id && !isDescendant(moveModal.id, t.id); }).sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); }).map(function(t) {
-                var s = TIER_STYLE[t.entity_tier] || TIER_STYLE.tenant;
+                var s = TIER_STYLE[t._type] || TIER_STYLE[t.entity_tier] || TIER_STYLE.tenant;
                 return <option key={t.id} value={t.id}>{s.icon} {t.name} ({s.label})</option>;
               })}
             </select>
