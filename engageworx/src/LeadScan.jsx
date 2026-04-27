@@ -158,48 +158,56 @@ export default function LeadScan({ C, demoMode = false }) {
       if (leadRes.error) throw leadRes.error;
       var leadId = leadRes.data.id;
 
+      var existingContactName = null;
       if (form.name || form.email) {
         var nameParts = (form.name || '').trim().split(' ');
         var existing = null;
+        var existingData = null;
         if (form.email) {
-          var ec = await supabase.from('contacts').select('id').eq('email', form.email).eq('tenant_id', SP_TENANT_ID).single();
-          if (ec.data) existing = ec.data.id;
+          var ec = await supabase.from('contacts').select('id, first_name, last_name, phone, company, title, tags, source, linkedin_url').ilike('email', (form.email || '').toLowerCase().trim()).eq('tenant_id', SP_TENANT_ID).maybeSingle();
+          if (ec.data) { existing = ec.data.id; existingData = ec.data; }
         }
         if (!existing && form.phone) {
-          var pc = await supabase.from('contacts').select('id').eq('phone', form.phone).eq('tenant_id', SP_TENANT_ID).single();
-          if (pc.data) existing = pc.data.id;
+          var pc = await supabase.from('contacts').select('id, first_name, last_name, email, company, title, tags, source, linkedin_url').eq('phone', form.phone).eq('tenant_id', SP_TENANT_ID).maybeSingle();
+          if (pc.data) { existing = pc.data.id; existingData = pc.data; }
+        }
+        if (existing && existingData) {
+          existingContactName = ((existingData.first_name || '') + ' ' + (existingData.last_name || '')).trim() || form.name;
         }
         var scanTag = (eventTag || '').trim();
         var contactTags = ['Lead'];
         if (scanTag && contactTags.indexOf(scanTag) === -1) contactTags.push(scanTag);
-        var contactPayload = {
-          first_name: nameParts[0] || form.company,
-          last_name: nameParts.slice(1).join(' ') || null,
-          email: form.email || null,
-          phone: form.phone || null,
-          title: form.title || null,
-          company: form.company || null,
-          linkedin_url: (form.linkedinUrl || '').trim() || null,
-          pipeline_lead_id: leadId,
-          tenant_id: SP_TENANT_ID,
-          status: 'active',
-          source: selectedLocation || 'Direct',
-          event_tag: scanTag || null,
-          tags: contactTags,
-        };
-        console.log('[LeadScan] saving contact:', JSON.stringify({ name: form.name, email: form.email, tags: contactTags, event_tag: scanTag, existing: existing }));
-        if (existing) {
-          // Merge tags with existing contact's tags
-          try {
-            var existingContact = await supabase.from('contacts').select('tags').eq('id', existing).maybeSingle();
-            if (existingContact.data && Array.isArray(existingContact.data.tags)) {
-              var merged = existingContact.data.tags.slice();
-              contactTags.forEach(function(t) { if (merged.indexOf(t) === -1) merged.push(t); });
-              contactPayload.tags = merged;
-            }
-          } catch (e) {}
-          await supabase.from('contacts').update(contactPayload).eq('id', existing);
+        if (existing && existingData) {
+          // Selective merge — only fill empty fields, never overwrite existing data
+          var mergePayload = { pipeline_lead_id: leadId };
+          if (!existingData.phone && form.phone) mergePayload.phone = form.phone;
+          if (!existingData.company && form.company) mergePayload.company = form.company;
+          if (!existingData.title && form.title) mergePayload.title = form.title;
+          if (!existingData.source) mergePayload.source = selectedLocation || 'Direct';
+          if (!existingData.linkedin_url && (form.linkedinUrl || '').trim()) mergePayload.linkedin_url = (form.linkedinUrl || '').trim();
+          // Merge tags — keep existing, add new
+          var mergedTags = Array.isArray(existingData.tags) ? existingData.tags.slice() : [];
+          contactTags.forEach(function(t) { if (mergedTags.indexOf(t) === -1) mergedTags.push(t); });
+          mergePayload.tags = mergedTags;
+          console.log('[LeadScan] merging into existing contact:', existing, JSON.stringify(mergePayload));
+          await supabase.from('contacts').update(mergePayload).eq('id', existing);
         } else {
+          var contactPayload = {
+            first_name: nameParts[0] || form.company,
+            last_name: nameParts.slice(1).join(' ') || null,
+            email: form.email || null,
+            phone: form.phone || null,
+            title: form.title || null,
+            company: form.company || null,
+            linkedin_url: (form.linkedinUrl || '').trim() || null,
+            pipeline_lead_id: leadId,
+            tenant_id: SP_TENANT_ID,
+            status: 'active',
+            source: selectedLocation || 'Direct',
+            event_tag: scanTag || null,
+            tags: contactTags,
+          };
+          console.log('[LeadScan] creating new contact:', JSON.stringify({ name: form.name, email: form.email, tags: contactTags }));
           await supabase.from('contacts').insert(contactPayload);
         }
       }
@@ -222,7 +230,7 @@ export default function LeadScan({ C, demoMode = false }) {
       }
 
       var seqName = sequences.find(function(s) { return s.id === selectedSeqId; });
-      setSaved({ name: form.name || form.company, leadId: leadId, seq: seqName ? seqName.name : null, location: selectedLocation });
+      setSaved({ name: form.name || form.company, leadId: leadId, seq: seqName ? seqName.name : null, location: selectedLocation, existingContact: existingContactName });
       resetForm();
       setMode('home');
     } catch(e) {
@@ -384,6 +392,7 @@ export default function LeadScan({ C, demoMode = false }) {
             <span style={{ fontSize: 26 }}>✅</span>
             <div>
               <div style={{ color: '#10b981', fontWeight: 800, fontSize: 15 }}>{saved.name} saved!</div>
+              {saved.existingContact && <div style={{ color: '#00C9FF', fontSize: 12, marginTop: 2 }}>✓ Existing contact: {saved.existingContact} — fields merged</div>}
               <div style={{ color: lsMuted, fontSize: 12, marginTop: 2 }}>
                 {saved.location && <span>📍 {saved.location} · </span>}
                 Pipeline{saved.seq ? ' · ' + saved.seq : ''}
