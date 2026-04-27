@@ -117,6 +117,8 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
   const [inviteRole, setInviteRole] = useState('admin');
   const [saving, setSaving] = useState(null);
 
@@ -191,11 +193,20 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
     if (!inviteEmail) return;
     setSaving('invite');
     try {
-      var profileRes = await supabase.from('user_profiles').select('id').eq('email', inviteEmail).single();
-      if (!profileRes.data) { alert('No user found with that email.'); setSaving(null); return; }
-      var insertRes = await supabase.from('tenant_members').insert({ tenant_id: selectedTenantId, user_id: profileRes.data.id, role: inviteRole, status: 'active', joined_at: new Date().toISOString(), notify_on_escalation: false, notify_on_new_signup: false, notify_on_payment: false, notify_on_new_lead: false });
-      if (insertRes.error) { alert('Error: ' + insertRes.error.message); setSaving(null); return; }
-      setInviteEmail(''); setShowInvite(false); fetchMembers(selectedTenantId);
+      var r = await fetch('/api/invite-member', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id: selectedTenantId, email: inviteEmail, role: inviteRole, first_name: inviteFirstName, last_name: inviteLastName }),
+      });
+      var d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Invite failed');
+      if (d.already_member) {
+        alert('ℹ️ ' + inviteEmail + ' is already a member.');
+      } else if (d.invited && d.temp_password) {
+        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.\n\nTemp password: ' + d.temp_password + '\n\nThey can log in immediately.');
+      } else {
+        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.');
+      }
+      setInviteEmail(''); setInviteFirstName(''); setInviteLastName(''); setShowInvite(false); fetchMembers(selectedTenantId);
     } catch (e) { alert('Error: ' + e.message); }
     setSaving(null);
   }
@@ -221,8 +232,10 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
         <div style={{ background: `${C.primary}08`, border: `1px solid ${C.primary}33`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 15 }}>Add Team Member</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Email</label><input value={inviteEmail} onChange={function(e) { setInviteEmail(e.target.value); }} placeholder="colleague@company.com" style={inputSt} /></div>
-            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Role</label><select value={inviteRole} onChange={function(e) { setInviteRole(e.target.value); }} style={inputSt}><option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option></select></div>
+            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>First Name</label><input value={inviteFirstName} onChange={function(e) { setInviteFirstName(e.target.value); }} placeholder="Jane" style={inputSt} /></div>
+            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Last Name</label><input value={inviteLastName} onChange={function(e) { setInviteLastName(e.target.value); }} placeholder="Smith" style={inputSt} /></div>
+            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Email *</label><input value={inviteEmail} onChange={function(e) { setInviteEmail(e.target.value); }} placeholder="colleague@company.com" style={inputSt} /></div>
+            <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Role</label><select value={inviteRole} onChange={function(e) { setInviteRole(e.target.value); }} style={inputSt}><option value="admin">Admin</option><option value="agent">Agent</option><option value="viewer">Viewer</option></select></div>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={inviteMember} disabled={saving === 'invite'} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{saving === 'invite' ? 'Adding...' : 'Add Member'}</button>

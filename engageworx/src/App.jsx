@@ -1091,38 +1091,46 @@ setDemoCreating(false);
                     <div style={{ marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                       <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12, fontWeight: 700 }}>👥 Add Team Member</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <input type="email" placeholder="member@example.com" data-field={"invite_email_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1, minWidth: 220 })} />
-                        <select data-field={"invite_role_" + c.id} defaultValue="agent" style={Object.assign({}, inputStyleTM, { width: 120 })}>
+                        <input placeholder="First name" data-field={"invite_first_" + c.id} style={Object.assign({}, inputStyleTM, { width: 120 })} />
+                        <input placeholder="Last name" data-field={"invite_last_" + c.id} style={Object.assign({}, inputStyleTM, { width: 120 })} />
+                        <input type="email" placeholder="email@example.com" data-field={"invite_email_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1, minWidth: 180 })} />
+                        <select data-field={"invite_role_" + c.id} defaultValue="agent" style={Object.assign({}, inputStyleTM, { width: 100 })}>
                           <option value="admin">Admin</option>
                           <option value="agent">Agent</option>
                           <option value="viewer">Viewer</option>
                         </select>
                         <button onClick={async function() {
+                          var firstEl = document.querySelector('[data-field="invite_first_' + c.id + '"]');
+                          var lastEl = document.querySelector('[data-field="invite_last_' + c.id + '"]');
                           var emailEl = document.querySelector('[data-field="invite_email_' + c.id + '"]');
                           var roleEl = document.querySelector('[data-field="invite_role_' + c.id + '"]');
                           var email = (emailEl && emailEl.value || '').trim();
+                          var firstName = (firstEl && firstEl.value || '').trim();
+                          var lastName = (lastEl && lastEl.value || '').trim();
                           var role = (roleEl && roleEl.value) || 'agent';
                           if (!email) { alert('Enter an email.'); return; }
                           if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { alert('Invalid email format.'); return; }
                           try {
                             var r = await fetch('/api/invite-member', {
                               method: 'POST', headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ tenant_id: c.id, email: email, role: role }),
+                              body: JSON.stringify({ tenant_id: c.id, email: email, role: role, first_name: firstName, last_name: lastName }),
                             });
                             var d = await r.json();
                             if (!r.ok) throw new Error(d.error || 'Invite failed');
                             if (d.already_member) {
                               alert('ℹ️ ' + email + ' is already a member of ' + (d.tenant_name || 'this tenant') + '.');
                             } else if (d.invited) {
-                              alert('✅ Team member added — invite email sent to ' + email + '. They will be added as ' + role + ' when they sign in.');
+                              alert('✅ ' + (d.full_name || email) + ' added as ' + role + '.\n\nTemp password: ' + (d.temp_password || '(check email)') + '\n\nThey can log in immediately at the portal.');
                             } else {
-                              alert('✅ ' + email + ' added to ' + (d.tenant_name || 'this tenant') + ' as ' + role + ' successfully.');
+                              alert('✅ ' + (d.full_name || email) + ' added to ' + (d.tenant_name || 'this tenant') + ' as ' + role + '.');
                             }
                             if (emailEl) emailEl.value = '';
+                            if (firstEl) firstEl.value = '';
+                            if (lastEl) lastEl.value = '';
                           } catch (e) { alert('❌ Error: ' + e.message); }
                         }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: 'none', borderRadius: 8, padding: '8px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>
                       </div>
-                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 6 }}>Existing users are added immediately. New users receive an email invite and join the tenant on first sign-in.</div>
+                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 6 }}>New users get a temp password shown in the success message. Existing users are linked immediately.</div>
                     </div>
 
                     <div style={{ marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
