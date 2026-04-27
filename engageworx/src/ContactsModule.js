@@ -1533,9 +1533,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           {selectedContacts.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 10, marginBottom: 12 }}>
               <span style={{ color: C.primary, fontSize: 13, fontWeight: 700 }}>{selectedContacts.length} selected</span>
-              <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
-              <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Campaign</button>
-              <button style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
+              <button onClick={function() { var tag = window.prompt('Enter tag to add to ' + selectedContacts.length + ' contact(s):'); if (!tag || !tag.trim()) return; tag = tag.trim(); (async function() { try { for (var si = 0; si < selectedContacts.length; si++) { var cid = selectedContacts[si]; var cr = await supabase.from('contacts').select('tags').eq('id', cid).maybeSingle(); var tags = (cr.data && Array.isArray(cr.data.tags)) ? cr.data.tags : []; if (tags.indexOf(tag) === -1) { tags.push(tag); await supabase.from('contacts').update({ tags: tags }).eq('id', cid); } } alert('Tag "' + tag + '" added to ' + selectedContacts.length + ' contact(s).'); setSelectedContacts([]); fetchContacts(); } catch (e) { alert('Error: ' + e.message); } })(); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
+              <button onClick={function() { alert('Add to Campaign is coming soon. Use Sequences → Bulk Enrol for now.'); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, opacity: 0.6, cursor: 'not-allowed' }} title="Coming soon — use Sequences for now">🚀 Add to Campaign</button>
+              <button onClick={function() { var ids = new Set(selectedContacts); var selected = contacts.filter(function(c) { return ids.has(c.id); }); if (selected.length === 0) return; var headers = ['first_name','last_name','email','phone','company','status','tags']; var csv = headers.join(',') + '\n' + selected.map(function(c) { return [c.firstName || '', c.lastName || '', c.email || '', c.phone || '', c.company || '', c.status || '', (c.tags || []).join(';')].map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n'); var blob = new Blob([csv], { type: 'text/csv' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'contacts_selected_' + selected.length + '.csv'; a.click(); URL.revokeObjectURL(url); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
               {selectedContacts.length >= 2 && (
                 <button onClick={openMergeModal} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#E040FB", borderColor: "rgba(224,64,251,0.35)" }}>🔀 Merge Selected</button>
               )}
@@ -1695,7 +1695,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>CRM Integrations</h2>
-            <button style={btnPrimary}>+ Connect CRM</button>
+            <button disabled style={Object.assign({}, btnPrimary, { opacity: 0.4, cursor: 'not-allowed' })} title="CRM integrations coming soon">+ Connect CRM</button>
           </div>
           <div style={{ display: "grid", gap: 14 }}>
             {CRM_INTEGRATIONS.map(crm => (
@@ -1706,9 +1706,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div style={{ textAlign: "center" }}><div style={{ color: crm.synced > 0 ? "#00E676" : C.muted, fontSize: 16, fontWeight: 700 }}>{crm.synced > 0 ? crm.synced.toLocaleString() : "—"}</div><div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>Synced</div></div>
                 <div style={{ textAlign: "center" }}><span style={badge(crm.status === "connected" ? "#00E676" : crm.status === "error" ? "#FF3B30" : "#6B8BAE")}>{crm.status === "connected" ? "● Connected" : crm.status === "error" ? "● Error" : "○ Disconnected"}</span>{crm.errors > 0 && <div style={{ color: "#FF6B35", fontSize: 11, marginTop: 4 }}>{crm.errors} errors</div>}</div>
                 <div style={{ textAlign: "right" }}>
-                  {crm.status === "connected" && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><button style={{ ...btnSecondary, padding: "6px 12px", fontSize: 11 }}>🔄 Sync Now</button><button style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer" }}>Configure</button></div>}
-                  {crm.status === "error" && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><button style={{ ...btnPrimary, padding: "6px 12px", fontSize: 11 }}>🔧 Fix</button></div>}
-                  {crm.status === "disconnected" && <button style={{ ...btnPrimary, padding: "8px 16px", fontSize: 12 }}>Connect</button>}
+                  {crm.status === "connected" && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><button disabled style={{ ...btnSecondary, padding: "6px 12px", fontSize: 11, opacity: 0.4, cursor: 'not-allowed' }} title="Coming soon">🔄 Sync Now</button><button disabled style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: 'not-allowed', opacity: 0.4 }} title="Coming soon">Configure</button></div>}
+                  {crm.status === "error" && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}><button disabled style={{ ...btnPrimary, padding: "6px 12px", fontSize: 11, opacity: 0.4, cursor: 'not-allowed' }} title="Coming soon">🔧 Fix</button></div>}
+                  {crm.status === "disconnected" && <button disabled style={{ ...btnPrimary, padding: "8px 16px", fontSize: 12, opacity: 0.4, cursor: 'not-allowed' }} title="Coming soon">Connect</button>}
                 </div>
               </div>
             ))}
