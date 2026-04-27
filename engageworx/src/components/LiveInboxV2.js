@@ -355,6 +355,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  var hideResolvedKey = 'ew_inbox_hide_resolved_' + (userProfile && userProfile.id || 'anon');
+  var [hideResolved, setHideResolved] = useState(function() { try { return localStorage.getItem(hideResolvedKey) !== 'false'; } catch(e) { return true; } });
+  function toggleHideResolved() { var next = !hideResolved; setHideResolved(next); try { localStorage.setItem(hideResolvedKey, next ? 'true' : 'false'); } catch(e) {} }
   const [filterTag, setFilterTag] = useState("all");
   const [tenantFromEmail, setTenantFromEmail] = useState('');
   useEffect(function() {
@@ -886,9 +889,11 @@ useEffect(function() {
 
   const filtered = conversations.filter(conv => {
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
-    // "All" hides resolved conversations; "Resolved" shows only resolved
-    if (filterStatus === "all" && (conv.status === "resolved" || conv.status === "spam")) return false;
-    if (filterStatus !== "all" && conv.status !== filterStatus) return false;
+    // Filter by status — "All" uses the hideResolved toggle; specific tabs show only that status
+    if (filterStatus === "all") {
+      if (hideResolved && conv.status === "resolved") return false;
+      if (conv.status === "spam") return false;
+    } else if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -902,7 +907,7 @@ useEffect(function() {
     return b.lastActivity - a.lastActivity;
   });
 
-  const totalUnread = conversations.filter(c => c.status !== 'resolved' && c.status !== 'spam').reduce((s, c) => s + c.unread, 0);
+  const totalUnread = conversations.filter(c => c.status !== 'spam' && (!hideResolved || c.status !== 'resolved')).reduce((s, c) => s + c.unread, 0);
   const activeCount = conversations.filter(c => c.status === "active" || c.status === "urgent").length;
   const waitingCount = conversations.filter(c => c.status === "waiting").length;
 
@@ -954,6 +959,14 @@ useEffect(function() {
             </div>
           )}
 
+          {/* Hide resolved toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div onClick={toggleHideResolved} style={{ width: 32, height: 18, borderRadius: 9, position: 'relative', background: hideResolved ? C.primary : 'rgba(255,255,255,0.15)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
+              <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: hideResolved ? 16 : 2, transition: 'all 0.2s' }} />
+            </div>
+            <span style={{ color: hideResolved ? C.primary : 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600 }}>Hide resolved</span>
+          </div>
+
           {/* Tab Switcher: Messages | Calls */}
           <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
             {[
@@ -971,7 +984,7 @@ useEffect(function() {
           {/* Quick Filters */}
           <div style={{ display: "flex", gap: 4, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible" }}>
             {[
-              { id: "all", label: t('inbox.all'), count: conversations.filter(c => c.status !== "resolved" && c.status !== "spam").length },
+              { id: "all", label: t('inbox.all'), count: conversations.filter(c => c.status !== "spam" && (!hideResolved || c.status !== "resolved")).length },
               { id: "active", label: t('inbox.active'), count: activeCount },
               { id: "waiting", label: t('inbox.waiting'), count: waitingCount },
               { id: "urgent", label: t('inbox.urgent'), count: conversations.filter(c => c.status === "urgent").length },
