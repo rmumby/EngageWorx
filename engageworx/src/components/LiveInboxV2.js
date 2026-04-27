@@ -325,6 +325,21 @@ var LI_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-
 function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase, userProfile }) {
   const { t } = useTranslation();
   var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
+  var isSPorCSP = viewLevel === 'sp' || viewLevel === 'csp';
+  var scopeStorageKey = 'ew_inbox_scope_' + (userProfile && userProfile.id || 'anon');
+  var [scopeOwnOnly, setScopeOwnOnly] = useState(function() { try { return localStorage.getItem(scopeStorageKey) === 'own'; } catch(e) { return false; } });
+  var [tenantBrandName, setTenantBrandName] = useState('');
+  useEffect(function() {
+    if (!isSPorCSP || !supabase || !resolvedTenantId) return;
+    (async function() { try { var r = await supabase.from('tenants').select('brand_name, name').eq('id', resolvedTenantId).maybeSingle(); if (r.data) setTenantBrandName(r.data.brand_name || r.data.name || ''); } catch(e) {} })();
+  }, [resolvedTenantId, isSPorCSP, supabase]);
+  function toggleScope() {
+    var next = !scopeOwnOnly;
+    setScopeOwnOnly(next);
+    try { localStorage.setItem(scopeStorageKey, next ? 'own' : 'all'); } catch(e) {}
+  }
+  // Effective viewLevel: if SP/CSP toggled to "own only", treat as tenant-scoped
+  var effectiveViewLevel = (isSPorCSP && scopeOwnOnly) ? 'tenant' : viewLevel;
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
   const C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
@@ -458,11 +473,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Poll for new conversations every 15 seconds in live mode
   useEffect(() => {
     if (demoMode || !supabase) return;
-    if (viewLevel === 'tenant' && !currentTenantId) return;
+    if (effectiveViewLevel === 'tenant' && !currentTenantId) return;
     var pollInterval = setInterval(function() {
       (async function pollFetch() {
         try {
-          var convQuery = viewLevel === 'tenant'
+          var convQuery = effectiveViewLevel === 'tenant'
             ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
             : supabase.from('conversations').select('*');
           var convResult = await convQuery;
@@ -496,7 +511,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
 
           // Also fetch calls for polling
           try {
-            var pollCallQuery = viewLevel === 'tenant'
+            var pollCallQuery = effectiveViewLevel === 'tenant'
               ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
               : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
             var pollCallResult = await pollCallQuery;
@@ -525,7 +540,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       })();
     }, 15000);
     return function() { clearInterval(pollInterval); };
-  }, [demoMode, supabase, currentTenantId, viewLevel]);
+  }, [demoMode, supabase, currentTenantId, viewLevel, scopeOwnOnly]);
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -535,11 +550,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [liveLoading, setLiveLoading] = useState(!demoMode);
 useEffect(function() {
   if (demoMode || !supabase) return;
-  if (viewLevel === 'tenant' && !currentTenantId) return;
+  if (effectiveViewLevel === 'tenant' && !currentTenantId) return;
   (async function() {
     try {
       var tmQuery = supabase.from('tenant_members').select('user_id, role').eq('status', 'active');
-      if (viewLevel === 'tenant') tmQuery = tmQuery.eq('tenant_id', currentTenantId);
+      if (effectiveViewLevel === 'tenant') tmQuery = tmQuery.eq('tenant_id', currentTenantId);
       var tmRes = await tmQuery;
       var memberData = tmRes.data || [];
       if (memberData.length === 0) return;
@@ -554,17 +569,17 @@ useEffect(function() {
       });
     } catch (e) {}
   })();
-}, [demoMode, supabase, currentTenantId, viewLevel]);
+}, [demoMode, supabase, currentTenantId, viewLevel, scopeOwnOnly]);
   useEffect(() => {
     if (demoMode || !supabase) { setLiveLoading(false); return; }
-    if (viewLevel === 'tenant' && !currentTenantId) { setLiveLoading(false); setConversations([]); return; }
+    if (effectiveViewLevel === 'tenant' && !currentTenantId) { setLiveLoading(false); setConversations([]); return; }
 
     async function fetchAll() {
       try {
         console.log('🟡 Starting fetch...');
         console.log('🟡 currentTenantId:', currentTenantId, 'viewLevel:', viewLevel);
         // 1. Conversations
-        const convQuery = viewLevel === 'tenant'
+        const convQuery = effectiveViewLevel === 'tenant'
           ? supabase.from('conversations').select('*').eq('tenant_id', currentTenantId)
           : supabase.from('conversations').select('*');
         const { data: convData, error: convError } = await convQuery;
@@ -605,7 +620,7 @@ useEffect(function() {
 
         // 5. Fetch calls and add as grouped voice conversations
         try {
-          var callQuery = viewLevel === 'tenant'
+          var callQuery = effectiveViewLevel === 'tenant'
             ? supabase.from('calls').select('*').eq('tenant_id', currentTenantId).order('started_at', { ascending: false }).limit(50)
             : supabase.from('calls').select('*').order('started_at', { ascending: false }).limit(50);
           var callResult = await callQuery;
@@ -627,7 +642,7 @@ useEffect(function() {
     }
     
     fetchAll();
-  }, [demoMode, currentTenantId, viewLevel]); // eslint-disable-line
+  }, [demoMode, currentTenantId, viewLevel, scopeOwnOnly]); // eslint-disable-line
 
   // Live mode renders the full inbox immediately - conversations populate async
 
@@ -930,6 +945,14 @@ useEffect(function() {
               {!demoMode && <button onClick={function() { setNewConvOpen(true); }} style={{ background: C.primary, border: "none", borderRadius: 6, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#000", fontWeight: 800, lineHeight: 1, padding: 0 }} title="New Conversation">✏️</button>}
             </div>
           </div>
+
+          {/* Scope toggle — SP/CSP only */}
+          {isSPorCSP && (
+            <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+              <button onClick={function() { if (scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: !scopeOwnOnly ? C.primary + '22' : 'rgba(255,255,255,0.04)', color: !scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.35)' }}>All tenants</button>
+              <button onClick={function() { if (!scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: scopeOwnOnly ? C.primary + '22' : 'rgba(255,255,255,0.04)', color: scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.35)' }}>{tenantBrandName || 'Own'} only</button>
+            </div>
+          )}
 
           {/* Tab Switcher: Messages | Calls */}
           <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
