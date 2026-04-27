@@ -204,6 +204,11 @@ async function processDueSteps(supabase) {
       var lead = enrolment.leads;
       var sequence = enrolment.sequences;
       if (!lead || !sequence) continue;
+      // Skip paused or deleted sequences
+      if (sequence.paused_at || sequence.deleted_at) {
+        console.log('[Sequences] Skipping', sequence.name, '— paused_at:', sequence.paused_at, 'deleted_at:', sequence.deleted_at);
+        continue;
+      }
 
       var nextStepNumber = enrolment.current_step + 1;
       var stepRes = await supabase
@@ -336,7 +341,7 @@ module.exports = async function handler(req, res) {
       .from('sequences')
       .select('*, sequence_steps(*)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'active')
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (listRes.error) return res.status(500).json({ error: listRes.error.message });
     return res.status(200).json({ sequences: listRes.data || [] });
@@ -392,6 +397,11 @@ module.exports = async function handler(req, res) {
     var tenant_id = enrolBody.tenant_id;
     if (!lead_id || !sequence_id) return res.status(400).json({ error: 'lead_id and sequence_id required' });
     if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
+
+    // Block enrolment into paused or deleted sequences
+    var seqCheck = await supabase.from('sequences').select('paused_at, deleted_at').eq('id', sequence_id).maybeSingle();
+    if (seqCheck.data && seqCheck.data.deleted_at) return res.status(400).json({ error: 'Sequence has been deleted' });
+    if (seqCheck.data && seqCheck.data.paused_at) return res.status(400).json({ error: 'Sequence is paused — resume before enrolling' });
 
     var firstStepRes = await supabase
       .from('sequence_steps')
@@ -492,6 +502,49 @@ module.exports = async function handler(req, res) {
   if (action === 'process') {
     var result = await processDueSteps(supabase);
     return res.status(200).json({ success: true, processed: result.processed, errors: result.errors, stuck_leads_fixed: result.stuck_leads_fixed || 0 });
+  }
+
+  // ── PAUSE sequence ─────────────────────────────────────────────────────────
+  if (action === 'pause') {
+    var seqId = body.sequence_id;
+    var tenantId = body.tenant_id;
+    if (!seqId) return res.status(400).json({ error: 'sequence_id required' });
+    var upd = await supabase.from('sequences').update({ paused_at: new Date().toISOString() }).eq('id', seqId);
+    if (tenantId) upd = await supabase.from('sequences').update({ paused_at: new Date().toISOString() }).eq('id', seqId).eq('tenant_id', tenantId);
+    console.log('[Sequences] Paused:', seqId);
+    return res.status(200).json({ success: true, paused: true });
+  }
+
+  // ── RESUME sequence ───────────────────────────────────────────────────────
+  if (action === 'resume') {
+    var seqId2 = body.sequence_id;
+    var tenantId2 = body.tenant_id;
+    if (!seqId2) return res.status(400).json({ error: 'sequence_id required' });
+    var upd2 = tenantId2
+      ? await supabase.from('sequences').update({ paused_at: null }).eq('id', seqId2).eq('tenant_id', tenantId2)
+      : await supabase.from('sequences').update({ paused_at: null }).eq('id', seqId2);
+    console.log('[Sequences] Resumed:', seqId2);
+    return res.status(200).json({ success: true, resumed: true });
+  }
+
+  // ── SOFT DELETE sequence ──────────────────────────────────────────────────
+  if (action === 'delete') {
+    var seqId3 = body.sequence_id;
+    var tenantId3 = body.tenant_id;
+    if (!seqId3) return res.status(400).json({ error: 'sequence_id required' });
+    await supabase.from('sequences').update({ deleted_at: new Date().toISOString(), status: 'deleted' }).eq('id', seqId3);
+    var cancelled = await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('sequence_id', seqId3).eq('status', 'active');
+    console.log('[Sequences] Soft-deleted:', seqId3, 'cancelled enrolments:', cancelled.count || 0);
+    return res.status(200).json({ success: true, deleted: true });
+  }
+
+  // ── REMOVE contact from sequence ──────────────────────────────────────────
+  if (action === 'remove-contact') {
+    var lsId = body.lead_sequence_id;
+    if (!lsId) return res.status(400).json({ error: 'lead_sequence_id required' });
+    await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', lsId);
+    console.log('[Sequences] Removed contact from sequence:', lsId);
+    return res.status(200).json({ success: true, removed: true });
   }
 
   // ── CREATE sequence with steps ──────────────────────────────────────────────

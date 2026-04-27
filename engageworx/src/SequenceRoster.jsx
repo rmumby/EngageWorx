@@ -109,11 +109,10 @@ export default function SequenceRoster({ C, currentTenantId }) {
                         return;
                       }
                     } catch (checkErr) {}
-                    if (!window.confirm('Delete "' + s.name + '"? This will remove all steps and unenroll all contacts.')) return;
+                    if (!window.confirm('Delete "' + s.name + '"? Active enrolments will be cancelled. Historical records preserved.')) return;
                     try {
-                      await supabase.from('lead_sequences').delete().eq('sequence_id', s.id);
-                      await supabase.from('sequence_steps').delete().eq('sequence_id', s.id);
-                      await supabase.from('sequences').delete().eq('id', s.id);
+                      var dr = await fetch('/api/sequences?action=delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sequence_id: s.id, tenant_id: s.tenant_id }) });
+                      if (!dr.ok) { var dd = await dr.json(); throw new Error(dd.error || 'Delete failed'); }
                       if (selectedSeq === s.id) setSelectedSeq(null);
                       setSequences(function(prev) { return prev.filter(function(seq) { return seq.id !== s.id; }); });
                     } catch(err) { alert('Delete failed: ' + err.message); }

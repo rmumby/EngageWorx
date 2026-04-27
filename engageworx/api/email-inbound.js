@@ -17,12 +17,28 @@ var EW_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b5
 async function pauseSequencesForContact(email) {
   try {
     if (!email) return;
-    var leads = await supabase.from('leads').select('id').eq('email', email).limit(10);
+    var leads = await supabase.from('leads').select('id').ilike('email', email).limit(10);
     if (!leads.data || leads.data.length === 0) return;
     var ids = leads.data.map(function(l) { return l.id; });
-    var r = await supabase.from('lead_sequences').update({ status: 'paused' }).in('lead_id', ids).eq('status', 'active');
-    if (r.count > 0) console.log('[Sequences] Paused', r.count, 'enrollment(s) — email reply from', email);
-  } catch (e) { console.error('[Sequences] Pause error:', e.message); }
+    // Load active enrolments with their sequence's stop_on_reply config
+    var enrolments = await supabase.from('lead_sequences').select('id, sequence_id, sequences(stop_on_reply)').in('lead_id', ids).eq('status', 'active');
+    if (!enrolments.data || enrolments.data.length === 0) return;
+    var stopThis = [];
+    var stopAll = false;
+    enrolments.data.forEach(function(e) {
+      var rule = (e.sequences && e.sequences.stop_on_reply) || 'this_sequence';
+      if (rule === 'all_sequences') stopAll = true;
+      if (rule !== 'never') stopThis.push(e.id);
+    });
+    if (stopAll) {
+      // Stop ALL active enrolments for this contact
+      await supabase.from('lead_sequences').update({ status: 'replied', replied_at: new Date().toISOString() }).in('lead_id', ids).eq('status', 'active');
+      console.log('[Sequences] Replied (all):', enrolments.data.length, 'enrolment(s) — email reply from', email);
+    } else if (stopThis.length > 0) {
+      await supabase.from('lead_sequences').update({ status: 'replied', replied_at: new Date().toISOString() }).in('id', stopThis);
+      console.log('[Sequences] Replied:', stopThis.length, 'enrolment(s) — email reply from', email);
+    }
+  } catch (e) { console.error('[Sequences] Reply-stop error:', e.message); }
 }
 
 // ─── AI EMAIL INTELLIGENCE — match + analyze + action ────────────────────
