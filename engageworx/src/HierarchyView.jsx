@@ -19,6 +19,9 @@ export default function HierarchyView({ C, onDrillDown }) {
   var [expanded, setExpanded] = useState({});
   var [drillPath, setDrillPath] = useState([]); // breadcrumb: [{id, name}]
   var [searchQuery, setSearchQuery] = useState('');
+  var [moveModal, setMoveModal] = useState(null); // { id, name, currentParent }
+  var [moveTarget, setMoveTarget] = useState('');
+  var [moving, setMoving] = useState(false);
 
   useEffect(function() { load(); }, []);
 
@@ -111,6 +114,32 @@ export default function HierarchyView({ C, onDrillDown }) {
     setDrillPath(drillPath.slice(0, idx));
   }
 
+  // Check if targetId is a descendant of sourceId (would create cycle)
+  function isDescendant(sourceId, targetId) {
+    var kids = byParent[sourceId] || [];
+    for (var i = 0; i < kids.length; i++) {
+      if (kids[i].id === targetId) return true;
+      if (isDescendant(kids[i].id, targetId)) return true;
+    }
+    return false;
+  }
+
+  async function handleMove() {
+    if (!moveModal) return;
+    var targetId = moveTarget || null; // empty = move to root
+    if (targetId === moveModal.id) { alert('Cannot move a tenant under itself.'); return; }
+    if (targetId && isDescendant(moveModal.id, targetId)) { alert('Cannot move under a descendant — would create a hierarchy loop.'); return; }
+    if (!window.confirm('Move "' + moveModal.name + '" under ' + (targetId ? allTenants.find(function(t) { return t.id === targetId; })?.name || targetId : 'root (no parent)') + '?')) return;
+    setMoving(true);
+    try {
+      var upd = await supabase.from('tenants').update({ parent_entity_id: targetId }).eq('id', moveModal.id);
+      if (upd.error) throw upd.error;
+      setMoveModal(null); setMoveTarget('');
+      await load();
+    } catch (e) { alert('Move failed: ' + e.message); }
+    setMoving(false);
+  }
+
   function renderNode(t, depth) {
     var kids = byParent[t.id] || [];
     var roll = rollups[t.id] || { count: 0, mrr: 0 };
@@ -145,6 +174,7 @@ export default function HierarchyView({ C, onDrillDown }) {
           {kids.length > 0 && (
             <button onClick={function() { drillInto(t); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Drill into this entity">⤵ Focus</button>
           )}
+          <button onClick={function(ev) { ev.stopPropagation(); setMoveModal({ id: t.id, name: t.name, currentParent: t.parent_entity_id }); setMoveTarget(t.parent_entity_id || ''); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 10px', color: colors.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} title="Change parent">↕ Move</button>
           {onDrillDown && t.entity_tier !== 'super_admin' && (
             <button onClick={function(ev) { ev.stopPropagation(); onDrillDown(t.id); }} style={{ background: 'rgba(0,201,255,0.12)', border: '1px solid rgba(0,201,255,0.35)', borderRadius: 6, padding: '4px 10px', color: '#00C9FF', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>View Portal →</button>
           )}
@@ -206,8 +236,30 @@ export default function HierarchyView({ C, onDrillDown }) {
       </div>
 
       <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 12, color: colors.muted, fontSize: 11, lineHeight: 1.6 }}>
-        <b>How this works:</b> Each node's children are tenants whose <code>parent_entity_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors.
+        <b>How this works:</b> Each node's children are tenants whose <code>parent_entity_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors. Click <strong>↕ Move</strong> to re-parent a tenant.
       </div>
+
+      {/* Move Modal */}
+      {moveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { if (!moving) setMoveModal(null); }}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(124,77,255,0.35)', borderRadius: 14, padding: 24, width: 440, maxHeight: '70vh', overflowY: 'auto' }}>
+            <h3 style={{ color: '#fff', margin: '0 0 12px', fontSize: 16 }}>↕ Move "{moveModal.name}"</h3>
+            <p style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>Select a new parent. The tenant and all its children will move under the selected parent. Cycle detection prevents loops.</p>
+            <label style={{ color: colors.muted, fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>New Parent</label>
+            <select value={moveTarget} onChange={function(e) { setMoveTarget(e.target.value); }} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 16 }}>
+              <option value="">— Root (no parent) —</option>
+              {allTenants.filter(function(t) { return t.id !== moveModal.id && !isDescendant(moveModal.id, t.id); }).sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); }).map(function(t) {
+                var s = TIER_STYLE[t.entity_tier] || TIER_STYLE.tenant;
+                return <option key={t.id} value={t.id}>{s.icon} {t.name} ({s.label})</option>;
+              })}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={function() { setMoveModal(null); }} disabled={moving} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button onClick={handleMove} disabled={moving} style={{ background: 'linear-gradient(135deg,#7C4DFF,#E040FB)', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13, opacity: moving ? 0.6 : 1 }}>{moving ? 'Moving...' : 'Move Tenant'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
