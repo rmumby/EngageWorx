@@ -60,6 +60,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
   var [info, setInfo] = useState(null);
   var [agents, setAgents] = useState([]);
   var [agentTenantsMap, setAgentTenantsMap] = useState({});
+  var [directCustomersList, setDirectCustomersList] = useState([]);
   var [overrides, setOverrides] = useState([]);
   var [commissions, setCommissions] = useState([]);
   var [loading, setLoading] = useState(false);
@@ -76,16 +77,21 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
       var m = await supabase.from('tenants').select('*').eq('id', masterAgentTenantId).maybeSingle();
       if (m.data) setInfo(m.data);
 
-      // Agents under this master — tenants where parent_entity_id = this master AND entity_tier = 'agent'
-      var a = await supabase.from('tenants').select('*').eq('parent_entity_id', masterAgentTenantId).eq('entity_tier', 'agent').order('created_at', { ascending: false });
-      var agentList = a.data || [];
+      // All children of this master agent (using parent_tenant_id preferred, parent_entity_id fallback)
+      var allChildren = await supabase.from('tenants').select('*').or('parent_tenant_id.eq.' + masterAgentTenantId + ',parent_entity_id.eq.' + masterAgentTenantId).order('created_at', { ascending: false });
+      var childList = allChildren.data || [];
+
+      // Split into agents vs direct customers
+      var agentList = childList.filter(function(t) { return t.entity_tier === 'agent' || t.customer_type === 'agent' || t.tenant_type === 'agent'; });
+      var directCustomers = childList.filter(function(t) { return agentList.indexOf(t) === -1; });
       setAgents(agentList);
+      setDirectCustomersList(directCustomers);
 
       // For each agent, load their tenants
       var tenantsByAgent = {};
       for (var i = 0; i < agentList.length; i++) {
         var ag = agentList[i];
-        var at = await supabase.from('tenants').select('*').eq('parent_entity_id', ag.id).order('created_at', { ascending: false });
+        var at = await supabase.from('tenants').select('*').or('parent_tenant_id.eq.' + ag.id + ',parent_entity_id.eq.' + ag.id).order('created_at', { ascending: false });
         tenantsByAgent[ag.id] = at.data || [];
       }
       setAgentTenantsMap(tenantsByAgent);
@@ -125,13 +131,18 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
   }
 
   var allAgentTenants = Object.values(agentTenantsMap).reduce(function(a, b) { return a.concat(b); }, []);
-  var totalMRR = allAgentTenants.reduce(function(sum, t) { return sum + (t.status === 'active' ? (PLAN_MRR[t.plan] || 0) : 0); }, 0);
+  var directMRR = directCustomersList.reduce(function(sum, t) { return sum + (t.status === 'active' || t.status === 'trial' ? (PLAN_MRR[t.plan] || 0) : 0); }, 0);
+  var agentMRR = allAgentTenants.reduce(function(sum, t) { return sum + (t.status === 'active' ? (PLAN_MRR[t.plan] || 0) : 0); }, 0);
+  var totalMRR = directMRR + agentMRR;
+  var commissionRate = 0.20;
+  var estimatedCommission = Math.round(directMRR * commissionRate);
   var totalCommissionsEarned = commissions.reduce(function(sum, c) { return sum + parseFloat(c.commission_amount || 0); }, 0);
   var pendingCommissions = commissions.filter(function(c) { return c.status === 'pending'; }).reduce(function(sum, c) { return sum + parseFloat(c.commission_amount || 0); }, 0);
   var paidCommissions = commissions.filter(function(c) { return c.status === 'paid'; }).reduce(function(sum, c) { return sum + parseFloat(c.commission_amount || 0); }, 0);
 
   var navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
+    { id: 'network', label: 'My Network', icon: '🌐' },
     { id: 'agents', label: 'Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'helpdesk', label: 'Help Desk', icon: '🎫' },
@@ -264,6 +275,52 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* My Network — direct customers + commission estimates */}
+        {page === 'network' && (
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>🌐 My Network</h1>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Direct referrals and estimated commissions at 20% of MRR.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
+              <div style={card}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Direct Customers</div><div style={{ color: '#fff', fontSize: 28, fontWeight: 800, marginTop: 4 }}>{directCustomersList.length}</div></div>
+              <div style={card}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Direct MRR</div><div style={{ color: '#10b981', fontSize: 28, fontWeight: 800, marginTop: 4 }}>${directMRR.toLocaleString()}</div></div>
+              <div style={card}><div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Estimated Commission</div><div style={{ color: C.primary, fontSize: 28, fontWeight: 800, marginTop: 4 }}>${estimatedCommission.toLocaleString()}/mo</div></div>
+            </div>
+            {directCustomersList.length === 0 ? (
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 40 })}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🌐</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No customers in your network yet</div>
+                <div style={{ color: C.muted, fontSize: 13 }}>Referrals appear here when provisioned under your account.</div>
+              </div>
+            ) : (
+              <div style={Object.assign({}, card, { padding: 0, overflow: 'hidden' })}>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 100px 100px 100px 100px 80px', gap: 8, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 10, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <div>Customer</div><div>Plan</div><div>MRR</div><div>Commission</div><div>Signup</div><div>Status</div>
+                </div>
+                {directCustomersList.map(function(t) {
+                  var mrr = PLAN_MRR[t.plan] || 0;
+                  var comm = mrr ? Math.round(mrr * commissionRate) : 0;
+                  return (
+                    <div key={t.id} onClick={function() { if (onOpenTenantPortal) onOpenTenantPortal(t.id); }} style={{ display: 'grid', gridTemplateColumns: '2fr 100px 100px 100px 100px 80px', gap: 8, padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.15s' }} onMouseEnter={function(e) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }} onMouseLeave={function(e) { e.currentTarget.style.background = 'transparent'; }}>
+                      <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t.name || '(unnamed)'}<div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>{t.customer_type || t.tenant_type || 'direct'}</div></div>
+                      <div>{planBadge(t.plan)}</div>
+                      <div style={{ color: mrr > 0 ? '#10b981' : C.muted, fontWeight: 700, fontSize: 14 }}>{mrr > 0 ? '$' + mrr : '—'}</div>
+                      <div style={{ color: comm > 0 ? C.primary : C.muted, fontWeight: 700, fontSize: 14 }}>{comm > 0 ? '$' + comm : t.plan ? '$0' : 'Pending'}</div>
+                      <div style={{ color: C.muted, fontSize: 12 }}>{t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}</div>
+                      <div>{statusDot(t.status)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button onClick={function() {
+              var rows = [['Customer', 'Plan', 'MRR', 'Commission (20%)', 'Status', 'Signup Date']];
+              directCustomersList.forEach(function(t) { var mrr = PLAN_MRR[t.plan] || 0; rows.push([t.name, t.plan || '', mrr, Math.round(mrr * commissionRate), t.status || '', t.created_at || '']); });
+              var csv = rows.map(function(r) { return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+              var blob = new Blob([csv], { type: 'text/csv' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'my_network_' + new Date().toISOString().split('T')[0] + '.csv'; a.click(); URL.revokeObjectURL(url);
+            }} style={Object.assign({}, btnPrimary, { marginTop: 14, padding: '8px 16px', fontSize: 12 })}>📤 Export CSV</button>
           </div>
         )}
 
