@@ -291,6 +291,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [mergeChoices, setMergeChoices] = useState({});
   const [merging, setMerging] = useState(false);
   const [detailStats, setDetailStats] = useState(null);
+  const [showSeqPicker, setShowSeqPicker] = useState(false);
+  const [seqList, setSeqList] = useState([]);
+  const [seqLoading, setSeqLoading] = useState(false);
+  const [seqSelected, setSeqSelected] = useState(null);
+  const [seqEnrolling, setSeqEnrolling] = useState(false);
+  const [seqSearch, setSeqSearch] = useState('');
 
   // Fetch real activity timeline from the database when opening a contact in live mode.
   // In demoMode we fall back to generateActivity(c) so the fixtures still drive the demo.
@@ -1534,7 +1540,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: `${C.primary}11`, border: `1px solid ${C.primary}33`, borderRadius: 10, marginBottom: 12 }}>
               <span style={{ color: C.primary, fontSize: 13, fontWeight: 700 }}>{selectedContacts.length} selected</span>
               <button onClick={function() { var tag = window.prompt('Enter tag to add to ' + selectedContacts.length + ' contact(s):'); if (!tag || !tag.trim()) return; tag = tag.trim(); (async function() { try { for (var si = 0; si < selectedContacts.length; si++) { var cid = selectedContacts[si]; var cr = await supabase.from('contacts').select('tags').eq('id', cid).maybeSingle(); var tags = (cr.data && Array.isArray(cr.data.tags)) ? cr.data.tags : []; if (tags.indexOf(tag) === -1) { tags.push(tag); await supabase.from('contacts').update({ tags: tags }).eq('id', cid); } } alert('Tag "' + tag + '" added to ' + selectedContacts.length + ' contact(s).'); setSelectedContacts([]); fetchContacts(); } catch (e) { alert('Error: ' + e.message); } })(); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🏷️ Add Tag</button>
-              <button onClick={function() { alert('Add to Campaign is coming soon. Use Sequences → Bulk Enrol for now.'); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, opacity: 0.6, cursor: 'not-allowed' }} title="Coming soon — use Sequences for now">🚀 Add to Campaign</button>
+              <button onClick={async function() { setShowSeqPicker(true); setSeqSelected(null); setSeqSearch(''); setSeqLoading(true); try { var r = await supabase.from('sequences').select('id, name, status').eq('tenant_id', resolvedTenantId).in('status', ['active', 'draft']).order('name'); setSeqList(r.data || []); } catch(e) { setSeqList([]); } setSeqLoading(false); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Sequence</button>
               <button onClick={function() { var ids = new Set(selectedContacts); var selected = contacts.filter(function(c) { return ids.has(c.id); }); if (selected.length === 0) return; var headers = ['first_name','last_name','email','phone','company','status','tags']; var csv = headers.join(',') + '\n' + selected.map(function(c) { return [c.firstName || '', c.lastName || '', c.email || '', c.phone || '', c.company || '', c.status || '', (c.tags || []).join(';')].map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n'); var blob = new Blob([csv], { type: 'text/csv' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'contacts_selected_' + selected.length + '.csv'; a.click(); URL.revokeObjectURL(url); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
               {selectedContacts.length >= 2 && (
                 <button onClick={openMergeModal} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#E040FB", borderColor: "rgba(224,64,251,0.35)" }}>🔀 Merge Selected</button>
@@ -1614,6 +1620,91 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               </div>
             );
           })()}
+
+          {/* Sequence Picker Modal */}
+          {showSeqPicker && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={function() { if (!seqEnrolling) setShowSeqPicker(false); }}>
+              <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid ' + C.primary + '44', borderRadius: 14, padding: 24, maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ color: '#fff', margin: 0, fontSize: 16 }}>Add {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} to a sequence</h3>
+                  <button onClick={function() { setShowSeqPicker(false); }} disabled={seqEnrolling} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
+                </div>
+                <input value={seqSearch} onChange={function(e) { setSeqSearch(e.target.value); }} placeholder="Search sequences..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none', marginBottom: 12 }} />
+                {seqLoading ? (
+                  <div style={{ color: C.muted, textAlign: 'center', padding: 20 }}>Loading sequences...</div>
+                ) : seqList.length === 0 ? (
+                  <div style={{ color: C.muted, textAlign: 'center', padding: 20 }}>No sequences found for this tenant.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {seqList.filter(function(s) { return !seqSearch || s.name.toLowerCase().indexOf(seqSearch.toLowerCase()) !== -1; }).map(function(s) {
+                      var isSelected = seqSelected === s.id;
+                      return (
+                        <div key={s.id} onClick={function() { setSeqSelected(s.id); }} style={{ padding: '10px 14px', borderRadius: 8, cursor: 'pointer', background: isSelected ? C.primary + '22' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (isSelected ? C.primary + '66' : 'rgba(255,255,255,0.06)'), transition: 'all 0.15s' }}>
+                          <div style={{ color: isSelected ? C.primary : '#fff', fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                          <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Status: {s.status}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                  <button onClick={function() { setShowSeqPicker(false); }} disabled={seqEnrolling} style={btnSecondary}>Cancel</button>
+                  <button disabled={!seqSelected || seqEnrolling} onClick={async function() {
+                    setSeqEnrolling(true);
+                    var enrolled = 0; var skipped = 0; var noEmail = 0; var created = 0;
+                    try {
+                      var selectedSet = new Set(selectedContacts);
+                      var contactsToEnrol = contacts.filter(function(c) { return selectedSet.has(c.id); });
+                      for (var ci = 0; ci < contactsToEnrol.length; ci++) {
+                        var ct = contactsToEnrol[ci];
+                        var email = (ct.email || '').trim().toLowerCase();
+                        var phone = (ct.phone || '').trim();
+                        if (!email && !phone) { noEmail++; continue; }
+                        // Find or create lead
+                        var leadId = null;
+                        if (email) {
+                          var lr = await supabase.from('leads').select('id').ilike('email', email).eq('tenant_id', resolvedTenantId).maybeSingle();
+                          if (lr.data) leadId = lr.data.id;
+                        }
+                        if (!leadId && phone) {
+                          var pr = await supabase.from('leads').select('id').eq('phone', phone).eq('tenant_id', resolvedTenantId).maybeSingle();
+                          if (pr.data) leadId = pr.data.id;
+                        }
+                        if (!leadId) {
+                          var newLead = await supabase.from('leads').insert({
+                            tenant_id: resolvedTenantId, name: ((ct.firstName || '') + ' ' + (ct.lastName || '')).trim() || email,
+                            email: email || null, phone: phone || null, company: ct.company || null,
+                            source: ct.source || 'contacts', stage: 'inquiry', type: 'Unknown',
+                            last_activity_at: new Date().toISOString(),
+                          }).select('id').single();
+                          if (newLead.data) { leadId = newLead.data.id; created++; }
+                        }
+                        if (!leadId) { noEmail++; continue; }
+                        // Check if already enrolled
+                        var existing = await supabase.from('lead_sequences').select('id, status').eq('lead_id', leadId).eq('sequence_id', seqSelected).maybeSingle();
+                        if (existing.data && existing.data.status === 'active') { skipped++; continue; }
+                        // Enrol (upsert handles re-enrol of completed)
+                        await supabase.from('lead_sequences').upsert({
+                          tenant_id: resolvedTenantId, lead_id: leadId, sequence_id: seqSelected,
+                          status: 'active', current_step: 0, enrolled_at: new Date().toISOString(),
+                          next_step_at: new Date().toISOString(),
+                        }, { onConflict: 'lead_id,sequence_id' });
+                        enrolled++;
+                      }
+                      var seqName = seqList.find(function(s) { return s.id === seqSelected; });
+                      var msg = enrolled + ' contact' + (enrolled !== 1 ? 's' : '') + ' enrolled in ' + (seqName ? seqName.name : 'sequence');
+                      if (skipped > 0) msg += ', ' + skipped + ' skipped (already enrolled)';
+                      if (created > 0) msg += ', ' + created + ' new lead' + (created !== 1 ? 's' : '') + ' created';
+                      if (noEmail > 0) msg += ', ' + noEmail + ' skipped (no email/phone)';
+                      alert(msg);
+                      setShowSeqPicker(false); setSelectedContacts([]);
+                    } catch (e) { alert('Error: ' + e.message); }
+                    setSeqEnrolling(false);
+                  }} style={Object.assign({}, btnPrimary, { opacity: (!seqSelected || seqEnrolling) ? 0.5 : 1 })}>{seqEnrolling ? 'Enrolling...' : 'Enrol ' + selectedContacts.length + ' Contact' + (selectedContacts.length !== 1 ? 's' : '')}</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ display: "grid", gridTemplateColumns: "40px 2fr 2fr 140px 100px 120px 90px 80px 80px", gap: 8, padding: "10px 16px", alignItems: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
