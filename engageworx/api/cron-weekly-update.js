@@ -81,6 +81,13 @@ module.exports = async function handler(req, res) {
   var stamp = weekStamp();
 
   try {
+    // 0. Idempotency — skip if a draft already exists for this week
+    var existingDraft = await supabase.from('platform_updates').select('id').is('published_at', null).gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()).maybeSingle();
+    if (existingDraft.data) {
+      console.log('[WeeklyUpdate] Draft already exists for this week:', existingDraft.data.id, '— skipping');
+      return res.status(200).json({ skipped: true, reason: 'draft_exists', existing_id: existingDraft.data.id });
+    }
+
     // 1. Pull recent release notes (preferred) or fall back to GitHub API
     var releaseNotes = [];
     try {
