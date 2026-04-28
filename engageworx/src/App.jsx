@@ -1117,7 +1117,7 @@ setDemoCreating(false);
                             if (d.already_member) {
                               alert('ℹ️ ' + email + ' is already a member of ' + (d.tenant_name || 'this tenant') + '.');
                             } else if (d.invited) {
-                              alert('✅ ' + (d.full_name || email) + ' added as ' + role + '.\n\nTemp password: ' + (d.temp_password || '(check email)') + '\n\nThey can log in immediately at the portal.');
+                              alert('✅ ' + (d.full_name || email) + ' added as ' + role + '.\n\nTemp password: ' + (d.temp_password || '(check email)') + '\n\n' + (d.welcome_email_sent ? 'Welcome email sent to ' + email + '.' : 'Welcome email not sent — share the credentials manually.') + '\n\nThey can log in immediately at the portal.');
                             } else {
                               alert('✅ ' + (d.full_name || email) + ' added to ' + (d.tenant_name || 'this tenant') + ' as ' + role + '.');
                             }

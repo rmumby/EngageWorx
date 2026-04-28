@@ -202,7 +202,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       if (d.already_member) {
         alert('ℹ️ ' + inviteEmail + ' is already a member.');
       } else if (d.invited && d.temp_password) {
-        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.\n\nTemp password: ' + d.temp_password + '\n\nThey can log in immediately.');
+        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.\n\nTemp password: ' + d.temp_password + '\n\n' + (d.welcome_email_sent ? 'Welcome email sent.' : 'Welcome email not sent — share credentials manually.') + '\n\nThey can log in immediately.');
       } else {
         alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.');
       }
