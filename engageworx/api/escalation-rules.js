@@ -50,6 +50,8 @@ module.exports = async function handler(req, res) {
         action_config: body.action_config || {},
         priority: body.priority !== undefined ? body.priority : 10,
         active: body.active !== undefined ? body.active : true,
+        nl_description: body.nl_description || null,
+        rule_config: body.rule_config || null,
       }).select('*').single();
       if (ins.error) return res.status(500).json({ error: ins.error.message });
       console.log('📝 Escalation rule saved:', { tenant: body.tenant_id, ruleId: ins.data.id, action: 'create' });
@@ -69,6 +71,8 @@ module.exports = async function handler(req, res) {
     if (body.action_config !== undefined) patch.action_config = body.action_config;
     if (body.priority !== undefined) patch.priority = body.priority;
     if (body.active !== undefined) patch.active = body.active;
+    if (body.nl_description !== undefined) patch.nl_description = body.nl_description;
+    if (body.rule_config !== undefined) patch.rule_config = body.rule_config;
     patch.updated_at = new Date().toISOString();
     try {
       var upd = await supabase.from('escalation_rules').update(patch).eq('id', body.id);

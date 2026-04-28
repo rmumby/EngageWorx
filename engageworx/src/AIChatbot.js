@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
+import EscalationRulesConfig from "./EscalationRulesConfig";
 
 const PERSONALITIES = [
   { id: "professional", name: "Professional", icon: "👔", desc: "Formal, business-appropriate tone", temp: 0.3, greeting: "Hello! Thank you for reaching out. How may I assist you today?" },
@@ -95,6 +96,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [escLoading, setEscLoading] = useState(false);
   const [escSaving, setEscSaving] = useState(null);
   const [escModal, setEscModal] = useState(null);
+  const [showAIEscBuilder, setShowAIEscBuilder] = useState(false);
   const [escError, setEscError] = useState(null);
   const [escTeamMembers, setEscTeamMembers] = useState([]);
 
@@ -693,14 +695,50 @@ saveAIConfig(newSources);
           )}
 
           {/* ESCALATION RULES TAB */}
-          {activeTab === "escalation" && (
+          {activeTab === "escalation" && showAIEscBuilder && (
+            <div style={{ height: 'calc(100vh - 200px)' }}>
+              <EscalationRulesConfig
+                tenantId={currentTenantId}
+                colors={C}
+                onCancel={function () { setShowAIEscBuilder(false); }}
+                onSave={async function (nlSummary, structuredConfig) {
+                  try {
+                    var res = await fetch('/api/escalation-rules', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        tenant_id: currentTenantId,
+                        rule_name: structuredConfig.rule_name || 'AI-configured rule',
+                        description: structuredConfig.description || '',
+                        trigger_type: structuredConfig.trigger_type || 'keyword',
+                        trigger_config: structuredConfig.trigger_config || {},
+                        action_type: structuredConfig.action_type || 'notify_admin',
+                        action_config: structuredConfig.action_config || {},
+                        priority: structuredConfig.priority || 10,
+                        active: structuredConfig.active !== false,
+                        nl_description: nlSummary,
+                        rule_config: structuredConfig,
+                      }),
+                    });
+                    if (!res.ok) { var d = await res.json(); throw new Error(d.error || 'Save failed'); }
+                    setShowAIEscBuilder(false);
+                    loadEscalationRules();
+                  } catch (e) { throw e; }
+                }}
+              />
+            </div>
+          )}
+          {activeTab === "escalation" && !showAIEscBuilder && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
                   <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Escalation Rules</h2>
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the bot should hand off to a human agent</p>
                 </div>
-                <button onClick={function() { setEscModal({ rule_name: '', description: '', trigger_type: 'keyword', trigger_config: { keywords: [] }, action_type: 'notify_admin', action_config: {}, priority: 10, active: true, _isNew: true }); }} style={btnPrimary}>+ Add Rule</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={function() { setShowAIEscBuilder(true); }} style={{ background: 'linear-gradient(135deg, #7C4DFF, #E040FB)', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>⚙️ Configure with AI</button>
+                  <button onClick={function() { setEscModal({ rule_name: '', description: '', trigger_type: 'keyword', trigger_config: { keywords: [] }, action_type: 'notify_admin', action_config: {}, priority: 10, active: true, _isNew: true }); }} style={btnPrimary}>+ Add Rule</button>
+                </div>
               </div>
               {escError && <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '8px 12px', color: '#FF3B30', fontSize: 12, marginBottom: 12 }}>{escError}</div>}
               {escLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading rules...</div> : (
