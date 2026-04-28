@@ -107,27 +107,47 @@ module.exports = async function handler(req, res) {
           });
         }
 
-        // Enrol in abandoned checkout sequence
+        // Enrol in abandoned checkout sequence (cancel-and-replace if needed)
         if (seqId) {
-          const { data: firstStep } = await supabase
-            .from('sequence_steps')
-            .select('delay_days')
-            .eq('sequence_id', seqId)
-            .eq('step_number', 1)
-            .single();
-          const startDate = new Date();
-          if (firstStep?.delay_days > 0) {
-            startDate.setDate(startDate.getDate() + firstStep.delay_days);
+          try {
+            // Check for existing active enrollment
+            var existingEnrol = await supabase.from('lead_sequences').select('id, sequence_id, sequences(name)').eq('lead_id', leadId).eq('status', 'active').maybeSingle();
+            if (existingEnrol.data && existingEnrol.data.sequence_id === seqId) {
+              console.log('[Cron] Lead', leadId, 'already enrolled in recovery sequence — skipping');
+            } else {
+              if (existingEnrol.data) {
+                var oldName = (existingEnrol.data.sequences && existingEnrol.data.sequences.name) || 'unknown';
+                await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', existingEnrol.data.id);
+                console.log('[cron-signup-recovery] Cancelled existing enrollment in', oldName, 'for lead', leadId, 'to make room for recovery');
+                // Audit log
+                try {
+                  await supabase.from('lead_sequence_events').insert({ tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: existingEnrol.data.sequence_id, event_type: 'cancelled', reason: 'Replaced by Abandoned Checkout Recovery (more specific to lead state)' });
+                } catch (logErr) { console.warn('[cron-signup-recovery] Audit log error:', logErr.message); }
+              }
+              const { data: firstStep } = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqId).eq('step_number', 1).maybeSingle();
+              const startDate = new Date();
+              if (firstStep && firstStep.delay_days > 0) startDate.setDate(startDate.getDate() + firstStep.delay_days);
+              var enrolResult = await supabase.from('lead_sequences').upsert({
+                tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId,
+                current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: startDate.toISOString(),
+              }, { onConflict: 'lead_id,sequence_id' });
+              if (enrolResult.error) throw enrolResult.error;
+              // Audit log
+              try {
+                await supabase.from('lead_sequence_events').insert({ tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId, event_type: 'enrolled', reason: 'Orphan signup detected — abandoned checkout recovery' });
+              } catch (logErr) { console.warn('[cron-signup-recovery] Audit log error:', logErr.message); }
+            }
+          } catch (enrolErr) {
+            console.error('[cron-signup-recovery] Enrol error for lead', leadId, ':', enrolErr.message);
+            // Notify admin on trigger failure
+            try {
+              if (process.env.SENDGRID_API_KEY) {
+                var sgNotify = require('@sendgrid/mail');
+                sgNotify.setApiKey(process.env.SENDGRID_API_KEY);
+                await sgNotify.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Cron] Signup recovery enrol failed — ' + user.email, html: '<p>Lead ID: ' + leadId + '</p><p>Email: ' + user.email + '</p><p>Error: ' + enrolErr.message + '</p>' });
+              }
+            } catch (notifyErr) {}
           }
-          await supabase.from('lead_sequences').upsert({
-            tenant_id: SP_TENANT_ID,
-            lead_id: leadId,
-            sequence_id: seqId,
-            current_step: 0,
-            status: 'active',
-            enrolled_at: new Date().toISOString(),
-            next_step_at: startDate.toISOString(),
-          }, { onConflict: 'lead_id,sequence_id' });
         }
 
         // Send recovery email via SendGrid
