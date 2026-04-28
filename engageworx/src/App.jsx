@@ -1229,6 +1229,30 @@ setDemoCreating(false);
                     <div style={{ display: "flex", gap: 10 }}>
                       <button onClick={() => handleSaveTenantConfig(c)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                       <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: "rgba(124,77,255,0.13)", border: "1px solid rgba(124,77,255,0.27)", borderRadius: 8, padding: "8px 18px", color: "#7C4DFF", fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
+                      <button onClick={async function() {
+                        var roleChoice = window.prompt('Add a linked role for ' + c.name + '.\n\nEnter the new role (direct, agent, master_agent):');
+                        if (!roleChoice || !roleChoice.trim()) return;
+                        roleChoice = roleChoice.trim().toLowerCase();
+                        if (['direct', 'agent', 'master_agent'].indexOf(roleChoice) === -1) { alert('Invalid role. Must be: direct, agent, or master_agent.'); return; }
+                        var parentChoice = window.prompt('Enter the parent tenant ID for the new role (or leave blank for same parent):');
+                        try {
+                          var legalEntityId = c.legal_entity_id || c.id;
+                          var newSlug = c.name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + roleChoice + '-' + Date.now();
+                          var ins = await supabase.from('tenants').insert({
+                            name: c.name, brand_name: c.brand_name || c.name, slug: newSlug,
+                            plan: c.plan, status: 'trial', customer_type: roleChoice, tenant_type: roleChoice,
+                            legal_entity_id: legalEntityId, contract_type: roleChoice === 'direct' ? 'tenant_subscription' : roleChoice + '_referral',
+                            parent_tenant_id: parentChoice || c.parent_tenant_id, parent_entity_id: parentChoice || c.parent_entity_id,
+                            brand_primary: c.brand_primary, brand_secondary: c.brand_secondary,
+                            channels_enabled: c.channels_enabled || ['sms', 'email'],
+                          }).select('id').single();
+                          if (ins.error) throw ins.error;
+                          // Ensure source tenant has legal_entity_id set
+                          if (!c.legal_entity_id) await supabase.from('tenants').update({ legal_entity_id: legalEntityId }).eq('id', c.id);
+                          alert('✅ New ' + roleChoice + ' role created for ' + c.name + ' (ID: ' + ins.data.id + ')');
+                          window.location.reload();
+                        } catch (e) { alert('Error: ' + e.message); }
+                      }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 14px', color: C.muted, fontWeight: 600, cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }} title="Create another tenant row with a different role for the same legal entity">+ Add Linked Role</button>
                       <button onClick={() => setConfiguringTenant(null)} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
                   </div>

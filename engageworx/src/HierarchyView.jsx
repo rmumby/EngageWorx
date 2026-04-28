@@ -31,7 +31,7 @@ export default function HierarchyView({ C, onDrillDown }) {
   async function load() {
     setLoading(true);
     try {
-      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, parent_tenant_id, referred_by, plan, status').order('name');
+      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, parent_tenant_id, referred_by, plan, status, legal_entity_id, contract_type').order('name');
       // Normalize: use parent_tenant_id (preferred) or parent_entity_id as the canonical parent
       var normalized = (res.data || []).map(function(t) {
         return Object.assign({}, t, { _parent: t.parent_tenant_id || t._parent || null, _type: t.customer_type || t.tenant_type || t.entity_tier || 'tenant' });
@@ -171,7 +171,8 @@ export default function HierarchyView({ C, onDrillDown }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
             <div style={{ color: colors.muted, fontSize: 11, marginTop: 2, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <span>{t.plan || 'no plan'} · {t.status || 'inactive'}</span>
+              <span>{t.plan || 'no plan'} · {t.status || 'inactive'}{t.contract_type ? ' · ' + t.contract_type.replace(/_/g, ' ') : ''}</span>
+              {t.legal_entity_id && allTenants.filter(function(x) { return x.legal_entity_id === t.legal_entity_id; }).length > 1 && <span style={{ color: '#a5b4fc', fontSize: 10, background: 'rgba(165,180,252,0.1)', border: '1px solid rgba(165,180,252,0.3)', borderRadius: 4, padding: '0 4px' }}>🔗 multi-role</span>}
               {ownMrr > 0 && <span style={{ color: '#10b981' }}>${ownMrr}/mo</span>}
               {kids.length > 0 && !isOpen && <span style={{ color: '#a5b4fc' }}>📁 {roll.count} underneath</span>}
               {roll.mrr > 0 && <span style={{ color: '#10b981' }}>+ ${roll.mrr.toLocaleString()} rollup MRR</span>}

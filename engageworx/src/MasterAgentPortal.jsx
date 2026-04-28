@@ -81,9 +81,11 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
       var allChildren = await supabase.from('tenants').select('*').or('parent_tenant_id.eq.' + masterAgentTenantId + ',parent_entity_id.eq.' + masterAgentTenantId).order('created_at', { ascending: false });
       var childList = allChildren.data || [];
 
-      // Split into agents vs direct customers
-      var agentList = childList.filter(function(t) { return t.entity_tier === 'agent' || t.customer_type === 'agent' || t.tenant_type === 'agent'; });
-      var directCustomers = childList.filter(function(t) { return agentList.indexOf(t) === -1; });
+      // Split into agents (including master_agents) vs direct customers
+      var agentTypes = ['agent', 'master_agent'];
+      var agentList = childList.filter(function(t) { return agentTypes.indexOf(t.customer_type) !== -1 || agentTypes.indexOf(t.entity_tier) !== -1 || agentTypes.indexOf(t.tenant_type) !== -1; });
+      var agentIdSet = new Set(agentList.map(function(a) { return a.id; }));
+      var directCustomers = childList.filter(function(t) { return !agentIdSet.has(t.id); });
       setAgents(agentList);
       setDirectCustomersList(directCustomers);
 
