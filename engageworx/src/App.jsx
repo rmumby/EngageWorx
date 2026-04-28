@@ -929,14 +929,11 @@ setDemoCreating(false);
                 {/* Inline Configure Panel */}
                 {isConfiguring && (
                   <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.primary}33`, borderRadius: "0 0 12px 12px", borderTop: "none", padding: "20px 24px", marginTop: -1 }}>
+                    <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700, marginBottom: 8 }}>⚙️ Configuration</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Tenant Name</div>
-                        <input defaultValue={c.name} style={inputStyleTM} />
-                      </div>
-                      <div>
-                        <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Admin Email</div>
-                        <input defaultValue={`admin@${c.name.toLowerCase().replace(/\s/g, "")}.com`} style={inputStyleTM} />
+                        <input defaultValue={c.name} data-field={"tenant_name_" + c.id} onBlur={async function(e) { var v = e.target.value.trim(); if (v && v !== c.name) { await supabase.from('tenants').update({ name: v, brand_name: v }).eq('id', c.id); c.name = v; } }} style={inputStyleTM} />
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
