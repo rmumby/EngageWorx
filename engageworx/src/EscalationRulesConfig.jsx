@@ -67,7 +67,8 @@ var SYSTEM_PROMPT_SLICE = [
   '1. What situation should trigger escalation',
   '2. How urgent it is (helps set priority)',
   '3. What should happen — notify, transfer, ticket, or tag',
-  '4. Which notification channels (if relevant)',
+  '4. WHO should be notified — use type "recipient_picker" to let the user select team members.',
+  '   Always use recipient_picker for notification routing. Never ask for names/emails as free text.',
 ].join('\n');
 
 function escalationExampleGenerator(config) {

@@ -1894,7 +1894,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, passwordRecovery } = useAuth();
+  const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, isNotificationOnly, passwordRecovery } = useAuth();
   const { t: tSP } = useTranslation();
   
   // Default to production mode (demo off) on first load
@@ -2185,6 +2185,25 @@ var spNavBase = [
         {breadcrumb}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible' }}>
           {inner}
+        </div>
+      </div>
+    );
+  }
+
+  // Notification-only gate — these users are routing targets, not portal users
+  if (isAuthenticated && isNotificationOnly) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#080d1a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+        <div style={{ textAlign: "center", maxWidth: 420, padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔔</div>
+          <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Notification-Only Account</div>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            Your account is set up to receive notifications (escalation alerts, etc.) but does not have portal access.
+            If you need full access, ask your team admin to upgrade your role.
+          </div>
+          <button onClick={handleLogout} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "10px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>
+            Sign Out
+          </button>
         </div>
       </div>
     );

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { ChatThread, ChatInput } from './chat';
 
@@ -52,6 +52,47 @@ export default function AIConfigBuilder({
   var [lastResponse, setLastResponse] = useState(null);
   var [selectedOptions, setSelectedOptions] = useState([]);
   var [saving, setSaving] = useState(false);
+
+  // Team members for recipient_picker
+  var [teamMembers, setTeamMembers] = useState([]);
+  var [selectedRecipients, setSelectedRecipients] = useState([]);
+  var [showAddNew, setShowAddNew] = useState(false);
+  var [newMemberForm, setNewMemberForm] = useState({ full_name: '', email: '', phone_number: '' });
+  var [addingMember, setAddingMember] = useState(false);
+
+  useEffect(function () {
+    if (!tenantId) return;
+    (async function () {
+      try {
+        var { data: members } = await supabase
+          .from('tenant_members')
+          .select('user_id, role, notify_email, notify_on_escalation')
+          .eq('tenant_id', tenantId)
+          .eq('status', 'active');
+        if (!members || members.length === 0) { setTeamMembers([]); return; }
+        var userIds = members.map(function (m) { return m.user_id; });
+        var { data: profiles } = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, phone_number')
+          .in('id', userIds);
+        var profileMap = {};
+        (profiles || []).forEach(function (p) { profileMap[p.id] = p; });
+        setTeamMembers(members.map(function (m) {
+          var p = profileMap[m.user_id] || {};
+          return {
+            id: m.user_id,
+            full_name: p.full_name || p.email || 'Unknown',
+            email: m.notify_email || p.email || '',
+            phone_number: p.phone_number || '',
+            role: m.role,
+            notify_on_escalation: m.notify_on_escalation,
+          };
+        }));
+      } catch (e) {
+        console.warn('[AIConfigBuilder] team members load error:', e.message);
+      }
+    })();
+  }, [tenantId]);
 
   // Send a message to the AI config builder API
   var sendMessage = useCallback(async function (userContent) {
@@ -346,11 +387,170 @@ export default function AIConfigBuilder({
     };
   }
 
+  // ── Recipient picker ───────────────────────────────────────────────
+  function toggleRecipient(member) {
+    setSelectedRecipients(function (prev) {
+      return prev.find(function (r) { return r.id === member.id; })
+        ? prev.filter(function (r) { return r.id !== member.id; })
+        : prev.concat([member]);
+    });
+  }
+
+  async function handleAddNewMember() {
+    if (!newMemberForm.full_name.trim()) return;
+    if (!newMemberForm.email.trim() && !newMemberForm.phone_number.trim()) return;
+    setAddingMember(true);
+    try {
+      var session = (await supabase.auth.getSession()).data.session;
+      var res = await fetch('/api/team-members/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          full_name: newMemberForm.full_name.trim(),
+          email: newMemberForm.email.trim(),
+          phone_number: newMemberForm.phone_number.trim(),
+          notify_channels: [
+            newMemberForm.email.trim() ? 'email' : null,
+            newMemberForm.phone_number.trim() ? 'sms' : null,
+          ].filter(Boolean),
+        }),
+      });
+      if (!res.ok) { var d = await res.json(); throw new Error(d.error || 'Failed'); }
+      var data = await res.json();
+      var newMember = {
+        id: data.member.id,
+        full_name: data.member.full_name,
+        email: data.member.email || '',
+        phone_number: data.member.phone_number || '',
+        role: 'notification_only',
+        notify_on_escalation: true,
+      };
+      setTeamMembers(function (prev) { return prev.concat([newMember]); });
+      setSelectedRecipients(function (prev) { return prev.concat([newMember]); });
+      setShowAddNew(false);
+      setNewMemberForm({ full_name: '', email: '', phone_number: '' });
+    } catch (err) {
+      setError('Add member failed: ' + err.message);
+    }
+    setAddingMember(false);
+  }
+
+  function submitRecipientSelection() {
+    if (selectedRecipients.length === 0) return;
+    var desc = selectedRecipients.map(function (r) {
+      var channels = [];
+      if (r.email) channels.push('email: ' + r.email);
+      if (r.phone_number) channels.push('SMS: ' + r.phone_number);
+      return r.full_name + ' (' + (channels.join(', ') || 'no contact info') + ')';
+    }).join('; ');
+    sendMessage('Route notifications to: ' + desc);
+    setSelectedRecipients([]);
+  }
+
+  function renderRecipientPicker() {
+    return (
+      <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Select team members to notify
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+          {teamMembers.map(function (m) {
+            var isSelected = selectedRecipients.find(function (r) { return r.id === m.id; });
+            return (
+              <button key={m.id} onClick={function () { toggleRecipient(m); }} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
+                background: isSelected ? primary + '18' : 'rgba(255,255,255,0.03)',
+                border: '1px solid ' + (isSelected ? primary + '44' : 'rgba(255,255,255,0.06)'),
+                borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                fontFamily: "'DM Sans', sans-serif", transition: 'all 0.15s',
+              }}>
+                <span style={{ color: isSelected ? primary : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                  {isSelected ? '☑' : '☐'}
+                </span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{m.full_name}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+                    {m.role === 'notification_only' ? '🔔 Notification only' : m.role}
+                    {m.email ? ' · ' + m.email : ''}
+                    {m.phone_number ? ' · ' + m.phone_number : ''}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+
+          {/* Add someone new */}
+          {!showAddNew ? (
+            <button onClick={function () { setShowAddNew(true); }} style={{
+              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+              background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)',
+              borderRadius: 8, cursor: 'pointer', color: primary, fontSize: 13,
+              fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+            }}>
+              + Add someone new
+            </button>
+          ) : (
+            <div style={{
+              padding: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              <input
+                value={newMemberForm.full_name}
+                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { full_name: e.target.value })); }}
+                placeholder="Full name *"
+                style={pickerInput}
+              />
+              <input
+                value={newMemberForm.email}
+                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { email: e.target.value })); }}
+                placeholder="Email"
+                style={pickerInput}
+              />
+              <input
+                value={newMemberForm.phone_number}
+                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { phone_number: e.target.value })); }}
+                placeholder="Phone number"
+                style={pickerInput}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleAddNewMember} disabled={addingMember || !newMemberForm.full_name.trim()} style={actionBtn(primary)}>
+                  {addingMember ? 'Adding...' : 'Add'}
+                </button>
+                <button onClick={function () { setShowAddNew(false); }} style={actionBtn('rgba(255,255,255,0.08)')}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Confirm selection */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button onClick={submitRecipientSelection} disabled={selectedRecipients.length === 0} style={{
+            ...actionBtn(primary),
+            opacity: selectedRecipients.length === 0 ? 0.4 : 1,
+            cursor: selectedRecipients.length === 0 ? 'not-allowed' : 'pointer',
+          }}>
+            Confirm ({selectedRecipients.length})
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  var pickerInput = {
+    width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 6, padding: '8px 10px', color: '#fff', fontSize: 12,
+    fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box',
+  };
+
   // Determine what rich UI to show below the thread
   var richUI = null;
   if (lastResponse && !isLoading) {
     if (lastResponse.type === 'expansion') richUI = renderExpansion(lastResponse);
     if (lastResponse.type === 'proposal' || lastResponse.type === 'final') richUI = renderProposal(lastResponse);
+    if (lastResponse.type === 'recipient_picker') richUI = renderRecipientPicker();
   }
 
   return (

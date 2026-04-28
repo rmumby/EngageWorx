@@ -211,6 +211,7 @@ export function AuthProvider({ children }) {
   };
 
   const isAuthenticated = !!user && !!session;
+  const isNotificationOnly = profile?.role === 'notification_only';
   const isSuperAdmin = profile?.role === 'superadmin' || profile?.role === 'super_admin' || profile?.role === 'sp_admin';
   if (profile && profile.role) console.log('[Auth] role=' + profile.role + ' isSuperAdmin=' + (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin'));
   const isCSP = profile?.tenant_type === 'csp';
@@ -224,7 +225,7 @@ export function AuthProvider({ children }) {
       user, session, profile, setProfile, loading,
       demoMode, toggleDemoMode,
       signIn, signUp, signOut, resetPassword, updatePassword,
-      authError, isAuthenticated, isSuperAdmin, isCSP, cspTenantId,
+      authError, isAuthenticated, isNotificationOnly, isSuperAdmin, isCSP, cspTenantId,
       entityTier, isMasterAgent, isAgent, passwordRecovery,
     }}>
       {children}

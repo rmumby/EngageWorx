@@ -258,14 +258,17 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{m.full_name}</div>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}</div>
+                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
+                      {m.full_name}
+                      {m.role === 'notification_only' && <span style={{ marginLeft: 8, background: 'rgba(255,165,0,0.15)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, color: '#FFA500' }}>NOTIFY ONLY</span>}
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}{m.role === 'notification_only' ? ' · No portal access' : ''}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {editable && <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ Edit</button>}
                     {editable ? (
                       <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
-                        <option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option>
+                        <option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option><option value="notification_only">Notification Only</option>
                       </select>
                     ) : <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>}
                     {editable && <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>}
