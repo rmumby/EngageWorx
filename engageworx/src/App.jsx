@@ -32,6 +32,7 @@ import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
 import CustomerSuccessDashboard from './CustomerSuccessDashboard';
 import PlatformUpdates from './PlatformUpdates';
+import StreamingTest from './StreamingTest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
@@ -1617,13 +1618,15 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [entityTier, setEntityTier] = useState('tenant');
+  const [customerType, setCustomerType] = useState('');
   const [cspDrillTenant, setCspDrillTenant] = useState(null);
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier').eq('id', tenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier, customer_type').eq('id', tenantId).maybeSingle();
         if (data && data.entity_tier) setEntityTier(data.entity_tier);
+        if (data && data.customer_type) setCustomerType(data.customer_type);
         const isSuper = cpAuth && cpAuth.profile && cpAuth.profile.role === 'superadmin';
         if (!isSuper && data && data.aup_accepted && !data.onboarding_completed) setNeedsOnboarding(true);
       } catch (e) {}
@@ -1678,6 +1681,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "branding", label: t('nav.branding'), icon: "🎨" },
     { id: "sms-registration", label: t('nav.smsRegistration'), icon: "📋" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
+    customerType === 'internal' ? { id: "streaming-test", label: "Streaming Test", icon: "🧪" } : null,
   ].filter(Boolean);
 
   if (needsOnboarding) {
@@ -1783,6 +1787,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} onNavigate={setPage} />}
         {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} userProfile={cpAuth && cpAuth.profile} />}
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
+        {page === "streaming-test" && customerType === 'internal' && <StreamingTest tenantId={tenantId} C={C} />}
         {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && (
