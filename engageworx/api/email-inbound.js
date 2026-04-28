@@ -328,16 +328,22 @@ async function analyzeAndActionEmail(ctx) {
     // 7. Auto-enroll sequence if Claude named one
     if (decision.action === 'enroll_sequence' && match.leadId && decision.sequence_name && match.tenantId) {
       try {
-        var seq = await supabase.from('sequences').select('id').eq('tenant_id', match.tenantId).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
-        if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
-        if (seq.data) {
-          var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
-          var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
-          await supabase.from('lead_sequences').upsert({
-            tenant_id: match.tenantId, lead_id: match.leadId, sequence_id: seq.data.id,
-            current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
-          }, { onConflict: 'lead_id,sequence_id' });
-          if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+        // Skip if lead already has an active sequence
+        var existingActive = await supabase.from('lead_sequences').select('id, sequences(name)').eq('lead_id', match.leadId).eq('status', 'active').maybeSingle();
+        if (existingActive.data) {
+          console.log('[EmailAI] Skipping enrol — lead already in active sequence:', (existingActive.data.sequences && existingActive.data.sequences.name) || existingActive.data.id);
+        } else {
+          var seq = await supabase.from('sequences').select('id').eq('tenant_id', match.tenantId).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
+          if (!seq.data) seq = await supabase.from('sequences').select('id').eq('tenant_id', (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).ilike('name', '%' + decision.sequence_name + '%').limit(1).maybeSingle();
+          if (seq.data) {
+            var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
+            var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
+            await supabase.from('lead_sequences').upsert({
+              tenant_id: match.tenantId, lead_id: match.leadId, sequence_id: seq.data.id,
+              current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
+            }, { onConflict: 'lead_id,sequence_id' });
+            if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+          }
         }
       } catch (seqErr) { console.warn('[EmailAI] Sequence enrol error:', seqErr.message); }
     }

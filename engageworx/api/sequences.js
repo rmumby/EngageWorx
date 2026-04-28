@@ -403,6 +403,13 @@ module.exports = async function handler(req, res) {
     if (seqCheck.data && seqCheck.data.deleted_at) return res.status(400).json({ error: 'Sequence has been deleted' });
     if (seqCheck.data && seqCheck.data.paused_at) return res.status(400).json({ error: 'Sequence is paused — resume before enrolling' });
 
+    // Block if lead already has an active sequence enrollment
+    var activeCheck = await supabase.from('lead_sequences').select('id, sequences(name)').eq('lead_id', lead_id).eq('status', 'active').maybeSingle();
+    if (activeCheck.data) {
+      var activeName = (activeCheck.data.sequences && activeCheck.data.sequences.name) || 'another sequence';
+      return res.status(400).json({ error: 'Lead is already enrolled in "' + activeName + '". Cancel or complete that enrollment first.' });
+    }
+
     var firstStepRes = await supabase
       .from('sequence_steps')
       .select('delay_days')
