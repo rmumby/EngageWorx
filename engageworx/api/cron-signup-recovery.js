@@ -48,8 +48,20 @@ module.exports = async function handler(req, res) {
       .limit(1);
     const seqId = abandonSeqs && abandonSeqs[0] ? abandonSeqs[0].id : null;
 
+    var MAX_AGE_DAYS = 14;
+    var staleOrphans = [];
+
     for (const user of (orphanUsers || [])) {
       try {
+        // GUARD 2: Max lead age for recovery
+        var signupAge = (Date.now() - new Date(user.created_at).getTime()) / 86400000;
+        if (signupAge > MAX_AGE_DAYS) {
+          console.log('[Cron] Skipping', user.email, '— signup', Math.round(signupAge), 'days old (max', MAX_AGE_DAYS + ')');
+          staleOrphans.push({ email: user.email, age: Math.round(signupAge), created_at: user.created_at });
+          results.skipped++;
+          continue;
+        }
+
         // Find or create Pipeline lead
         const { data: existing } = await supabase
           .from('leads')
@@ -185,9 +197,21 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Send summary email for stale orphans
+    if (staleOrphans.length > 0 && process.env.SENDGRID_API_KEY) {
+      try {
+        var sgSummary = require('@sendgrid/mail');
+        sgSummary.setApiKey(process.env.SENDGRID_API_KEY);
+        var listHtml = staleOrphans.map(function(s) { return '<tr><td style="padding:4px 8px;">' + s.email + '</td><td style="padding:4px 8px;">' + s.age + ' days</td><td style="padding:4px 8px;">' + new Date(s.created_at).toLocaleDateString() + '</td></tr>'; }).join('');
+        await sgSummary.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Cron] ' + staleOrphans.length + ' stale orphan signup(s) need manual review', html: '<div style="font-family:Arial,sans-serif;"><p>These signups are older than ' + MAX_AGE_DAYS + ' days and were skipped by the recovery cron. Review and decide whether to reach out manually or archive.</p><table style="border-collapse:collapse;font-size:13px;"><tr style="background:#f1f5f9;"><th style="padding:6px 8px;text-align:left;">Email</th><th style="padding:6px 8px;">Age</th><th style="padding:6px 8px;">Signed Up</th></tr>' + listHtml + '</table></div>' });
+        console.log('[Cron] Stale orphans summary sent:', staleOrphans.length);
+      } catch (summaryErr) { console.warn('[Cron] Stale orphan summary email error:', summaryErr.message); }
+    }
+
     return res.status(200).json({
       success: true,
       ...results,
+      stale_orphans: staleOrphans.length,
       seqId,
       timestamp: new Date().toISOString(),
     });

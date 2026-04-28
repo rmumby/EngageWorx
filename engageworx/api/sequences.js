@@ -244,6 +244,32 @@ async function processDueSteps(supabase) {
       var tenantRes = await supabase.from('tenants').select('id, name').eq('id', sequence.tenant_id).single();
       var tenant = tenantRes.data;
 
+      // GUARD 1: Max touches in time window (2 emails per 7 days)
+      var MAX_EMAILS_PER_WINDOW = 2;
+      var WINDOW_DAYS = 7;
+      if (step.channel === 'email' && lead.email) {
+        try {
+          var windowStart = new Date(Date.now() - WINDOW_DAYS * 86400000).toISOString();
+          var recentSends = await supabase.from('sent_emails').select('id', { count: 'exact', head: true }).eq('to_email', lead.email.toLowerCase()).gte('sent_at', windowStart);
+          var recentCount = recentSends.count || 0;
+          if (recentCount >= MAX_EMAILS_PER_WINDOW) {
+            console.log('[Sequences] ⏸ Max touches exceeded for', lead.email, '(' + recentCount + '/' + MAX_EMAILS_PER_WINDOW + ' in ' + WINDOW_DAYS + 'd) — pausing enrollment');
+            await supabase.from('lead_sequences').update({ status: 'paused' }).eq('id', enrolment.id);
+            try {
+              await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'paused', reason: 'Max ' + MAX_EMAILS_PER_WINDOW + ' emails per ' + WINDOW_DAYS + ' days exceeded (' + recentCount + ' recent sends)' });
+            } catch (logErr) {}
+            try {
+              if (process.env.SENDGRID_API_KEY) {
+                var sgNotify = require('@sendgrid/mail');
+                sgNotify.setApiKey(process.env.SENDGRID_API_KEY);
+                await sgNotify.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Sequences] Rate limit paused: ' + lead.email, html: '<p>Lead ' + lead.email + ' paused — ' + recentCount + ' emails sent in last ' + WINDOW_DAYS + ' days.</p><p>Sequence: ' + sequence.name + ', Step ' + nextStepNumber + '</p>' });
+              }
+            } catch (notifyErr) {}
+            continue;
+          }
+        } catch (guardErr) { console.warn('[Sequences] Guard check error:', guardErr.message); }
+      }
+
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
 
       if (sent && sent.refused) {
@@ -253,6 +279,10 @@ async function processDueSteps(supabase) {
       }
 
       if (sent) {
+        // Track send in sent_emails
+        try {
+          await supabase.from('sent_emails').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, to_email: (lead.email || '').toLowerCase(), subject: step.subject || '', source: 'sequence', sequence_id: sequence.id });
+        } catch (trackErr) { console.warn('[Sequences] sent_emails track error:', trackErr.message); }
         var nextStepRes = await supabase
           .from('sequence_steps')
           .select('delay_days')
