@@ -7,7 +7,7 @@
  *
  * NOT a production component — remove or gate behind admin flag after Phase 2 verification.
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChatThread, ChatInput } from './components/chat';
 import useClaudeStream from './hooks/useClaudeStream';
 
@@ -36,15 +36,17 @@ export default function StreamingTest({ tenantId, C = {} }) {
     setInputValue('');
   }
 
-  // Map to unified shape (useClaudeStream already returns {role, content})
-  var threadMessages = messages.map(function (m, i) {
-    return {
-      id: i,
-      role: m.role,
-      content: m.content,
-      metadata: m.role === 'assistant' ? { botName: 'Claude', avatar: '🤖' } : {},
-    };
-  });
+  // Map to unified shape — memoize so slider/prompt changes don't trigger scroll
+  var threadMessages = useMemo(function () {
+    return messages.map(function (m, i) {
+      return {
+        id: i,
+        role: m.role,
+        content: m.content,
+        metadata: m.role === 'assistant' ? { botName: 'Claude', avatar: '🤖' } : {},
+      };
+    });
+  }, [messages]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: "'DM Sans', sans-serif" }}>
