@@ -50,40 +50,40 @@ module.exports = async function handler(req, res) {
 
     for (const user of (orphanUsers || [])) {
       try {
-        // Check if already in Pipeline
+        // Find or create Pipeline lead
         const { data: existing } = await supabase
           .from('leads')
           .select('id')
           .eq('email', user.email)
           .limit(1);
 
+        var leadId;
         if (existing && existing.length > 0) {
-          console.log(`[Cron] Skipping ${user.email} — already in Pipeline`);
-          results.skipped++;
-          continue;
+          leadId = existing[0].id;
+          console.log('[Cron] Lead exists for', user.email, '— using', leadId);
+        } else {
+          const { data: lead, error: leadErr } = await supabase
+            .from('leads')
+            .insert({
+              name: user.full_name || user.email,
+              company: user.company_name || '',
+              email: user.email,
+              type: 'Direct Business',
+              urgency: 'Hot',
+              stage: 'inquiry',
+              billing_status: 'abandoned',
+              source: 'abandoned_checkout',
+              notes: 'Signed up ' + new Date(user.created_at).toLocaleDateString() + ' — no payment completed. Auto-detected by hourly cron.',
+              last_action_at: new Date().toISOString().split('T')[0],
+              last_activity_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (leadErr) throw leadErr;
+          leadId = lead.id;
+          console.log('[Cron] Created lead for', user.email, '→', leadId);
         }
-
-        // Create Pipeline lead
-        const { data: lead, error: leadErr } = await supabase
-          .from('leads')
-          .insert({
-            name: user.full_name || user.email,
-            company: user.company_name || '',
-            email: user.email,
-            type: 'Direct Business',
-            urgency: 'Hot',
-            stage: 'inquiry',
-            billing_status: 'abandoned',
-            source: 'abandoned_checkout',
-            notes: `Signed up ${new Date(user.created_at).toLocaleDateString()} — no payment completed. Auto-detected by hourly cron.`,
-            last_action_at: new Date().toISOString().split('T')[0],
-            last_activity_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
-
-        if (leadErr) throw leadErr;
-        const leadId = lead.id;
 
         // Create Contact (dedup on email)
         const { data: existingContact } = await supabase
