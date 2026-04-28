@@ -47,7 +47,14 @@ Exception: Anthropic Claude can be confirmed if a customer asks directly about A
 - **New table or schema change?** Check if existing tables can be extended first. Migrations must be forward-compatible.
 - **Big change to a live tenant-facing surface?** Pause and confirm with Rob before proceeding.
 
-## TODO — Approved Follow-ups
+## Completed Phases
+
+- **Phase 1** — Chat primitives extracted to `src/components/chat/` (MessageBubble, TypingIndicator, ChatInput, ChatThread). Unified message shape `{role, content, timestamp?, metadata?}`. 5 consumers refactored. (2026-04-28)
+- **Phase 2** — Streaming infrastructure: `api/ai-stream.js` (SSE, claude-sonnet-4-20250514), `src/hooks/useClaudeStream.js`, StreamingTest page (internal-only). Rate-limited 30 req/min/tenant. (2026-04-28)
+- **Phase 3** — AIConfigBuilder: `src/components/AIConfigBuilder.jsx` (generic conversational config builder), `api/ai-config-builder.js` (schema validation + retry), `EscalationRulesConfig.jsx` (first call site), `recipient_picker` message type with team member selector, `notification_only` role with auth gate, `api/team-members/create.js`. (2026-04-28)
+
+## Future Work
 
 - [ ] **AIChatbot streaming rewire** — Replace canned mock responses in AIChatbot.js preview with real Claude streaming calls via `useClaudeStream`. Approved after Phase 2 streaming is proven. (Approved 2026-04-28)
 - [ ] **ChatInput forwardRef** — Expose `ref` prop on `ChatInput` via `React.forwardRef` so consumers (LiveInbox, LiveInboxV2) can restore post-send textarea focus. Do when next touching ChatInput. (Approved 2026-04-28)
+- [ ] **Proactive system-trigger escalation rules** — Phase 4 candidate. Escalation rules that fire from internal system events (e.g. failed payment, SLA breach) rather than conversation content. Needs design discussion before implementation. (Identified 2026-04-28)
