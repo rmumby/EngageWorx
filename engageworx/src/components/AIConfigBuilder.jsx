@@ -145,6 +145,21 @@ export default function AIConfigBuilder({
       setLastResponse(aiResponse);
       setSelectedOptions([]);
 
+      // Pre-select existing recipients when picker appears in edit mode
+      if (aiResponse.type === 'recipient_picker') {
+        var existingIds = [];
+        if (initialConfig && initialConfig.action_config) {
+          var ac = initialConfig.action_config;
+          if (ac.notify_user_id) existingIds.push(ac.notify_user_id);
+          if (Array.isArray(ac.notify_user_ids)) existingIds = existingIds.concat(ac.notify_user_ids);
+        }
+        if (existingIds.length > 0) {
+          setSelectedRecipients(teamMembers.filter(function (m) {
+            return existingIds.indexOf(m.id) >= 0;
+          }));
+        }
+      }
+
       // Add assistant message
       setMessages(function (prev) {
         return prev.concat([{ role: 'assistant', content: JSON.stringify(aiResponse) }]);
@@ -451,27 +466,34 @@ export default function AIConfigBuilder({
   function renderRecipientPicker() {
     return (
       <div style={{ padding: '0 20px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>
           Select team members to notify
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+
+        {/* Scrollable member list */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: 4,
+          maxHeight: 220, overflowY: 'auto',
+          border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10,
+          padding: 6, background: 'rgba(0,0,0,0.15)',
+        }}>
           {teamMembers.map(function (m) {
             var isSelected = selectedRecipients.find(function (r) { return r.id === m.id; });
             return (
               <button key={m.id} onClick={function () { toggleRecipient(m); }} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                background: isSelected ? primary + '18' : 'rgba(255,255,255,0.03)',
-                border: '1px solid ' + (isSelected ? primary + '44' : 'rgba(255,255,255,0.06)'),
-                borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                background: isSelected ? primary + '18' : 'transparent',
+                border: '1px solid ' + (isSelected ? primary + '44' : 'transparent'),
+                borderRadius: 6, cursor: 'pointer', textAlign: 'left', width: '100%',
                 fontFamily: "'DM Sans', sans-serif", transition: 'all 0.15s',
               }}>
-                <span style={{ color: isSelected ? primary : 'rgba(255,255,255,0.3)', fontSize: 14 }}>
+                <span style={{ color: isSelected ? primary : 'rgba(255,255,255,0.3)', fontSize: 14, flexShrink: 0 }}>
                   {isSelected ? '☑' : '☐'}
                 </span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{m.full_name}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
-                    {m.role === 'notification_only' ? '🔔 Notification only' : m.role}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.full_name}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {m.role === 'notification_only' ? '🔔 Notify only' : m.role}
                     {m.email ? ' · ' + m.email : ''}
                     {m.phone_number ? ' · ' + m.phone_number : ''}
                   </div>
@@ -479,60 +501,71 @@ export default function AIConfigBuilder({
               </button>
             );
           })}
-
-          {/* Add someone new */}
-          {!showAddNew ? (
-            <button onClick={function () { setShowAddNew(true); }} style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-              background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)',
-              borderRadius: 8, cursor: 'pointer', color: primary, fontSize: 13,
-              fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
-            }}>
-              + Add someone new
-            </button>
-          ) : (
-            <div style={{
-              padding: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8,
-            }}>
-              <input
-                value={newMemberForm.full_name}
-                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { full_name: e.target.value })); }}
-                placeholder="Full name *"
-                style={pickerInput}
-              />
-              <input
-                value={newMemberForm.email}
-                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { email: e.target.value })); }}
-                placeholder="Email"
-                style={pickerInput}
-              />
-              <input
-                value={newMemberForm.phone_number}
-                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { phone_number: e.target.value })); }}
-                placeholder="Phone number"
-                style={pickerInput}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleAddNewMember} disabled={addingMember || !newMemberForm.full_name.trim()} style={actionBtn(primary)}>
-                  {addingMember ? 'Adding...' : 'Add'}
-                </button>
-                <button onClick={function () { setShowAddNew(false); }} style={actionBtn('rgba(255,255,255,0.08)')}>
-                  Cancel
-                </button>
-              </div>
+          {teamMembers.length === 0 && (
+            <div style={{ padding: '12px', color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center' }}>
+              No team members found. Add someone below.
             </div>
           )}
         </div>
 
-        {/* Confirm selection */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        {/* Add someone new — OUTSIDE the scroll container */}
+        {!showAddNew ? (
+          <button onClick={function () { setShowAddNew(true); }} style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+            background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)',
+            borderRadius: 8, cursor: 'pointer', color: primary, fontSize: 13,
+            fontWeight: 600, fontFamily: "'DM Sans', sans-serif", width: '100%',
+          }}>
+            + Add someone new
+          </button>
+        ) : (
+          <div style={{
+            padding: 12, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700 }}>
+              New notification recipient
+            </div>
+            <input
+              value={newMemberForm.full_name}
+              onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { full_name: e.target.value })); }}
+              placeholder="Full name *"
+              style={pickerInput}
+            />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={newMemberForm.email}
+                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { email: e.target.value })); }}
+                placeholder="Email"
+                style={{ ...pickerInput, flex: 1 }}
+              />
+              <input
+                value={newMemberForm.phone_number}
+                onChange={function (e) { setNewMemberForm(Object.assign({}, newMemberForm, { phone_number: e.target.value })); }}
+                placeholder="Phone"
+                style={{ ...pickerInput, flex: 1 }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={handleAddNewMember} disabled={addingMember || !newMemberForm.full_name.trim()} style={actionBtn(primary)}>
+                {addingMember ? 'Adding...' : 'Add Member'}
+              </button>
+              <button onClick={function () { setShowAddNew(false); }} style={actionBtn('rgba(255,255,255,0.08)')}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm selection — always visible */}
+        <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
           <button onClick={submitRecipientSelection} disabled={selectedRecipients.length === 0} style={{
             ...actionBtn(primary),
             opacity: selectedRecipients.length === 0 ? 0.4 : 1,
             cursor: selectedRecipients.length === 0 ? 'not-allowed' : 'pointer',
+            flex: 1,
           }}>
-            Confirm ({selectedRecipients.length})
+            Confirm{selectedRecipients.length > 0 ? ' (' + selectedRecipients.length + ' selected)' : ''}
           </button>
         </div>
       </div>

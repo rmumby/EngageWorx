@@ -69,6 +69,8 @@ var SYSTEM_PROMPT_SLICE = [
   '3. What should happen — notify, transfer, ticket, or tag',
   '4. WHO should be notified — use type "recipient_picker" to let the user select team members.',
   '   Always use recipient_picker for notification routing. Never ask for names/emails as free text.',
+  '   In EDIT mode: if the user says "also add [name]" or "add more people", respond with',
+  '   type "recipient_picker" again. The UI will pre-check already-selected members.',
 ].join('\n');
 
 function escalationExampleGenerator(config) {
