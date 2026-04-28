@@ -1094,7 +1094,7 @@ setDemoCreating(false);
                         <input placeholder="First name" data-field={"invite_first_" + c.id} style={Object.assign({}, inputStyleTM, { width: 120 })} />
                         <input placeholder="Last name" data-field={"invite_last_" + c.id} style={Object.assign({}, inputStyleTM, { width: 120 })} />
                         <input type="email" placeholder="email@example.com" data-field={"invite_email_" + c.id} style={Object.assign({}, inputStyleTM, { flex: 1, minWidth: 180 })} />
-                        <select data-field={"invite_role_" + c.id} defaultValue="agent" style={Object.assign({}, inputStyleTM, { width: 100 })}>
+                        <select data-field={"invite_role_" + c.id} defaultValue="agent" style={Object.assign({}, inputStyleTM, { minWidth: 130 })}>
                           <option value="admin">Admin</option>
                           <option value="agent">Agent</option>
                           <option value="viewer">Viewer</option>
