@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { ChatThread, ChatInput } from "./chat";
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -79,11 +80,6 @@ export default function AgentInbox({ offsetLeft = 0 }) {
   const [internalNote, setInternalNote] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAgentPanel, setShowAgentPanel] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [selectedTicket]);
 
   const filteredTickets = tickets.filter(t =>
     filterStatus === "all" || t.status === filterStatus
@@ -279,73 +275,47 @@ export default function AgentInbox({ offsetLeft = 0 }) {
           </div>
 
           {/* Transcript */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {selectedTicket.transcript.map((msg, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "customer" ? "flex-start" : "flex-end" }}>
-                <div style={{ fontSize: 10, color: "#334155", marginBottom: 3, paddingLeft: 4, paddingRight: 4 }}>
-                  {msg.role === "customer" ? "👤 Customer" : msg.role === "ai" ? "🤖 AI Agent" : msg.isInternal ? "🔒 Internal Note" : "🧑‍💻 Agent"}
-                  {" · "}{msg.sentAt}
-                </div>
-                <div style={{
-                  maxWidth: "70%", padding: "10px 14px", borderRadius: 12, fontSize: 13, lineHeight: 1.5,
-                  background: msg.role === "customer" ? "rgba(255,255,255,0.07)"
-                    : msg.isEscalation ? "rgba(245,158,11,0.12)"
-                    : msg.isInternal ? "rgba(99,102,241,0.08)"
-                    : msg.role === "ai" ? "rgba(99,102,241,0.15)"
-                    : "rgba(16,185,129,0.12)",
-                  border: msg.isEscalation ? "1px solid rgba(245,158,11,0.3)"
-                    : msg.isInternal ? "1px dashed rgba(99,102,241,0.3)"
-                    : "none",
-                  color: "#e2e8f0",
-                }}>
-                  {msg.isEscalation && <div style={{ fontSize: 10, color: "#f59e0b", marginBottom: 4, fontWeight: 600 }}>🚨 ESCALATION TRIGGERED</div>}
-                  {msg.isInternal && <div style={{ fontSize: 10, color: "#6366f1", marginBottom: 4, fontWeight: 600 }}>🔒 INTERNAL NOTE — Not visible to customer</div>}
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+          <ChatThread
+            messages={selectedTicket.transcript.map(function(msg, i) {
+              var roleMap = { customer: "user", ai: "assistant" };
+              var authorMap = { customer: "👤 Customer", ai: "🤖 AI Agent", agent: "🧑‍💻 Agent" };
+              return {
+                id: i,
+                role: roleMap[msg.role] || msg.role,
+                content: msg.content,
+                timestamp: msg.sentAt,
+                metadata: {
+                  authorName: msg.isInternal ? "🔒 Internal Note" : authorMap[msg.role] || msg.role,
+                  isInternal: msg.isInternal,
+                  isEscalation: msg.isEscalation,
+                },
+              };
+            })}
+            colors={{ primary: "#6366f1", muted: "#334155" }}
+            showAvatars={false}
+            maxWidth="70%"
+            style={{ padding: "16px 24px", gap: 10 }}
+          />
 
           {/* Reply Box */}
           {(selectedTicket.status === "agent_active" || selectedTicket.status === "pending_agent") && (
             <div style={{ padding: "12px 24px 16px", borderTop: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
-              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                <button onClick={() => setInternalNote(false)} style={{
-                  padding: "4px 12px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600,
-                  background: !internalNote ? "rgba(16,185,129,0.2)" : "rgba(255,255,255,0.05)",
-                  color: !internalNote ? "#10b981" : "#475569",
-                }}>💬 Reply to Customer</button>
-                <button onClick={() => setInternalNote(true)} style={{
-                  padding: "4px 12px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600,
-                  background: internalNote ? "rgba(99,102,241,0.2)" : "rgba(255,255,255,0.05)",
-                  color: internalNote ? "#818cf8" : "#475569",
-                }}>🔒 Internal Note</button>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <textarea
-                  value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
-                  placeholder={internalNote ? "Add an internal note (not visible to customer)..." : `Reply via ${selectedTicket.channel}...`}
-                  rows={3}
-                  style={{
-                    flex: 1, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: 10, padding: "10px 14px", color: "#e2e8f0", fontSize: 13,
-                    outline: "none", resize: "none", fontFamily: "inherit",
-                    borderColor: internalNote ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.1)",
-                  }}
-                />
-                <button onClick={sendReply} disabled={!replyText.trim()} style={{
-                  padding: "0 20px", borderRadius: 10, border: "none", cursor: replyText.trim() ? "pointer" : "default",
-                  background: replyText.trim()
-                    ? internalNote ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "linear-gradient(135deg,#059669,#10b981)"
-                    : "rgba(255,255,255,0.05)",
-                  color: replyText.trim() ? "#fff" : "#334155", fontWeight: 700, fontSize: 13, alignSelf: "flex-end",
-                  height: 44, transition: "all 0.2s",
-                }}>
-                  {internalNote ? "Save Note" : "Send →"}
-                </button>
-              </div>
+              <ChatInput
+                value={replyText}
+                onChange={setReplyText}
+                onSend={sendReply}
+                placeholder={internalNote ? "Add an internal note (not visible to customer)..." : `Reply via ${selectedTicket.channel}...`}
+                submitMode="enter"
+                rows={3}
+                colors={{ primary: internalNote ? "#6366f1" : "#059669", accent: internalNote ? "#8b5cf6" : "#10b981" }}
+                sendLabel={internalNote ? "Save Note" : "Send →"}
+                mode={internalNote ? "internal" : "reply"}
+                onModeChange={function(m) { setInternalNote(m === "internal"); }}
+                modeOptions={[
+                  { id: "reply", label: "Reply to Customer", icon: "💬" },
+                  { id: "internal", label: "Internal Note", icon: "🔒" },
+                ]}
+              />
             </div>
           )}
         </div>

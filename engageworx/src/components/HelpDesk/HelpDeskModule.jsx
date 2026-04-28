@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../ThemeContext';
 import { DEMO_TICKETS } from '../../demoFixtures';
 import { supabase } from '../../supabaseClient';
+import { ChatThread, ChatInput } from '../chat';
 
 const STATUS_CONFIG = {
   open:      { label: 'Open',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
@@ -78,13 +79,9 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
   var [mode, setMode] = useState('reply');
   var [sending, setSending] = useState(false);
   var [localMessages, setLocalMessages] = useState(messages);
-  var messagesEndRef = useRef(null);
   var canActAsAgent = isSPAdmin || isAgent;
 
   useEffect(function() { setLocalMessages(messages); }, [messages]);
-  useEffect(function() {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-  }, [localMessages]);
 
   async function sendReply() {
     if (!reply.trim()) return;
@@ -168,67 +165,44 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {localMessages
+      <ChatThread
+        messages={localMessages
           .filter(function(m) { return !m.is_internal || canActAsAgent; })
           .map(function(m) {
-            var isUser = m.role === 'user';
-            var isAI = m.role === 'ai';
-            var isSystem = m.role === 'system';
-            return (
-              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', gap: 4 }}>
-                <div style={{ fontSize: 11, color: textMuted }}>
-                  {m.is_internal && <span style={{ color: '#f59e0b', marginRight: 4 }}>🔒 Internal —</span>}
-                  {m.author_name || m.role}
-                  {isAI && <span style={{ color: '#06b6d4', marginLeft: 6 }}>🤖 AI</span>}
-                  <span style={{ marginLeft: 6 }}>· {formatDate(m.created_at)}</span>
-                </div>
-                {!isSystem && (
-                  <div style={{
-                    maxWidth: '78%', padding: '12px 16px',
-                    borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: isUser ? 'rgba(99,102,241,0.15)' : isAI ? 'rgba(6,182,212,0.1)' : m.is_internal ? 'rgba(245,158,11,0.1)' : surface,
-                    border: '1px solid ' + (isUser ? 'rgba(99,102,241,0.3)' : isAI ? 'rgba(6,182,212,0.2)' : m.is_internal ? 'rgba(245,158,11,0.25)' : border),
-                    fontSize: 14, color: text, lineHeight: 1.65, whiteSpace: 'pre-wrap'
-                  }}>
-                    {m.content}
-                  </div>
-                )}
-                {isSystem && (
-                  <div style={{ fontSize: 12, color: textMuted, fontStyle: 'italic' }}>{m.content}</div>
-                )}
-              </div>
-            );
+            return {
+              id: m.id,
+              role: m.role === 'ai' ? 'assistant' : m.role,
+              content: m.content,
+              timestamp: formatDate(m.created_at),
+              metadata: {
+                authorName: m.author_name,
+                isInternal: m.is_internal,
+              },
+            };
           })}
-        <div ref={messagesEndRef} />
-      </div>
+        colors={{ primary: accent, muted: textMuted }}
+        showAvatars={false}
+        maxWidth="78%"
+        style={{ padding: '20px 24px', gap: 16 }}
+      />
 
       <div style={{ padding: '16px 24px', borderTop: '1px solid ' + border, background: surface, flexShrink: 0 }}>
-        {canActAsAgent && (
-          <div style={{ display: 'flex', gap: 0, marginBottom: 10, border: '1px solid ' + border, borderRadius: 8, overflow: 'hidden', width: 'fit-content' }}>
-            {['reply', 'internal'].map(function(m) {
-              return (
-                <button key={m} onClick={function() { setMode(m); }}
-                  style={{ padding: '6px 14px', fontSize: 12, background: mode === m ? accent : 'transparent', color: mode === m ? '#fff' : textMuted, border: 'none', cursor: 'pointer', fontWeight: 500 }}>
-                  {m === 'reply' ? '↩ Reply to customer' : '🔒 Internal note'}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <textarea
-            value={reply} onChange={function(e) { setReply(e.target.value); }}
-            onKeyDown={function(e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendReply(); }}
-            placeholder={mode === 'internal' ? 'Internal note — not visible to customer...' : 'Type your reply... (Cmd+Enter to send)'}
-            rows={3}
-            style={{ flex: 1, padding: '12px 14px', borderRadius: 8, border: '1px solid ' + border, background: bg, color: text, fontSize: 14, resize: 'none', fontFamily: 'inherit' }}
-          />
-          <button onClick={sendReply} disabled={sending || !reply.trim()}
-            style={{ padding: '0 20px', borderRadius: 8, background: accent, color: '#fff', border: 'none', cursor: sending || !reply.trim() ? 'not-allowed' : 'pointer', fontWeight: 600, opacity: sending || !reply.trim() ? 0.5 : 1 }}>
-            {sending ? '...' : 'Send'}
-          </button>
-        </div>
+        <ChatInput
+          value={reply}
+          onChange={setReply}
+          onSend={sendReply}
+          placeholder={mode === 'internal' ? 'Internal note — not visible to customer...' : 'Type your reply... (Cmd+Enter to send)'}
+          submitMode="cmdEnter"
+          rows={3}
+          sending={sending}
+          colors={{ primary: accent, accent: accent }}
+          mode={canActAsAgent ? mode : undefined}
+          onModeChange={canActAsAgent ? setMode : undefined}
+          modeOptions={canActAsAgent ? [
+            { id: 'reply', label: 'Reply to customer', icon: '↩' },
+            { id: 'internal', label: 'Internal note', icon: '🔒' },
+          ] : undefined}
+        />
       </div>
     </div>
   );

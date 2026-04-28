@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ChatThread, ChatInput } from "./components/chat";
 
 const PERSONALITIES = [
   { id: "professional", name: "Professional", icon: "👔", desc: "Formal, business-appropriate tone", temp: 0.3, greeting: "Hello! Thank you for reaching out. How may I assist you today?" },
@@ -22,22 +23,22 @@ const ESCALATION_RULES = [
 
 const DEMO_CONVERSATIONS = [
   { persona: "Customer asking about pricing", messages: [
-    { role: "user", text: "How much does the Growth plan cost?" },
-    { role: "bot", text: "The Growth plan is $249/month and includes up to 5,000 SMS messages, 3 phone numbers, AI bot included, and advanced analytics.\n\nWould you like me to compare it with our other plans, or help you get started with a free trial?" },
-    { role: "user", text: "What about the Enterprise plan?" },
-    { role: "bot", text: "Our Enterprise plan offers custom pricing based on your needs. It includes unlimited messages, all channels, white-label branding, custom integrations, and a dedicated account manager.\n\nI can connect you with our sales team for a personalized quote. Would you like that?" },
+    { role: "user", content: "How much does the Growth plan cost?" },
+    { role: "assistant", content: "The Growth plan is $249/month and includes up to 5,000 SMS messages, 3 phone numbers, AI bot included, and advanced analytics.\n\nWould you like me to compare it with our other plans, or help you get started with a free trial?" },
+    { role: "user", content: "What about the Enterprise plan?" },
+    { role: "assistant", content: "Our Enterprise plan offers custom pricing based on your needs. It includes unlimited messages, all channels, white-label branding, custom integrations, and a dedicated account manager.\n\nI can connect you with our sales team for a personalized quote. Would you like that?" },
   ]},
   { persona: "Technical support inquiry", messages: [
-    { role: "user", text: "My API calls are returning 429 errors" },
-    { role: "bot", text: "A 429 error means you've hit our rate limit. Here's how to resolve it:\n\n1. Check your current limits in Settings → API\n2. Implement exponential backoff — Wait 1s, then 2s, then 4s between retries\n3. Use batch endpoints to send multiple messages per call\n\nWould you like me to show you a code example?" },
+    { role: "user", content: "My API calls are returning 429 errors" },
+    { role: "assistant", content: "A 429 error means you've hit our rate limit. Here's how to resolve it:\n\n1. Check your current limits in Settings → API\n2. Implement exponential backoff — Wait 1s, then 2s, then 4s between retries\n3. Use batch endpoints to send multiple messages per call\n\nWould you like me to show you a code example?" },
   ]},
   { persona: "Angry customer complaint", messages: [
-    { role: "user", text: "I've been waiting 3 days for a response! This is unacceptable." },
-    { role: "bot", text: "I completely understand your frustration, and I sincerely apologize for the delay. A 3-day wait is not the level of service we aim to provide.\n\nLet me escalate this immediately. Could you share your ticket number?" },
+    { role: "user", content: "I've been waiting 3 days for a response! This is unacceptable." },
+    { role: "assistant", content: "I completely understand your frustration, and I sincerely apologize for the delay. A 3-day wait is not the level of service we aim to provide.\n\nLet me escalate this immediately. Could you share your ticket number?" },
   ]},
   { persona: "Product recommendation", messages: [
-    { role: "user", text: "We send about 100K SMS messages a month. Which plan?" },
-    { role: "bot", text: "For 100K SMS messages monthly, I'd recommend our Pro plan at $499/month. It includes 20,000 SMS (with overage at $0.025/SMS), all channels, API access, and white-label branding.\n\nWant me to set up a free trial?" },
+    { role: "user", content: "We send about 100K SMS messages a month. Which plan?" },
+    { role: "assistant", content: "For 100K SMS messages monthly, I'd recommend our Pro plan at $499/month. It includes 20,000 SMS (with overage at $0.025/SMS), all channels, API access, and white-label branding.\n\nWant me to set up a free trial?" },
   ]},
 ];
 
@@ -96,7 +97,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [escModal, setEscModal] = useState(null);
   const [escError, setEscError] = useState(null);
   const [escTeamMembers, setEscTeamMembers] = useState([]);
-  const previewEndRef = useRef(null);
+
 
   // Email signatures (per-tenant, stored on chatbot_configs)
   const [sigFromName, setSigFromName] = useState('Rob Mumby');
@@ -203,9 +204,6 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     })();
   }, [currentTenantId, demoMode]);
 
-  useEffect(() => {
-    if (previewEndRef.current) previewEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [previewMessages, isTyping]);
 
   async function saveAIConfig(overrideKbSources) {
   if (overrideKbSources && !Array.isArray(overrideKbSources)) overrideKbSources = undefined;
@@ -343,7 +341,7 @@ saveAIConfig(newSources);
 
   const handlePreviewSend = () => {
     if (!previewInput.trim()) return;
-    setPreviewMessages(prev => [...prev, { role: "user", text: previewInput }]);
+    setPreviewMessages(prev => [...prev, { role: "user", content: previewInput }]);
     setPreviewInput("");
     setIsTyping(true);
     setTimeout(() => {
@@ -352,7 +350,7 @@ saveAIConfig(newSources);
         `I'd be happy to assist! Our platform supports SMS, Email, WhatsApp, RCS, MMS, and Voice channels. Each can be configured independently.\n\nWould you like more details on any specific channel?`,
         `Thanks for reaching out! ${enableEmoji ? "👋" : ""} You can manage this through Settings → Channels → Configuration. The changes take effect immediately.\n\nAnything else I can help with?`,
       ];
-      setPreviewMessages(prev => [...prev, { role: "bot", text: responses[Math.floor(Math.random() * responses.length)] }]);
+      setPreviewMessages(prev => [...prev, { role: "assistant", content: responses[Math.floor(Math.random() * responses.length)] }]);
       setIsTyping(false);
     }, responseDelay * 1000);
   };
@@ -362,11 +360,11 @@ saveAIConfig(newSources);
     setPreviewMessages([]);
     let delay = 0;
     demo.messages.forEach((msg, i) => {
-      delay += i === 0 ? 300 : msg.role === "bot" ? responseDelay * 1000 : 800;
+      delay += i === 0 ? 300 : msg.role === "assistant" ? responseDelay * 1000 : 800;
       setTimeout(() => {
-        if (msg.role === "bot") setIsTyping(false);
+        if (msg.role === "assistant") setIsTyping(false);
         setPreviewMessages(prev => [...prev, msg]);
-        if (i < demo.messages.length - 1 && demo.messages[i + 1].role === "bot") setIsTyping(true);
+        if (i < demo.messages.length - 1 && demo.messages[i + 1].role === "assistant") setIsTyping(true);
       }, delay);
       if (msg.role === "user" && i < demo.messages.length - 1) setTimeout(() => setIsTyping(true), delay + 200);
     });
@@ -925,8 +923,15 @@ saveAIConfig(newSources);
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px" }}>
-          {previewMessages.length === 0 && (
+        <ChatThread
+          messages={previewMessages}
+          isTyping={isTyping}
+          typingAvatar="🤖"
+          colors={C}
+          botName={botName}
+          showAvatars={true}
+          maxWidth="80%"
+          emptyState={
             <div style={{ textAlign: "center", padding: "40px 16px" }}>
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}33, ${C.accent || C.primary}33)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 14px" }}>🤖</div>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{botName}</div>
@@ -934,36 +939,19 @@ saveAIConfig(newSources);
               <div style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: "14px 14px 14px 4px", padding: "12px 16px", color: "rgba(255,255,255,0.7)", fontSize: 13, textAlign: "left", maxWidth: 280, margin: "0 auto" }}>{greeting}</div>
               <div style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, marginTop: 12 }}>Type a message or try a demo scenario</div>
             </div>
-          )}
-
-          {previewMessages.map((msg, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 10, gap: 8, alignItems: "flex-end" }}>
-              {msg.role !== "user" && <div style={{ width: 26, height: 26, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>🤖</div>}
-              <div style={{ maxWidth: "80%", background: msg.role === "user" ? "rgba(255,255,255,0.08)" : `${C.primary}15`, border: `1px solid ${msg.role === "user" ? "rgba(255,255,255,0.1)" : C.primary + "33"}`, borderRadius: msg.role === "user" ? "12px 12px 4px 12px" : "12px 12px 12px 4px", padding: "10px 14px", color: "rgba(255,255,255,0.8)", fontSize: 12.5, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {msg.role !== "user" && <div style={{ color: C.primary, fontSize: 9, fontWeight: 700, marginBottom: 4 }}>🤖 {botName}</div>}
-                {msg.text}
-              </div>
-            </div>
-          ))}
-
-          {isTyping && (
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 4 }}>
-              <div style={{ width: 26, height: 26, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🤖</div>
-              <div style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: "12px 12px 12px 4px", padding: "12px 16px" }}>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {[0, 1, 2].map(d => <div key={d} style={{ width: 6, height: 6, borderRadius: "50%", background: C.primary, opacity: 0.5, animation: `typingDot 1.4s infinite ${d * 0.2}s` }} />)}
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={previewEndRef} />
-        </div>
+          }
+        />
 
         <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={previewInput} onChange={e => setPreviewInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") handlePreviewSend(); }} placeholder="Type a test message..." style={{ ...inputStyle, flex: 1, borderRadius: 10, padding: "10px 14px" }} />
-            <button onClick={handlePreviewSend} disabled={!previewInput.trim()} style={{ background: previewInput.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)", border: "none", borderRadius: 10, padding: "0 16px", color: previewInput.trim() ? "#000" : "rgba(255,255,255,0.2)", fontWeight: 700, cursor: previewInput.trim() ? "pointer" : "not-allowed", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Send</button>
-          </div>
+          <ChatInput
+            value={previewInput}
+            onChange={setPreviewInput}
+            onSend={handlePreviewSend}
+            placeholder="Type a test message..."
+            submitMode="enter"
+            rows={1}
+            colors={C}
+          />
           <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
             <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude Sonnet</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
@@ -973,13 +961,6 @@ saveAIConfig(newSources);
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes typingDot {
-          0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-4px); }
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, memo } from "react";
+import { ChatThread, ChatInput } from "./components/chat";
 const AGENTS = [
   { id: "a1", name: "Sarah M.", avatar: "SM", status: "online" },
   { id: "a2", name: "James K.", avatar: "JK", status: "online" },
@@ -227,7 +228,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [calls, setCalls] = useState([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
   const [selectedCall, setSelectedCall] = useState(null);
-  const messagesEndRef = useRef(null);
   const composeRef = useRef(null);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
@@ -345,9 +345,8 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     return function() { clearInterval(pollInterval); };
   }, [demoMode, supabase, currentTenantId, viewLevel]);
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
-  useEffect(() => {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [selectedConv?.id, (selectedConv?.messages || []).length]);
+  // Scroll handled by ChatThread
+  useEffect(() => {}, [selectedConv?.id, (selectedConv?.messages || []).length]);
 
   // In live mode, fetch conversations using supabase prop
   const [liveLoading, setLiveLoading] = useState(!demoMode);
@@ -813,118 +812,79 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           </div>
 
           {/* Messages */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-            {/* Date separator */}
-            <div style={{ textAlign: "center", margin: "12px 0 20px" }}>
-              <span style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "4px 14px", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>Today</span>
-            </div>
-
-            {(selectedConv.messages || []).map((msg, i) => {
-              const isContact = msg.from === "contact";
-              const isBot = msg.from === "bot";
-              const showAvatar = i === 0 || (selectedConv.messages || [])[i - 1]?.from !== msg.from;
-
-              return (
-                <div key={msg.id} style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", marginBottom: showAvatar ? 12 : 4, gap: 8, alignItems: "flex-end" }}>
-                  {/* Contact avatar */}
-                  {isContact && showAvatar && (
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${CHANNELS[selectedConv.channel].color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: CHANNELS[selectedConv.channel].color, flexShrink: 0 }}>{selectedConv.contact.avatar}</div>
-                  )}
-                  {isContact && !showAvatar && <div style={{ width: 28, flexShrink: 0 }} />}
-
-                  {/* Message Bubble */}
-                  <div style={{ maxWidth: "65%" }}>
-                    {showAvatar && !isContact && msg.agent && (
-                      <div style={{ textAlign: "right", marginBottom: 2 }}>
-                        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{msg.agent.name}</span>
-                      </div>
-                    )}
-                    <div style={{
-                      background: isContact ? "rgba(100,130,200,0.18)" : isBot ? `${C.accent || C.primary}22` : `${C.primary}22`,
-                      border: `1px solid ${isContact ? "rgba(100,130,200,0.3)" : isBot ? `${C.accent || C.primary}33` : `${C.primary}33`}`,
-                      borderRadius: isContact ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-                      padding: "10px 14px", color: isContact ? C.text : "rgba(255,255,255,0.85)", fontSize: 13, lineHeight: 1.5,
-                      whiteSpace: "pre-wrap", wordBreak: "break-word",
-                    }}>
-                      {isBot && <div style={{ color: C.accent || C.primary, fontSize: 9, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>🤖 AI Assistant</div>}
-                      {msg.text}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: isContact ? "flex-start" : "flex-end", gap: 6, marginTop: 2, alignItems: "center" }}>
-                      <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{msg.time instanceof Date ? msg.time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ''}</span>
-                      {!isContact && msg.delivered && <span style={{ color: msg.read ? C.primary : "rgba(255,255,255,0.2)", fontSize: 10 }}>{msg.read ? "✓✓" : "✓"}</span>}
-                    </div>
-                  </div>
-
-                  {/* Agent avatar */}
-                  {!isContact && showAvatar && msg.agent && (
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: isBot ? `${C.accent || C.primary}33` : `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isBot ? 12 : 9, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{msg.agent.avatar}</div>
-                  )}
-                  {!isContact && !showAvatar && <div style={{ width: 28, flexShrink: 0 }} />}
-                </div>
-              );
+          <ChatThread
+            messages={(selectedConv.messages || []).map(function(msg) {
+              var isContact = msg.from === "contact";
+              var isBot = msg.from === "bot";
+              return {
+                id: msg.id,
+                role: isContact ? "user" : isBot ? "assistant" : "agent",
+                content: msg.text,
+                timestamp: msg.time,
+                metadata: {
+                  avatar: isContact ? selectedConv.contact.avatar : (msg.agent ? msg.agent.avatar : null),
+                  agentName: msg.agent ? msg.agent.name : null,
+                  botName: isBot ? "AI Assistant" : null,
+                  delivered: msg.delivered,
+                  read: msg.read,
+                },
+              };
             })}
-
-            {/* Typing indicator */}
-            {selectedConv.isTyping && (
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginTop: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${CHANNELS[selectedConv.channel].color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: CHANNELS[selectedConv.channel].color }}>{selectedConv.contact.avatar}</div>
-                <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px 14px 14px 4px", padding: "12px 18px" }}>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    {[0, 1, 2].map(dot => (
-                      <div key={dot} style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.3)", animation: `typing 1.4s infinite ${dot * 0.2}s` }} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+            isTyping={selectedConv.isTyping}
+            typingAvatar={selectedConv.contact.avatar}
+            colors={C}
+            showAvatars={true}
+            maxWidth="65%"
+            dateSeparator="Today"
+            style={{ padding: "20px 24px" }}
+          />
 
           {/* Compose Area */}
           <div style={{ padding: "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.1)" }}>
-            {/* Canned Responses */}
-            {showCanned && (
-              <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Quick Responses</div>
-                <div style={{ display: "grid", gap: 4 }}>
-                  {CANNED_RESPONSES.map(cr => (
-                    <button key={cr.id} onClick={() => handleCannedSelect(cr.text)} style={{
-                      background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
-                      borderRadius: 6, padding: "8px 10px", cursor: "pointer", textAlign: "left",
-                      color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
-                      transition: "all 0.15s",
-                    }}
-                      onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.borderColor = `${C.primary}33`; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
-                    >
-                      <span style={{ color: C.primary, fontWeight: 700, fontSize: 10, marginRight: 8 }}>{cr.label}</span>
-                      {cr.text.slice(0, 70)}{cr.text.length > 70 ? "..." : ""}
-                    </button>
-                  ))}
+            <ChatInput
+              value={composeText}
+              onChange={setComposeText}
+              onSend={handleSend}
+              placeholder={`Reply via ${CHANNELS[selectedConv.channel].label}...`}
+              submitMode="enter"
+              rows={2}
+              sending={sendingMessage}
+              colors={C}
+              toolbar={<>
+                {/* Canned Responses */}
+                {showCanned && (
+                  <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
+                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Quick Responses</div>
+                    <div style={{ display: "grid", gap: 4 }}>
+                      {CANNED_RESPONSES.map(cr => (
+                        <button key={cr.id} onClick={() => handleCannedSelect(cr.text)} style={{
+                          background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+                          borderRadius: 6, padding: "8px 10px", cursor: "pointer", textAlign: "left",
+                          color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                          transition: "all 0.15s",
+                        }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.borderColor = `${C.primary}33`; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                        >
+                          <span style={{ color: C.primary, fontWeight: 700, fontSize: 10, marginRight: 8 }}>{cr.label}</span>
+                          {cr.text.slice(0, 70)}{cr.text.length > 70 ? "..." : ""}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showCanned ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>⚡ Quick</button>
+                  <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📎 Attach</button>
+                  <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>
+                  <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>🤖 AI Suggest</button>
+                  <div style={{ flex: 1 }} />
+                  <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>
                 </div>
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showCanned ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>⚡ Quick</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📎 Attach</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>
-              <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>🤖 AI Suggest</button>
-              <div style={{ flex: 1 }} />
-              <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>
-            </div>
-
-            {/* Input */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <textarea ref={composeRef} value={composeText} onChange={e => setComposeText(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }} placeholder={`Reply via ${CHANNELS[selectedConv.channel].label}...`} rows={2} style={{ ...inputStyle, flex: 1, borderRadius: 12, resize: "none", lineHeight: 1.4, padding: "10px 14px" }} />
-              <button onClick={handleSend} disabled={!composeText.trim() || sendingMessage} style={{
-                background: composeText.trim() && !sendingMessage ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)",
-                border: "none", borderRadius: 12, padding: "0 20px", color: composeText.trim() && !sendingMessage ? "#000" : "rgba(255,255,255,0.2)",
-                fontWeight: 700, cursor: composeText.trim() && !sendingMessage ? "pointer" : "not-allowed", fontSize: 14,
-                fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", alignSelf: "stretch",
-              }}>{sendingMessage ? "..." : "Send"}</button>
-            </div>
+              </>}
+            />
           </div>
         </div>
       ) : (
