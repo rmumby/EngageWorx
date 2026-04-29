@@ -18,6 +18,7 @@ async function sendEmail(opts) {
   if (!to || !subject || (!html && !text)) return { success: false, error: 'to, subject, and html or text required' };
 
   var resendKey = process.env.RESEND_API_KEY;
+  console.log('[sendEmail] key prefix:', resendKey ? resendKey.substring(0, 7) : 'MISSING');
   if (!resendKey) return { success: false, error: 'RESEND_API_KEY not configured' };
 
   var fromField = fromName ? fromName + ' <' + from + '>' : from;
