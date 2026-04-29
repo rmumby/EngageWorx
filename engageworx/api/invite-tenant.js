@@ -271,6 +271,9 @@ module.exports = async function handler(req, res) {
       html: emailHtml,
     });
     console.log('📬 Welcome email:', emailResult.success ? 'sent to ' + adminEmail : 'FAILED — ' + emailResult.error);
+    if (!emailResult.success) {
+      warnings.push('Welcome email failed: ' + (emailResult.error || 'unknown error'));
+    }
 
     // 8. Log welcome email to new tenant's Live Inbox
     var welcomeTags = Array.isArray(pc.welcome_contact_tags) ? pc.welcome_contact_tags : [];

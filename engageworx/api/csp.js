@@ -105,7 +105,7 @@ async function sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan)
     '</div>' +
     '</div></body></html>';
 
-  await fetch('https://api.resend.com/emails', {
+  var emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -116,7 +116,16 @@ async function sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan)
     }),
   });
 
+  if (!emailRes.ok) {
+    var errBody;
+    try { errBody = await emailRes.json(); } catch (_) { errBody = {}; }
+    var errMsg = (errBody.message || errBody.error || 'HTTP ' + emailRes.status);
+    console.error('[CSP] Welcome email FAILED:', errMsg);
+    return { success: false, error: errMsg };
+  }
+
   console.log('[CSP] Welcome email sent to', email);
+  return { success: true };
 }
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
@@ -318,10 +327,12 @@ module.exports = async function handler(req, res) {
       } catch (ne) { console.warn('CSP alert email failed:', ne.message); }
 
       // Send welcome email to new tenant
+      var welcomeResult = { success: false, error: 'not attempted' };
       try {
-        await sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan);
+        welcomeResult = await sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan) || { success: true };
       } catch (welcomeErr) {
         console.error('[CSP] Welcome email failed:', welcomeErr.message);
+        welcomeResult = { success: false, error: welcomeErr.message };
       }
 
       return res.status(200).json({
@@ -334,6 +345,8 @@ module.exports = async function handler(req, res) {
         csp_name: cspCheck.data.name,
         user_id: userId,
         email: email,
+        welcome_email_sent: welcomeResult.success,
+        welcome_email_error: welcomeResult.success ? undefined : welcomeResult.error,
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });

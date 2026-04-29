@@ -753,6 +753,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{createResult.email}</span>
                     <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{createForm.password}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
+                    <span style={{ color: C.muted }}>Welcome email:</span><span style={{ color: createResult.welcome_email_sent === false ? '#FF6B35' : '#00E676', fontWeight: 600 }}>{createResult.welcome_email_sent === false ? 'Failed — ' + (createResult.welcome_email_error || 'unknown') : '✓ Sent'}</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
                     <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + createResult.email + '\nPassword: ' + createForm.password); }} style={btnPrimary}>Copy Credentials</button>
