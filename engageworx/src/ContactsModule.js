@@ -845,8 +845,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         tenant_id: resolvedTenantId,
         name: leadName, company: contact.company || null,
         email: contact.email || null, phone: contact.mobile_phone || contact.phone || null,
-        title: contact.title || null, stage: 'inquiry', urgency: 'Warm', type: 'Direct Business',
-        source: 'Contact Convert', notes: contact.notes || '',
+        stage: 'inquiry', urgency: 'Warm', type: 'Direct Business',
+        source: 'Contact Convert', notes: ((contact.title ? 'Title: ' + contact.title + '\n' : '') + (contact.notes || '')).trim() || '',
         last_action_at: new Date().toISOString().split('T')[0],
         last_activity_at: new Date().toISOString(),
       }).select('id').single();
