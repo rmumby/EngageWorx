@@ -150,6 +150,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       success: false,
       error: 'Email failed: ' + (emailResult.error || 'unknown error'),
+      key_debug: emailResult.key_debug,
       admin_email: adminEmail,
     });
   }

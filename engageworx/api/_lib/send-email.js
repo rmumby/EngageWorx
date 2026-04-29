@@ -20,7 +20,8 @@ async function sendEmail(opts) {
 
   var resendKey = process.env.RESEND_API_KEY;
   console.log('[sendEmail] key prefix:', resendKey ? resendKey.substring(0, 7) : 'MISSING');
-  if (!resendKey) return { success: false, error: 'RESEND_API_KEY not configured' };
+  var keyDebug = resendKey ? resendKey.substring(0, 7) + '...' + resendKey.substring(resendKey.length - 4) : 'MISSING';
+  if (!resendKey) return { success: false, error: 'RESEND_API_KEY not configured', key_debug: keyDebug };
 
   var fromField = fromName ? fromName + ' <' + from + '>' : from;
 
@@ -48,14 +49,14 @@ async function sendEmail(opts) {
       try { errBody = await res.json(); } catch (_) { errBody = {}; }
       var errMsg = errBody.message || errBody.error || 'HTTP ' + res.status;
       console.error('[sendEmail] Resend error:', errMsg);
-      return { success: false, error: errMsg };
+      return { success: false, error: errMsg, key_debug: keyDebug };
     }
 
     var data = await res.json();
     return { success: true, message_id: data.id || null };
   } catch (e) {
     console.error('[sendEmail] Error:', e.message);
-    return { success: false, error: e.message };
+    return { success: false, error: e.message, key_debug: keyDebug };
   }
 }
 
