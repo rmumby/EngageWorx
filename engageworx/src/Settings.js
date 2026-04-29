@@ -1504,22 +1504,53 @@ return (<div>
         </div>
       )}
       {activeTab === "channels" && resolvedTenantId && !demoMode && (
-        <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>🚀 Restart Onboarding</div>
-              <div style={{ color: C.muted, fontSize: 12 }}>Re-run the 6-step setup wizard from the start.</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
+          <div style={Object.assign({}, card, { borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>🚀 Restart Onboarding</div>
+                <div style={{ color: C.muted, fontSize: 12 }}>Re-run the 6-step setup wizard from the start.</div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!window.confirm('Re-run the onboarding wizard? Your existing settings will not be deleted — you can edit or skip each step.')) return;
+                  try {
+                    await supabase.from('tenants').update({ onboarding_completed: false, onboarding_step: 0 }).eq('id', resolvedTenantId);
+                    alert('Onboarding reset. Refresh the portal to see the wizard.');
+                  } catch (e) { alert('Error: ' + e.message); }
+                }}
+                style={Object.assign({}, btnSec, { fontSize: 12 })}
+              >Restart wizard</button>
             </div>
-            <button
-              onClick={async () => {
-                if (!window.confirm('Re-run the onboarding wizard? Your existing settings will not be deleted — you can edit or skip each step.')) return;
-                try {
-                  await supabase.from('tenants').update({ onboarding_completed: false, onboarding_step: 0 }).eq('id', resolvedTenantId);
-                  alert('Onboarding reset. Refresh the portal to see the wizard.');
-                } catch (e) { alert('Error: ' + e.message); }
-              }}
-              style={Object.assign({}, btnSec, { fontSize: 12 })}
-            >Restart wizard</button>
+          </div>
+          <div style={Object.assign({}, card, { borderLeft: '4px solid ' + C.primary })}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>✉️ Resend Welcome Email</div>
+                <div style={{ color: C.muted, fontSize: 12 }}>Re-send the welcome email to this tenant's admin. Does not reset their password.</div>
+              </div>
+              <button
+                onClick={async function() {
+                  if (!window.confirm('Send a welcome email to this tenant\'s admin?')) return;
+                  try {
+                    var session = (await supabase.auth.getSession()).data.session;
+                    if (!session) { alert('Not authenticated'); return; }
+                    var r = await fetch('/api/resend-welcome', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                      body: JSON.stringify({ tenant_id: resolvedTenantId }),
+                    });
+                    var d = await r.json();
+                    if (d.success) {
+                      alert('Welcome email sent to ' + d.admin_email);
+                    } else {
+                      alert('Failed: ' + (d.error || 'Unknown error'));
+                    }
+                  } catch (e) { alert('Error: ' + e.message); }
+                }}
+                style={Object.assign({}, btnSec, { fontSize: 12 })}
+              >Send email</button>
+            </div>
           </div>
         </div>
       )}
