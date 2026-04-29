@@ -731,8 +731,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
                     <div>
                       <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
                       <select value={demoForm.plan} onChange={e => setDemoForm(p => ({ ...p, plan: e.target.value }))} style={{ ...inputStyleTM, cursor: "pointer" }}>
-                        <option value="starter">Starter ($299/mo)</option>
-                        <option value="growth">Growth ($799/mo)</option>
+                        <option value="starter">Starter ($99/mo)</option>
+                        <option value="growth">Growth ($249/mo)</option>
+                        <option value="pro">Pro ($499/mo)</option>
                         <option value="enterprise">Enterprise (Custom)</option>
                       </select>
                     </div>
@@ -943,7 +944,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select value={configForm.plan || c.plan || "growth"} onChange={function(e){ var p = e.target.value; var pd = {starter:{message_limit:5000,contact_limit:10000,user_seats:3},growth:{message_limit:25000,contact_limit:50000,user_seats:10},pro:{message_limit:50000,contact_limit:100000,user_seats:25},enterprise:{message_limit:250000,contact_limit:500000,user_seats:100},silver:{message_limit:10000,contact_limit:50000,user_seats:10},gold:{message_limit:50000,contact_limit:200000,user_seats:50},platinum:{message_limit:200000,contact_limit:500000,user_seats:200},diamond:{message_limit:500000,contact_limit:1000000,user_seats:500}}; var d = pd[p] || {}; setConfigForm(function(f){ return Object.assign({}, f, {plan: p, message_limit: d.message_limit || f.message_limit, contact_limit: d.contact_limit || f.contact_limit, user_seats: d.user_seats || f.user_seats}); }); }} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($299/mo)</option><option value="growth">Growth ($799/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
+                        <select value={configForm.plan || c.plan || "growth"} onChange={function(e){ var p = e.target.value; var pd = {starter:{message_limit:5000,contact_limit:10000,user_seats:3},growth:{message_limit:25000,contact_limit:50000,user_seats:10},pro:{message_limit:50000,contact_limit:100000,user_seats:25},enterprise:{message_limit:250000,contact_limit:500000,user_seats:100},silver:{message_limit:10000,contact_limit:50000,user_seats:10},gold:{message_limit:50000,contact_limit:200000,user_seats:50},platinum:{message_limit:200000,contact_limit:500000,user_seats:200},diamond:{message_limit:500000,contact_limit:1000000,user_seats:500}}; var d = pd[p] || {}; setConfigForm(function(f){ return Object.assign({}, f, {plan: p, message_limit: d.message_limit || f.message_limit, contact_limit: d.contact_limit || f.contact_limit, user_seats: d.user_seats || f.user_seats}); }); }} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($99/mo)</option><option value="growth">Growth ($249/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
@@ -1454,8 +1455,9 @@ setDemoCreating(false);
       {activeTab === "billing" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
           {[
-            { plan: "Starter", price: "$299/mo", messages: "50,000", channels: 2, users: 3, color: "#6B8BAE" },
-            { plan: "Growth", price: "$799/mo", messages: "250,000", channels: 4, users: 10, color: C.primary },
+            { plan: "Starter", price: "$99/mo", messages: "5,000", channels: 2, users: 3, color: "#6B8BAE" },
+            { plan: "Growth", price: "$249/mo", messages: "25,000", channels: 4, users: 10, color: C.primary },
+            { plan: "Pro", price: "$499/mo", messages: "50,000", channels: 6, users: 25, color: "#7C4DFF" },
             { plan: "Enterprise", price: "Custom", messages: "Unlimited", channels: 6, users: "Unlimited", color: C.accent },
           ].map(p => (
             <div key={p.plan} style={{ background: "rgba(255,255,255,0.03)", border: `2px solid ${p.color}44`, borderRadius: 14, padding: 28, textAlign: "center" }}>
