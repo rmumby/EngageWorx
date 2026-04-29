@@ -1,4 +1,5 @@
 // api/_lib/send-email.js — Shared email helper (Resend)
+// cache-bust: 2026-04-29T23:45Z
 // All outbound email should route through this to ensure consistent
 // from address, error handling, and single-provider billing.
 //
