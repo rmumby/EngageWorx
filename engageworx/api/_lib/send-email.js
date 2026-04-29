@@ -7,6 +7,7 @@
 // files that still call sgMail directly — clean up separately.
 
 async function sendEmail(opts) {
+  console.log('[sendEmail] CALLED', { to: opts.to, subject: opts.subject });
   var to = opts.to;
   var from = opts.from || process.env.PLATFORM_FROM_EMAIL;
   var fromName = opts.fromName;

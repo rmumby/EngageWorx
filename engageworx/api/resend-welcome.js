@@ -17,6 +17,7 @@ function getSupabase() {
 }
 
 module.exports = async function handler(req, res) {
+  console.log('[resend-welcome] CALLED', req.method, JSON.stringify({ tenant_id: (req.body || {}).tenant_id, hasAuth: !!(req.headers.authorization) }));
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
