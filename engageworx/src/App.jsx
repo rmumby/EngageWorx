@@ -362,6 +362,19 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [invitePlans, setInvitePlans] = useState([]);
   const [inviteIndustries, setInviteIndustries] = useState([]);
   const [inviteCustomerTypes, setInviteCustomerTypes] = useState([]);
+  const [platformPlans, setPlatformPlans] = useState([]);
+  const [platformSupportEmail, setPlatformSupportEmail] = useState('');
+
+  // Load plans from platform_config once for SP admin
+  useEffect(function() {
+    if (!isSuperAdmin) return;
+    fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) {
+      if (d.plans) { setPlatformPlans(d.plans); setInvitePlans(d.plans); }
+      if (d.industries) setInviteIndustries(d.industries);
+      if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options);
+      if (d.support_email) setPlatformSupportEmail(d.support_email);
+    }).catch(function(e) { console.warn('Platform config load error:', e.message); });
+  }, [isSuperAdmin]);
   const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
   const [demoCreating, setDemoCreating] = useState(false);
   const [demoResult, setDemoResult] = useState(null);
@@ -598,7 +611,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
           </button>
-          <button onClick={function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) { if (d.plans) setInvitePlans(d.plans); if (d.industries) setInviteIndustries(d.industries); if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options); }).catch(function(e) { console.warn('Platform config load error:', e.message); }); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+          <button onClick={function() { setShowInvite(true); setShowNew(false); setShowDemoForm(false); setInviteResult(null); }} style={{ background: 'linear-gradient(135deg, #00C9FF, #E040FB)', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🚀 Invite Tenant
           </button>
         </div>
@@ -731,10 +744,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
                     <div>
                       <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
                       <select value={demoForm.plan} onChange={e => setDemoForm(p => ({ ...p, plan: e.target.value }))} style={{ ...inputStyleTM, cursor: "pointer" }}>
-                        <option value="starter">Starter ($99/mo)</option>
-                        <option value="growth">Growth ($249/mo)</option>
-                        <option value="pro">Pro ($499/mo)</option>
-                        <option value="enterprise">Enterprise (Custom)</option>
+                        {(platformPlans.filter(function(p) { return p.is_published && !p.is_csp_tier; }).length > 0
+                          ? platformPlans.filter(function(p) { return p.is_published && !p.is_csp_tier; })
+                          : [{ slug: 'starter', name: 'Starter', monthly_price: 99 }, { slug: 'growth', name: 'Growth', monthly_price: 249 }, { slug: 'pro', name: 'Pro', monthly_price: 499 }, { slug: 'enterprise', name: 'Enterprise', monthly_price: null }]
+                        ).map(function(p) {
+                          return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' ($' + p.monthly_price + '/mo)' : ' (Custom)'}</option>;
+                        })}
                       </select>
                     </div>
                     <div>
@@ -944,7 +959,7 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Plan</div>
-                        <select value={configForm.plan || c.plan || "growth"} onChange={function(e){ var p = e.target.value; var pd = {starter:{message_limit:5000,contact_limit:10000,user_seats:3},growth:{message_limit:25000,contact_limit:50000,user_seats:10},pro:{message_limit:50000,contact_limit:100000,user_seats:25},enterprise:{message_limit:250000,contact_limit:500000,user_seats:100},silver:{message_limit:10000,contact_limit:50000,user_seats:10},gold:{message_limit:50000,contact_limit:200000,user_seats:50},platinum:{message_limit:200000,contact_limit:500000,user_seats:200},diamond:{message_limit:500000,contact_limit:1000000,user_seats:500}}; var d = pd[p] || {}; setConfigForm(function(f){ return Object.assign({}, f, {plan: p, message_limit: d.message_limit || f.message_limit, contact_limit: d.contact_limit || f.contact_limit, user_seats: d.user_seats || f.user_seats}); }); }} data-field={"plan_" + c.id} style={inputStyleTM}><option value="starter">Starter ($99/mo)</option><option value="growth">Growth ($249/mo)</option><option value="pro">Pro ($499/mo)</option><option value="enterprise">Enterprise (Custom)</option><option disabled>── CSP Partners ──</option><option value="silver">Silver ($499/mo)</option><option value="gold">Gold ($1,499/mo)</option><option value="platinum">Platinum ($3,999/mo)</option><option value="diamond">Diamond ($7,999/mo)</option></select>
+                        <select value={configForm.plan || c.plan || "growth"} onChange={function(e){ var p = e.target.value; var match = platformPlans.find(function(pl) { return pl.slug === p; }); var d = match ? { message_limit: match.message_limit, contact_limit: match.contact_limit, user_seats: match.user_seats } : {}; setConfigForm(function(f){ return Object.assign({}, f, {plan: p, message_limit: d.message_limit || f.message_limit, contact_limit: d.contact_limit || f.contact_limit, user_seats: d.user_seats || f.user_seats}); }); }} data-field={"plan_" + c.id} style={inputStyleTM}>{(function() { var direct = platformPlans.filter(function(p) { return !p.is_csp_tier; }); var csp = platformPlans.filter(function(p) { return p.is_csp_tier; }); if (direct.length === 0) { direct = [{ slug: 'starter', name: 'Starter', monthly_price: 99 }, { slug: 'growth', name: 'Growth', monthly_price: 249 }, { slug: 'pro', name: 'Pro', monthly_price: 499 }, { slug: 'enterprise', name: 'Enterprise', monthly_price: null }]; } var opts = direct.map(function(p) { return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' ($' + p.monthly_price.toLocaleString() + '/mo)' : ' (Custom)'}</option>; }); if (csp.length > 0) { opts.push(<option key="_csp_sep" disabled>── CSP Partners ──</option>); csp.forEach(function(p) { opts.push(<option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' ($' + p.monthly_price.toLocaleString() + '/mo)' : ' (Custom)'}</option>); }); } return opts; })()}</select>
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
@@ -1453,22 +1468,46 @@ setDemoCreating(false);
       )}
 
       {activeTab === "billing" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
-          {[
-            { plan: "Starter", price: "$99/mo", messages: "5,000", channels: 2, users: 3, color: "#6B8BAE" },
-            { plan: "Growth", price: "$249/mo", messages: "25,000", channels: 4, users: 10, color: C.primary },
-            { plan: "Pro", price: "$499/mo", messages: "50,000", channels: 6, users: 25, color: "#7C4DFF" },
-            { plan: "Enterprise", price: "Custom", messages: "Unlimited", channels: 6, users: "Unlimited", color: C.accent },
-          ].map(p => (
-            <div key={p.plan} style={{ background: "rgba(255,255,255,0.03)", border: `2px solid ${p.color}44`, borderRadius: 14, padding: 28, textAlign: "center" }}>
-              <div style={{ color: p.color, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{p.plan}</div>
-              <div style={{ color: "#fff", fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{p.price}</div>
-              {[`${p.messages} messages/mo`, `${p.channels} channels`, `${p.users} users`, "White-label portal", "Custom domain", p.plan === "Enterprise" ? "Dedicated support" : "Email support"].map(f => (
-                <div key={f} style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, padding: "8px 0", borderBottom: `1px solid rgba(255,255,255,0.05)` }}>✓ {f}</div>
-              ))}
-              <button style={{ marginTop: 20, width: "100%", background: p.color, border: "none", borderRadius: 8, padding: "12px", color: "#000", fontWeight: 700, cursor: "pointer" }}>Assign to Tenant</button>
-            </div>
-          ))}
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20 }}>
+            {(function() {
+              var published = platformPlans.filter(function(p) { return p.is_published; });
+              if (published.length === 0) published = [
+                { slug: 'starter', name: 'Starter', monthly_price: 99, message_limit: 5000, channels: 2, user_seats: 3 },
+                { slug: 'growth', name: 'Growth', monthly_price: 249, message_limit: 25000, channels: 4, user_seats: 10 },
+                { slug: 'pro', name: 'Pro', monthly_price: 499, message_limit: 50000, channels: 6, user_seats: 25 },
+                { slug: 'enterprise', name: 'Enterprise', monthly_price: null, message_limit: 250000, channels: 6, user_seats: 100 },
+              ];
+              var planColors = { starter: '#6B8BAE', growth: C.primary, pro: '#7C4DFF', enterprise: C.accent, silver: '#C0C0C0', gold: '#FFD600', platinum: '#E5E4E2', diamond: '#B9F2FF' };
+              return published.map(function(p) {
+                var color = planColors[p.slug] || C.primary;
+                var msgs = p.message_limit >= 250000 ? 'Unlimited' : (p.message_limit || 0).toLocaleString();
+                var seats = p.user_seats >= 100 ? 'Unlimited' : p.user_seats;
+                return (
+                  <div key={p.slug} style={{ background: "rgba(255,255,255,0.03)", border: "2px solid " + color + "44", borderRadius: 14, padding: 28, textAlign: "center" }}>
+                    <div style={{ color: color, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{p.name}</div>
+                    <div style={{ color: "#fff", fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{p.monthly_price ? '$' + p.monthly_price.toLocaleString() + '/mo' : 'Custom'}</div>
+                    {[
+                      msgs + ' messages/mo',
+                      (p.channels || 6) + ' channels',
+                      seats + ' users',
+                      'White-label portal',
+                      'Custom domain',
+                      p.slug === 'enterprise' ? 'Dedicated support' : 'Email support',
+                    ].map(function(f) {
+                      return <div key={f} style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>✓ {f}</div>;
+                    })}
+                    <button style={{ marginTop: 20, width: "100%", background: color, border: "none", borderRadius: 8, padding: "12px", color: "#000", fontWeight: 700, cursor: "pointer" }}>Assign to Tenant</button>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 24, padding: '16px 0' }}>
+            <span style={{ color: C.muted, fontSize: 14 }}>Need more?{' '}
+              <a href={platformSupportEmail ? 'mailto:' + platformSupportEmail : '#'} style={{ color: C.primary, textDecoration: 'none', fontWeight: 700 }}>Contact sales</a>
+            </span>
+          </div>
         </div>
       )}
     </div>
