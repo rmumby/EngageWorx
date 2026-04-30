@@ -87,4 +87,10 @@ Exception: Anthropic Claude can be confirmed if a customer asks directly about A
 - [ ] **AIChatbot streaming rewire** — Replace canned mock responses in AIChatbot.js preview with real Claude streaming calls via `useClaudeStream`. (Approved 2026-04-28)
 - [ ] **ChatInput forwardRef** — Expose `ref` prop on `ChatInput` via `React.forwardRef` so consumers (LiveInbox, LiveInboxV2) can restore post-send textarea focus. (Approved 2026-04-28)
 - [ ] **Proactive system-trigger escalation rules** — Escalation rules that fire from internal system events (e.g. failed payment, SLA breach) rather than conversation content. Needs design discussion. (Identified 2026-04-28)
-- [ ] **CSP pricing layer** — CSP/agent Invite Tenant flow currently exposes EngageWorx wholesale pricing to sub-tenants. Need a CSP-pricing-layer where each CSP/agent defines their own retail plans for sub-tenants, stored as a tenant-scoped `platform_config` override. Roadmap item — discuss with Erik @ 0wire as design partner. (Identified 2026-04-30)
+- [ ] **CSP pricing layer (interim fix — ship tomorrow)** — In TenantManagement Invite Tenant flow, check if caller is SP admin (superadmin on SP tenant) vs non-SP tenant admin (CSP/agent). SP admin sees all 12 plans. Non-SP admin sees plan dropdown replaced with "Custom" placeholder + note: "Sub-tenant pricing managed by you outside the platform for now. Per-CSP pricing layer coming soon." Prevents wholesale price exposure to CSP customers. (Identified 2026-04-30)
+- [ ] **CSP pricing layer (long-term)** — Full per-CSP/agent plan management:
+  - CSP/agent admins get their own plan management screen in their tenant portal
+  - Per-tenant plans stored as `plans` JSONB on tenant row or a `tenant_plans` table
+  - When CSP/agent invites a sub-tenant, dropdown reads from THEIR retail plans, not platform_config
+  - Plan margin tracking: CSP buys at wholesale (e.g. csp_platform $499), sells at their retail price, platform shows the spread for analytics
+  - Discuss with Erik @ 0wire as design partner before building. (Identified 2026-04-30)
