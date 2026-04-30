@@ -365,16 +365,16 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [platformPlans, setPlatformPlans] = useState([]);
   const [platformSupportEmail, setPlatformSupportEmail] = useState('');
 
-  // Load plans from platform_config once for SP admin
+  // Load plans from platform_config once on mount
+  // (TenantManagement only renders for SP admins, no guard needed)
   useEffect(function() {
-    if (!isSuperAdmin) return;
     fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) {
       if (d.plans) { setPlatformPlans(d.plans); setInvitePlans(d.plans); }
       if (d.industries) setInviteIndustries(d.industries);
       if (d.customer_type_options) setInviteCustomerTypes(d.customer_type_options);
       if (d.support_email) setPlatformSupportEmail(d.support_email);
     }).catch(function(e) { console.warn('Platform config load error:', e.message); });
-  }, [isSuperAdmin]);
+  }, []);
   const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
   const [demoCreating, setDemoCreating] = useState(false);
   const [demoResult, setDemoResult] = useState(null);
