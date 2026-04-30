@@ -1978,6 +1978,13 @@ function AppInner() {
       } else if (profile.tenant_id) {
         setView("tenant_" + profile.tenant_id);
       } else {
+        console.warn('[Auth] no_tenant gate hit', {
+          profile_null: !profile,
+          tenant_id: profile?.tenant_id || 'MISSING',
+          tenant_type: profile?.tenant_type || 'MISSING',
+          entity_tier: profile?.entity_tier || 'MISSING',
+          role: profile?.role || 'MISSING',
+        });
         setView("no_tenant");
       }
     }

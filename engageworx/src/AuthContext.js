@@ -71,7 +71,10 @@ export function AuthProvider({ children }) {
         return null;
       }
       // Enrich profile with customer_type + entity_tier
-      if (data && data.tenant_id && (!data.tenant_type || !data.entity_tier)) {
+      // entity_tier lives on the tenants table, never on user_profiles —
+      // so !data.entity_tier was always true and this block always ran.
+      // Only check tenant_type (which user_profiles also doesn't have).
+      if (data && data.tenant_id && !data.tenant_type) {
         try {
           const { data: tenantData } = await supabase
             .from('tenants')
@@ -127,7 +130,10 @@ export function AuthProvider({ children }) {
         setSession(s);
         setUser(s?.user ?? null);
         if (event === 'SIGNED_IN' && s?.user) {
-          fetchProfile(s.user.id); // Don't await — let it run in background
+          // Don't re-fetch if signIn() already loaded profile — re-fetching
+          // without await races with the good profile and can overwrite it
+          // with a failed fallback ({ id, role: 'user' } with no tenant_id).
+          if (!profile) fetchProfile(s.user.id);
         }
         if (event === 'PASSWORD_RECOVERY') {
           setPasswordRecovery(true);
@@ -214,7 +220,7 @@ export function AuthProvider({ children }) {
   const isNotificationOnly = profile?.role === 'notification_only';
   const isSuperAdmin = profile?.role === 'superadmin' || profile?.role === 'super_admin' || profile?.role === 'sp_admin';
   if (profile && profile.role) console.log('[Auth] role=' + profile.role + ' isSuperAdmin=' + (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin'));
-  const isCSP = profile?.tenant_type === 'csp';
+  const isCSP = profile?.tenant_type === 'csp' || profile?.tenant_type === 'csp_partner';
   const cspTenantId = isCSP ? profile?.tenant_id : null;
   const entityTier = profile?.entity_tier || null;
   const isMasterAgent = entityTier === 'master_agent';
