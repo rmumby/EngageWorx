@@ -108,6 +108,7 @@ Exception: Anthropic Claude can be confirmed if a customer asks directly about A
 
 ## Future Work
 
+- [ ] **P1 — Per-tenant autonomous outreach config** — Autonomous send timing/cadence/threshold is currently a single SP-wide toggle in `sp_settings`. Needs per-tenant configuration via Settings → Sequences UI: autonomous mode on/off, stale threshold (days), max nudges per lead, send time window (business hours), nudge template tone (learns user voice via AI learning loop). Build as AIConfigBuilder flow (conversational config, not form fields — extends commit bc06fe6 pattern). (Identified 2026-05-01)
 - [ ] **Action Board Phase 2** — Action ingestion: `action-item-generator.js`, `action-items.js` endpoint, cron refactor to populate action_items, dedup enforcement, AI signature in drafts. (Scoped 2026-04-30)
 - [ ] **Action Board Phase 3** — Portal UI: ActionBoard component, ActionCard variants, DraftEditor, VIP/Priority toggles, notification settings page, pipeline stages settings.
 - [ ] **Action Board Phase 4** — Mobile/Gmail: draft-to-Gmail-Drafts flow, action board summary emails, one-click action links.

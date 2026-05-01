@@ -30,6 +30,11 @@ function shouldFireForTenant(tenant, offsetHours) {
 var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 var STALE_DAYS = 7;
 var FROZEN_STAGES = ['customer', 'closed_won', 'closed_lost'];
+// Sources that should be excluded from stale-lead processing for 14 days
+var EXCLUDED_SOURCES = ['abandoned_checkout', 'signup_recovery'];
+var EXCLUDED_SOURCE_DAYS = 14;
+
+var { generateActionItem } = require('./_lib/action-item-generator');
 
 function getSupabase() {
   return createClient(
@@ -146,7 +151,15 @@ module.exports = async function handler(req, res) {
   var mode = await getMode(supabase);
   var cutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
   var utcHour = new Date().getUTCHours();
-  console.log('[Cron] Stale leads started. mode:', mode, 'cutoff:', cutoff, 'UTC hour:', utcHour);
+
+  // Feature flag: action_items parallel write (Phase 2 transition)
+  var actionBoardEnabled = false;
+  try {
+    var abFlag = await supabase.from('sp_settings').select('value').eq('tenant_id', SP_TENANT_ID).eq('key', 'action_board_enabled').maybeSingle();
+    actionBoardEnabled = !!(abFlag.data && abFlag.data.value && abFlag.data.value.enabled);
+  } catch (_) {}
+
+  console.log('[Cron] Stale leads started. mode:', mode, 'action_board:', actionBoardEnabled, 'cutoff:', cutoff, 'UTC hour:', utcHour);
 
   try {
     // Determine which tenants should fire this hour (configured digest hour + 1)
@@ -162,7 +175,7 @@ module.exports = async function handler(req, res) {
     }
 
     var leadsQuery = supabase.from('leads')
-      .select('id, name, company, email, phone, stage, urgency, notes, tenant_id, last_activity_at, created_at')
+      .select('id, name, company, email, phone, stage, urgency, notes, tenant_id, last_activity_at, created_at, source')
       .eq('qualified', true)
       .eq('archived', false)
       .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
@@ -179,6 +192,15 @@ module.exports = async function handler(req, res) {
     var createdByTenant = {}; // tenant_id → [{ lead, decision, status }]
 
     for (var lead of leads) {
+      // Skip signup-recovery leads for 14 days — they're already being contacted
+      // by cron-signup-recovery's sequence. Processing them here creates duplicates.
+      if (lead.source && EXCLUDED_SOURCES.indexOf(lead.source) >= 0) {
+        var leadAge = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000);
+        if (leadAge < EXCLUDED_SOURCE_DAYS) {
+          continue;
+        }
+      }
+
       // Skip if we already logged a stale_lead action for this lead in the last 5 days
       try {
         var recent = await supabase.from('email_actions')
@@ -216,6 +238,54 @@ module.exports = async function handler(req, res) {
       }
 
       await supabase.from('email_actions').insert(row);
+
+      // Parallel write to action_items (Phase 2 transition)
+      if (actionBoardEnabled) {
+        try {
+          // Resolve the user_id for the action item (tenant admin or SP admin)
+          var actionUserId = null;
+          var actionTenantId = lead.tenant_id || SP_TENANT_ID;
+          try {
+            var adminMember = await supabase.from('tenant_members')
+              .select('user_id').eq('tenant_id', actionTenantId).eq('status', 'active')
+              .in('role', ['admin', 'owner']).limit(1).maybeSingle();
+            if (adminMember.data) actionUserId = adminMember.data.user_id;
+          } catch (_) {}
+          if (!actionUserId) {
+            try {
+              var spAdmin = await supabase.from('user_profiles')
+                .select('id').in('role', ['superadmin', 'super_admin', 'sp_admin']).limit(1).maybeSingle();
+              if (spAdmin.data) actionUserId = spAdmin.data.id;
+            } catch (_) {}
+          }
+
+          if (actionUserId) {
+            var aiResult = await generateActionItem(supabase, {
+              tenant_id: actionTenantId,
+              user_id: actionUserId,
+              source: 'pipeline_stale',
+              lead_id: lead.id,
+              context_data: {
+                days_stale: daysStale,
+                stage_name: lead.stage || '',
+                last_activity_date: lead.last_activity_at || lead.created_at,
+                last_activity_summary: (decision.reasoning || '').substring(0, 200),
+              },
+            });
+            // For autonomous mode, mark as resolved_auto with the sent content
+            if (mode === 'autonomous' && row.status === 'actioned' && aiResult.success && aiResult.action_item) {
+              await supabase.from('action_items').update({
+                status: 'resolved_auto',
+                sent_at: new Date().toISOString(),
+                final_sent_html: decision.reply_draft || null,
+              }).eq('id', aiResult.action_item.id);
+            }
+          }
+        } catch (aiErr) {
+          console.warn('[Cron] action_items write error for lead', lead.id, ':', aiErr.message);
+        }
+      }
+
       var bucket = lead.tenant_id || '_orphan';
       if (!createdByTenant[bucket]) createdByTenant[bucket] = [];
       createdByTenant[bucket].push({ lead: lead, decision: decision, status: row.status, daysStale: daysStale });
@@ -266,7 +336,7 @@ module.exports = async function handler(req, res) {
     }
 
     console.log('[Cron] Stale leads done.', 'candidates:', leads.length, 'analysed:', analysed, 'actioned:', actioned, 'pending:', pending, 'digests:', digestsSent);
-    return res.status(200).json({ success: true, mode: mode, candidates: leads.length, analysed: analysed, actioned: actioned, pending: pending, digests_sent: digestsSent });
+    return res.status(200).json({ success: true, mode: mode, action_board: actionBoardEnabled, candidates: leads.length, analysed: analysed, actioned: actioned, pending: pending, digests_sent: digestsSent });
   } catch (err) {
     console.error('[Cron] Stale leads error:', err.message);
     return res.status(500).json({ error: err.message });
