@@ -107,7 +107,7 @@ const LandingPage = () => {
               </div>
               <div style={{marginTop: 20, padding: '12px 16px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8}}>
                 <p style={{color: '#00C9FF', fontSize: 12, fontWeight: 700, marginBottom: 4}}>Confirmation SMS Sent After Opt-In</p>
-                <p style={{color: '#E8F4FD', fontSize: 13, lineHeight: 1.6, margin: 0, fontStyle: 'italic'}}>"You are now subscribed to EngageWorx SMS alerts. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe."</p>
+                <p style={{color: '#E8F4FD', fontSize: 13, lineHeight: 1.6, margin: 0, fontStyle: 'italic'}}>"EngageWorx: You're now opted in to receive account and service notifications. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help or STOP to opt out."</p>
               </div>
               <div style={{marginTop: 12, padding: '12px 16px', background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 8}}>
                 <p style={{color: '#00E676', fontSize: 12, fontWeight: 700, marginBottom: 4}}>TCR Compliance Notes</p>
