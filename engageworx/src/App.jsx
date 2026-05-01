@@ -391,9 +391,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [configForm, setConfigForm] = useState({});
  async function handleSaveTenantConfig(tenant) {
     var planDefaults = {
-      starter:    { message_limit: 5000,   contact_limit: 10000,   user_seats: 3 },
-      growth:     { message_limit: 25000,  contact_limit: 50000,   user_seats: 10 },
-      pro:        { message_limit: 50000,  contact_limit: 100000,  user_seats: 25 },
+      starter:    { message_limit: 1000,   contact_limit: 10000,   user_seats: 3 },
+      growth:     { message_limit: 5000,   contact_limit: 50000,   user_seats: 10 },
+      pro:        { message_limit: 20000,  contact_limit: 100000,  user_seats: 25 },
       enterprise: { message_limit: 250000, contact_limit: 500000,  user_seats: 100 },
       silver:     { message_limit: 10000,  contact_limit: 50000,   user_seats: 10 },
       gold:       { message_limit: 50000,  contact_limit: 200000,  user_seats: 50 },
@@ -1473,9 +1473,9 @@ setDemoCreating(false);
             {(function() {
               var published = platformPlans.filter(function(p) { return p.is_published; });
               if (published.length === 0) published = [
-                { slug: 'starter', name: 'Starter', monthly_price: 99, message_limit: 5000, channels: 2, user_seats: 3 },
-                { slug: 'growth', name: 'Growth', monthly_price: 249, message_limit: 25000, channels: 4, user_seats: 10 },
-                { slug: 'pro', name: 'Pro', monthly_price: 499, message_limit: 50000, channels: 6, user_seats: 25 },
+                { slug: 'starter', name: 'Starter', monthly_price: 99, message_limit: 1000, channels: 2, user_seats: 3 },
+                { slug: 'growth', name: 'Growth', monthly_price: 249, message_limit: 5000, channels: 4, user_seats: 10 },
+                { slug: 'pro', name: 'Pro', monthly_price: 499, message_limit: 20000, channels: 6, user_seats: 25 },
                 { slug: 'enterprise', name: 'Enterprise', monthly_price: null, message_limit: 250000, channels: 6, user_seats: 100 },
               ];
               var planColors = { starter: '#6B8BAE', growth: C.primary, pro: '#7C4DFF', enterprise: C.accent, silver: '#C0C0C0', gold: '#FFD600', platinum: '#E5E4E2', diamond: '#B9F2FF' };
