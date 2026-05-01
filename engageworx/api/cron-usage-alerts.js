@@ -11,12 +11,22 @@ function getSupabase() {
   );
 }
 
-// Plan bundle limits (per-month). Tweak as needed.
-var PLAN_LIMITS = {
-  Starter:    { sms: 1000,  whatsapp: 1000,  email: 5000,   ai: 500,   voice: 200,  contacts: 2500 },
-  Growth:     { sms: 5000,  whatsapp: 5000,  email: 25000,  ai: 2500,  voice: 1000, contacts: 10000 },
-  Pro:        { sms: 20000, whatsapp: 20000, email: 100000, ai: 10000, voice: 4000, contacts: 50000 },
-  Enterprise: { sms: 999999, whatsapp: 999999, email: 999999, ai: 999999, voice: 999999, contacts: 999999 },
+// Default limits — used ONLY when tenants.message_limit is NULL.
+// The per-tenant value (tenants.message_limit) is the source of truth,
+// seeded from platform_config.plans at tenant creation time.
+var DEFAULT_LIMITS = {
+  sms: 1000, whatsapp: 1000, email: 5000, ai: 500, voice: 200, contacts: 2500,
+};
+
+// Per-metric multipliers relative to SMS limit (tenants.message_limit).
+// SMS limit is the base; other channels scale from it.
+// e.g. if message_limit=5000: sms=5000, whatsapp=5000, email=25000, ai=2500, voice=1000
+var METRIC_MULTIPLIERS = {
+  sms: 1,
+  whatsapp: 1,
+  email: 5,
+  ai: 0.5,
+  voice: 0.2,
 };
 
 var METRIC_COLS = {
@@ -88,13 +98,29 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    var tRes = await supabase.from('tenants').select('id, name, plan, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, contacts_count, soft_capped');
+    var tRes = await supabase.from('tenants').select('id, name, plan, message_limit, contact_limit, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, contacts_count, soft_capped');
     var tenants = tRes.data || [];
     var alertsFired = 0;
+    var skipped = 0;
 
     for (var t of tenants) {
-      var plan = t.plan || 'Starter';
-      var limits = PLAN_LIMITS[plan] || PLAN_LIMITS.Starter;
+      // Source of truth: tenants.message_limit (seeded from platform_config.plans at creation)
+      var smsLimit = t.message_limit;
+      if (!smsLimit && smsLimit !== 0) {
+        console.warn('[UsageAlerts] tenant has no message_limit, skipping enforcement:', t.id, t.name, t.plan);
+        skipped++;
+        continue;
+      }
+
+      // Build per-metric limits from SMS base using multipliers
+      var limits = {
+        sms: smsLimit,
+        whatsapp: Math.round(smsLimit * METRIC_MULTIPLIERS.whatsapp),
+        email: Math.round(smsLimit * METRIC_MULTIPLIERS.email),
+        ai: Math.round(smsLimit * METRIC_MULTIPLIERS.ai),
+        voice: Math.round(smsLimit * METRIC_MULTIPLIERS.voice),
+        contacts: t.contact_limit || DEFAULT_LIMITS.contacts,
+      };
 
       for (var metric of Object.keys(METRIC_COLS)) {
         var used = Number(t[METRIC_COLS[metric]] || 0);
@@ -128,7 +154,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({ success: true, tenants: tenants.length, alerts_fired: alertsFired, period: period });
+    return res.status(200).json({ success: true, tenants: tenants.length, alerts_fired: alertsFired, skipped_no_limit: skipped, period: period });
   } catch (err) {
     console.error('[UsageAlerts] error:', err.message);
     return res.status(500).json({ error: err.message });

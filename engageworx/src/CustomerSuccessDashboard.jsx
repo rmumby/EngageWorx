@@ -1,6 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 
+// TODO: Replace hardcoded PLAN_LIMITS with per-tenant limits from tenants.message_limit.
+// cron-usage-alerts.js was fixed in commit cc83d46 to read from tenants.message_limit;
+// this display-only map should follow the same pattern for consistency.
+// Custom plans (silver, csp_pilot, csp_platform, Master 20) fall back to Starter here.
+// See docs/known-issues.md for tracking.
 var PLAN_LIMITS = {
   Starter:    { sms: 1000,  whatsapp: 1000,  email: 5000,   ai: 500,   voice: 200 },
   Growth:     { sms: 5000,  whatsapp: 5000,  email: 25000,  ai: 2500,  voice: 1000 },
