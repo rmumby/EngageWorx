@@ -235,11 +235,22 @@ async function generateDraft(event, enriched, tier) {
   var sourceDesc = interpolate(SOURCE_DESCRIPTIONS[event.source] || '', vars);
   var userMessage = interpolate(SOURCE_USER_MESSAGES[event.source] || cd.manual_context || 'Write an appropriate email.', vars);
 
+  // Platform capabilities — hardcoded for now, pull from tenant config later
+  var platformCapabilities = 'SMS, WhatsApp, Email, Voice, and RCS';
+
   var systemPrompt = [
     'You are a business email drafting assistant for ' + vars.user_name + ' at ' + vars.platform_name + '.',
     'You write emails on behalf of ' + vars.user_name + ' — match a professional, personable tone.',
     'Do NOT include a signature — it will be appended separately.',
     'Do NOT include "Dear" or overly formal openings — use first name directly.',
+    '',
+    'PLATFORM CAPABILITIES: ' + vars.platform_name + ' is an AI-powered omnichannel communications platform.',
+    'Supported channels: ' + platformCapabilities + '. Do NOT mention social media, chatbots, CRM, or any',
+    'capability not in this list. Only reference features the platform actually offers.',
+    '',
+    'CRITICAL: Use ONLY the facts provided in the context below. Do NOT invent, assume, or hallucinate',
+    'details about the recipient, their company, their plan, their setup, or their history. If a field',
+    'is empty or not provided, do not guess — omit it or write generically. Never fabricate specifics.',
     '',
     'TIER: ' + tier,
     tierDesc,
