@@ -100,7 +100,7 @@ const LandingPage = () => {
                 <div style={{marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10}}>
                   <div style={{width: 20, height: 20, border: '2px solid #2a3548', borderRadius: 4, background: '#0d1117', flexShrink: 0, marginTop: 2}} />
                   <label style={{color: '#9BB0C7', fontSize: 12, lineHeight: 1.6}}>
-                    I agree to receive SMS messages from <strong style={{color: '#E8F4FD'}}>EngageWorx</strong>. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe. View our <a href="/privacypolicy" style={{color: '#00C9FF', textDecoration: 'underline'}}>Privacy Policy</a> and <a href="/termsandconditions" style={{color: '#00C9FF', textDecoration: 'underline'}}>Terms of Service</a>.
+                    I agree to receive SMS messages from <strong style={{color: '#E8F4FD'}}>EngageWorx</strong>. Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help, STOP to unsubscribe. View our <a href="/privacy" style={{color: '#00C9FF', textDecoration: 'underline'}}>Privacy Policy</a> and <a href="/terms" style={{color: '#00C9FF', textDecoration: 'underline'}}>Terms of Service</a>.
                   </label>
                 </div>
                 <div style={{background: '#1a2540', borderRadius: 8, padding: '12px 24px', textAlign: 'center', color: '#6B8BAE', fontSize: 14, fontWeight: 600}}>Submit</div>
@@ -108,10 +108,6 @@ const LandingPage = () => {
               <div style={{marginTop: 20, padding: '12px 16px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8}}>
                 <p style={{color: '#00C9FF', fontSize: 12, fontWeight: 700, marginBottom: 4}}>Confirmation SMS Sent After Opt-In</p>
                 <p style={{color: '#E8F4FD', fontSize: 13, lineHeight: 1.6, margin: 0, fontStyle: 'italic'}}>"You are now subscribed to EngageWorx SMS alerts. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe."</p>
-              </div>
-              <div style={{marginTop: 12, padding: '12px 16px', background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.15)', borderRadius: 8}}>
-                <p style={{color: '#00C9FF', fontSize: 12, fontWeight: 700, marginBottom: 4}}>SMS Keyword Opt-In</p>
-                <p style={{color: '#9BB0C7', fontSize: 12, lineHeight: 1.6, margin: 0}}>Users can also opt in by texting the keyword <strong style={{color: '#E8F4FD'}}>START</strong> to the business phone number. They will receive the same confirmation message above.</p>
               </div>
               <div style={{marginTop: 12, padding: '12px 16px', background: 'rgba(0,230,118,0.06)', border: '1px solid rgba(0,230,118,0.15)', borderRadius: 8}}>
                 <p style={{color: '#00E676', fontSize: 12, fontWeight: 700, marginBottom: 4}}>TCR Compliance Notes</p>
@@ -121,6 +117,7 @@ const LandingPage = () => {
           )}
           {pageData.sections.map(function(s, i) {
             if (s.type === "h") return <h2 key={"lh" + i} style={{fontSize: 20, fontWeight: 800, marginTop: 40, marginBottom: 12, color: '#00C9FF'}}>{s.text}</h2>;
+            if (s.text && s.text.indexOf('<strong>') >= 0) return <p key={"lp" + i} style={{color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16}} dangerouslySetInnerHTML={{__html: s.text}} />;
             return <p key={"lp" + i} style={{color: '#9BB0C7', fontSize: 15, lineHeight: 1.8, marginBottom: 16}}>{s.text}</p>;
           })}
         </div>

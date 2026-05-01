@@ -100,6 +100,7 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/smsconsent", "destination": "/smsconsent.html" },
+    { "source": "/sms-terms", "destination": "/sms-terms.html" },
     { "source": "/accessibility", "destination": "/accessibility.html" },
     { "source": "/tour", "destination": "/tour.html" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
