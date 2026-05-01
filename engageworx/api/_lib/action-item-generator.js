@@ -213,7 +213,7 @@ async function generateDraft(event, enriched, tier) {
     contact_email: (contact && contact.email) || (lead && lead.email) || '',
     company: (lead && lead.company) || (contact && contact.company) || '',
     tenant_name: relatedTenant ? relatedTenant.name : (enriched.tenant ? enriched.tenant.name : ''),
-    plan_name: relatedTenant ? (relatedTenant.plan || 'Starter') : '',
+    plan_name: cd.plan_name || (relatedTenant ? relatedTenant.plan : '') || '',
     stage_name: cd.stage_name || '',
     days_stale: cd.days_stale || '',
     days_ago: cd.days_ago || '',
@@ -336,7 +336,9 @@ async function insertOrUpdate(supabase, row) {
         var { data: updated, error: updateErr } = await supabase.from('action_items')
           .update({
             updated_at: new Date().toISOString(),
+            title: row.title,
             context: row.context,
+            suggested_action: row.suggested_action,
             draft_subject: row.draft_subject,
             draft_body_html: row.draft_body_html,
           })
