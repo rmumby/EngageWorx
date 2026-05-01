@@ -2,7 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from './supabaseClient';
 
+var CATEGORY_ICONS = { release_note: '🚀', alert: '⚠️', announcement: '📢' };
+
 // Notification bell for the in-portal Platform Updates / changelog.
+// Opening the dropdown does NOT auto-mark read. User must click each item or "Mark all read".
+// Requires: user_update_reads table (migration 20260501-notification-bell-migration.sql)
 export default function PlatformUpdatesBell({ userId, audience }) {
   var [updates, setUpdates] = useState([]);
   var [readIds, setReadIds] = useState(new Set());
@@ -17,7 +21,7 @@ export default function PlatformUpdatesBell({ userId, audience }) {
       var r = await supabase.from('platform_updates').select('*').in('target_audience', audiences).not('published_at', 'is', null).order('published_at', { ascending: false }).limit(30);
       setUpdates(r.data || []);
       if (userId) {
-        var rr = await supabase.from('read_platform_updates').select('update_id').eq('user_id', userId);
+        var rr = await supabase.from('user_update_reads').select('update_id').eq('user_id', userId);
         setReadIds(new Set((rr.data || []).map(function(x) { return x.update_id; })));
       }
     } catch (e) { console.warn('[Bell] load:', e.message); }
@@ -26,13 +30,26 @@ export default function PlatformUpdatesBell({ userId, audience }) {
 
   var unreadCount = updates.filter(function(u) { return !readIds.has(u.id); }).length;
 
+  async function markOneRead(updateId) {
+    if (!userId || readIds.has(updateId)) return;
+    try {
+      await supabase.from('user_update_reads').upsert(
+        { user_id: userId, update_id: updateId },
+        { onConflict: 'user_id,update_id' }
+      );
+      var next = new Set(readIds);
+      next.add(updateId);
+      setReadIds(next);
+    } catch (e) {}
+  }
+
   async function markAllRead() {
     if (!userId) return;
     try {
       var unread = updates.filter(function(u) { return !readIds.has(u.id); });
       if (unread.length === 0) return;
       var rows = unread.map(function(u) { return { user_id: userId, update_id: u.id }; });
-      await supabase.from('read_platform_updates').upsert(rows, { onConflict: 'user_id,update_id' });
+      await supabase.from('user_update_reads').upsert(rows, { onConflict: 'user_id,update_id' });
       var next = new Set(readIds);
       unread.forEach(function(u) { next.add(u.id); });
       setReadIds(next);
@@ -50,10 +67,12 @@ export default function PlatformUpdatesBell({ userId, audience }) {
       }
       if (leftPos < 10) leftPos = 10;
       setPos({ top: rect.top, left: leftPos });
-      markAllRead();
     }
     setOpen(willOpen);
   }
+
+  var allRead = updates.length > 0 && unreadCount === 0;
+  var empty = updates.length === 0;
 
   var panel = open ? createPortal(
     <>
@@ -61,22 +80,39 @@ export default function PlatformUpdatesBell({ userId, audience }) {
       <div style={{ position: 'fixed', top: pos.top, left: pos.left, width: 400, maxWidth: 'calc(100vw - 40px)', maxHeight: 'calc(100vh - 80px)', overflowY: 'auto', background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 12, zIndex: 9999, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', padding: 14, fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', marginBottom: 8 }}>
           <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📢 What's new</div>
-          <button onClick={function() { setOpen(false); }} style={{ background: 'none', border: 'none', color: '#6B8BAE', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: '#E040FB', cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '2px 6px' }}>Mark all read</button>
+            )}
+            <button onClick={function() { setOpen(false); }} style={{ background: 'none', border: 'none', color: '#6B8BAE', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          </div>
         </div>
-        {updates.length === 0 ? (
+        {(empty || allRead) ? (
           <div style={{ color: '#6B8BAE', fontSize: 12, textAlign: 'center', padding: '28px 10px' }}>You're all caught up.</div>
-        ) : (
+        ) : null}
+        {!empty && (
           <div style={{ display: 'grid', gap: 10 }}>
             {updates.map(function(u) {
               var isUnread = !readIds.has(u.id);
+              var icon = CATEGORY_ICONS[u.category] || '📢';
               return (
-                <div key={u.id} style={{ padding: 12, borderRadius: 8, background: isUnread ? 'rgba(224,64,251,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (isUnread ? 'rgba(224,64,251,0.3)' : 'rgba(255,255,255,0.06)') }}>
+                <div
+                  key={u.id}
+                  onClick={function() { markOneRead(u.id); }}
+                  style={{
+                    padding: 12, borderRadius: 8, cursor: isUnread ? 'pointer' : 'default',
+                    background: isUnread ? 'rgba(224,64,251,0.08)' : 'rgba(255,255,255,0.02)',
+                    border: '1px solid ' + (isUnread ? 'rgba(224,64,251,0.3)' : 'rgba(255,255,255,0.06)'),
+                    transition: 'background 0.2s, border-color 0.2s'
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {isUnread && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E040FB', flexShrink: 0 }} />}
-                    <div style={{ color: '#fff', fontSize: 13, fontWeight: 700, flex: 1 }}>{u.title}</div>
+                    <span style={{ fontSize: 12 }}>{icon}</span>
+                    <div style={{ color: '#fff', fontSize: 13, fontWeight: isUnread ? 700 : 500, flex: 1, opacity: isUnread ? 1 : 0.7 }}>{u.title}</div>
                   </div>
-                  <div style={{ color: '#6B8BAE', fontSize: 10, marginTop: 2 }}>{u.published_at ? new Date(u.published_at).toLocaleDateString() : ''}</div>
-                  {u.body && <div style={{ color: '#cbd5e1', fontSize: 12, marginTop: 6, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{u.body}</div>}
+                  <div style={{ color: '#6B8BAE', fontSize: 10, marginTop: 2, marginLeft: isUnread ? 18 : 22 }}>{u.published_at ? new Date(u.published_at).toLocaleDateString() : ''}</div>
+                  {u.body && <div style={{ color: isUnread ? '#cbd5e1' : '#6B8BAE', fontSize: 12, marginTop: 6, marginLeft: isUnread ? 18 : 22, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{u.body}</div>}
                 </div>
               );
             })}
