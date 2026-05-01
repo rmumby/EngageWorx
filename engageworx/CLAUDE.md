@@ -16,6 +16,29 @@ This is the standing instruction set for every Claude Code session on the Engage
 - After every build: suggest **ONE** optimization or simplification that would improve the feature without scope creep. Rob decides if it's in or deferred.
 - After every build: flag **ONE** thing that could streamline via AI that currently requires manual work or clicks.
 - Never add new config storage (new table, new JSON blob) without checking if existing config infrastructure can be extended instead.
+- ### Documentation Sync Requirement
+
+Any change that adds or modifies the following must be reflected in the
+platform reference doc (the EngageWorx project's `engageworx-platform-code-reference.md`)
+in the SAME commit/PR:
+
+- New database tables or significant column additions (Section 5)
+- New API endpoints or routes (Section 8)
+- New environment variables (Section 6)
+- New tech stack components or vendor changes (Section 3)
+- Changes to pricing tiers or plan limits (Section 7)
+- Changes to tenant architecture or customer types (Section 2)
+- New recurring issue patterns or fixes worth documenting (Section 9)
+- TCR/compliance pattern changes (Section 10)
+
+If the platform reference doc lives outside this repo, output the exact
+markdown diff to apply, clearly labeled, at the end of the build summary
+so Rob can paste it into the project doc immediately.
+
+Rationale: The platform reference doc is the source of truth shared across
+all Claude surfaces (chat sessions, other Claude Code sessions, AI
+collaborators). Stale docs cause duplicate tables, conflicting migrations,
+and rework. Doc-in-the-same-PR is non-negotiable.
 
 ## Code Quality
 
