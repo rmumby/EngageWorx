@@ -59,6 +59,20 @@ async function enrichContext(supabase, event) {
     } catch (_) {}
   }
 
+  // Lead-only events: try email-match to find a contact for title/VIP data.
+  // Leads table has no title column — C-level detection requires a linked contact.
+  if (lead && !contact && lead.email && lead.tenant_id) {
+    try {
+      var emailMatch = await supabase.from('contacts')
+        .select('*')
+        .eq('tenant_id', lead.tenant_id)
+        .eq('email', lead.email)
+        .limit(1)
+        .maybeSingle();
+      if (emailMatch.data) contact = emailMatch.data;
+    } catch (_) {}
+  }
+
   // When both exist, prefer more recently updated for conflicting fields
   if (contact && lead) {
     var contactTime = new Date(contact.updated_at || contact.created_at || 0).getTime();
@@ -109,17 +123,13 @@ function determineTier(source, contact, lead) {
   if (contact && contact.is_vip) return 'priority';
   if (lead && lead.is_priority) return 'priority';
 
-  // C-level title check
+  // C-level title check (contact.title only — leads table has no title column.
+  // For lead-only events, enrichContext does an email-match lookup to find
+  // a linked contact with title data.)
   if (contact && contact.title) {
     var titleLower = contact.title.toLowerCase();
     for (var i = 0; i < C_LEVEL_TITLES.length; i++) {
       if (titleLower.indexOf(C_LEVEL_TITLES[i]) >= 0) return 'priority';
-    }
-  }
-  if (lead && lead.title) {
-    var leadTitleLower = lead.title.toLowerCase();
-    for (var j = 0; j < C_LEVEL_TITLES.length; j++) {
-      if (leadTitleLower.indexOf(C_LEVEL_TITLES[j]) >= 0) return 'priority';
     }
   }
 
