@@ -851,6 +851,32 @@ useEffect(function() {
           console.warn('Email send error:', emailErr.message);
         }
       }
+      if (selectedConv.channel === 'whatsapp' && selectedConv.contact?.phone) {
+        try {
+          var waRes = await fetch('/api/whatsapp?action=send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: selectedConv.contact.phone,
+              body: messageBody,
+              tenant_id: selectedConv.tenant_id || currentTenantId,
+            }),
+          });
+          if (!waRes.ok) {
+            var waErrData = await waRes.json().catch(function() { return {}; });
+            console.error('WhatsApp send failed:', waErrData.error || waRes.status);
+            if (waRes.status === 429) {
+              alert('Message limit reached for this tenant. Upgrade or purchase a top-up.');
+            } else if (waErrData.error && waErrData.error.indexOf('outside') >= 0) {
+              alert('WhatsApp 24-hour window expired. Send a template message instead.');
+            } else {
+              alert('WhatsApp delivery failed: ' + (waErrData.error || 'Unknown error'));
+            }
+          }
+        } catch (waFetchErr) {
+          console.warn('WhatsApp send error:', waFetchErr.message);
+        }
+      }
 
       // Optimistically add message to UI
       var optimisticMsg = {
