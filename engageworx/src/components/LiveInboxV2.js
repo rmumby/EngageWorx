@@ -460,7 +460,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var mapped = data.map(function(m) {
             return {
               id: m.id,
-              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -501,7 +501,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
                 id: m.id,
-                from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+                from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
                 text: m.body || '',
                 time: m.created_at ? new Date(m.created_at) : new Date(),
                 agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -605,7 +605,7 @@ useEffect(function() {
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
               id: m.id,
-              from: m.sender_type === 'contact' ? 'contact' : (m.sender_type === 'ai' || m.sender_type === 'bot') ? 'bot' : 'agent',
+              from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -1259,7 +1259,7 @@ useEffect(function() {
               var isHtml = msg.text && /<[a-z][\s\S]*>/i.test(msg.text);
               return {
                 id: msg.id,
-                role: isContact ? "user" : isBot ? "assistant" : "agent",
+                role: isContact ? "user" : "agent",
                 content: msg.text,
                 timestamp: msg.time,
                 metadata: {
