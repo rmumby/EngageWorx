@@ -652,7 +652,7 @@ useEffect(function() {
     console.log('[NewConvSearch] called', { query: query, currentTenantId: currentTenantId, resolvedTenantId: resolvedTenantId, hasSupabase: !!supabase });
     if (!query.trim()) { console.log('[NewConvSearch] bail: empty query'); return; }
     if (!supabase) { console.log('[NewConvSearch] bail: no supabase client'); return; }
-    if (!currentTenantId) { console.log('[NewConvSearch] bail: currentTenantId is', currentTenantId, '(resolvedTenantId is', resolvedTenantId, ')'); return; }
+    if (!resolvedTenantId) { console.log('[NewConvSearch] bail: resolvedTenantId is', resolvedTenantId); return; }
     setNewConvSearching(true);
     try {
       var pattern = '%' + query.trim() + '%';
