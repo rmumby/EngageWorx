@@ -649,16 +649,21 @@ useEffect(function() {
 
 
   async function newConvSearchContacts(query) {
-    if (!query.trim() || !supabase || !currentTenantId) return;
+    console.log('[NewConvSearch] called', { query: query, currentTenantId: currentTenantId, resolvedTenantId: resolvedTenantId, hasSupabase: !!supabase });
+    if (!query.trim()) { console.log('[NewConvSearch] bail: empty query'); return; }
+    if (!supabase) { console.log('[NewConvSearch] bail: no supabase client'); return; }
+    if (!currentTenantId) { console.log('[NewConvSearch] bail: currentTenantId is', currentTenantId, '(resolvedTenantId is', resolvedTenantId, ')'); return; }
     setNewConvSearching(true);
     try {
       var pattern = '%' + query.trim() + '%';
+      console.log('[NewConvSearch] querying contacts', { tenant_id: resolvedTenantId, pattern: pattern });
       var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company')
         .eq('tenant_id', resolvedTenantId)
         .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern + ',company.ilike.' + pattern)
         .limit(10);
+      console.log('[NewConvSearch] result', { count: (r.data || []).length, error: r.error ? r.error.message : null, data: r.data });
       setNewConvResults(r.data || []);
-    } catch (e) { console.warn('newConv search error:', e); }
+    } catch (e) { console.warn('[NewConvSearch] error:', e.message, e); }
     setNewConvSearching(false);
   }
 
