@@ -81,6 +81,7 @@ export default function ChatThread({
               content={msg.content}
               timestamp={msg.timestamp}
               metadata={{ botName, ...msg.metadata }}
+              align={msg.align}
               colors={colors}
               showAvatar={showAvatar}
               maxWidth={maxWidth}

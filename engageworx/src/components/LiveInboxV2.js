@@ -461,6 +461,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             return {
               id: m.id,
               from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
+              isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -502,6 +503,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               mMap[m.conversation_id].push({
                 id: m.id,
                 from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
+              isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
                 text: m.body || '',
                 time: m.created_at ? new Date(m.created_at) : new Date(),
                 agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -606,6 +608,7 @@ useEffect(function() {
             msgMap[m.conversation_id].push({
               id: m.id,
               from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
+              isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
@@ -1255,17 +1258,17 @@ useEffect(function() {
           <ChatThread
             messages={(selectedConv.messages || []).map(function(msg) {
               var isContact = msg.from === "contact";
-              var isBot = msg.from === "bot";
               var isHtml = msg.text && /<[a-z][\s\S]*>/i.test(msg.text);
               return {
                 id: msg.id,
                 role: isContact ? "user" : "agent",
+                align: isContact ? "left" : "right",
                 content: msg.text,
                 timestamp: msg.time,
                 metadata: {
                   avatar: isContact ? selectedConv.contact.avatar : (msg.agent ? msg.agent.avatar : null),
                   agentName: msg.agent ? msg.agent.name : null,
-                  botName: isBot ? "AI Assistant" : null,
+                  botName: msg.isBot ? "AI Assistant" : null,
                   delivered: msg.delivered,
                   read: msg.read,
                   isHtml: isHtml,
