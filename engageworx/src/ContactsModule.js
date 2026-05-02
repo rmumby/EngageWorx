@@ -786,6 +786,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     };
     var extraFields = {
       mobile_phone: phoneVal, office_phone: contact.office_phone || null,
+      whatsapp_number: contact.whatsapp_number || null,
       title: contact.title || null, linkedin_url: contact.linkedinUrl || null,
       notes: contact.notes || null, preferred_channel: contact.preferred_channel || 'email',
       is_vip: contact.is_vip || false,
@@ -1075,7 +1076,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                     </div>
                   ))}
-                  {[{ key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }].map(function(f) {
+                  {[{ key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }, { key: "whatsapp_number", label: "WhatsApp", icon: "📲" }].map(function(f) {
                     var parts = splitPhone(editingContact[f.key]);
                     return (
                       <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1120,7 +1121,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
               ) : (
-                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📱", label: "Mobile", value: c.mobile_phone }, c.office_phone ? { icon: "📞", label: "Office", value: c.office_phone } : null, { icon: "🏢", label: "Company", value: c.company }, c.title ? { icon: "💼", label: "Title", value: c.title } : null, c.linkedinUrl ? { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true } : null, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
+                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📱", label: "Mobile", value: c.mobile_phone }, c.whatsapp_number ? { icon: "📲", label: "WhatsApp", value: c.whatsapp_number } : null, c.office_phone ? { icon: "📞", label: "Office", value: c.office_phone } : null, { icon: "🏢", label: "Company", value: c.company }, c.title ? { icon: "💼", label: "Title", value: c.title } : null, c.linkedinUrl ? { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true } : null, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
                   <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>

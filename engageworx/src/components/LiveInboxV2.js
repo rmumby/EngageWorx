@@ -653,7 +653,7 @@ useEffect(function() {
     setNewConvSearching(true);
     try {
       var pattern = '%' + query.trim() + '%';
-      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, company')
+      var r = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company')
         .eq('tenant_id', resolvedTenantId)
         .or('first_name.ilike.' + pattern + ',last_name.ilike.' + pattern + ',email.ilike.' + pattern + ',phone.ilike.' + pattern + ',company.ilike.' + pattern)
         .limit(10);
@@ -688,6 +688,7 @@ useEffect(function() {
       contactId = newConvContact.id;
       contactName = ((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim();
       if (newConvChannel === 'email') recipient = newConvContact.email || '';
+      else if (newConvChannel === 'whatsapp') recipient = newConvContact.whatsapp_number || newConvContact.mobile_phone || newConvContact.phone || '';
       else recipient = newConvContact.mobile_phone || newConvContact.phone || '';
     } else {
       recipient = newConvManual.trim();
@@ -768,7 +769,19 @@ useEffect(function() {
         try { await fetch('/api/send-digest-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, subject: 'Hello from ' + (contactName || 'us'), body: newConvBody.trim(), from: fromEmail || undefined }) }); } catch (e) {}
       }
       if (newConvChannel === 'whatsapp' && recipient) {
-        try { await fetch('/api/whatsapp-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, body: newConvBody.trim(), tenant_id: resolvedTenantId }) }); } catch (e) {}
+        try {
+          var waNewRes = await fetch('/api/whatsapp?action=send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: recipient, body: newConvBody.trim(), tenant_id: resolvedTenantId }),
+          });
+          if (!waNewRes.ok) {
+            var waNewErr = await waNewRes.json().catch(function() { return {}; });
+            alert('WhatsApp delivery failed: ' + (waNewErr.error || 'Unknown error'));
+          }
+        } catch (e) {
+          console.warn('WhatsApp new conv send error:', e.message);
+        }
       }
       // Reset and close
       setNewConvOpen(false); setNewConvSearch(''); setNewConvResults([]); setNewConvContact(null); setNewConvManual(''); setNewConvBody(''); setNewConvChannel('sms');
@@ -851,13 +864,13 @@ useEffect(function() {
           console.warn('Email send error:', emailErr.message);
         }
       }
-      if (selectedConv.channel === 'whatsapp' && selectedConv.contact?.phone) {
+      if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
         try {
           var waRes = await fetch('/api/whatsapp?action=send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              to: selectedConv.contact.phone,
+              to: selectedConv.contact.whatsapp_number || selectedConv.contact.mobile_phone || selectedConv.contact.phone,
               body: messageBody,
               tenant_id: selectedConv.tenant_id || currentTenantId,
             }),

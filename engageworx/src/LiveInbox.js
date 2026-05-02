@@ -521,13 +521,13 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           console.warn('SMS send error:', smsErr.message);
         }
       }
-      if (selectedConv.channel === 'whatsapp' && selectedConv.contact?.phone) {
+      if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
         try {
           var waRes = await fetch('/api/whatsapp?action=send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              to: selectedConv.contact.phone,
+              to: selectedConv.contact.whatsapp_number || selectedConv.contact.mobile_phone || selectedConv.contact.phone,
               body: messageBody,
               tenant_id: selectedConv.tenant_id || currentTenantId,
             }),
