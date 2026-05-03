@@ -318,7 +318,7 @@ async function generateDraft(event, enriched, tier) {
     '  "draft_subject": "Email subject line — concise, no emoji, professional",',
     '  "draft_body_html": "Email body as clean HTML. Use <p> tags. 2-4 short paragraphs max. End with a clear next step or question."',
     '}',
-  ].join('\n');
+  ]).join('\n');
 
   try {
     var res = await fetch('https://api.anthropic.com/v1/messages', {
