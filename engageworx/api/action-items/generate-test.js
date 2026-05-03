@@ -23,6 +23,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
+  try {
+
   var authHeader = req.headers.authorization || '';
   var jwt = authHeader.replace(/^Bearer\s+/i, '');
   if (!jwt) return res.status(401).json({ error: 'Authorization required' });
@@ -94,4 +96,9 @@ module.exports = async function handler(req, res) {
     skipped_dedup: skipped,
     errors: errors.length > 0 ? errors : undefined,
   });
+
+  } catch (err) {
+    console.error('[action-items/generate-test] unhandled error:', err.message, err.stack);
+    return res.status(500).json({ error: err.message, stack: err.stack ? err.stack.split('\n').slice(0, 5) : undefined });
+  }
 };
