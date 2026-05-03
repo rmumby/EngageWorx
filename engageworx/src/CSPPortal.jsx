@@ -75,6 +75,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     })();
   }, [cspTenantId]);
   var C = Object.assign({}, getCSPColors(), brandColors);
+  var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
 
   useEffect(function() {
     supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url, website_url').eq('id', cspTenantId).single().then(function(res) {
@@ -784,15 +785,21 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                       <div><label style={labelStyle}>Email *</label><input value={createForm.email} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} /></div>
                       <div><label style={labelStyle}>Password *</label><input value={createForm.password} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { password: e.target.value })); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} /></div>
                     </div>
-                    <div>
-                      <label style={labelStyle}>Plan</label>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        {['starter', 'growth', 'pro'].map(function(p) {
-                          var selected = createForm.plan === p;
-                          return <button key={p} onClick={function() { setCreateForm(Object.assign({}, createForm, { plan: p })); }} style={{ background: selected ? C.primary + '22' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (selected ? C.primary + '66' : 'rgba(255,255,255,0.08)'), borderRadius: 8, padding: '8px 20px', color: selected ? C.primary : '#fff', fontWeight: selected ? 700 : 500, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", textTransform: 'capitalize' }}>{p}</button>;
-                        })}
+                    {isSPAdmin ? (
+                      <div>
+                        <label style={labelStyle}>Plan</label>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          {['starter', 'growth', 'pro'].map(function(p) {
+                            var selected = createForm.plan === p;
+                            return <button key={p} onClick={function() { setCreateForm(Object.assign({}, createForm, { plan: p })); }} style={{ background: selected ? C.primary + '22' : 'rgba(255,255,255,0.03)', border: '1px solid ' + (selected ? C.primary + '66' : 'rgba(255,255,255,0.08)'), borderRadius: 8, padding: '8px 20px', color: selected ? C.primary : '#fff', fontWeight: selected ? 700 : 500, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", textTransform: 'capitalize' }}>{p}</button>;
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', color: C.muted, fontSize: 12, lineHeight: 1.5 }}>
+                        Sub-tenant pricing managed by you outside the platform for now. Per-partner pricing layer coming soon.
+                      </div>
+                    )}
                     <button onClick={handleCreateTenant} disabled={createLoading} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: createLoading ? 0.6 : 1 })}>{createLoading ? 'Creating...' : 'Create Tenant'}</button>
                   </div>
                 </div>
