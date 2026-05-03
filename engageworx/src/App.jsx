@@ -12,6 +12,7 @@ import LiveInbox from './components/LiveInboxV2';
 import AIChatbot from './AIChatbot';
 import BlogAdmin from './BlogAdmin';
 import ImportLeads from './ImportLeads';
+import ActionBoard from './ActionBoard';
 import CreateSandbox from './CreateSandbox';
 import CSPPortal from './CSPPortal';
 import SequenceBuilder from './SequenceBuilder';
@@ -1711,6 +1712,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     { id: "sequenceroster", label: t('nav.sequenceRoster'), icon: "📋" },
     { id: "sequences", label: t('nav.sequenceBuilder'), icon: "📝" },
     { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
+    { id: "action-board", label: "Action Board", icon: "⚡" },
     { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
     entityTier === 'csp' ? { id: "tenants", label: t('nav.tenantManagement'), icon: "🏢" } : null,
     entityTier === 'csp' ? { id: "platform-settings", label: "Platform Settings", icon: "🔧" } : null,
@@ -1829,6 +1831,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} userProfile={cpAuth && cpAuth.profile} />}
         {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "streaming-test" && customerType === 'internal' && <StreamingTest tenantId={tenantId} C={C} />}
+        {page === "action-board" && <ActionBoard C={C} currentTenantId={tenantId} />}
         {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
         {page === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "support" && (
@@ -2109,8 +2112,8 @@ var spNavBase = [
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
   if (isSuperAdmin) {
     var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
-    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
-    else spNavItems.push({ id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
+    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'action-board', label: 'Action Board', icon: '⚡' }, { id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
+    else { spNavItems.push({ id: 'action-board', label: 'Action Board', icon: '⚡' }); spNavItems.push({ id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' }); }
   }
 
   const hostname = window.location.hostname;
@@ -2684,6 +2687,7 @@ var spNavBase = [
         {spPage === "platform-updates" && isSuperAdmin && <PlatformUpdates C={C} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
+        {spPage === "action-board" && <ActionBoard C={C} currentTenantId={process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387"} />}
         {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}
         {spPage === "platform-settings" && isSuperAdmin && (() => {
           function PlatformSettingsPage() {
