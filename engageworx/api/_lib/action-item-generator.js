@@ -108,7 +108,44 @@ async function enrichContext(supabase, event) {
     if (ur.data) userName = ur.data.full_name || ur.data.email || null;
   } catch (_) {}
 
-  return { contact: contact, lead: lead, tenant: tenant, relatedTenant: relatedTenant, emailSendMethod: emailSendMethod, userName: userName || 'Team' };
+  // Fetch recent conversation history for this contact (last 30 days, max 5 messages)
+  var recentMessages = [];
+  var conversationChannel = null;
+  var contactIdForMessages = contact ? contact.id : null;
+  if (contactIdForMessages && event.tenant_id) {
+    try {
+      var thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+      var convRes = await supabase.from('conversations')
+        .select('id, channel, subject')
+        .eq('tenant_id', event.tenant_id)
+        .eq('contact_id', contactIdForMessages)
+        .gte('last_message_at', thirtyDaysAgo)
+        .order('last_message_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (convRes.data) {
+        conversationChannel = convRes.data.channel;
+        var msgRes = await supabase.from('messages')
+          .select('direction, sender_type, body, created_at')
+          .eq('conversation_id', convRes.data.id)
+          .gte('created_at', thirtyDaysAgo)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (msgRes.data && msgRes.data.length > 0) {
+          recentMessages = msgRes.data.reverse().map(function(m) {
+            return {
+              direction: m.direction,
+              sender: m.sender_type,
+              body: (m.body || '').substring(0, 200),
+              date: m.created_at,
+            };
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  return { contact: contact, lead: lead, tenant: tenant, relatedTenant: relatedTenant, emailSendMethod: emailSendMethod, userName: userName || 'Team', recentMessages: recentMessages, conversationChannel: conversationChannel };
 }
 
 // ── Determine tier ──────────────────────────────────────────────────
@@ -252,6 +289,21 @@ async function generateDraft(event, enriched, tier) {
     'details about the recipient, their company, their plan, their setup, or their history. If a field',
     'is empty or not provided, do not guess — omit it or write generically. Never fabricate specifics.',
     '',
+  ].concat(
+    // Inject conversation history if available
+    enriched.recentMessages && enriched.recentMessages.length > 0 ? [
+      'RECENT CONVERSATION HISTORY (' + (enriched.conversationChannel || 'email') + ', last ' + enriched.recentMessages.length + ' messages):',
+    ].concat(enriched.recentMessages.map(function(m) {
+      var who = m.sender === 'contact' ? vars.contact_name : vars.user_name;
+      var date = m.date ? new Date(m.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+      return '[' + date + '] ' + who + ': ' + m.body;
+    })).concat([
+      '',
+      'Reference specific topics from this conversation in your draft. Make it feel like a natural follow-up,',
+      'not a generic check-in. If they asked a question, acknowledge it. If you discussed a topic, reference it.',
+      '',
+    ]) : ['']
+  ).concat([
     'TIER: ' + tier,
     tierDesc,
     '',
