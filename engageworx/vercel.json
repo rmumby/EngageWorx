@@ -44,6 +44,12 @@
     },
     "api/cron-tenant-engagement.js": {
       "maxDuration": 120
+    },
+    "api/action-items/generate-test.js": {
+      "maxDuration": 120
+    },
+    "api/action-items/send.js": {
+      "maxDuration": 30
     }
   },
   "crons": [

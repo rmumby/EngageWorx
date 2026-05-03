@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
     .eq('archived', false)
     .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
     .lt('last_activity_at', cutoff)
-    .limit(20);
+    .limit(5);
 
   var staleLeads = leads || [];
   var generated = 0;

@@ -158,7 +158,8 @@ export default function ActionBoard({ C, currentTenantId }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
         body: JSON.stringify({ tenant_id: currentTenantId }),
       });
-      var d = await r.json();
+      var d;
+      try { d = await r.json(); } catch (_) { d = { error: 'Server returned non-JSON response (status ' + r.status + '). The function may have timed out — try again.' }; }
       if (d.success) {
         alert('Generated ' + d.generated + ' new items, ' + d.skipped_dedup + ' deduped, from ' + d.stale_leads_found + ' stale leads.');
         loadItems();
