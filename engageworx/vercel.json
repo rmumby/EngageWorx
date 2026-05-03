@@ -96,9 +96,14 @@
       "schedule": "0 8 * * *"
     }
   ],
-  "cleanUrls": true,
   "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/sms-terms", "destination": "/sms-terms.html" },
+    { "source": "/smsconsent", "destination": "/smsconsent.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/accessibility", "destination": "/accessibility.html" },
+    { "source": "/tour", "destination": "/tour.html" },
     { "source": "/api/:path*", "destination": "/api/:path*" },
-    { "source": "/((?!privacy|sms-terms|smsconsent|terms|accessibility|tour).*)", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
