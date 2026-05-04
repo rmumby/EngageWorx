@@ -202,10 +202,6 @@ module.exports = async function handler(req, res) {
 
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
 
-    var accountSid = process.env.TWILIO_ACCOUNT_SID;
-    var authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!accountSid || !authToken) return res.status(500).json({ error: 'Messaging credentials not configured' });
-
     // Usage check
     if (tenantId) {
       try {
@@ -229,30 +225,90 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Log outbound payload (body length only, not content — PII)
-    console.log('[WhatsApp] Outbound:', {
+    // ── Detect gateway: Meta Cloud API or Twilio ──────────────────
+    var supabase = getSupabase();
+    var metaPhoneNumberId = null;
+    var metaAccessToken = null;
+    var gateway = 'twilio'; // default
+
+    if (tenantId) {
+      try {
+        var cfgResult = await supabase.from('channel_configs')
+          .select('config_encrypted')
+          .eq('tenant_id', tenantId)
+          .eq('channel', 'whatsapp')
+          .eq('enabled', true)
+          .maybeSingle();
+        if (cfgResult.data && cfgResult.data.config_encrypted) {
+          var cfg = cfgResult.data.config_encrypted;
+          if (cfg.phone_number_id && cfg.access_token) {
+            metaPhoneNumberId = cfg.phone_number_id;
+            metaAccessToken = cfg.access_token;
+            gateway = 'meta';
+          }
+        }
+      } catch (_) {}
+    }
+
+    var maskedTo = (to || '').replace(/.*(\d{4})$/, '****$1');
+    console.log('[WhatsApp] Routing via ' + gateway, {
       tenant_id: tenantId,
-      to: to,
-      from: from || process.env.TWILIO_WHATSAPP_NUMBER || '(default)',
+      to: maskedTo,
       body_length: (body || '').length,
+      phone_number_id: gateway === 'meta' ? metaPhoneNumberId : null,
     });
 
     try {
-      var result = await sendWhatsApp(to, body, from, mediaUrl);
+      // ── Dispatch via selected gateway ─────────────────────────────
+      var dispatchResult; // { ok, status, provider_id, provider, response_status }
 
-      if (!result.ok) {
-        return res.status(result.status).json({
-          error: result.data.message || 'WhatsApp send failed',
-          code: result.data.code,
-          moreInfo: result.data.more_info,
+      if (gateway === 'meta') {
+        // Meta Cloud API: to must be digits only, no + prefix
+        var metaTo = to.replace(/[^\d]/g, '');
+        var metaRes = await fetch('https://graph.facebook.com/v18.0/' + metaPhoneNumberId + '/messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + metaAccessToken,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: metaTo,
+            type: 'text',
+            text: { body: body },
+          }),
         });
+        var metaData = await metaRes.json();
+        console.log('[WhatsApp] Meta API response:', JSON.stringify(metaData));
+        if (!metaRes.ok || metaData.error) {
+          return res.status(metaRes.status || 500).json({
+            error: metaData.error ? metaData.error.message : 'Meta API error',
+            code: metaData.error ? metaData.error.code : null,
+          });
+        }
+        var wamid = metaData.messages && metaData.messages[0] ? metaData.messages[0].id : null;
+        dispatchResult = { ok: true, provider_id: wamid, provider: 'meta', response_status: 'sent', phone_number_id: metaPhoneNumberId };
+      } else {
+        // Twilio gateway
+        var accountSid = process.env.TWILIO_ACCOUNT_SID;
+        var authToken = process.env.TWILIO_AUTH_TOKEN;
+        if (!accountSid || !authToken) return res.status(500).json({ error: 'Twilio credentials not configured' });
+
+        var twilioResult = await sendWhatsApp(to, body, from, mediaUrl);
+        if (!twilioResult.ok) {
+          return res.status(twilioResult.status).json({
+            error: twilioResult.data.message || 'WhatsApp send failed',
+            code: twilioResult.data.code,
+            moreInfo: twilioResult.data.more_info,
+          });
+        }
+        dispatchResult = { ok: true, provider_id: twilioResult.data.sid, provider: 'twilio', response_status: twilioResult.data.status || 'queued' };
       }
 
-      // Store message in Supabase
+      // ── Store message in Supabase ─────────────────────────────────
       var insertedMessage = null;
       if (tenantId) {
         try {
-          var supabase = getSupabase();
           var contactId = inContactId;
           var conversationId = inConversationId;
 
@@ -261,7 +317,7 @@ module.exports = async function handler(req, res) {
             var convCheck = await supabase.from('conversations').select('id, contact_id').eq('id', conversationId).eq('tenant_id', tenantId).maybeSingle();
             if (!convCheck.data) {
               console.error('[WhatsApp] conversation_id', conversationId, 'not found for tenant', tenantId);
-              conversationId = null; // fall through to lookup
+              conversationId = null;
             } else if (!contactId) {
               contactId = convCheck.data.contact_id;
             }
@@ -272,7 +328,6 @@ module.exports = async function handler(req, res) {
             var cleanTo = to.replace('whatsapp:', '').replace(/[^\d+]/g, '');
 
             if (!contactId) {
-              // Try whatsapp_number first, then phone
               var contactResult = await supabase.from('contacts').select('id')
                 .eq('tenant_id', tenantId)
                 .or('whatsapp_number.eq.' + cleanTo + ',phone.eq.' + cleanTo)
@@ -282,12 +337,8 @@ module.exports = async function handler(req, res) {
 
             if (!contactId) {
               var newContact = await supabase.from('contacts').insert({
-                tenant_id: tenantId,
-                phone: cleanTo,
-                whatsapp_number: cleanTo,
-                first_name: 'WhatsApp',
-                last_name: cleanTo.slice(-4),
-                source: 'whatsapp',
+                tenant_id: tenantId, phone: cleanTo, whatsapp_number: cleanTo,
+                first_name: 'WhatsApp', last_name: cleanTo.slice(-4), source: 'whatsapp',
               }).select('id').single();
               if (newContact.data) contactId = newContact.data.id;
             }
@@ -299,27 +350,22 @@ module.exports = async function handler(req, res) {
 
             if (!conversationId && contactId) {
               var newConv = await supabase.from('conversations').insert({
-                tenant_id: tenantId,
-                contact_id: contactId,
-                channel: 'whatsapp',
-                status: 'active',
-                last_message_at: new Date().toISOString(),
+                tenant_id: tenantId, contact_id: contactId, channel: 'whatsapp',
+                status: 'active', last_message_at: new Date().toISOString(),
               }).select('id').single();
               if (newConv.data) conversationId = newConv.data.id;
             }
           }
 
-          // Update conversation timestamp
           if (conversationId) {
             await supabase.from('conversations').update({
-              last_message_at: new Date().toISOString(),
-              status: 'active',
+              last_message_at: new Date().toISOString(), status: 'active',
             }).eq('id', conversationId);
           }
 
-          // Insert ONE canonical message row with provider_id
+          // Insert ONE canonical message row
           if (conversationId) {
-            var msgInsert = await supabase.from('messages').insert({
+            var msgRow = {
               tenant_id: tenantId,
               conversation_id: conversationId,
               contact_id: contactId,
@@ -327,9 +373,18 @@ module.exports = async function handler(req, res) {
               direction: 'outbound',
               sender_type: 'agent',
               body: body,
-              status: result.data.status || 'queued',
-              provider_id: result.data.sid,
-            }).select('id, status, provider_id, created_at').single();
+              status: dispatchResult.response_status,
+              provider: dispatchResult.provider,
+            };
+            // Provider-specific ID fields
+            if (dispatchResult.provider === 'meta') {
+              msgRow.provider_message_id = dispatchResult.provider_id;
+              msgRow.metadata = { phone_number_id: dispatchResult.phone_number_id };
+            } else {
+              msgRow.provider_id = dispatchResult.provider_id;
+            }
+            var msgInsert = await supabase.from('messages').insert(msgRow)
+              .select('id, status, provider_id, provider_message_id, created_at').single();
             if (msgInsert.data) insertedMessage = msgInsert.data;
           }
         } catch (dbErr) {
@@ -339,17 +394,15 @@ module.exports = async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
-        messageSid: result.data.sid,
-        status: result.data.status,
-        to: result.data.to,
-        from: result.data.from,
+        gateway: gateway,
+        provider_id: dispatchResult.provider_id,
+        status: dispatchResult.response_status,
         channel: 'whatsapp',
-        dateCreated: result.data.date_created,
         message: insertedMessage,
       });
     } catch (err) {
-      console.error('[WhatsApp] Send error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      console.error('[WhatsApp] Send error:', err.message);
+      return res.status(500).json({ error: err.message || 'Internal server error' });
     }
   }
 
