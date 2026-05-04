@@ -231,7 +231,13 @@ export default function ActionBoard({ C, currentTenantId }) {
         {/* Title row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: text, fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{item.title}</div>
+            <div style={{ color: text, fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>{
+              item.title || (
+                recipients.length > 0
+                  ? (recipients[0].name || recipients[0].email || 'Contact')
+                  : 'Action item · ' + tierInfo.label
+              )
+            }</div>
             <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
               {item.suggested_action && (
                 <span style={{
@@ -485,10 +491,11 @@ export default function ActionBoard({ C, currentTenantId }) {
 
             return (
               <div key={tier.id} style={{ width: isMobile ? '100%' : 'auto' }}>
-                {/* Column header */}
+                {/* Column header — fixed height so all columns align */}
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
                   paddingBottom: 12, borderBottom: '2px solid ' + tier.color + '22',
+                  minHeight: 42,
                 }}>
                   <span style={{ fontSize: 18 }}>{tier.icon}</span>
                   <span style={{ color: text, fontWeight: 700, fontSize: 16 }}>{tier.label}</span>
@@ -501,7 +508,7 @@ export default function ActionBoard({ C, currentTenantId }) {
                     }}>{tierItems.length}</span>
                   )}
                   <span style={{ flex: 1 }} />
-                  {!isMobile && <span style={{ color: faintText, fontSize: 11 }}>{tier.desc}</span>}
+                  {!isMobile && <span style={{ color: faintText, fontSize: 11, whiteSpace: 'nowrap' }}>{tier.desc}</span>}
                 </div>
 
                 {/* Items or empty */}

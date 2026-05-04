@@ -46,3 +46,12 @@ tenant-targeted events:
 
 **Related:** Action Board Phase 2 will wire bulk sources to crons — this
 must be fixed before `bulk_setup_nudge` goes live.
+
+**UI impact:** Bulk action cards show a faded/disabled "Approve & Send"
+button with no explanation. When `draft_recipients` is null/empty, the
+button is disabled via `recipients.length === 0`. Users see a dead button
+with no context. Interim: the card should show inline copy "No recipient
+resolved — bulk items need recipient resolver fix in action-item-generator"
+so users understand why. Do NOT rename to "Configure recipients" — that
+papers over without fixing. Fix the generator to resolve recipients from
+`tenants.primary_contact_email` or first admin tenant_member.
