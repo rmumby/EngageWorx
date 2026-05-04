@@ -410,8 +410,11 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calendlyUrlSaving, setCalendlyUrlSaving] = useState(false);
   const [calendlyUrlSaved, setCalendlyUrlSaved] = useState(false);
+  var browserTz = 'America/New_York';
+  try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; } catch (_) {}
   const [digestSendTime, setDigestSendTime] = useState('08:00');
-  const [digestTimezone, setDigestTimezone] = useState('America/New_York');
+  const [digestTimezone, setDigestTimezone] = useState(browserTz);
+  const [digestCustomTime, setDigestCustomTime] = useState(false);
   const [digestScheduleSaving, setDigestScheduleSaving] = useState(false);
   const [digestScheduleSaved, setDigestScheduleSaved] = useState(false);
   const [blockedDomains, setBlockedDomains] = useState([]);
@@ -832,7 +835,11 @@ if (!tenantId) {
           setDigestEmail(data.digest_email || '');
           setCalendlyUrl(data.calendly_url || '');
           setDigestSendTime(data.digest_send_time || '08:00');
-          setDigestTimezone(data.digest_timezone || 'America/New_York');
+          setDigestTimezone(data.digest_timezone || browserTz);
+          // If loaded time doesn't match a 30-min slot, show custom picker
+          var loadedTime = data.digest_send_time || '08:00';
+          var mins = parseInt(loadedTime.split(':')[1] || '0', 10);
+          if (mins !== 0 && mins !== 30) setDigestCustomTime(true);
         }
       } catch (e) {}
     })();
@@ -1589,32 +1596,113 @@ return (<div>
 
           {/* Daily digest send time */}
           <div style={Object.assign({}, card, { marginBottom: 20 })}>
-            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Daily digest send time</label>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="time" value={digestSendTime} onChange={e => setDigestSendTime(e.target.value)} style={Object.assign({}, inputStyle, { width: 140 })} />
-              <select value={digestTimezone} onChange={e => setDigestTimezone(e.target.value)} style={Object.assign({}, inputStyle, { flex: 1, minWidth: 200 })}>
-                <option value="America/New_York">America/New_York (ET)</option>
-                <option value="America/Chicago">America/Chicago (CT)</option>
-                <option value="America/Denver">America/Denver (MT)</option>
-                <option value="America/Phoenix">America/Phoenix (AZ)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
-                <option value="America/Anchorage">America/Anchorage (AK)</option>
-                <option value="Pacific/Honolulu">Pacific/Honolulu (HI)</option>
-                <option value="Europe/London">Europe/London</option>
-                <option value="Europe/Paris">Europe/Paris</option>
-                <option value="Europe/Berlin">Europe/Berlin</option>
-                <option value="Asia/Tokyo">Asia/Tokyo</option>
-                <option value="Asia/Singapore">Asia/Singapore</option>
-                <option value="Australia/Sydney">Australia/Sydney</option>
-                <option value="UTC">UTC</option>
+            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Daily digest schedule</label>
+
+            {/* Time picker — 30-min increments or custom */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+              {!digestCustomTime ? (
+                <select value={digestSendTime} onChange={function(e) { if (e.target.value === '__custom') { setDigestCustomTime(true); } else { setDigestSendTime(e.target.value); } }} style={Object.assign({}, inputStyle, { width: 180 })}>
+                  {(function() {
+                    var opts = [];
+                    for (var h = 6; h <= 22; h++) {
+                      for (var m = 0; m < 60; m += 30) {
+                        var val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+                        var hr12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                        var ampm = h < 12 ? 'AM' : 'PM';
+                        var label = hr12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+                        opts.push(<option key={val} value={val}>{label}</option>);
+                      }
+                    }
+                    opts.push(<option key="__custom" value="__custom">Custom time...</option>);
+                    return opts;
+                  })()}
+                </select>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input type="time" value={digestSendTime} onChange={function(e) { setDigestSendTime(e.target.value); }} style={Object.assign({}, inputStyle, { width: 140 })} />
+                  <button onClick={function() { setDigestCustomTime(false); }} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 10px', color: C.muted, cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Use preset</button>
+                </div>
+              )}
+
+              {/* Timezone dropdown — grouped */}
+              <select value={digestTimezone} onChange={function(e) { setDigestTimezone(e.target.value); }} style={Object.assign({}, inputStyle, { flex: 1, minWidth: 220 })}>
+                <optgroup label="Common">
+                  <option value="America/New_York">America/New_York (Eastern)</option>
+                  <option value="America/Chicago">America/Chicago (Central)</option>
+                  <option value="America/Denver">America/Denver (Mountain)</option>
+                  <option value="America/Los_Angeles">America/Los_Angeles (Pacific)</option>
+                  <option value="Europe/London">Europe/London (GMT/BST)</option>
+                  <option value="Europe/Madrid">Europe/Madrid (CET)</option>
+                </optgroup>
+                <optgroup label="Americas">
+                  <option value="America/Phoenix">America/Phoenix (AZ, no DST)</option>
+                  <option value="America/Anchorage">America/Anchorage (Alaska)</option>
+                  <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii)</option>
+                  <option value="America/Toronto">America/Toronto (Eastern)</option>
+                  <option value="America/Vancouver">America/Vancouver (Pacific)</option>
+                  <option value="America/Mexico_City">America/Mexico_City (Central)</option>
+                  <option value="America/Bogota">America/Bogota (Colombia)</option>
+                  <option value="America/Sao_Paulo">America/Sao_Paulo (Brazil)</option>
+                  <option value="America/Argentina/Buenos_Aires">America/Buenos_Aires</option>
+                </optgroup>
+                <optgroup label="Europe & Africa">
+                  <option value="Europe/Paris">Europe/Paris (CET)</option>
+                  <option value="Europe/Berlin">Europe/Berlin (CET)</option>
+                  <option value="Europe/Amsterdam">Europe/Amsterdam (CET)</option>
+                  <option value="Europe/Rome">Europe/Rome (CET)</option>
+                  <option value="Europe/Warsaw">Europe/Warsaw (CET)</option>
+                  <option value="Europe/Istanbul">Europe/Istanbul (TRT)</option>
+                  <option value="Europe/Moscow">Europe/Moscow (MSK)</option>
+                  <option value="Africa/Johannesburg">Africa/Johannesburg (SAST)</option>
+                  <option value="Africa/Lagos">Africa/Lagos (WAT)</option>
+                  <option value="Africa/Cairo">Africa/Cairo (EET)</option>
+                </optgroup>
+                <optgroup label="Asia & Pacific">
+                  <option value="Asia/Dubai">Asia/Dubai (GST)</option>
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                  <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                  <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
+                  <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+                  <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                  <option value="Asia/Seoul">Asia/Seoul (KST)</option>
+                  <option value="Australia/Sydney">Australia/Sydney (AEST)</option>
+                  <option value="Australia/Melbourne">Australia/Melbourne (AEST)</option>
+                  <option value="Pacific/Auckland">Pacific/Auckland (NZST)</option>
+                </optgroup>
+                <optgroup label="Other">
+                  <option value="UTC">UTC</option>
+                </optgroup>
               </select>
+
               <button onClick={saveDigestSchedule} disabled={digestScheduleSaving || !resolvedTenantId} style={Object.assign({}, btnPrimary, { opacity: (digestScheduleSaving || !resolvedTenantId) ? 0.5 : 1 })}>
                 {digestScheduleSaving ? 'Saving…' : 'Save'}
               </button>
               {digestScheduleSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
             </div>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
-              Your digest will be sent daily at this time. Applies to both the inbound AI digest and stale-lead outreach summary (stale leads are sent one hour after the digest).
+
+            {/* "In your timezone" display */}
+            {(function() {
+              var parts = (digestSendTime || '08:00').split(':');
+              var h = parseInt(parts[0], 10);
+              var m = parseInt(parts[1] || '0', 10);
+              var hr12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              var ampm = h < 12 ? 'AM' : 'PM';
+              var digestDisplay = hr12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+              var staleH = (h + 1) % 24;
+              var staleHr12 = staleH === 0 ? 12 : staleH > 12 ? staleH - 12 : staleH;
+              var staleAmpm = staleH < 12 ? 'AM' : 'PM';
+              var staleDisplay = staleHr12 + ':' + String(m).padStart(2, '0') + ' ' + staleAmpm;
+              var tzShort = digestTimezone.split('/').pop().replace(/_/g, ' ');
+              return (
+                <div style={{ background: C.primary + '08', border: '1px solid ' + C.primary + '22', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                  <div style={{ color: C.primary, fontSize: 13, fontWeight: 600 }}>Daily digest at {digestDisplay} your time ({tzShort})</div>
+                  <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Stale lead processing fires at {staleDisplay}. AI Action Board generates throughout the day.</div>
+                </div>
+              );
+            })()}
+
+            <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>
+              Daily digest email arrives at this time. Stale lead processing fires 1 hour later. AI Action Board generates throughout the day.
             </div>
           </div>
 
