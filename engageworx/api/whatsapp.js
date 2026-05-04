@@ -383,12 +383,18 @@ module.exports = async function handler(req, res) {
             } else {
               msgRow.provider_id = dispatchResult.provider_id;
             }
+            console.log('[WhatsApp] Inserting message row:', JSON.stringify({ tenant_id: msgRow.tenant_id, conversation_id: msgRow.conversation_id, provider: msgRow.provider, provider_message_id: msgRow.provider_message_id, provider_id: msgRow.provider_id }));
             var msgInsert = await supabase.from('messages').insert(msgRow)
               .select('id, status, provider_id, provider_message_id, created_at').single();
+            if (msgInsert.error) {
+              console.error('[WhatsApp] Message insert ERROR:', msgInsert.error.message, msgInsert.error.details, msgInsert.error.hint);
+            }
             if (msgInsert.data) insertedMessage = msgInsert.data;
+          } else {
+            console.warn('[WhatsApp] No conversationId resolved — message row NOT inserted. contactId:', contactId, 'inConversationId:', inConversationId);
           }
         } catch (dbErr) {
-          console.error('[WhatsApp] DB error:', dbErr.message);
+          console.error('[WhatsApp] DB error:', dbErr.message, dbErr.stack ? dbErr.stack.split('\n').slice(0, 3).join(' ') : '');
         }
       }
 
