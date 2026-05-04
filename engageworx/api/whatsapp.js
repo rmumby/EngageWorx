@@ -197,6 +197,8 @@ module.exports = async function handler(req, res) {
     var from = req.body.from;
     var mediaUrl = req.body.media_url;
     var tenantId = req.body.tenant_id;
+    var inConversationId = req.body.conversation_id || null;
+    var inContactId = req.body.contact_id || null;
 
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
 
@@ -247,30 +249,55 @@ module.exports = async function handler(req, res) {
       }
 
       // Store message in Supabase
+      var insertedMessage = null;
       if (tenantId) {
         try {
           var supabase = getSupabase();
-          var cleanTo = to.replace('whatsapp:', '').replace(/[^\d+]/g, '');
+          var contactId = inContactId;
+          var conversationId = inConversationId;
 
-          var contactResult = await supabase.from('contacts').select('id').eq('phone', cleanTo).eq('tenant_id', tenantId).maybeSingle();
-          var contactId = contactResult.data ? contactResult.data.id : null;
-
-          if (!contactId) {
-            var newContact = await supabase.from('contacts').insert({
-              tenant_id: tenantId,
-              phone: cleanTo,
-              first_name: 'WhatsApp',
-              last_name: cleanTo.slice(-4),
-              source: 'whatsapp',
-            }).select('id').single();
-            if (newContact.data) contactId = newContact.data.id;
+          // If conversation_id provided, verify it belongs to this tenant
+          if (conversationId) {
+            var convCheck = await supabase.from('conversations').select('id, contact_id').eq('id', conversationId).eq('tenant_id', tenantId).maybeSingle();
+            if (!convCheck.data) {
+              console.error('[WhatsApp] conversation_id', conversationId, 'not found for tenant', tenantId);
+              conversationId = null; // fall through to lookup
+            } else if (!contactId) {
+              contactId = convCheck.data.contact_id;
+            }
           }
 
-          if (contactId) {
-            var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
-            var conversationId = convResult.data ? convResult.data.id : null;
+          // Fallback: look up contact + conversation if not provided
+          if (!conversationId) {
+            var cleanTo = to.replace('whatsapp:', '').replace(/[^\d+]/g, '');
 
-            if (!conversationId) {
+            if (!contactId) {
+              // Try whatsapp_number first, then phone
+              var contactResult = await supabase.from('contacts').select('id')
+                .eq('tenant_id', tenantId)
+                .or('whatsapp_number.eq.' + cleanTo + ',phone.eq.' + cleanTo)
+                .limit(1).maybeSingle();
+              contactId = contactResult.data ? contactResult.data.id : null;
+            }
+
+            if (!contactId) {
+              var newContact = await supabase.from('contacts').insert({
+                tenant_id: tenantId,
+                phone: cleanTo,
+                whatsapp_number: cleanTo,
+                first_name: 'WhatsApp',
+                last_name: cleanTo.slice(-4),
+                source: 'whatsapp',
+              }).select('id').single();
+              if (newContact.data) contactId = newContact.data.id;
+            }
+
+            if (contactId) {
+              var convResult = await supabase.from('conversations').select('id').eq('contact_id', contactId).eq('tenant_id', tenantId).eq('channel', 'whatsapp').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+              conversationId = convResult.data ? convResult.data.id : null;
+            }
+
+            if (!conversationId && contactId) {
               var newConv = await supabase.from('conversations').insert({
                 tenant_id: tenantId,
                 contact_id: contactId,
@@ -279,26 +306,31 @@ module.exports = async function handler(req, res) {
                 last_message_at: new Date().toISOString(),
               }).select('id').single();
               if (newConv.data) conversationId = newConv.data.id;
-            } else {
-              await supabase.from('conversations').update({
-                last_message_at: new Date().toISOString(),
-                status: 'active',
-              }).eq('id', conversationId);
             }
+          }
 
-            if (conversationId) {
-              await supabase.from('messages').insert({
-                tenant_id: tenantId,
-                conversation_id: conversationId,
-                contact_id: contactId,
-                channel: 'whatsapp',
-                direction: 'outbound',
-                sender_type: 'agent',
-                body: body,
-                status: result.data.status || 'queued',
-                provider_id: result.data.sid,
-              });
-            }
+          // Update conversation timestamp
+          if (conversationId) {
+            await supabase.from('conversations').update({
+              last_message_at: new Date().toISOString(),
+              status: 'active',
+            }).eq('id', conversationId);
+          }
+
+          // Insert ONE canonical message row with provider_id
+          if (conversationId) {
+            var msgInsert = await supabase.from('messages').insert({
+              tenant_id: tenantId,
+              conversation_id: conversationId,
+              contact_id: contactId,
+              channel: 'whatsapp',
+              direction: 'outbound',
+              sender_type: 'agent',
+              body: body,
+              status: result.data.status || 'queued',
+              provider_id: result.data.sid,
+            }).select('id, status, provider_id, created_at').single();
+            if (msgInsert.data) insertedMessage = msgInsert.data;
           }
         } catch (dbErr) {
           console.error('[WhatsApp] DB error:', dbErr.message);
@@ -313,6 +345,7 @@ module.exports = async function handler(req, res) {
         from: result.data.from,
         channel: 'whatsapp',
         dateCreated: result.data.date_created,
+        message: insertedMessage,
       });
     } catch (err) {
       console.error('[WhatsApp] Send error:', err);

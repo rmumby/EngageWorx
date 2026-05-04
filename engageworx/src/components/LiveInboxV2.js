@@ -818,7 +818,49 @@ useEffect(function() {
       const messageBody = composeText.trim();
       setComposeText("");
 
-      // Insert message into Supabase
+      // ── WhatsApp: server-canonical path (no client-side pre-insert) ──
+      if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
+        var waRes = await fetch('/api/whatsapp?action=send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: selectedConv.contact.whatsapp_number || selectedConv.contact.mobile_phone || selectedConv.contact.phone,
+            body: messageBody,
+            tenant_id: selectedConv.tenant_id || currentTenantId,
+            conversation_id: selectedConv.id,
+            contact_id: selectedConv.contact_id || null,
+          }),
+        });
+        var waData;
+        try { waData = await waRes.json(); } catch (_) { waData = {}; }
+        if (!waRes.ok || !waData.success) {
+          alert('WhatsApp delivery failed: ' + (waData.error || 'Unknown error'));
+          setSendingMessage(false);
+          setComposeText(messageBody);
+          return;
+        }
+        // Add server-created message to UI
+        var waMsg = waData.message || {};
+        setSelectedConv(function(prev) {
+          if (!prev) return prev;
+          return Object.assign({}, prev, {
+            messages: (prev.messages || []).concat([{
+              id: waMsg.id || 'wa_' + Date.now(),
+              from: 'agent',
+              isBot: false,
+              text: messageBody,
+              time: new Date(),
+              status: waMsg.status || 'queued',
+              delivered: false,
+              read: false,
+            }]),
+          });
+        });
+        setSendingMessage(false);
+        return;
+      }
+
+      // ── SMS + Email: existing client-side pre-insert path (unchanged) ──
       if (!supabase) return;
       var insertResult = await supabase.from('messages').insert({
         tenant_id: selectedConv.tenant_id || currentTenantId,
@@ -829,7 +871,7 @@ useEffect(function() {
         body: messageBody,
         status: 'delivered',
         sender_type: 'agent',
-        metadata: fromEmail ? { from_email: fromEmail } : null,
+        metadata: (selectedConv.channel === 'email' && fromEmail) ? { from_email: fromEmail } : null,
         created_at: new Date().toISOString(),
       });
       if (insertResult.error) { console.error('Message insert error:', insertResult.error.message); throw insertResult.error; }
@@ -872,34 +914,9 @@ useEffect(function() {
           console.warn('Email send error:', emailErr.message);
         }
       }
-      if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
-        try {
-          var waRes = await fetch('/api/whatsapp?action=send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: selectedConv.contact.whatsapp_number || selectedConv.contact.mobile_phone || selectedConv.contact.phone,
-              body: messageBody,
-              tenant_id: selectedConv.tenant_id || currentTenantId,
-            }),
-          });
-          if (!waRes.ok) {
-            var waErrData = await waRes.json().catch(function() { return {}; });
-            console.error('WhatsApp send failed:', waErrData.error || waRes.status);
-            if (waRes.status === 429) {
-              alert('Message limit reached for this tenant. Upgrade or purchase a top-up.');
-            } else if (waErrData.error && waErrData.error.indexOf('outside') >= 0) {
-              alert('WhatsApp 24-hour window expired. Send a template message instead.');
-            } else {
-              alert('WhatsApp delivery failed: ' + (waErrData.error || 'Unknown error'));
-            }
-          }
-        } catch (waFetchErr) {
-          console.warn('WhatsApp send error:', waFetchErr.message);
-        }
-      }
+      // WhatsApp handled above in server-canonical path (no client pre-insert)
 
-      // Optimistically add message to UI
+      // Optimistically add message to UI (SMS + email only — WhatsApp already returned above)
       var optimisticMsg = {
         id: 'temp_' + Date.now(),
         from: 'agent',
