@@ -105,5 +105,5 @@ SET platform_email_from_address = 'hello@engwx.com',
     platform_email_domain = 'engwx.com',
     platform_email_domain_verified = true,
     platform_email_send_method = 'resend',
-    email_tracking_domain = 'track.engwx.com'
+    email_tracking_domain = 'engwx.com'
 WHERE id = 'c1bc59a8-5235-4921-9755-02514b574387';
