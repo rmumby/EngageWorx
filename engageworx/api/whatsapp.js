@@ -227,6 +227,14 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // Log outbound payload (body length only, not content — PII)
+    console.log('[WhatsApp] Outbound:', {
+      tenant_id: tenantId,
+      to: to,
+      from: from || process.env.TWILIO_WHATSAPP_NUMBER || '(default)',
+      body_length: (body || '').length,
+    });
+
     try {
       var result = await sendWhatsApp(to, body, from, mediaUrl);
 
@@ -591,11 +599,33 @@ module.exports = async function handler(req, res) {
     if (isStatusCallback && messageSid) {
       try {
         var supabase = getSupabase();
-        await supabase.from('messages').update({
+        var statusUpdate = {
           status: messageStatus,
           updated_at: new Date().toISOString(),
-        }).eq('provider_id', messageSid);
-      } catch (sErr) {}
+          provider_status_updated_at: new Date().toISOString(),
+        };
+        // Capture error details from Twilio payload
+        var errorCode = wb.ErrorCode || null;
+        var errorMessage = wb.ErrorMessage || null;
+        if (errorCode) statusUpdate.error_code = errorCode;
+        if (errorMessage) statusUpdate.error_message = errorMessage;
+
+        await supabase.from('messages').update(statusUpdate).eq('provider_id', messageSid);
+
+        // Warn-level log when errors present
+        if (errorCode) {
+          var maskedTo = (toNumber || '').replace(/.*(\d{4})$/, '****$1');
+          console.warn('[WhatsApp] Status error:', {
+            message_sid: messageSid,
+            to: maskedTo,
+            status: messageStatus,
+            error_code: errorCode,
+            error_message: errorMessage,
+          });
+        }
+      } catch (sErr) {
+        console.error('[WhatsApp] Status update error:', sErr.message);
+      }
     }
 
     return res.status(200).json({ received: true });
