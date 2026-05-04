@@ -491,7 +491,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var uniqueCIds = [...new Set(cIds)];
           var cMap = {};
           if (uniqueCIds.length > 0) {
-            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
+            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', uniqueCIds);
             if (cResult.data) cResult.data.forEach(function(c) { cMap[c.id] = c; });
           }
           
@@ -595,7 +595,7 @@ useEffect(function() {
         const uniqueCIds = [...new Set(cIds)];
         var contactMap = {};
         if (uniqueCIds.length > 0) {
-          const { data: cData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', uniqueCIds);
+          const { data: cData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', uniqueCIds);
           if (cData) cData.forEach(function(c) { contactMap[c.id] = c; });
         }
 
@@ -801,7 +801,7 @@ useEffect(function() {
           var reloadCIds = [...new Set(reloadConvos.map(function(c) { return c.contact_id; }).filter(Boolean))];
           var reloadContactMap = {};
           if (reloadCIds.length > 0) {
-            var reloadCResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, company, tags').in('id', reloadCIds);
+            var reloadCResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', reloadCIds);
             if (reloadCResult.data) reloadCResult.data.forEach(function(c) { reloadContactMap[c.id] = c; });
           }
           setConversations(dedupConversations(reloadConvos, reloadContactMap, null));
