@@ -7,8 +7,10 @@ function generateThreadId() {
   return crypto.randomBytes(8).toString('hex');
 }
 
-function makeReplyToAddress(threadId) {
-  return 'reply+' + threadId + '@track.engwx.com';
+function makeReplyToAddress(threadId, trackingDomain) {
+  var domain = trackingDomain || process.env.EMAIL_TRACKING_DOMAIN;
+  if (!domain) throw new Error('Tenant tracking domain not configured — cannot construct Reply-To address. Set email_tracking_domain on the tenant or EMAIL_TRACKING_DOMAIN env var.');
+  return 'reply+' + threadId + '@' + domain;
 }
 
 function extractThreadId(address) {

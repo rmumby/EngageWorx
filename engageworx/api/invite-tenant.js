@@ -7,6 +7,7 @@ var crypto = require('crypto');
 var { getPlatformConfig } = require('./_lib/platform-config');
 var { renderTemplate } = require('./_lib/render-template');
 var { sendEmail } = require('./_lib/send-email');
+var { sendPlatformEmail } = require('./_lib/send-platform-email');
 
 function getSupabase() {
   return createClient(
@@ -263,16 +264,20 @@ module.exports = async function handler(req, res) {
     var emailSubject = renderTemplate(pc.welcome_email_subject_template, templateVars);
     var emailHtml = renderTemplate(pc.welcome_email_html_template, templateVars);
 
-    var emailResult = await sendEmail({
-      to: adminEmail,
-      from: pc.support_email,
-      fromName: pc.platform_name,
-      subject: emailSubject,
-      html: emailHtml,
-    });
-    console.log('📬 Welcome email:', emailResult.success ? 'sent to ' + adminEmail : 'FAILED — ' + emailResult.error);
-    if (!emailResult.success) {
-      warnings.push('Welcome email failed: ' + (emailResult.error || 'unknown error'));
+    var emailResult;
+    try {
+      emailResult = await sendPlatformEmail(supabase, {
+        recipient_tenant_id: newTenantId,
+        to: adminEmail,
+        from_name: pc.platform_name,
+        subject: emailSubject,
+        html: emailHtml,
+      });
+      console.log('📬 Welcome email: sent to ' + adminEmail + ' via ' + emailResult.method);
+    } catch (emailErr) {
+      emailResult = { success: false, error: emailErr.message };
+      console.log('📬 Welcome email: FAILED — ' + emailErr.message);
+      warnings.push('Welcome email failed: ' + emailErr.message);
     }
 
     // 8. Log welcome email to new tenant's Live Inbox

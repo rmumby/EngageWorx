@@ -1,5 +1,8 @@
-// api/send-digest-reply.js — Sends a reply via SendGrid or Gmail SMTP
-// Routes based on tenant email_send_method preference (default: sendgrid)
+// api/send-digest-reply.js — Sends a reply routed through tenant's email config
+// Wraps content in signature, routes via sendTenantEmail.
+
+var { createClient } = require('@supabase/supabase-js');
+var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -7,101 +10,58 @@ module.exports = async function handler(req, res) {
   var to = (body.to || '').trim();
   var subject = (body.subject || '').trim();
   var content = body.body || '';
-  var fromOverride = body.from || null;
   var tenantId = body.tenant_id || null;
+  var conversationId = body.conversation_id || null;
   if (!to || !subject || !content) return res.status(400).json({ error: 'to, subject, body required' });
 
-  var { createClient } = require('@supabase/supabase-js');
   var supabase = createClient(process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Check tenant email send method preference
-  var sendMethod = 'sendgrid';
-  if (tenantId) {
-    try {
-      var tR = await supabase.from('tenants').select('email_send_method').eq('id', tenantId).maybeSingle();
-      if (tR.data && tR.data.email_send_method) sendMethod = tR.data.email_send_method;
-    } catch (e) {}
-  }
-  // Fallback: if no tenant, check env var
-  if (!tenantId && process.env.DEFAULT_EMAIL_METHOD) sendMethod = process.env.DEFAULT_EMAIL_METHOD;
+  // Load signature
+  var _sig = require('./_email-signature');
+  var sigInfo = await _sig.getSignature(supabase, { tenantId: tenantId, fromEmail: null, isFirstTouch: false, closingKind: 'reply' });
 
-  var fromEmail = fromOverride || process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com';
+  // Build HTML body with signature
+  var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
+  var htmlFull = _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml);
+  var textFull = _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName);
 
-  // Generate reply-to threading
-  var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
-  var replyThreadId = generateThreadId();
-  var replyToAddr = makeReplyToAddress(replyThreadId);
-
-  // Load AI Omni BCC address
-  var aiOmniBcc = null;
+  // Load BCC address
+  var bcc = null;
   if (tenantId) {
     try {
       var bccCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
       var bccVal = bccCfg.data && bccCfg.data.config_encrypted && bccCfg.data.config_encrypted.ai_omni_bcc;
-      if (bccVal && bccVal.indexOf('@') > 0 && bccVal !== to && bccVal !== fromEmail) aiOmniBcc = bccVal;
-    } catch (e) {}
+      if (bccVal && bccVal.indexOf('@') > 0 && bccVal !== to) bcc = bccVal;
+    } catch (_) {}
   }
 
-  // Load signature
-  var _sig = require('./_email-signature');
-  var sigInfo = await _sig.getSignature(supabase, { tenantId: tenantId, fromEmail: fromEmail, isFirstTouch: false, closingKind: 'reply' });
-
-  if (sendMethod === 'gmail') {
-    // Route through Gmail SMTP
-    if (!process.env.GMAIL_SMTP_USER || !process.env.GMAIL_SMTP_PASS) {
-      console.warn('[send-digest-reply] Gmail selected but credentials missing, falling back to SendGrid');
-      sendMethod = 'sendgrid';
-    } else {
-      try {
-        var nodemailer = require('nodemailer');
-        var transport = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 587,
-          secure: false,
-          auth: { user: process.env.GMAIL_SMTP_USER, pass: process.env.GMAIL_SMTP_PASS },
-        });
-        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
-        var htmlFull = _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml);
-        var textFull = _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName);
-        var gmailOpts = {
-          from: fromEmail,
-          to: to,
-          replyTo: replyToAddr,
-          subject: subject,
-          text: textFull,
-          html: htmlFull,
-        };
-        if (aiOmniBcc) gmailOpts.bcc = aiOmniBcc;
-        var info = await transport.sendMail(gmailOpts);
-        console.log('[send-digest-reply] Gmail sent to=' + to + ' messageId=' + info.messageId);
-        return res.status(200).json({ success: true, method: 'gmail', messageId: info.messageId, reply_thread_id: replyThreadId });
-      } catch (err) {
-        console.error('[send-digest-reply] Gmail error:', err.message, '— falling back to SendGrid');
-        sendMethod = 'sendgrid';
-      }
-    }
-  }
-
-  // SendGrid path
-  if (!process.env.SENDGRID_API_KEY) return res.status(500).json({ error: 'SENDGRID_API_KEY missing' });
   try {
-    var sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    var bodyHtml2 = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + content.replace(/</g, '&lt;') + '</div>';
-    var sgPayload = {
+    if (!tenantId) {
+      // No tenant context — use platform Resend directly (admin/system sends)
+      var { sendEmail } = require('./_lib/send-email');
+      var result = await sendEmail({ to: to, subject: subject, html: htmlFull, text: textFull });
+      if (!result.success) return res.status(500).json({ error: result.error });
+      return res.status(200).json({ success: true, method: 'platform_resend' });
+    }
+
+    var sendResult = await sendTenantEmail(supabase, {
+      tenant_id: tenantId,
       to: to,
-      from: { email: fromEmail, name: sigInfo.fromName || 'EngageWorx' },
-      replyTo: { email: replyToAddr, name: sigInfo.fromName || 'EngageWorx' },
       subject: subject,
-      text: _sig.composeTextBody(content, sigInfo.closingLine, sigInfo.fromName),
-      html: _sig.composeHtmlBody(bodyHtml2, sigInfo.closingLine, sigInfo.signatureHtml),
-    };
-    if (aiOmniBcc) sgPayload.bcc = { email: aiOmniBcc };
-    await sgMail.send(sgPayload);
-    console.log('[send-digest-reply] SendGrid sent to=' + to);
-    return res.status(200).json({ success: true, method: 'sendgrid', reply_thread_id: replyThreadId });
+      html: htmlFull,
+      text: textFull,
+      conversation_id: conversationId,
+      bcc: bcc,
+    });
+
+    return res.status(200).json({
+      success: true,
+      method: sendResult.method,
+      message_id: sendResult.message_id,
+      violation: sendResult.violation || false,
+    });
   } catch (err) {
-    console.error('[send-digest-reply] SendGrid error:', err.message);
+    console.error('[send-digest-reply] error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 };

@@ -104,7 +104,7 @@ module.exports = async function handler(req, res) {
       try {
         var { getPlatformConfig } = require('./_lib/platform-config');
         var { renderTemplate } = require('./_lib/render-template');
-        var { sendEmail } = require('./_lib/send-email');
+        var { sendPlatformEmail } = require('./_lib/send-platform-email');
         var pc = await getPlatformConfig(tenantId, supabase);
         var tenantName = t.data.brand_name || t.data.name;
 
@@ -130,10 +130,9 @@ module.exports = async function handler(req, res) {
           { first_name: firstName, full_name: fullName, tenant_name: tenantName, platform_name: pc.platform_name || 'Platform', portal_url: pc.portal_url || 'https://portal.engwx.com', email: email, temp_password: tempPassword, role: role }
         );
 
-        var fromEmail = pc.support_email || process.env.PLATFORM_FROM_EMAIL;
-        var result = await sendEmail({ to: email, from: fromEmail, fromName: tenantName, subject: emailSubject, html: emailHtml });
+        var result = await sendPlatformEmail(supabase, { recipient_tenant_id: tenantId, to: email, from_name: tenantName, subject: emailSubject, html: emailHtml });
         welcomeEmailSent = result.success;
-        if (result.success) console.log('📬 Team member welcome email sent to', email);
+        if (result.success) console.log('📬 Team member welcome email sent to', email, 'via', result.method);
         else console.warn('📬 Team member welcome email FAILED:', result.error);
       } catch (emailErr) {
         console.warn('[invite-member] Welcome email error:', emailErr.message);

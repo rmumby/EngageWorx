@@ -3,7 +3,7 @@
 // Sends draft email via tenant's email method, marks status='sent'
 
 var { createClient } = require('@supabase/supabase-js');
-var { sendEmail } = require('../_lib/send-email');
+var { sendTenantEmail } = require('../_lib/send-tenant-email');
 
 function getSupabase() {
   return createClient(
@@ -43,31 +43,19 @@ module.exports = async function handler(req, res) {
 
   console.log('[action-items/send]', { tenant_id: item.tenant_id, item_id: itemId, recipients: item.draft_recipients.length });
 
-  // Resolve sender info
-  var fromEmail = process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com';
-  var fromName = 'EngageWorx';
-  try {
-    var { data: profile } = await supabase.from('user_profiles')
-      .select('full_name, email, sender_email').eq('id', userId).maybeSingle();
-    if (profile) {
-      fromName = profile.full_name || fromName;
-      fromEmail = profile.sender_email || profile.email || fromEmail;
-    }
-  } catch (_) {}
-
-  // Send to each recipient
+  // Send to each recipient via tenant's configured email method
   var sendErrors = [];
   for (var i = 0; i < item.draft_recipients.length; i++) {
     var recip = item.draft_recipients[i];
-    var result = await sendEmail({
-      to: recip.email,
-      from: fromEmail,
-      fromName: fromName,
-      subject: item.draft_subject || 'Following up',
-      html: item.draft_body_html || '<p>Following up on our conversation.</p>',
-    });
-    if (!result.success) {
-      sendErrors.push({ email: recip.email, error: result.error });
+    try {
+      await sendTenantEmail(supabase, {
+        tenant_id: item.tenant_id,
+        to: recip.email,
+        subject: item.draft_subject || 'Following up',
+        html: item.draft_body_html || '<p>Following up on our conversation.</p>',
+      });
+    } catch (sendErr) {
+      sendErrors.push({ email: recip.email, error: sendErr.message });
     }
   }
 

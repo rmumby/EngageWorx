@@ -8,6 +8,7 @@ var { createClient } = require('@supabase/supabase-js');
 var { getPlatformConfig } = require('./_lib/platform-config');
 var { renderTemplate } = require('./_lib/render-template');
 var { sendEmail } = require('./_lib/send-email');
+var { sendPlatformEmail } = require('./_lib/send-platform-email');
 
 function getSupabase() {
   return createClient(
@@ -137,20 +138,20 @@ module.exports = async function handler(req, res) {
 
   console.log('[resend-welcome]', { tenant_id: tenantId, admin_email: adminEmail, tenant_name: tenant.name });
 
-  var emailResult = await sendEmail({
-    to: adminEmail,
-    from: pc.support_email,
-    fromName: pc.platform_name,
-    subject: emailSubject,
-    html: emailHtml,
-  });
-
-  if (!emailResult.success) {
-    console.error('[resend-welcome] FAILED:', emailResult.error);
+  var emailResult;
+  try {
+    emailResult = await sendPlatformEmail(supabase, {
+      recipient_tenant_id: tenantId,
+      to: adminEmail,
+      from_name: pc.platform_name,
+      subject: emailSubject,
+      html: emailHtml,
+    });
+  } catch (emailErr) {
+    console.error('[resend-welcome] FAILED:', emailErr.message);
     return res.status(200).json({
       success: false,
-      error: 'Email failed: ' + (emailResult.error || 'unknown error'),
-      key_debug: emailResult.key_debug,
+      error: 'Email failed: ' + emailErr.message,
       admin_email: adminEmail,
     });
   }
