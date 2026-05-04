@@ -116,15 +116,32 @@ async function sendTenantEmail(supabase, opts) {
   // Route by method
   var method = tenant.email_send_method;
 
-  // Gmail: stub until OAuth integration
+  // Gmail: send via Gmail SMTP using app password (GMAIL_SMTP_USER/PASS env vars)
+  // Future: upgrade to OAuth per gmail-drafts-integration-scope.md
   if (method === 'gmail') {
-    throw new Error('Gmail OAuth integration coming soon. Configure verified domain or SMTP in Settings → Email Sync.');
+    var gmailUser = process.env.GMAIL_SMTP_USER;
+    var gmailPass = process.env.GMAIL_SMTP_PASS;
+    if (!gmailUser || !gmailPass) {
+      var gmailErr = 'Gmail SMTP credentials not configured (GMAIL_SMTP_USER/GMAIL_SMTP_PASS env vars missing)';
+      console.error('[sendTenantEmail]', gmailErr);
+      throw new Error(gmailErr);
+    }
+    var gmailFrom = opts.from || gmailUser;
+    var gmailName = opts.from_name || tenant.name;
+    return await sendViaSMTP(
+      { host: 'smtp.gmail.com', port: 587, username: gmailUser, password_encrypted: gmailPass },
+      gmailFrom, gmailName, sendOpts
+    );
   }
 
   // SMTP: use tenant's credentials
   if (method === 'smtp' && tenant.smtp_config_encrypted) {
     var smtpFrom = tenant.smtp_config_encrypted.from_address || opts.from;
-    if (!smtpFrom) throw new Error('SMTP config has no from_address and no override provided');
+    if (!smtpFrom) {
+      var smtpErr = 'SMTP config has no from_address and no override provided for tenant ' + opts.tenant_id;
+      console.error('[sendTenantEmail]', smtpErr);
+      throw new Error(smtpErr);
+    }
     var smtpName = tenant.smtp_config_encrypted.from_name || opts.from_name || tenant.name;
     return await sendViaSMTP(tenant.smtp_config_encrypted, smtpFrom, smtpName, sendOpts);
   }
@@ -153,7 +170,9 @@ async function sendTenantEmail(supabase, opts) {
     'has no verified email config.', strict ? 'BLOCKED.' : 'Falling back to platform Resend.');
 
   if (strict) {
-    throw new Error('Email sending not configured. Verify your domain or connect an email account in Settings → Email Sync.');
+    var strictErr = 'Email sending not configured for tenant ' + opts.tenant_id + ' (' + (tenant.name || 'unknown') + '). Verify your domain or connect an email account in Settings → Email Sync.';
+    console.error('[sendTenantEmail]', strictErr);
+    throw new Error(strictErr);
   }
 
   // Grace period fallback
