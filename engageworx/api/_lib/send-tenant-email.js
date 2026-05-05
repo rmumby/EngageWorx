@@ -89,9 +89,9 @@ async function sendTenantEmail(supabase, opts) {
   if (tenantErr || !tenant) throw new Error('Tenant not found: ' + opts.tenant_id);
 
   // Build Reply-To for conversation threading
-  var replyTo = opts.from || null;
+  var replyTo = opts.reply_to || opts.from || null;
   var threadId = null;
-  if (opts.conversation_id) {
+  if (opts.conversation_id && !opts.reply_to) {
     threadId = generateThreadId();
     replyTo = makeReplyToAddress(threadId, tenant.email_tracking_domain);
   }

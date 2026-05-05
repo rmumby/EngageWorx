@@ -9,8 +9,8 @@
 // POST /api/sequences?action=bulk-enrol → Enrol multiple leads at once
 
 var { createClient } = require('@supabase/supabase-js');
-var sgMail = require('@sendgrid/mail');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
+var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
 function getSupabase() {
   return createClient(
@@ -98,8 +98,7 @@ async function sendStep(supabase, step, lead, tenant) {
   console.log('📧 Sequence render:', { lead_id: lead.id, step: step.step_number, fallbacks_used: fallbacksUsed });
 
   if (step.channel === 'email') {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    var emailConfig = { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), fromName: 'Rob at EngageWorx' };
+    var emailConfig = { from: null, fromName: null };
     var aiOmniBcc = null;
     try {
       var ccRes = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenant.id).eq('channel', 'email').single();
@@ -123,16 +122,44 @@ async function sendStep(supabase, step, lead, tenant) {
 
     var seqThreadId = generateThreadId();
     var seqReplyTo = makeReplyToAddress(seqThreadId);
-    var seqPayload = {
+
+    await sendTenantEmail(supabase, {
+      tenant_id: tenant.id,
       to: lead.email,
-      from: { email: emailConfig.from, name: sigInfo.fromName || emailConfig.fromName },
-      replyTo: { email: seqReplyTo, name: sigInfo.fromName || emailConfig.fromName },
+      from: emailConfig.from || undefined,
+      from_name: sigInfo.fromName || emailConfig.fromName || undefined,
       subject: subject,
       text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
       html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
-    };
-    if (aiOmniBcc) seqPayload.bcc = { email: aiOmniBcc };
-    await sgMail.send(seqPayload);
+      reply_to: seqReplyTo,
+      bcc: aiOmniBcc || undefined,
+    });
+
+    // Store outbound message for reply threading
+    try {
+      var seqConvId = null;
+      var convLookup = await supabase.from('conversations').select('id')
+        .eq('contact_id', lead.contact_id || lead.id).eq('tenant_id', tenant.id).eq('channel', 'email')
+        .in('status', ['active', 'waiting', 'snoozed'])
+        .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+      if (convLookup.data) seqConvId = convLookup.data.id;
+      if (seqConvId) {
+        await supabase.from('messages').insert({
+          tenant_id: tenant.id,
+          conversation_id: seqConvId,
+          contact_id: lead.contact_id || null,
+          channel: 'email',
+          direction: 'outbound',
+          sender_type: 'bot',
+          body: body,
+          status: 'sent',
+          metadata: { reply_thread_id: seqThreadId, reply_to_address: seqReplyTo, source: 'sequence', sequence_id: step.sequence_id, step_number: step.step_number },
+        });
+      }
+    } catch (msgErr) {
+      console.warn('[Sequences] Message row insert error:', msgErr.message);
+    }
+
     console.log('[Sequences] Email sent to:', lead.email, 'step:', step.step_number);
     return true;
   }
@@ -258,13 +285,8 @@ async function processDueSteps(supabase) {
             try {
               await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'paused', reason: 'Max ' + MAX_EMAILS_PER_WINDOW + ' emails per ' + WINDOW_DAYS + ' days exceeded (' + recentCount + ' recent sends)' });
             } catch (logErr) {}
-            try {
-              if (process.env.SENDGRID_API_KEY) {
-                var sgNotify = require('@sendgrid/mail');
-                sgNotify.setApiKey(process.env.SENDGRID_API_KEY);
-                await sgNotify.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Sequences] Rate limit paused: ' + lead.email, html: '<p>Lead ' + lead.email + ' paused — ' + recentCount + ' emails sent in last ' + WINDOW_DAYS + ' days.</p><p>Sequence: ' + sequence.name + ', Step ' + nextStepNumber + '</p>' });
-              }
-            } catch (notifyErr) {}
+            // TODO: migrate to send-notification.js when internal email path is rebuilt
+            console.warn('[Sequences] ADMIN NOTIFY (not sent): Rate limit paused:', lead.email, '— sequence:', sequence.name, 'step:', nextStepNumber);
             continue;
           }
         } catch (guardErr) { console.warn('[Sequences] Guard check error:', guardErr.message); }
