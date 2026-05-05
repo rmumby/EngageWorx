@@ -1,9 +1,14 @@
-// /api/email-inbound.js — Inbound email handler via SendGrid Inbound Parse
+// /api/email-inbound.js — Unified inbound email handler via SendGrid Inbound Parse
+// Handles all inbound email: tenant AI auto-reply, CRM pipeline intelligence,
+// portal-user support routing, lead qualification/reactivation, sequence pausing.
 var { createClient } = require('@supabase/supabase-js');
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
+
+// Disable Vercel's default body parser — SendGrid sends multipart/form-data
+module.exports.config = { api: { bodyParser: false } };
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -11,6 +16,82 @@ var supabase = createClient(
 );
 
 var EW_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+
+// ── Multipart parser (handles urlencoded, multipart, JSON, raw) ─────────
+function parseMultipart(req) {
+  return new Promise(function(resolve, reject) {
+    var chunks = [];
+    req.on('data', function(chunk) { chunks.push(chunk); });
+    req.on('end', function() {
+      var body = Buffer.concat(chunks).toString();
+      var contentType = req.headers['content-type'] || '';
+
+      if (contentType.indexOf('application/x-www-form-urlencoded') !== -1) {
+        var params = new URLSearchParams(body);
+        var result = {};
+        for (var pair of params) { result[pair[0]] = pair[1]; }
+        return resolve(result);
+      }
+
+      if (contentType.indexOf('multipart/form-data') !== -1) {
+        var boundary = contentType.split('boundary=')[1];
+        if (!boundary) return resolve({ _raw: body });
+        boundary = boundary.split(';')[0].trim();
+        var parts = body.split('--' + boundary).filter(function(p) { return p.trim() && p.trim() !== '--'; });
+        var result2 = {};
+        parts.forEach(function(part) {
+          var nameMatch = part.match(/name="([^"]+)"/);
+          if (nameMatch) {
+            var name = nameMatch[1];
+            var valueStart = part.indexOf('\r\n\r\n');
+            if (valueStart > -1) {
+              var value = part.substring(valueStart + 4).trim();
+              if (value.endsWith('--')) value = value.slice(0, -2).trim();
+              if (value.endsWith('\r\n')) value = value.slice(0, -2);
+              result2[name] = value;
+            }
+          }
+        });
+        return resolve(result2);
+      }
+
+      try { return resolve(JSON.parse(body)); } catch (e) {}
+
+      try {
+        var params2 = new URLSearchParams(body);
+        var result3 = {};
+        for (var pair2 of params2) { result3[pair2[0]] = pair2[1]; }
+        if (Object.keys(result3).length > 0) return resolve(result3);
+      } catch (e) {}
+
+      resolve({ _raw: body });
+    });
+    req.on('error', reject);
+  });
+}
+
+// ── Signature stripping ─────────────────────────────────────────────────
+var GENERIC_SIG_MARKERS = [
+  '\n--\n', '--\r\n',
+  '________________________________',
+  '\nFrom:', '\r\nFrom:',
+  '\r\nOn ', '\nOn ',
+  '\n> ', '\r\n> ',
+  'Sent from my iPhone', 'Sent from my Samsung',
+  '[cid:', 'content.exclaimer',
+  'Book time with me',
+  'CONFIDENTIAL', 'DISCLAIMER',
+];
+
+function stripSignature(rawBody, tenantMarkers) {
+  var allMarkers = GENERIC_SIG_MARKERS.concat(tenantMarkers || []);
+  var emailBody = rawBody;
+  for (var i = 0; i < allMarkers.length; i++) {
+    var idx = emailBody.indexOf(allMarkers[i]);
+    if (idx > 20) { emailBody = emailBody.substring(0, idx).trim(); break; }
+  }
+  return emailBody.trim() || '(no message content)';
+}
 
 async function pauseSequencesForContact(email) {
   try {
@@ -62,27 +143,45 @@ async function resolveTenantForSender(senderEmail) {
 }
 
 async function resolveTenantByRecipient(toAddresses) {
-  // Match To: addresses against channel_configs from_email per tenant
+  // Load all email channel configs once
+  var configs = null;
+  try {
+    var r = await supabase.from('channel_configs').select('tenant_id, config_encrypted')
+      .eq('channel', 'email');
+    configs = r.data || [];
+  } catch (e) {
+    console.warn('[Inbound] resolveTenantByRecipient config load error:', e.message);
+    return null;
+  }
+
   for (var i = 0; i < toAddresses.length; i++) {
     var addr = (toAddresses[i] || '').toLowerCase().trim();
-    if (!addr || addr.indexOf('engwx.com') > -1) continue;
-    try {
-      var r = await supabase.from('channel_configs').select('tenant_id, config_encrypted')
-        .eq('channel', 'email');
-      if (r.data) {
-        for (var j = 0; j < r.data.length; j++) {
-          var cfg = r.data[j];
-          var fromEmail = (cfg.config_encrypted && cfg.config_encrypted.from_email || '').toLowerCase().trim();
-          if (fromEmail && fromEmail === addr) {
-            console.log('[Inbound] tenant matched by recipient: to=' + addr + ' tenant=' + cfg.tenant_id);
-            return cfg.tenant_id;
-          }
-        }
+    if (!addr) continue;
+
+    // (a) Match against inbound_email (highest priority — per-tenant inbound address)
+    for (var j = 0; j < configs.length; j++) {
+      var cfg = configs[j];
+      var inboundEmail = (cfg.config_encrypted && cfg.config_encrypted.inbound_email || '').toLowerCase().trim();
+      if (inboundEmail && addr.indexOf(inboundEmail.split('@')[0]) !== -1) {
+        console.log('[Inbound] tenant matched by inbound_email: to=' + addr + ' tenant=' + cfg.tenant_id);
+        return cfg.tenant_id;
       }
-    } catch (e) { console.warn('[Inbound] resolveTenantByRecipient error:', e.message); }
-    // Also try matching by domain against tenants
+    }
+
+    // (b) Match against from_email
+    if (addr.indexOf('engwx.com') > -1) continue; // skip platform addresses for from_email match
+    for (var k = 0; k < configs.length; k++) {
+      var cfg2 = configs[k];
+      var fromEmail = (cfg2.config_encrypted && cfg2.config_encrypted.from_email || '').toLowerCase().trim();
+      if (fromEmail && fromEmail === addr) {
+        console.log('[Inbound] tenant matched by from_email: to=' + addr + ' tenant=' + cfg2.tenant_id);
+        return cfg2.tenant_id;
+      }
+    }
+
+    // (c) Match by domain against tenants
     var domain = addr.split('@')[1] || '';
-    if (domain) {
+    if (domain && domain.indexOf('engwx.com') === -1) {
       try {
         var t = await supabase.from('tenants').select('id').or('custom_domain.ilike.%' + domain + '%,website_url.ilike.%' + domain + '%').limit(1).maybeSingle();
         if (t.data) {
@@ -336,6 +435,37 @@ async function analyzeAndActionEmail(ctx) {
       } catch (seqErr) { console.warn('[EmailAI] Sequence enrol error:', seqErr.message); }
     }
 
+    // 8. Create action_item for review decisions (Action Board ingestion)
+    if (decision.action === 'review' && match.tenantId) {
+      try {
+        var spSettings = await supabase.from('sp_settings').select('action_board_enabled').eq('tenant_id', match.tenantId).maybeSingle();
+        if (spSettings.data && spSettings.data.action_board_enabled) {
+          // Find first admin user for this tenant
+          var adminMember = await supabase.from('tenant_members').select('user_id')
+            .eq('tenant_id', match.tenantId).eq('role', 'admin').eq('status', 'active').limit(1).maybeSingle();
+          var adminUserId = adminMember.data ? adminMember.data.user_id : null;
+          if (adminUserId) {
+            var replySubjForItem = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
+            await supabase.from('action_items').insert({
+              tenant_id: match.tenantId,
+              user_id: adminUserId,
+              source: 'inbound_email',
+              tier: 'engagement',
+              title: 'Reply to ' + (ctx.senderName || sender) + ': ' + (ctx.subject || '(no subject)'),
+              draft_subject: replySubjForItem,
+              draft_body_html: decision.reply_draft ? '<p>' + decision.reply_draft.replace(/\n/g, '</p><p>') + '</p>' : null,
+              draft_recipients: [{ email: sender, name: ctx.senderName || sender }],
+              contact_id: match.contactId || null,
+              lead_id: match.leadId || null,
+              conversation_id: ctx.conversationId || null,
+              status: 'pending',
+            });
+            console.log('[EmailAI] Action item created for review:', sender);
+          }
+        }
+      } catch (aiErr) { console.warn('[EmailAI] Action item creation error:', aiErr.message); }
+    }
+
     console.log('[EmailAI] Processed', sender, 'action:', decision.action, 'matched contact/lead/tenant:', !!match.contactId, !!match.leadId, !!match.tenantId);
   } catch (err) { console.error('[EmailAI] analyzeAndActionEmail error:', err.message); }
 }
@@ -469,31 +599,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    console.log('🔵 [email-inbound.js] HANDLER HIT:', new Date().toISOString(), typeof req.body, Object.keys(req.body || {}));
+    console.log('🔵 [email-inbound.js] HANDLER HIT:', new Date().toISOString());
 
-    var body = req.body || {};
-
-    // SendGrid sends multipart/form-data — parse manually if body is empty
-    if (!body || Object.keys(body).length === 0) {
-      var rawBody = await new Promise(function(resolve) {
-        var chunks = [];
-        req.on('data', function(chunk) { chunks.push(chunk); });
-        req.on('end', function() { resolve(Buffer.concat(chunks).toString()); });
-      });
-      console.log('raw body length:', rawBody.length, 'content-type:', req.headers['content-type']);
-      var contentType = req.headers['content-type'] || '';
-      var boundary = contentType.split('boundary=')[1];
-      if (boundary) {
-        boundary = boundary.split(';')[0].trim();
-        var parts = rawBody.split('--' + boundary);
-        body = {};
-        parts.forEach(function(part) {
-          var match = part.match(/Content-Disposition: form-data; name="([^"]+)"\r\n\r\n([\s\S]*?)\r\n$/);
-          if (match) { body[match[1]] = match[2]; }
-        });
-        console.log('parsed body keys:', Object.keys(body));
-      }
-    }
+    var body = await parseMultipart(req);
+    console.log('[Inbound] Parsed fields:', Object.keys(body).join(', '));
 
     var from        = body.from || '';
     var toHeader    = body.to || '';
@@ -547,8 +656,10 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
-    var emailBody = text || html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
+    var rawEmailBody = text || html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\[cid:[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+    // Signature stripping applied after tenant resolution (tenant may have custom markers)
+    var emailBody = rawEmailBody;
+    if (emailBody.length > 5000) emailBody = emailBody.substring(0, 5000);
 
     console.log('[Inbound] from:', senderEmail, 'to:', toHeader, 'subject:', subject);
     console.log('[Inbound] toParticipants:', toParticipants.map(function(p) { return p.email; }));
@@ -613,6 +724,32 @@ module.exports = async function handler(req, res) {
       } catch (spamErr) { console.warn('[Spam] log error:', spamErr.message); }
       return res.status(200).json({ spam: true, matched: spamCheck.matched });
     }
+
+    // ── Load tenant email config + apply signature stripping ─────────────────
+    var resolvedTenantId = recipientTenantId || senderTenantId || EW_TENANT_ID;
+    var emailChannelConfig = {};
+    try {
+      var ecRes = await supabase.from('channel_configs').select('config_encrypted')
+        .eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
+      if (ecRes.data && ecRes.data.config_encrypted) emailChannelConfig = ecRes.data.config_encrypted;
+    } catch (e) {}
+    var tenantSigMarkers = emailChannelConfig.signature_strip_markers || [];
+    emailBody = stripSignature(emailBody, tenantSigMarkers);
+    if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
+
+    // ── Write to inbound_email_messages (new schema) ─────────────────────────
+    var iemInsert = await supabase.from('inbound_email_messages').insert({
+      tenant_id: resolvedTenantId,
+      from_address: senderEmail,
+      to_address: toParticipants.map(function(p) { return p.email; }).join(', '),
+      subject: subject,
+      body_text: (text || '').substring(0, 10000) || null,
+      body_html: (html || '').substring(0, 50000) || null,
+      headers: body.headers ? { raw: body.headers } : null,
+      processed: false,
+    }).select('id').single();
+    if (iemInsert.error) console.error('[Inbound] inbound_email_messages insert error:', iemInsert.error.message, iemInsert.error.details);
+    var inboundEmailMsgId = iemInsert.data ? iemInsert.data.id : null;
 
     // ── Generate AI reply ────────────────────────────────────────────────────
     var aiReply = null;
@@ -909,6 +1046,18 @@ module.exports = async function handler(req, res) {
       }
     } catch (leadErr) {
       console.error('Lead auto-create failed:', leadErr.message);
+    }
+
+    // ── Mark inbound_email_messages as processed ───────────────────────────
+    if (inboundEmailMsgId) {
+      try {
+        await supabase.from('inbound_email_messages').update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          conversation_id: conversationId || null,
+          contact_id: contactId || null,
+        }).eq('id', inboundEmailMsgId);
+      } catch (e) { console.warn('[Inbound] inbound_email_messages update error:', e.message); }
     }
 
     return res.status(200).json({ success: true, replied_to: senderEmail });
