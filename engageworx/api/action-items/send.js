@@ -44,13 +44,44 @@ module.exports = async function handler(req, res) {
   console.log('[action-items/send]', { tenant_id: item.tenant_id, item_id: itemId, recipients: item.draft_recipients.length });
 
   // Resolve conversation for threading (find existing or create)
+  var contactId = item.contact_id || null;
+  if (!contactId && item.lead_id) {
+    try {
+      var leadLookup = await supabase.from('leads').select('contact_id').eq('id', item.lead_id).maybeSingle();
+      if (leadLookup.data && leadLookup.data.contact_id) contactId = leadLookup.data.contact_id;
+    } catch (e) {}
+  }
+
   var conversationId = item.conversation_id || null;
-  if (!conversationId && item.contact_id && item.tenant_id) {
+  if (!conversationId && contactId && item.tenant_id) {
     var convLookup = await supabase.from('conversations').select('id')
-      .eq('contact_id', item.contact_id).eq('tenant_id', item.tenant_id).eq('channel', 'email')
+      .eq('contact_id', contactId).eq('tenant_id', item.tenant_id).eq('channel', 'email')
       .in('status', ['active', 'waiting', 'snoozed'])
       .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
     if (convLookup.data) conversationId = convLookup.data.id;
+  }
+
+  // Create conversation if none found — Action Board sends always create a thread
+  if (!conversationId && item.tenant_id) {
+    try {
+      var newConv = await supabase.from('conversations').insert({
+        tenant_id: item.tenant_id,
+        contact_id: contactId,
+        channel: 'email',
+        subject: item.draft_subject || 'Following up',
+        status: 'active',
+        last_message_at: new Date().toISOString(),
+        unread_count: 0,
+      }).select('id').single();
+      if (newConv.data) conversationId = newConv.data.id;
+      else console.warn('[action-items/send] Conversation create failed:', newConv.error && newConv.error.message);
+    } catch (convErr) {
+      console.warn('[action-items/send] Conversation create exception:', convErr.message);
+    }
+  }
+
+  if (!conversationId) {
+    console.warn('[action-items/send] No conversationId resolved — message row will not be stored. item:', itemId, 'contact_id:', contactId, 'tenant_id:', item.tenant_id);
   }
 
   // Send to each recipient via tenant's configured email method
@@ -76,20 +107,32 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: 'All sends failed', details: sendErrors });
   }
 
-  // Store outbound message for threading (first successful send's threadId)
+  // Store outbound message for threading
   var firstSuccess = sendResults[0];
-  if (firstSuccess && firstSuccess.result.threadId && conversationId) {
+  var threadId = firstSuccess && firstSuccess.result ? firstSuccess.result.threadId : null;
+  var replyToAddr = firstSuccess && firstSuccess.result ? firstSuccess.result.replyToAddress : null;
+
+  if (!firstSuccess) {
+    console.warn('[action-items/send] No successful send — skipping message row. item:', itemId);
+  } else if (!threadId) {
+    console.warn('[action-items/send] sendTenantEmail returned no threadId — message row will lack reply routing. item:', itemId, 'conversationId:', conversationId);
+  }
+  if (!conversationId) {
+    console.warn('[action-items/send] No conversationId — skipping message row insert. item:', itemId);
+  }
+
+  if (firstSuccess && conversationId) {
     try {
       await supabase.from('messages').insert({
         tenant_id: item.tenant_id,
         conversation_id: conversationId,
-        contact_id: item.contact_id || null,
+        contact_id: contactId,
         channel: 'email',
         direction: 'outbound',
         sender_type: 'agent',
         body: item.draft_body_html || item.draft_subject || 'Following up',
         status: 'sent',
-        metadata: { reply_thread_id: firstSuccess.result.threadId, reply_to_address: firstSuccess.result.replyToAddress, source: 'action_board' },
+        metadata: { reply_thread_id: threadId, reply_to_address: replyToAddr, source: 'action_board' },
         created_at: new Date().toISOString(),
       });
       await supabase.from('conversations').update({
