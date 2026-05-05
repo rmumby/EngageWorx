@@ -128,10 +128,13 @@ async function sendTenantEmail(supabase, opts) {
     }
     var gmailFrom = opts.from || gmailUser;
     var gmailName = opts.from_name || tenant.name;
-    return await sendViaSMTP(
+    var gmailResult = await sendViaSMTP(
       { host: 'smtp.gmail.com', port: 587, username: gmailUser, password_encrypted: gmailPass },
       gmailFrom, gmailName, sendOpts
     );
+    gmailResult.threadId = threadId;
+    gmailResult.replyToAddress = replyTo;
+    return gmailResult;
   }
 
   // SMTP: use tenant's credentials
@@ -143,14 +146,20 @@ async function sendTenantEmail(supabase, opts) {
       throw new Error(smtpErr);
     }
     var smtpName = tenant.smtp_config_encrypted.from_name || opts.from_name || tenant.name;
-    return await sendViaSMTP(tenant.smtp_config_encrypted, smtpFrom, smtpName, sendOpts);
+    var smtpResult = await sendViaSMTP(tenant.smtp_config_encrypted, smtpFrom, smtpName, sendOpts);
+    smtpResult.threadId = threadId;
+    smtpResult.replyToAddress = replyTo;
+    return smtpResult;
   }
 
   // Resend with verified domain: send from tenant's domain
   if (method === 'resend' && tenant.resend_domain_verified && tenant.resend_domain) {
     var resendFrom = opts.from || ('hello@' + tenant.resend_domain);
     var resendName = opts.from_name || tenant.name;
-    return await sendViaResend(resendFrom, resendName, sendOpts);
+    var resendResult = await sendViaResend(resendFrom, resendName, sendOpts);
+    resendResult.threadId = threadId;
+    resendResult.replyToAddress = replyTo;
+    return resendResult;
   }
 
   // ── Not configured — violation path ─────────────────────────────
@@ -179,6 +188,8 @@ async function sendTenantEmail(supabase, opts) {
   var result = await sendViaResendFallback(sendOpts);
   result.violation = true;
   result.violation_type = 'tenant_email_unconfigured';
+  result.threadId = threadId;
+  result.replyToAddress = replyTo;
   return result;
 }
 
