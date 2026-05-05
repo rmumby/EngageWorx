@@ -49,7 +49,27 @@ module.exports = async function handler(req, res) {
     if (!domain || domain.indexOf('.') === -1) return res.status(400).json({ error: 'Valid domain required' });
 
     try {
-      var result = await resendAPI('POST', '/domains', { name: domain });
+      // Check if domain already exists in our Resend account
+      var existing = null;
+      try {
+        var allDomains = await resendAPI('GET', '/domains');
+        var domainList = allDomains.data || allDomains || [];
+        if (Array.isArray(domainList)) {
+          existing = domainList.find(function(d) { return d.name === domain; });
+        }
+      } catch (listErr) {}
+
+      var result;
+      if (existing) {
+        // Domain already exists — fetch its current status + DNS records
+        result = await resendAPI('GET', '/domains/' + existing.id);
+        console.log('[email-setup] Domain already exists in Resend:', domain, 'id:', existing.id, 'status:', result.status);
+      } else {
+        // Create new domain
+        result = await resendAPI('POST', '/domains', { name: domain });
+        console.log('[email-setup] Domain created in Resend:', domain, 'id:', result.id);
+      }
+
       return res.status(200).json({
         success: true,
         domain_id: result.id,

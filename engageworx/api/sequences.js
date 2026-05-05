@@ -19,30 +19,60 @@ function getSupabase() {
   );
 }
 
+// Clean an email local-part into a usable first name: strip digits/punctuation, title-case
+function cleanEmailToName(email) {
+  if (!email) return 'there';
+  var local = email.split('@')[0] || '';
+  // Replace dots, underscores, hyphens, digits with spaces
+  var cleaned = local.replace(/[._\-0-9]+/g, ' ').trim();
+  if (!cleaned) return 'there';
+  // Title-case first word
+  return cleaned.split(' ')[0].charAt(0).toUpperCase() + cleaned.split(' ')[0].slice(1).toLowerCase();
+}
+
+function resolveContactFields(lead) {
+  var name = (lead.name || '').trim();
+  var firstName = name ? name.split(' ')[0] : '';
+  var lastName = name ? name.split(' ').slice(1).join(' ') : '';
+
+  // Fallback chain for firstName: name → first_name field → email-derived → 'there'
+  if (!firstName && lead.first_name) firstName = lead.first_name.trim();
+  if (!firstName) firstName = cleanEmailToName(lead.email);
+
+  // Fallback for lastName
+  if (!lastName && lead.last_name) lastName = (lead.last_name || '').trim();
+
+  var fullName = (firstName + ' ' + lastName).trim() || firstName;
+
+  return {
+    firstName: firstName || 'there',
+    lastName: lastName || '',
+    fullName: fullName || 'there',
+    company: lead.company || lead.company_name || 'your team',
+    email: lead.email || '',
+  };
+}
+
 function mergePlaceholders(text, lead, tenantName) {
   if (!text) return text;
-  var firstName = (lead.name || '').split(' ')[0] || (lead.email || '').split('@')[0] || 'there';
-  var lastName = (lead.name || '').split(' ').slice(1).join(' ') || '';
-  var fullName = ((lead.name || '').trim()) || firstName;
-  var company = lead.company || lead.company_name || 'your team';
-  var email = lead.email || '';
+  var f = resolveContactFields(lead);
   var platform = tenantName || 'EngageWorx';
 
   var map = {
-    'firstname': firstName, 'first_name': firstName, 'first name': firstName,
-    'lastname': lastName, 'last_name': lastName, 'last name': lastName,
-    'fullname': fullName, 'full_name': fullName, 'full name': fullName, 'name': fullName,
-    'company': company, 'company_name': company,
-    'email': email,
+    'firstname': f.firstName, 'first_name': f.firstName, 'first name': f.firstName,
+    'lastname': f.lastName, 'last_name': f.lastName, 'last name': f.lastName,
+    'fullname': f.fullName, 'full_name': f.fullName, 'full name': f.fullName, 'name': f.fullName,
+    'company': f.company, 'company_name': f.company,
+    'email': f.email,
     'platform': platform,
   };
 
   var result = text;
-  // Replace [Placeholder] and {{placeholder}} patterns
-  result = result.replace(/\[([^\]]+)\]|{{([^}]+)}}/gi, function(match, bracket, curly) {
-    var key = (bracket || curly || '').trim().toLowerCase();
+  // Replace {placeholder}, [Placeholder], and {{placeholder}} patterns
+  result = result.replace(/\{([^{}]+)\}|{{([^}]+)}}|\[([^\]]+)\]/gi, function(match, single, double, bracket) {
+    var key = (single || double || bracket || '').trim().toLowerCase();
     if (map[key] !== undefined) return map[key];
-    return match; // leave unrecognized placeholders for validation to catch
+    return match; // leave unrecognized for validation to catch
   });
 
   return result;
@@ -50,7 +80,8 @@ function mergePlaceholders(text, lead, tenantName) {
 
 function validateNoPlaceholders(text) {
   var remaining = [];
-  var re = /\[([A-Za-z_\s]+)\]|{{([A-Za-z_\s]+)}}/g;
+  // Match {single}, {{double}}, and [bracket] tokens
+  var re = /\{([A-Za-z_\s]+)\}|{{([A-Za-z_\s]+)}}|\[([A-Za-z_\s]+)\]/g;
   var m;
   while ((m = re.exec(text)) !== null) {
     remaining.push(m[0]);
@@ -86,12 +117,17 @@ async function sendStep(supabase, step, lead, tenant) {
   if (body.indexOf((lead.email || '').split('@')[0]) !== -1 && !(lead.name || '').trim()) fallbacksUsed.push('FirstName→email_prefix');
   if (body.indexOf('your team') !== -1 && !(lead.company || lead.company_name)) fallbacksUsed.push('Company→your_team');
 
+  // Safety: run mergePlaceholders on AI-personalised output too (AI may leave tokens)
+  if (step.ai_personalise) {
+    body = mergePlaceholders(body, lead, tenant.name);
+  }
+
   // Validate — refuse to send if unmerged placeholders remain
   var bodyRemaining = validateNoPlaceholders(body);
   var subjRemaining = validateNoPlaceholders(subject);
   var allRemaining = bodyRemaining.concat(subjRemaining);
   if (allRemaining.length > 0) {
-    console.error('🚫 Sequence send refused — unfilled placeholder:', { lead_id: lead.id, lead_email: lead.email, subject: subject, body_preview: body.substring(0, 80), missing: allRemaining });
+    console.error('[Sequences] Send refused — unfilled placeholder:', { tenant_id: tenant.id, sequence_id: step.sequence_id, step_number: step.step_number, lead_id: lead.id, lead_email: lead.email, missing: allRemaining, body_preview: body.substring(0, 100) });
     return { refused: true, missing: allRemaining };
   }
 
@@ -270,6 +306,18 @@ async function processDueSteps(supabase) {
 
       var tenantRes = await supabase.from('tenants').select('id, name').eq('id', sequence.tenant_id).single();
       var tenant = tenantRes.data;
+
+      // Backfill lead name if missing — derive from email
+      if (!(lead.name || '').trim() && lead.email) {
+        var derived = cleanEmailToName(lead.email);
+        if (derived && derived !== 'there') {
+          lead.name = derived;
+          try {
+            await supabase.from('leads').update({ name: derived }).eq('id', lead.id).eq('tenant_id', sequence.tenant_id);
+            console.log('[Sequences] Backfilled lead name:', lead.id, '→', derived);
+          } catch (e) {}
+        }
+      }
 
       // GUARD 1: Max touches in time window (2 emails per 7 days)
       var MAX_EMAILS_PER_WINDOW = 2;
