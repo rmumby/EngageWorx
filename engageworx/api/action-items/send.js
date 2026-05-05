@@ -43,14 +43,42 @@ module.exports = async function handler(req, res) {
 
   console.log('[action-items/send]', { tenant_id: item.tenant_id, item_id: itemId, recipients: item.draft_recipients.length });
 
-  // Resolve conversation for threading (find existing or create)
+  // Resolve contact for conversation threading
   var contactId = item.contact_id || null;
   if (!contactId && item.lead_id) {
     try {
-      var leadLookup = await supabase.from('leads').select('contact_id').eq('id', item.lead_id).maybeSingle();
+      var leadLookup = await supabase.from('leads').select('contact_id, email').eq('id', item.lead_id).maybeSingle();
       if (leadLookup.data && leadLookup.data.contact_id) contactId = leadLookup.data.contact_id;
     } catch (e) {}
   }
+  // Resolve from recipient email if still null
+  if (!contactId && item.draft_recipients && item.draft_recipients.length > 0) {
+    var recipEmail = item.draft_recipients[0].email;
+    if (recipEmail && item.tenant_id) {
+      try {
+        var contactLookup = await supabase.from('contacts').select('id')
+          .eq('email', recipEmail).eq('tenant_id', item.tenant_id).limit(1).maybeSingle();
+        if (contactLookup.data) {
+          contactId = contactLookup.data.id;
+        } else {
+          // Create contact from recipient
+          var nameParts = (item.draft_recipients[0].name || recipEmail.split('@')[0] || '').split(' ');
+          var newContact = await supabase.from('contacts').insert({
+            tenant_id: item.tenant_id,
+            email: recipEmail,
+            first_name: nameParts[0] || recipEmail.split('@')[0],
+            last_name: nameParts.slice(1).join(' ') || '',
+            status: 'active',
+          }).select('id').single();
+          if (newContact.data) contactId = newContact.data.id;
+          else console.warn('[action-items/send] Contact create failed:', newContact.error && newContact.error.message);
+        }
+      } catch (e) {
+        console.warn('[action-items/send] Contact resolve error:', e.message);
+      }
+    }
+  }
+  console.log('[action-items/send] Resolved contactId:', contactId);
 
   var conversationId = item.conversation_id || null;
   if (!conversationId && contactId && item.tenant_id) {
@@ -62,8 +90,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Create conversation if none found — Action Board sends always create a thread
-  if (!conversationId && item.tenant_id) {
-    console.log('[action-items/send] No existing conversation — creating. contact_id:', contactId, 'tenant_id:', item.tenant_id);
+  if (!conversationId && item.tenant_id && contactId) {
     try {
       var newConv = await supabase.from('conversations').insert({
         tenant_id: item.tenant_id,
@@ -74,40 +101,15 @@ module.exports = async function handler(req, res) {
         last_message_at: new Date().toISOString(),
         unread_count: 0,
       }).select('id').single();
-      console.log('[action-items/send] Conversation insert result:', JSON.stringify({ data: newConv.data, error: newConv.error, status: newConv.status }));
-      if (newConv.data && newConv.data.id) {
-        conversationId = newConv.data.id;
-      } else {
-        console.warn('[action-items/send] Conversation create returned no id. error:', JSON.stringify(newConv.error));
-        // Fallback: insert without .select() and read back
-        var fallbackConv = await supabase.from('conversations').insert({
-          tenant_id: item.tenant_id,
-          contact_id: contactId,
-          channel: 'email',
-          subject: item.draft_subject || 'Following up',
-          status: 'active',
-          last_message_at: new Date().toISOString(),
-          unread_count: 0,
-        });
-        console.log('[action-items/send] Fallback insert result:', JSON.stringify({ error: fallbackConv.error, status: fallbackConv.status }));
-        if (!fallbackConv.error) {
-          // Read back the conversation we just created
-          var readBack = await supabase.from('conversations')
-            .select('id').eq('tenant_id', item.tenant_id).eq('channel', 'email')
-            .order('created_at', { ascending: false }).limit(1).maybeSingle();
-          if (readBack.data) conversationId = readBack.data.id;
-          console.log('[action-items/send] Fallback read-back:', JSON.stringify({ id: readBack.data && readBack.data.id, error: readBack.error }));
-        }
-      }
+      if (newConv.data && newConv.data.id) conversationId = newConv.data.id;
+      else console.warn('[action-items/send] Conversation create failed:', JSON.stringify(newConv.error));
     } catch (convErr) {
-      console.error('[action-items/send] Conversation create exception:', convErr.message, convErr.stack);
+      console.error('[action-items/send] Conversation create exception:', convErr.message);
     }
   }
 
   if (!conversationId) {
-    console.warn('[action-items/send] No conversationId resolved — message row will not be stored. item:', itemId, 'contact_id:', contactId, 'tenant_id:', item.tenant_id);
-  } else {
-    console.log('[action-items/send] Using conversationId:', conversationId);
+    console.warn('[action-items/send] No conversationId — message row will not be stored. item:', itemId, 'contactId:', contactId, 'tenant_id:', item.tenant_id);
   }
 
   // Send to each recipient via tenant's configured email method
