@@ -63,6 +63,7 @@ module.exports = async function handler(req, res) {
 
   // Create conversation if none found — Action Board sends always create a thread
   if (!conversationId && item.tenant_id) {
+    console.log('[action-items/send] No existing conversation — creating. contact_id:', contactId, 'tenant_id:', item.tenant_id);
     try {
       var newConv = await supabase.from('conversations').insert({
         tenant_id: item.tenant_id,
@@ -73,15 +74,40 @@ module.exports = async function handler(req, res) {
         last_message_at: new Date().toISOString(),
         unread_count: 0,
       }).select('id').single();
-      if (newConv.data) conversationId = newConv.data.id;
-      else console.warn('[action-items/send] Conversation create failed:', newConv.error && newConv.error.message);
+      console.log('[action-items/send] Conversation insert result:', JSON.stringify({ data: newConv.data, error: newConv.error, status: newConv.status }));
+      if (newConv.data && newConv.data.id) {
+        conversationId = newConv.data.id;
+      } else {
+        console.warn('[action-items/send] Conversation create returned no id. error:', JSON.stringify(newConv.error));
+        // Fallback: insert without .select() and read back
+        var fallbackConv = await supabase.from('conversations').insert({
+          tenant_id: item.tenant_id,
+          contact_id: contactId,
+          channel: 'email',
+          subject: item.draft_subject || 'Following up',
+          status: 'active',
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
+        });
+        console.log('[action-items/send] Fallback insert result:', JSON.stringify({ error: fallbackConv.error, status: fallbackConv.status }));
+        if (!fallbackConv.error) {
+          // Read back the conversation we just created
+          var readBack = await supabase.from('conversations')
+            .select('id').eq('tenant_id', item.tenant_id).eq('channel', 'email')
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (readBack.data) conversationId = readBack.data.id;
+          console.log('[action-items/send] Fallback read-back:', JSON.stringify({ id: readBack.data && readBack.data.id, error: readBack.error }));
+        }
+      }
     } catch (convErr) {
-      console.warn('[action-items/send] Conversation create exception:', convErr.message);
+      console.error('[action-items/send] Conversation create exception:', convErr.message, convErr.stack);
     }
   }
 
   if (!conversationId) {
     console.warn('[action-items/send] No conversationId resolved — message row will not be stored. item:', itemId, 'contact_id:', contactId, 'tenant_id:', item.tenant_id);
+  } else {
+    console.log('[action-items/send] Using conversationId:', conversationId);
   }
 
   // Send to each recipient via tenant's configured email method
