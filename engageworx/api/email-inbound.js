@@ -1,16 +1,14 @@
 // /api/email-inbound.js — Inbound email handler via SendGrid Inbound Parse
-var sgMail = require('@sendgrid/mail');
 var { createClient } = require('@supabase/supabase-js');
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
+var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 var EW_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
@@ -253,67 +251,57 @@ async function analyzeAndActionEmail(ctx) {
     var actionId = ins.data ? ins.data.id : null;
 
     // 5. Auto-execute if Claude chose auto_reply (email/WhatsApp only, not SMS)
-    if (decision.action === 'auto_reply' && decision.reply_draft) {
+    if (decision.action === 'auto_reply' && decision.reply_draft && match.tenantId) {
       try {
-        if (process.env.SENDGRID_API_KEY) {
-          var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
-          var _sig = require('./_email-signature');
-          // Send from the matched tenant's configured email identity — never hard-code hello@engwx.com.
-          var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
-          var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
-          var eiThreadId = generateThreadId();
-          var eiReplyTo = makeReplyToAddress(eiThreadId);
-          var autoReplyPayload = {
-            to: sender,
-            from: { email: aiCtx.fromEmail, name: sigInfo.fromName || aiCtx.fromName },
-            replyTo: { email: eiReplyTo, name: sigInfo.fromName || aiCtx.fromName },
-            subject: replySubj,
-            text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
-            html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
-          };
-          if (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) autoReplyPayload.bcc = { email: aiCtx.aiOmniBcc };
-          await sgMail.send(autoReplyPayload);
-          if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
-          // Save outbound message to Live Inbox
-          console.log('📝 [email-inbound] Outbound save: starting. ctx.conversationId=' + (ctx.conversationId || 'null') + ' match.contactId=' + (match.contactId || 'null') + ' match.tenantId=' + (match.tenantId || 'null'));
-          var outConvId = ctx.conversationId || null;
-          if (!outConvId && match.contactId && match.tenantId) {
-            try {
-              var convLookup = await supabase.from('conversations').select('id').eq('contact_id', match.contactId).eq('tenant_id', match.tenantId).eq('channel', 'email').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
-              if (convLookup.data) { outConvId = convLookup.data.id; console.log('📝 [email-inbound] Found existing conversation:', outConvId); }
-              else console.log('📝 [email-inbound] No existing conversation found, will create');
-              if (convLookup.error) console.error('📝 [email-inbound] Conv lookup error:', convLookup.error.message);
-            } catch (e) { console.error('📝 [email-inbound] Conv lookup exception:', e.message); }
-          }
-          if (!outConvId && match.contactId && match.tenantId) {
-            try {
-              var newConv = await supabase.from('conversations').insert({ tenant_id: match.tenantId, contact_id: match.contactId, channel: 'email', status: 'waiting', subject: replySubj, last_message_at: new Date().toISOString(), unread_count: 0 }).select('id').single();
-              if (newConv.data) { outConvId = newConv.data.id; console.log('📝 [email-inbound] Created new conversation:', outConvId); }
-              if (newConv.error) console.error('📝 [email-inbound] Conv insert error:', newConv.error.message, newConv.error.details);
-            } catch (e) { console.error('📝 [email-inbound] Conv insert exception:', e.message); }
-          }
-          if (!outConvId) {
-            console.error('❌ [email-inbound] No conversation_id — skipping outbound message insert. contactId=' + (match.contactId || 'null') + ' tenantId=' + (match.tenantId || 'null'));
-          } else {
-            console.log('📝 [email-inbound] Inserting outbound message:', { conversation_id: outConvId, body_preview: (decision.reply_draft || '').substring(0, 50) });
-            try {
-              var outIns = await supabase.from('messages').insert({
-                tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
-                channel: 'email', direction: 'outbound', sender_type: 'bot',
-                body: decision.reply_draft, status: 'sent',
-                metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, from: aiCtx.fromEmail, to: sender, subject: replySubj },
-                created_at: new Date().toISOString(),
-              }).select('id').single();
-              if (outIns.error) console.error('❌ [email-inbound] Outbound message INSERT error:', outIns.error.message, outIns.error.details, outIns.error.hint);
-              else console.log('✅ [email-inbound] Outbound message saved:', outIns.data.id);
-              await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
-            } catch (saveErr) { console.error('❌ [email-inbound] Outbound message save exception:', saveErr.message, saveErr.stack); }
-          }
+        var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
+        var _sig = require('./_email-signature');
+        var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
+        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
+        var eiThreadId = generateThreadId();
+        var eiReplyTo = makeReplyToAddress(eiThreadId);
+
+        await sendTenantEmail(supabase, {
+          tenant_id: match.tenantId,
+          to: sender,
+          subject: replySubj,
+          text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
+          html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
+          reply_to: eiReplyTo,
+          bcc: (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) ? aiCtx.aiOmniBcc : undefined,
+        });
+
+        if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+
+        // Save outbound message to Live Inbox
+        var outConvId = ctx.conversationId || null;
+        if (!outConvId && match.contactId && match.tenantId) {
           try {
-            var _eum = require('./_usage-meter');
-            _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
-          } catch (mErr) {}
+            var convLookup = await supabase.from('conversations').select('id').eq('contact_id', match.contactId).eq('tenant_id', match.tenantId).eq('channel', 'email').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+            if (convLookup.data) outConvId = convLookup.data.id;
+          } catch (e) {}
         }
+        if (!outConvId && match.contactId && match.tenantId) {
+          try {
+            var newConv = await supabase.from('conversations').insert({ tenant_id: match.tenantId, contact_id: match.contactId, channel: 'email', status: 'waiting', subject: replySubj, last_message_at: new Date().toISOString(), unread_count: 0 }).select('id').single();
+            if (newConv.data) outConvId = newConv.data.id;
+          } catch (e) {}
+        }
+        if (outConvId) {
+          try {
+            await supabase.from('messages').insert({
+              tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
+              channel: 'email', direction: 'outbound', sender_type: 'bot',
+              body: decision.reply_draft, status: 'sent',
+              metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, source: 'auto_reply', from: aiCtx.fromEmail, to: sender, subject: replySubj },
+              created_at: new Date().toISOString(),
+            });
+            await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
+          } catch (saveErr) { console.error('[email-inbound] Outbound message save error:', saveErr.message); }
+        }
+        try {
+          var _eum = require('./_usage-meter');
+          _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
+        } catch (mErr) {}
       } catch (seErr) { console.warn('[EmailAI] Auto-reply send error:', seErr.message); }
     }
 
@@ -388,17 +376,8 @@ async function tryQualifyProspect(email, replyBody, channel) {
           await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', l.id).in('sequence_id', sids).eq('status', 'active');
         }
       } catch (sErr) {}
-      try {
-        if (process.env.SENDGRID_API_KEY) {
-          var qualName = upd.name || l.name || 'Prospect';
-          await sgMail.send({
-            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-            subject: '✅ ' + qualName + ' just qualified from ' + channel,
-            html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p>',
-          });
-        }
-      } catch (nErr) {}
+      // TODO: migrate to send-notification.js when internal email path is rebuilt
+      console.warn('[Qualify] ADMIN NOTIFY (not sent): Lead qualified:', (upd.name || l.name || 'Prospect'), 'via', channel);
     }
     console.log('[Qualify] Qualified', matches.length, 'prospect(s) via', channel);
     return matches.length;
@@ -439,18 +418,8 @@ async function reactivateArchivedLeadsForContact(email) {
     }
 
     if (notifyEligible.length > 0) {
-      try {
-        if (process.env.SENDGRID_API_KEY) {
-          await sgMail.send({
-            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-            subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
-            html: '<h3>Archived Lead Reactivated (email inbound)</h3>' +
-              notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
-              '<p>Flipped <code>archived=true</code> → <code>false</code>. Enrolled in New Lead — General Outreach sequence.</p>',
-          });
-        }
-      } catch (nErr) {}
+      // TODO: migrate to send-notification.js when internal email path is rebuilt
+      console.warn('[Reactivate] ADMIN NOTIFY (not sent): Lead reactivated:', notifyEligible.map(function(x) { return x.name; }).join(', '));
     } else {
       console.log('[Reactivate] Skipped notification — all', matches.length, 'lead(s) reactivated within the last 24h');
     }
@@ -461,15 +430,8 @@ async function reactivateArchivedLeadsForContact(email) {
 }
 
 async function notifyInboundSendGrid(contactName, channel, preview) {
-  try {
-    if (!process.env.SENDGRID_API_KEY) return;
-    await sgMail.send({
-      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-      subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
-      html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
-    });
-  } catch (e) { console.error('[Notify] SendGrid error:', e.message); }
+  // TODO: migrate to send-notification.js when internal email path is rebuilt
+  console.warn('[Notify] ADMIN NOTIFY (not sent): New', channel, 'from', (contactName || 'Unknown'), '—', (preview || '').substring(0, 80));
 }
 
 var EW_EMAIL_SYSTEM_PROMPT = 'You are the AI assistant for EngageWorx, an AI-powered omnichannel customer communications platform. You handle inbound sales and support enquiries sent to hello@engwx.com.\n\nABOUT ENGAGEWORX:\n- Platform: SMS, WhatsApp, Email, Voice, and RCS — all in one portal at portal.engwx.com\n- Pricing: Starter $99/mo, Growth $249/mo, Pro $499/mo. Enterprise: custom.\n- No platform fee — a key differentiator vs competitors like GoHighLevel\n- Built-in AI chatbot powered by Claude (Anthropic)\n- Multi-tenant white-label architecture — businesses use it directly OR resell it (CSP model)\n- Live at portal.engwx.com\n\nYOUR ROLE:\n- Reply professionally and helpfully to inbound enquiries\n- Answer questions about pricing, features, channels, and setup\n- Encourage prospects to sign up at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min\n- For partnership or reseller enquiries, highlight the white-label CSP model\n- Keep replies concise — 3-5 sentences or short paragraphs, never a wall of text\n- Never mention Twilio, SendGrid, Supabase, Vercel, or any infrastructure provider\n- Sign off as: EngageWorx Team\n\nTONE: Warm, confident, direct. Short sentences. No buzzwords.';
@@ -682,19 +644,20 @@ module.exports = async function handler(req, res) {
     '📅 <a href="https://calendly.com/rob-engwx/30min" style="color:#00C9FF;text-decoration:none;">Book a demo</a>' +
     '</div></td></tr></table>';
 
-    // ── Send reply via SendGrid ───────────────────────────────────────────────
+    // ── Send reply via sendTenantEmail (SP tenant) ─────────────────────────────
+    var spSendResult = null;
     try {
-      await sgMail.send({
+      spSendResult = await sendTenantEmail(supabase, {
+        tenant_id: EW_TENANT_ID,
         to: senderEmail,
-        from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
-        replyTo: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
         subject: replySubject,
-        text: aiReply + '\n\n--\nEngageWorx Team\n+1 (786) 982-7800\nengwx.com\nBook a demo: calendly.com/rob-engwx/30min',
+        text: aiReply + '\n\n--\nEngageWorx Team\nengwx.com',
         html: htmlReply,
+        conversation_id: conversationId || undefined,
       });
       console.log('✅ AI reply sent to:', senderEmail);
-    } catch (sgErr) {
-      console.error('SendGrid error:', sgErr.message);
+    } catch (sendErr) {
+      console.error('[email-inbound] AI reply send error:', sendErr.message);
     }
 
     // ── Portal-user guard ─────────────────────────────────────────────────────
@@ -871,6 +834,8 @@ module.exports = async function handler(req, res) {
         if (inboundInsert.error) console.error('Inbound message insert error:', inboundInsert.error.message);
 
         // AI outbound reply
+        var spThreadId = spSendResult && spSendResult.threadId ? spSendResult.threadId : null;
+        var spReplyToAddr = spSendResult && spSendResult.replyToAddress ? spSendResult.replyToAddress : null;
         var outboundInsert = await supabase.from('messages').insert({
           conversation_id: conversationId,
           tenant_id: EW_TENANT_ID,
@@ -879,7 +844,7 @@ module.exports = async function handler(req, res) {
           body: aiReply,
           status: 'sent',
           sender_type: 'bot',
-          metadata: { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), to: senderEmail, subject: replySubject, ai_generated: true },
+          metadata: { reply_thread_id: spThreadId, reply_to_address: spReplyToAddr, source: 'auto_reply', from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), to: senderEmail, subject: replySubject, ai_generated: true },
           created_at: new Date(Date.now() + 1000).toISOString(),
         });
         if (outboundInsert.error) console.error('Outbound message insert error:', outboundInsert.error.message);
