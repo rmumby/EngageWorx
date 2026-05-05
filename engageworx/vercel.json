@@ -3,6 +3,9 @@
     "api/email-inbound.js": {
       "maxDuration": 60
     },
+    "api/email-setup.js": {
+      "maxDuration": 30
+    },
     "api/billing.js": {
       "maxDuration": 30
     },

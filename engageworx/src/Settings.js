@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from "./supabaseClient";
 import WelcomeEmailSettings from './WelcomeEmailSettings';
 import EmailTrackingInstructions from './EmailTrackingInstructions';
+import EmailSetupWizard from './components/EmailSetupWizard';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
@@ -388,6 +389,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [waVerifying, setWaVerifying] = useState(false);
   const [waVerifyResult, setWaVerifyResult] = useState(null);
   const [aiTonePreviews, setAiTonePreviews] = useState({});
+  const [showEmailWizard, setShowEmailWizard] = useState(false);
   const [liveWebhooks, setLiveWebhooks] = useState([]);
   const [webhooksLoading, setWebhooksLoading] = useState(true);
   const [editingWebhook, setEditingWebhook] = useState(null);
@@ -1250,6 +1252,46 @@ return (<div>
                     </div>
                     {isEnabled && (
                       <>
+                        {ch.id === 'email' && (() => {
+                          var hasResendDomain = configData.domain && config.status === 'connected';
+                          var isGmail = emailSendMethod === 'gmail';
+                          var isSmtp = emailSendMethod === 'smtp';
+                          var bannerBg, bannerBorder;
+                          if (hasResendDomain) { bannerBg = 'rgba(16,185,129,0.06)'; bannerBorder = 'rgba(16,185,129,0.2)'; }
+                          else if (isGmail || isSmtp) { bannerBg = 'rgba(0,201,255,0.04)'; bannerBorder = 'rgba(0,201,255,0.15)'; }
+                          else { bannerBg = 'rgba(255,107,53,0.06)'; bannerBorder = 'rgba(255,107,53,0.2)'; }
+                          return (
+                          <div style={{ marginBottom: 16, padding: 16, background: bannerBg, border: '1px solid ' + bannerBorder, borderRadius: 12 }}>
+                            {hasResendDomain ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>Resend domain verified</div>
+                                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}>
+                                    Sending from <strong style={{ color: '#fff' }}>{configData.from_name || '—'}</strong> &lt;{configData.from_email || '—'}&gt; via <strong style={{ color: '#fff' }}>{configData.domain}</strong>
+                                  </div>
+                                </div>
+                                <button onClick={() => setShowEmailWizard(true)} style={{ ...btnSec, padding: '6px 14px', fontSize: 11 }}>Reconfigure</button>
+                              </div>
+                            ) : (isGmail || isSmtp) ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ color: '#00C9FF', fontWeight: 700, fontSize: 13 }}>Currently using {isGmail ? 'Gmail SMTP' : 'Custom SMTP'}</div>
+                                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Emails send via {isGmail ? 'Gmail app password' : 'your SMTP server'}. Set up a custom domain for better deliverability and branding.</div>
+                                </div>
+                                <button onClick={() => setShowEmailWizard(true)} style={{ ...btnSec, padding: '6px 14px', fontSize: 11 }}>Set up custom domain</button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ color: '#FF6B35', fontWeight: 700, fontSize: 13 }}>Email not configured</div>
+                                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Set up your sending domain so emails come from your own address.</div>
+                                </div>
+                                <button onClick={() => setShowEmailWizard(true)} style={{ ...btnPrimary, padding: '8px 16px', fontSize: 12 }}>Set up email</button>
+                              </div>
+                            )}
+                          </div>
+                          );
+                        })()}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                           {ch.fields.filter(f => { if (f.spOnly && viewLevel !== "sp") return false; if (f.showWhen === "byoc" && configData["_byoc_toggle"] !== "Enabled") return false; if (f.showWhen === "auto_answer_disabled" && configData["auto_answer"] === "Enabled") return false; return true; }).map(f => (<div key={f.key}><label style={label}>{f.label}</label>{renderChannelField(ch, f, configData)}</div>))}
                         </div>
@@ -1880,6 +1922,15 @@ return (<div>
     )}
   </div>
 )}
+    {showEmailWizard && (
+      <EmailSetupWizard
+        C={C}
+        tenantId={resolvedTenantId || currentTenantId}
+        existingConfig={(channelConfigs.email && channelConfigs.email.config_encrypted) || null}
+        onComplete={() => { setShowEmailWizard(false); loadChannelConfigs(); }}
+        onCancel={() => setShowEmailWizard(false)}
+      />
+    )}
     </div>
   );
 }
