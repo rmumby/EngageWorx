@@ -1,6 +1,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var { getNotifyEmails } = require('./_notify');
 var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
+var { sendTenantEmail: _sendTenantEmail } = require('./_lib/send-tenant-email');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -302,17 +303,17 @@ module.exports = async function handler(req, res) {
 
           // Notify SP admins
           try {
-            var spEmailCfg = await getSPEmailConfig();
             var spEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_new_signup');
-            if (spEmails.length > 0) {
-              await sgMail.send({
-                to: spEmails,
-                from: { email: spEmailCfg.from, name: spEmailCfg.fromName },
+            for (var spei = 0; spei < spEmails.length; spei++) {
+              await _sendTenantEmail(supabase, {
+                tenant_id: EW_SP_TENANT_ID,
+                to: spEmails[spei],
                 subject: '🎉 New Signup: ' + companyName + ' (' + plan + ')',
                 text: 'New signup\n\nCompany: ' + companyName + '\nEmail: ' + email + '\nPlan: ' + plan + '\nTenant ID: ' + tenant.id,
+                html: '<p>New signup</p><p>Company: ' + companyName + '</p><p>Email: ' + email + '</p><p>Plan: ' + plan + '</p>',
               });
-              console.log('[Stripe] SP notification sent to:', spEmails);
             }
+            if (spEmails.length > 0) console.log('[Stripe] SP notification sent to:', spEmails);
           } catch (spErr) { console.log('[Stripe] SP notify failed:', spErr.message); }
         }
 
@@ -320,9 +321,9 @@ module.exports = async function handler(req, res) {
         try {
           var welcomeConfig = await buildWelcomeEmail(newTenantId, email, plan, companyName, demoPassword);
           if (welcomeConfig) {
-            await sgMail.send({
+            await _sendTenantEmail(supabase, {
+              tenant_id: newTenantId || EW_SP_TENANT_ID,
               to: email,
-              from: { email: welcomeConfig.from, name: welcomeConfig.fromName },
               subject: 'Welcome — your account is live 🎉',
               text: welcomeConfig.text,
               html: welcomeConfig.html,

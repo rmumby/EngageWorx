@@ -11,18 +11,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
-
-// Blocked patterns — AI meta-language, scratchpad reasoning, or unfilled tokens
-// that must NEVER reach a recipient. Case-insensitive match against rendered body.
-var BLOCKED_BODY_PATTERNS = [
-  "i don't have", "i do not have", "could you please provide",
-  "could you provide", "the data provided", "to personalize this message",
-  "information is missing", "information needed", "the lead's first name",
-  "the lead's company", "once you provide", "once i have these details",
-  "the email shows", "the email suggests", "i'd need", "i would need",
-  "{first_name}", "{company_name}", "[firstname]", "[company]",
-  "[calendly_link]", "[your name]",
-];
+var { BLOCKED_BODY_PATTERNS, looksLikeEmail, cleanEmailToName, GENERIC_LOCAL_PARTS } = require('./_lib/email-safety-gates');
 
 function getSupabase() {
   return createClient(
@@ -31,26 +20,8 @@ function getSupabase() {
   );
 }
 
-// Clean an email local-part into a usable first name: strip digits/punctuation, title-case
-var GENERIC_LOCAL_PARTS = ['info','sales','team','support','admin','hello','contact','noreply','hi','mail','billing','accounts','office','enquiries','help','service'];
-
-function cleanEmailToName(email) {
-  if (!email) return 'there';
-  var local = email.split('@')[0] || '';
-  // Replace dots, underscores, hyphens, digits with spaces
-  var cleaned = local.replace(/[._\-0-9]+/g, ' ').trim();
-  if (!cleaned) return 'there';
-  var firstWord = cleaned.split(' ')[0].toLowerCase();
-  // Block generic prefixes and short/numeric local-parts
-  if (GENERIC_LOCAL_PARTS.indexOf(firstWord) !== -1) return 'there';
-  if (firstWord.replace(/[^a-z]/gi, '').length < 2) return 'there';
-  // Title-case first word
-  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
-}
-
-function looksLikeEmail(str) {
-  return str && str.indexOf('@') !== -1 && str.indexOf('.') !== -1;
-}
+// cleanEmailToName, looksLikeEmail, GENERIC_LOCAL_PARTS, BLOCKED_BODY_PATTERNS
+// imported from _lib/email-safety-gates.js
 
 function resolveContactFields(lead) {
   var name = (lead.name || '').trim();

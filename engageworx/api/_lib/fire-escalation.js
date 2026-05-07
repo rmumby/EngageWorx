@@ -1,6 +1,7 @@
 // api/_lib/fire-escalation.js — Fire real notifications when escalation rules trigger
 
 var { createClient } = require('@supabase/supabase-js');
+var { sendTenantEmail } = require('./send-tenant-email');
 
 function getSupabase() {
   return createClient(
@@ -67,14 +68,14 @@ async function fireEscalation(opts) {
           (ac.include_conversation_link !== false && convLink ? '<p style="margin-top:16px;"><a href="' + convLink + '" style="background:#00C9FF;color:#000;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Conversation</a></p>' : '') +
           '</div>';
 
-        if (process.env.SENDGRID_API_KEY) {
-          var sgMail = require('@sendgrid/mail');
-          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-          await sgMail.send({ to: user.email, from: { email: fromEmail, name: tenantName + ' Escalation' }, subject: subject, html: html });
-          succeeded.push('email');
-        } else {
-          failed.push({ channel: 'email', error: 'SENDGRID_API_KEY not configured' });
-        }
+        var escalSupabase = getSupabase();
+        await sendTenantEmail(escalSupabase, {
+          tenant_id: rule.tenant_id,
+          to: user.email,
+          subject: subject,
+          html: html,
+        });
+        succeeded.push('email');
       } catch (e) {
         failed.push({ channel: 'email', error: e.message });
       }

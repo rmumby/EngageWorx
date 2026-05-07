@@ -80,8 +80,10 @@
 
 ### Email Migration Status
 - `api/_lib/send-email.js` migrated from SendGrid to **Resend** (2026-04-29)
-- Direct `sgMail` callers in crons/sequences still use SendGrid
-- `RESEND_API_KEY` is primary, `SENDGRID_API_KEY` still in use for direct callers
+- `api/_lib/send-tenant-email.js` is the **mandatory path** for all external-recipient emails. Enforces Layer 1 (email-as-name sanitization via `opts.recipient`) and Layer 2 (18 blocked AI meta-language patterns scanned unconditionally). Returns `{ sent: false, blocked: true }` if Layer 2 triggers — email never reaches a provider.
+- `api/_lib/email-safety-gates.js` — shared helpers: `checkBlockedPatterns`, `sanitizeEmailAsName`, `looksLikeEmail`, `cleanEmailToName`. Used by both sendTenantEmail and sequences.js.
+- Customer-facing paths migrated to sendTenantEmail: sequences, email-inbound auto-reply, cron-signup-recovery, helpdesk, stripe-webhook, fire-escalation, action-items/send
+- Direct `sgMail` callers remain in ~20 internal admin notification paths (P3 migration deferred)
 
 ---
 
@@ -343,13 +345,13 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 |-------|--------|---------|
 | `/api/billing` | POST/GET | Stripe checkout/portal/status |
 | `/api/create-checkout-session` | POST | Create Stripe checkout |
-| `/api/stripe-webhook` | POST | Stripe event webhook |
+| `/api/stripe-webhook` | POST | Stripe event webhook (welcome + SP notify via sendTenantEmail, no direct SendGrid) |
 | `/api/usage` | POST/GET | Usage metering |
 
 ### Support
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/helpdesk` | POST/GET | Ticket management |
+| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid) |
 | `/api/support-triage` | POST | Auto-triage tickets |
 | `/api/send-digest-reply` | POST | Digest reply as email |
 

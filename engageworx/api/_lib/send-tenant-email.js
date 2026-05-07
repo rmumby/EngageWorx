@@ -1,9 +1,12 @@
 // api/_lib/send-tenant-email.js — Tenant→customer outbound email routing
 // Routes through tenant's configured method (resend/gmail/smtp).
+// Enforces Layer 1 (email-as-name sanitization) + Layer 2 (blocked pattern gate)
+// on ALL outbound before any provider send.
 // Strict enforcement controlled by STRICT_TENANT_EMAIL_ENFORCEMENT env var.
 // Every violation logged to email_routing_violations table.
 
 var { generateThreadId, makeReplyToAddress } = require('./reply-thread');
+var { checkBlockedPatterns, sanitizeEmailAsName } = require('./email-safety-gates');
 
 // ── Provider implementations ────────────────────────────────────────
 
@@ -80,6 +83,21 @@ async function sendTenantEmail(supabase, opts) {
   if (!opts.to) throw new Error('to required');
   if (!opts.subject) throw new Error('subject required');
   if (!opts.html && !opts.text) throw new Error('html or text required');
+
+  // Layer 1: sanitize email-as-name in subject + body if recipient context provided
+  if (opts.recipient) {
+    if (opts.subject) opts.subject = sanitizeEmailAsName(opts.subject, opts.recipient);
+    if (opts.text) opts.text = sanitizeEmailAsName(opts.text, opts.recipient);
+    if (opts.html) opts.html = sanitizeEmailAsName(opts.html, opts.recipient);
+  }
+
+  // Layer 2: block AI meta-language / scratchpad / unfilled tokens (unconditional)
+  var combinedText = (opts.subject || '') + ' ' + (opts.text || '') + ' ' + (opts.html ? opts.html.replace(/<[^>]*>/g, ' ') : '');
+  var blockCheck = checkBlockedPatterns(combinedText);
+  if (blockCheck.blocked) {
+    console.error('[sendTenantEmail] BLOCKED — matched pattern:', blockCheck.pattern, '| tenant:', opts.tenant_id, '| to:', opts.to, '| subject:', (opts.subject || '').substring(0, 60));
+    return { sent: false, blocked: true, block_reason: 'ai_meta_language_blocked', matched_pattern: blockCheck.pattern, threadId: null, replyToAddress: null };
+  }
 
   // Load tenant
   var { data: tenant, error: tenantErr } = await supabase.from('tenants')
