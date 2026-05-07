@@ -55,60 +55,7 @@
       "maxDuration": 30
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron-signup-recovery",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron-tcr-poll",
-      "schedule": "0 */2 * * *"
-    },
-    {
-      "path": "/api/cron-archive-leads",
-      "schedule": "0 15 * * *"
-    },
-    {
-      "path": "/api/cron-email-digest",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron-stale-leads",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron-digest-scheduled",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron-usage-alerts",
-      "schedule": "15 * * * *"
-    },
-    {
-      "path": "/api/cron-weekly-update",
-      "schedule": "0 14 * * 1"
-    },
-    {
-      "path": "/api/cron-health-check",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron-tenant-engagement",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron-channel-health",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron-sequences",
-      "schedule": "0 */4 * * *"
-    },
-    {
-      "path": "/api/cron-weekly-summary",
-      "schedule": "0 * * * *"
-    }
-  ],
+  "crons": [],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/sms-terms", "destination": "/sms-terms.html" },
