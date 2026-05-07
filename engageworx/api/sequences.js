@@ -252,11 +252,13 @@ async function processDueSteps(supabase) {
   var processed = 0;
   var errors = 0;
 
+  var fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString();
   var enrolmentsRes = await supabase
     .from('lead_sequences')
     .select('*, leads(*), sequences(*)')
     .eq('status', 'active')
-    .lte('next_step_at', now);
+    .lte('next_step_at', now)
+    .or('processing_started_at.is.null,processing_started_at.lt.' + fiveMinAgo);
 
   var enrolments = enrolmentsRes.data;
 
@@ -346,10 +348,13 @@ async function processDueSteps(supabase) {
         } catch (guardErr) { console.warn('[Sequences] Guard check error:', guardErr.message); }
       }
 
+      // Acquire in-flight lock — prevents re-processing if Vercel kills the function mid-send
+      await supabase.from('lead_sequences').update({ processing_started_at: new Date().toISOString() }).eq('id', enrolment.id);
+
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
 
       if (sent && sent.refused) {
-        await supabase.from('lead_sequences').update({ status: 'error', error_message: 'Unfilled placeholders: ' + sent.missing.join(', ') }).eq('id', enrolment.id);
+        await supabase.from('lead_sequences').update({ status: 'error', error_message: 'Unfilled placeholders: ' + sent.missing.join(', '), processing_started_at: null }).eq('id', enrolment.id);
         errors++;
         continue;
       }
@@ -387,6 +392,7 @@ async function processDueSteps(supabase) {
           next_step_at: nextStepAt,
           status: nextStepAt ? 'active' : 'completed',
           completed_at: nextStepAt ? null : now,
+          processing_started_at: null,
         }).eq('id', enrolment.id);
 
         await supabase.from('leads').update({
@@ -404,6 +410,7 @@ async function processDueSteps(supabase) {
         last_error: (sendError.message || 'Unknown error').substring(0, 500),
         last_error_at: new Date().toISOString(),
         send_attempts: (enrolment.send_attempts || 0) + 1,
+        processing_started_at: null,
       }).eq('id', enrolment.id);
 
       // TODO: migrate to proper admin notification helper when send-notification.js is built

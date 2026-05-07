@@ -10,10 +10,10 @@
       "maxDuration": 30
     },
     "api/sequences.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/cron-sequences.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/read-card.js": {
       "maxDuration": 30
