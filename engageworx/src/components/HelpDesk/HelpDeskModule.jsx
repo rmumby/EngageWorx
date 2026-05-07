@@ -5,13 +5,15 @@ import { supabase } from '../../supabaseClient';
 import { ChatThread, ChatInput } from '../chat';
 
 const STATUS_CONFIG = {
-  open:      { label: 'Open',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
-  ai_active: { label: 'AI Active', color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' },
-  escalated: { label: 'Escalated', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-  pending:   { label: 'Pending',   color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
-  resolved:  { label: 'Resolved',  color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-  closed:    { label: 'Closed',    color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
-  spam:      { label: 'Spam',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+  open:           { label: 'Open',           color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+  ai_active:      { label: 'AI Active',      color: '#06b6d4', bg: 'rgba(6,182,212,0.12)' },
+  pending_user:   { label: 'Awaiting User',  color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  pending_review: { label: 'Needs Review',   color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  escalated:      { label: 'Escalated',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  pending:        { label: 'Pending',        color: '#3b82f6', bg: 'rgba(59,130,246,0.12)' },
+  resolved:       { label: 'Resolved',       color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  closed:         { label: 'Closed',         color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+  spam:           { label: 'Spam',           color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
 };
 
 const PRIORITY_CONFIG = {
@@ -152,6 +154,28 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
           </div>
         )}
       </div>
+
+      {ticket.needs_platform_review && (
+        <div style={{ padding: '10px 24px', background: 'rgba(220,38,38,0.08)', borderBottom: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <span>🚩</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 700, color: '#dc2626', fontSize: 13 }}>Platform Review Required</span>
+            {ticket.platform_review_reason && (
+              <div style={{ fontSize: 12, color: text, marginTop: 4 }}>{ticket.platform_review_reason}</div>
+            )}
+            {ticket.platform_review_flagged_at && (
+              <div style={{ fontSize: 11, color: textMuted, marginTop: 2 }}>Flagged {formatDate(ticket.platform_review_flagged_at)}</div>
+            )}
+          </div>
+          {canActAsAgent && (
+            <button onClick={async function() {
+              await supabase.from('support_tickets').update({ needs_platform_review: false }).eq('id', ticket.id);
+              console.log('[HelpDesk] Platform review cleared by', userName || userId);
+              onBack();
+            }} style={btnStyle('rgba(16,185,129,0.15)', 'rgba(16,185,129,0.3)', '#10b981')}>✓ Mark Reviewed</button>
+          )}
+        </div>
+      )}
 
       {ticket.status === 'escalated' && (
         <div style={{ padding: '10px 24px', background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -512,13 +536,16 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
     setLoading(true);
     var params = 'action=list_tickets&limit=200';
     if (tenantId && !isSPAdmin) params += '&tenant_id=' + tenantId;
-    if (filter.status !== 'all') params += '&status=' + filter.status;
+    if (filter.status !== 'all' && filter.status !== 'platform_review') params += '&status=' + filter.status;
     if (filter.priority !== 'all') params += '&priority=' + filter.priority;
     if (filter.search) params += '&search=' + encodeURIComponent(filter.search);
     try {
       var res = await fetch('/api/helpdesk?' + params);
       var data = await res.json();
       var all = data.tickets || [];
+      if (filter.status === 'platform_review') {
+        all = all.filter(function(t) { return t.needs_platform_review; });
+      }
       setTickets(all);
       var resolved = all.filter(function(t) { return ['resolved','closed'].includes(t.status); });
       var aiResolved = resolved.filter(function(t) { return t.ai_handled; });
@@ -527,7 +554,8 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
         open: all.filter(function(t) { return t.status === 'open'; }).length,
         escalated: all.filter(function(t) { return t.status === 'escalated'; }).length,
         ai_resolved: aiResolved.length,
-        resolution_rate: resolved.length ? Math.round(aiResolved.length / resolved.length * 100) : 0
+        resolution_rate: resolved.length ? Math.round(aiResolved.length / resolved.length * 100) : 0,
+        platform_review: all.filter(function(t) { return t.needs_platform_review; }).length
       });
     } catch (e) { console.error('loadTickets error:', e); }
     setLoading(false);
@@ -601,6 +629,14 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
             </div>
           );
         })}
+        {isSPAdmin && (stats.platform_review || 0) > 0 && (
+          <div
+            onClick={function() { setFilter(function(f) { return Object.assign({}, f, { status: 'platform_review' }); }); }}
+            style={{ textAlign: 'center', cursor: 'pointer', padding: '2px 10px', borderRadius: 8, background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{stats.platform_review}</div>
+            <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 600 }}>Platform Review</div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '10px 24px', borderBottom: '1px solid ' + border, display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
@@ -612,6 +648,7 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
           onChange={function(e) { setFilter(function(f) { return Object.assign({}, f, { status: e.target.value }); }); }}
           style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid ' + border, background: surface, color: text, fontSize: 13 }}>
           <option value="all">All Status</option>
+          {isSPAdmin && <option value="platform_review">🚩 Needs Platform Review</option>}
           {Object.entries(STATUS_CONFIG).map(function(e) { return <option key={e[0]} value={e[0]}>{e[1].label}</option>; })}
         </select>
         <select value={filter.priority}
@@ -657,6 +694,7 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
                     </td>
                     <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
                       <span style={{ padding: '3px 10px', borderRadius: 20, background: sc.bg, color: sc.color, fontSize: 12, fontWeight: 600 }}>{sc.label}</span>
+                      {t.needs_platform_review && <span style={{ padding: '3px 8px', borderRadius: 20, background: 'rgba(220,38,38,0.12)', color: '#dc2626', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>🚩 Platform Review</span>}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: pc.color, fontWeight: 500 }}>{pc.label}</td>
                     <td style={{ padding: '12px 14px', fontSize: 12, color: textMuted, textTransform: 'capitalize' }}>{t.channel}</td>
