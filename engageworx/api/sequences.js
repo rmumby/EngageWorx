@@ -12,6 +12,18 @@ var { createClient } = require('@supabase/supabase-js');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
+// Blocked patterns — AI meta-language, scratchpad reasoning, or unfilled tokens
+// that must NEVER reach a recipient. Case-insensitive match against rendered body.
+var BLOCKED_BODY_PATTERNS = [
+  "i don't have", "i do not have", "could you please provide",
+  "could you provide", "the data provided", "to personalize this message",
+  "information is missing", "information needed", "the lead's first name",
+  "the lead's company", "once you provide", "once i have these details",
+  "the email shows", "the email suggests", "i'd need", "i would need",
+  "{first_name}", "{company_name}", "[firstname]", "[company]",
+  "[calendly_link]", "[your name]",
+];
+
 function getSupabase() {
   return createClient(
     process.env.REACT_APP_SUPABASE_URL,
@@ -112,7 +124,9 @@ async function sendStep(supabase, step, lead, tenant) {
     return { refused: true, missing: ['no_email_address'] };
   }
 
-  var body = step.ai_personalise
+  // Layer 1: only use AI personalisation if lead has real data to personalise with
+  var hasPersonalisableData = (lead.name || '').trim() || (lead.company || lead.company_name || '').trim();
+  var body = (step.ai_personalise && hasPersonalisableData)
     ? await personaliseMessage(step.body_template, lead, tenant.name)
     : mergePlaceholders(step.body_template, lead, tenant.name);
 
@@ -135,6 +149,15 @@ async function sendStep(supabase, step, lead, tenant) {
   if (allRemaining.length > 0) {
     console.error('[Sequences] Send refused — unfilled placeholder:', { tenant_id: tenant.id, sequence_id: step.sequence_id, step_number: step.step_number, lead_id: lead.id, lead_email: lead.email, missing: allRemaining, body_preview: body.substring(0, 100) });
     return { refused: true, missing: allRemaining };
+  }
+
+  // Layer 2: block AI meta-language, scratchpad reasoning, or unfilled tokens
+  var bodyLower = (body + ' ' + subject).toLowerCase();
+  for (var pi = 0; pi < BLOCKED_BODY_PATTERNS.length; pi++) {
+    if (bodyLower.indexOf(BLOCKED_BODY_PATTERNS[pi].toLowerCase()) !== -1) {
+      console.error('[Sequences] BLOCKED — AI meta-language detected:', { tenant_id: tenant.id, sequence_id: step.sequence_id, step_number: step.step_number, lead_id: lead.id, matched_pattern: BLOCKED_BODY_PATTERNS[pi], body_preview: body.substring(0, 120) });
+      return { refused: true, missing: ['ai_meta_language_blocked: ' + BLOCKED_BODY_PATTERNS[pi]] };
+    }
   }
 
   console.log('📧 Sequence render:', { lead_id: lead.id, step: step.step_number, fallbacks_used: fallbacksUsed });
@@ -354,7 +377,8 @@ async function processDueSteps(supabase) {
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
 
       if (sent && sent.refused) {
-        await supabase.from('lead_sequences').update({ status: 'error', error_message: 'Unfilled placeholders: ' + sent.missing.join(', '), processing_started_at: null }).eq('id', enrolment.id);
+        var refusedReason = sent.missing.join(', ');
+        await supabase.from('lead_sequences').update({ status: 'error', error_message: refusedReason, last_error: refusedReason, last_error_at: new Date().toISOString(), processing_started_at: null }).eq('id', enrolment.id);
         errors++;
         continue;
       }
