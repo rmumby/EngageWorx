@@ -414,7 +414,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     (async function() {
       try {
         var emails = [
-          { email: 'rob@engwx.com', label: 'Rob', type: 'default' },
           { email: 'hello@engwx.com', label: 'Hello', type: 'default' },
         ];
         // Tenant's configured from_email
@@ -440,7 +439,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           });
         } catch (e) {}
         setSenderEmails(emails);
-        if (!fromEmail) setFromEmail('rob@engwx.com');
+        if (!fromEmail) setFromEmail(emails[0] ? emails[0].email : 'hello@engwx.com');
       } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
     })();
   }, [resolvedTenantId, demoMode, supabase]);

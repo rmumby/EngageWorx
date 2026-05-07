@@ -1524,7 +1524,14 @@ return (<div>
             <button onClick={async function() {
               setTestEmailSending(true); setTestEmailResult(null);
               try {
-                var fromEmail = 'rob@engwx.com';
+                var fromEmail = 'hello@engwx.com';
+                try {
+                  var _ur = await supabase.auth.getUser();
+                  if (_ur.data && _ur.data.user) {
+                    var _pr = await supabase.from('user_profiles').select('sender_email, email').eq('id', _ur.data.user.id).maybeSingle();
+                    if (_pr.data) fromEmail = _pr.data.sender_email || _pr.data.email || fromEmail;
+                  }
+                } catch (e) {}
                 try {
                   var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', emailTenantId).eq('channel', 'email').maybeSingle();
                   if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) fromEmail = chR.data.config_encrypted.from_email;

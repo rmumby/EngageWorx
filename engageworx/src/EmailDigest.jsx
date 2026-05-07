@@ -75,12 +75,25 @@ export default function EmailDigest({ C, currentTenantId }) {
   var [vipFollowupDays, setVipFollowupDays] = useState(5);
   var [vipDatePicker, setVipDatePicker] = useState(null);
 
+  // Load user sender email on mount
+  var [userSenderEmail, setUserSenderEmail] = useState('');
+  useEffect(function() {
+    supabase.auth.getUser().then(function(r) {
+      if (!r.data || !r.data.user) return;
+      var uid = r.data.user.id;
+      var fallback = r.data.user.email || '';
+      supabase.from('user_profiles').select('sender_email, email').eq('id', uid).maybeSingle().then(function(pr) {
+        setUserSenderEmail((pr.data && pr.data.sender_email) || (pr.data && pr.data.email) || fallback);
+      });
+    });
+  }, []);
+
   function makeVipCard(c, extra) {
     return {
       id: c.id, first_name: c.first_name, last_name: c.last_name,
       email: c.email, phone: c.phone || c.mobile_phone, company: c.company,
       title: c.title || '', notes: c.notes || '', context: '',
-      emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
+      emailDraft: '', smsDraft: '', subject: '', fromEmail: userSenderEmail || 'hello@engwx.com',
       research: null, researched: false, channel: 'email',
       calendly_cta: '', signature_first: '', signature_reply: '', sig_type: 'first',
       last_contacted_at: c.last_contacted_at || null,
@@ -350,13 +363,13 @@ export default function EmailDigest({ C, currentTenantId }) {
         contact_id: contact.id, channel: contact.channel,
         direction: 'outbound', sender_type: 'agent',
         body: fullBody, status: 'delivered',
-        metadata: { source: 'followup_generator', from_email: 'rob@engwx.com' },
+        metadata: { source: 'followup_generator', from_email: userSenderEmail || 'hello@engwx.com' },
         created_at: new Date().toISOString(),
       });
       if (contact.channel === 'email' && contact.email) {
         await fetch('/api/send-digest-reply', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: contact.email, subject: 'Following up', body: fullBody, from: 'rob@engwx.com' }),
+          body: JSON.stringify({ to: contact.email, subject: 'Following up', body: fullBody, from: userSenderEmail || 'hello@engwx.com' }),
         });
       } else if (contact.channel === 'sms' && contact.phone) {
         await fetch('/api/sms', {
@@ -460,7 +473,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         id: contact.id, first_name: contact.first_name, last_name: contact.last_name,
         email: contact.email, phone: contact.phone, company: contact.company,
         title: contact.title, notes: contact.notes,
-        emailDraft: '', smsDraft: '', subject: '', fromEmail: 'rob@engwx.com',
+        emailDraft: '', smsDraft: '', subject: '', fromEmail: userSenderEmail || 'hello@engwx.com',
         research: null, researched: false, channel: 'email',
       }]);
     });
@@ -678,7 +691,7 @@ export default function EmailDigest({ C, currentTenantId }) {
         var resp = await fetch('/api/send-digest-reply', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: a.email_from, subject: (a.email_subject && a.email_subject.startsWith('Re:')) ? a.email_subject : ('Re: ' + (a.email_subject || 'your message')), body: body, tenant_id: a.tenant_id || resolvedTenantId, from: 'rob@engwx.com' }),
+          body: JSON.stringify({ to: a.email_from, subject: (a.email_subject && a.email_subject.startsWith('Re:')) ? a.email_subject : ('Re: ' + (a.email_subject || 'your message')), body: body, tenant_id: a.tenant_id || resolvedTenantId, from: userSenderEmail || 'hello@engwx.com' }),
         });
         var data = await resp.json();
         if (!data.success) throw new Error(data.error || 'send failed');
@@ -961,7 +974,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     <button type="button" onClick={function() { console.log('[FuPreview] close X clicked'); setFuPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
                   </div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>To: {fuPreview.email || '—'}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: rob@engwx.com</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: {userSenderEmail || 'hello@engwx.com'}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Following up</div>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
@@ -1145,7 +1158,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                             </div>
                             {vc.channel === 'email' && (
                               <select value={vc.fromEmail} onChange={function(e) { var val = e.target.value; setVipContacts(function(p) { return p.map(function(c) { return c.id === vc.id ? Object.assign({}, c, { fromEmail: val }) : c; }); }); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }}>
-                                <option value="rob@engwx.com">From: rob@engwx.com</option>
+                                {userSenderEmail && <option value={userSenderEmail}>From: {userSenderEmail}</option>}
                                 <option value="hello@engwx.com">From: hello@engwx.com</option>
                               </select>
                             )}
@@ -1208,7 +1221,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     <button onClick={function() { setVipPreview(null); }} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}>✕</button>
                   </div>
                   <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>To: {vipPreview.email || '—'}</div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: {vipPreview.fromEmail || 'rob@engwx.com'}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 8 }}>From: {vipPreview.fromEmail || userSenderEmail || 'hello@engwx.com'}</div>
                   <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{vipPreview.subject || '(no subject)'}</div>
                 </div>
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
