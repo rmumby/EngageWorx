@@ -57,6 +57,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron-sequences",
+      "schedule": "0 */4 * * *"
+    },
+    {
       "path": "/api/cron-signup-recovery",
       "schedule": "0 * * * *"
     },
