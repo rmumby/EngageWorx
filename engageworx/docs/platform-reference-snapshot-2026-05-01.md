@@ -154,7 +154,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Support Tables
 | Table | Purpose |
 |-------|---------|
-| `support_tickets` | Help desk tickets |
+| `support_tickets` | Help desk tickets (includes AI root-cause: `root_cause_type`, `root_cause_confidence`, `root_cause_reasoning`) |
 | `ticket_messages` | Messages within tickets |
 | `support_ticket_responses` | Responses to tickets |
 | `support_triage` | Auto-triage results |
@@ -351,7 +351,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Support
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid) |
+| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid). AI responses include root-cause tagging (user_level/tenant_level/platform_level) parsed from Claude output and persisted to support_tickets. |
 | `/api/support-triage` | POST | Auto-triage tickets |
 | `/api/send-digest-reply` | POST | Digest reply as email |
 
@@ -377,7 +377,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 |-------|----------|---------|
 | `/api/cron-stale-leads` | Hourly | Flag stale pipeline leads |
 | `/api/cron-tenant-engagement` | Daily | Tenant health/engagement |
-| `/api/cron-signup-recovery` | Hourly | Recover abandoned signups |
+| `/api/cron-signup-recovery` | Every 6h | Recover abandoned signups |
 | `/api/cron-email-digest` | Hourly | Generate/send email digests |
 | `/api/cron-digest-scheduled` | 30min | Execute scheduled digest actions |
 | `/api/cron-usage-alerts` | Daily | Usage threshold alerts |
@@ -385,7 +385,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/cron-archive-leads` | Daily | Archive old leads |
 | `/api/cron-weekly-update` | Weekly | Platform update summary |
 | `/api/cron-health-check` | Hourly | Platform health monitoring |
-| `/api/cron-sequences` | 15min | Process due sequence steps |
+| `/api/cron-sequences` | Every 4h | Process due sequence steps |
 | `/api/cron-tcr-poll` | Hourly | Poll Twilio TCR status |
 | `/api/cron-weekly-summary` | Hourly | Per-user weekly summary email (fires when user's configured day + tenant send hour match) |
 
