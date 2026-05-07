@@ -126,28 +126,26 @@ async function notifyTenant(supabase, ticket, tenantId, message) {
   }
 }
 
-async function notifyRob(ticket, classification, diagnosis, logs) {
-  if (!process.env.SENDGRID_API_KEY) return;
+async function flagForPlatformReview(supabase, ticketId, reason) {
   try {
-    var sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    var portalUrl = 'https://portal.engwx.com';
-    var logsHtml = (logs || []).map(function(l) { return '<div style="font-family:monospace;font-size:11px;color:#475569;padding:4px 0;border-bottom:1px solid #e2e8f0;">' + String(l).replace(/</g, '&lt;').substring(0, 400) + '</div>'; }).join('') || '<div style="color:#94a3b8;font-size:12px;">No log entries pulled.</div>';
-    var html = '<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;padding:24px;background:#f9fafb;">' +
-      '<div style="background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">' +
-      '<h1 style="font-size:20px;color:#dc2626;margin:0 0 6px;">🚨 Escalation: ' + classification + '</h1>' +
-      '<p style="color:#475569;font-size:13px;margin:0 0 12px;">' + (ticket.subject || '(no subject)') + '</p>' +
-      '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:14px;margin-bottom:16px;color:#7c2d12;font-size:13px;line-height:1.6;white-space:pre-wrap;">' + (diagnosis || 'No diagnosis') + '</div>' +
-      '<div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">Recent logs</div>' + logsHtml +
-      '<div style="text-align:center;margin-top:20px;"><a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;">Open ticket →</a></div>' +
-      '</div></div>';
-    await sgMail.send({
-      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-      from: { email: 'notifications@engwx.com', name: 'EngageWorx Triage' },
-      subject: '🚨 ' + classification + ' — ' + (ticket.subject || 'Support ticket'),
-      html: html,
-    });
-  } catch (e) { console.warn('[Triage] Rob email error:', e.message); }
+    var { error } = await supabase
+      .from('support_tickets')
+      .update({
+        needs_platform_review: true,
+        platform_review_reason: reason,
+        platform_review_flagged_at: new Date().toISOString()
+      })
+      .eq('id', ticketId);
+    if (error) {
+      console.error('[Triage] Failed to flag for platform review:', error.message);
+      return { flagged: false, error: error.message };
+    }
+    console.log('[Triage] Flagged ticket', ticketId, 'for platform review:', reason);
+    return { flagged: true };
+  } catch (err) {
+    console.error('[Triage] flagForPlatformReview exception:', err.message);
+    return { flagged: false, error: err.message };
+  }
 }
 
 module.exports = async function handler(req, res) {
@@ -207,11 +205,11 @@ module.exports = async function handler(req, res) {
     } else if (classification === 'CODE_BUG') {
       var logResult = await fetchRecentLogs({ hoursBack: 24, limit: 10, errorOnly: true, match: ticket.submitter_email || ticket.submitter_phone || null });
       logs = logResult.logs || [];
-      await notifyRob(ticket, classification, decision.engineer_notes || decision.reasoning, logs);
-      try { await supabase.from('support_tickets').update({ status: 'escalated', assigned_to: 'rob', updated_at: new Date().toISOString() }).eq('id', ticketId); } catch (e) {}
+      await flagForPlatformReview(supabase, ticketId, 'Suspected platform bug — see triage reasoning and Vercel logs');
+      try { await supabase.from('support_tickets').update({ status: 'escalated', updated_at: new Date().toISOString() }).eq('id', ticketId); } catch (e) {}
     } else {
-      await notifyRob(ticket, classification, decision.reasoning, []);
-      try { await supabase.from('support_tickets').update({ status: 'pending_review', assigned_to: 'rob', updated_at: new Date().toISOString() }).eq('id', ticketId); } catch (e) {}
+      await flagForPlatformReview(supabase, ticketId, 'AI could not classify — needs human review');
+      try { await supabase.from('support_tickets').update({ status: 'pending_review', updated_at: new Date().toISOString() }).eq('id', ticketId); } catch (e) {}
     }
 
     // Audit
@@ -231,6 +229,16 @@ module.exports = async function handler(req, res) {
         logs_snippet: logs ? JSON.stringify(logs).substring(0, 4000) : null,
       });
     } catch (e) { console.warn('[Triage] audit insert error:', e.message); }
+
+    // Write root_cause_* to support_tickets (canonical classification)
+    var ROOT_CAUSE_MAP = { USER_ERROR: 'user_level', CONFIG_ISSUE: 'tenant_level', CODE_BUG: 'platform_level', UNKNOWN: 'unknown' };
+    try {
+      await supabase.from('support_tickets').update({
+        root_cause_type: ROOT_CAUSE_MAP[classification] || 'unknown',
+        root_cause_confidence: typeof decision.confidence === 'number' ? decision.confidence : null,
+        root_cause_reasoning: decision.reasoning || null
+      }).eq('id', ticketId);
+    } catch (e) { console.warn('[Triage] root_cause update error:', e.message); }
 
     return res.status(200).json({
       classification: classification,

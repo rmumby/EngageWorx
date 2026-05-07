@@ -38,19 +38,7 @@ ALWAYS ESCALATE these topics:
 - Abuse or fraud reports
 - Security incidents
 - Explicit request for a human agent
-- Negative sentiment combined with an unresolved issue
-
-ROOT CAUSE CLASSIFICATION:
-After your response prefix and message, on a new line, output:
-  ROOT_CAUSE: <user_level|tenant_level|platform_level>
-  CONFIDENCE: <0.0-1.0>
-  REASONING: <one sentence explaining the classification>
-
-Categories:
-- user_level: end-user error, training/workflow issue, something the end-user can resolve themselves
-- tenant_level: configuration the tenant or CSP admin needs to change (settings, integrations, account-level)
-- platform_level: suspected EngageWorx code/infrastructure/platform bug — not user error, not tenant config
-Be conservative with platform_level — only use when evidence strongly suggests a platform issue.`;
+- Negative sentiment combined with an unresolved issue`;
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -184,27 +172,11 @@ async function runAIResponse(ticket, latestMessage, history) {
     var confidence = isEscalated ? 0.2 : isPending ? 0.5 : 0.9;
     var newStatus  = isEscalated ? 'escalated' : isPending ? 'pending_user' : isResolved ? 'resolved' : 'pending_review';
 
-    // Parse root-cause tags from AI response
-    var rcTypeMatch = aiText.match(/ROOT_CAUSE:\s*(\w+)/);
-    var rcConfMatch = aiText.match(/CONFIDENCE:\s*([\d.]+)/);
-    var rcReasonMatch = aiText.match(/REASONING:\s*(.+?)(?:\n|$)/);
-    var rcType = rcTypeMatch ? rcTypeMatch[1] : 'unknown';
-    var rcConf = rcConfMatch ? parseFloat(rcConfMatch[1]) : null;
-    var rcReason = rcReasonMatch ? rcReasonMatch[1].trim() : null;
-    if (['user_level', 'tenant_level', 'platform_level'].indexOf(rcType) === -1) rcType = 'unknown';
-    if (rcConf !== null && (isNaN(rcConf) || rcConf < 0 || rcConf > 1)) rcConf = null;
-
-    // Strip root-cause lines from customer-facing response
-    cleanText = cleanText.replace(/ROOT_CAUSE:.*(?:\n|$)/g, '').replace(/CONFIDENCE:.*(?:\n|$)/g, '').replace(/REASONING:.*(?:\n|$)/g, '').trim();
-
     var updates = {
       status: newStatus,
       ai_handled: true,
       ai_confidence: confidence,
-      first_response_at: new Date().toISOString(),
-      root_cause_type: rcType,
-      root_cause_confidence: rcConf,
-      root_cause_reasoning: rcReason
+      first_response_at: new Date().toISOString()
     };
     if (isResolved)  { updates.resolved_at = new Date().toISOString(); updates.ai_resolution_summary = cleanText.substring(0, 200); }
     if (isEscalated) { updates.escalation_reason = cleanText.substring(0, 200); updates.escalation_trigger = 'ai_decision'; }

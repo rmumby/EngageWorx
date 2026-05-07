@@ -351,8 +351,8 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Support
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid). AI responses include root-cause tagging (user_level/tenant_level/platform_level) parsed from Claude output and persisted to support_tickets. |
-| `/api/support-triage` | POST | Auto-triage tickets. CODE_BUG and UNKNOWN classifications flag via support_tickets.needs_platform_review (no longer emails Rob). |
+| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid). AI response + status mapping only — root-cause classification delegated to api/support-triage.js. |
+| `/api/support-triage` | POST | Auto-triage tickets (single source of truth for classification). Maps USER_ERROR/CONFIG_ISSUE/CODE_BUG/UNKNOWN → support_tickets.root_cause_type (user_level/tenant_level/platform_level/unknown). CODE_BUG and UNKNOWN flag via support_tickets.needs_platform_review. |
 | `/api/send-digest-reply` | POST | Digest reply as email |
 
 ### TCR / Compliance
