@@ -32,36 +32,60 @@ function getSupabase() {
 }
 
 // Clean an email local-part into a usable first name: strip digits/punctuation, title-case
+var GENERIC_LOCAL_PARTS = ['info','sales','team','support','admin','hello','contact','noreply','hi','mail','billing','accounts','office','enquiries','help','service'];
+
 function cleanEmailToName(email) {
   if (!email) return 'there';
   var local = email.split('@')[0] || '';
   // Replace dots, underscores, hyphens, digits with spaces
   var cleaned = local.replace(/[._\-0-9]+/g, ' ').trim();
   if (!cleaned) return 'there';
+  var firstWord = cleaned.split(' ')[0].toLowerCase();
+  // Block generic prefixes and short/numeric local-parts
+  if (GENERIC_LOCAL_PARTS.indexOf(firstWord) !== -1) return 'there';
+  if (firstWord.replace(/[^a-z]/gi, '').length < 2) return 'there';
   // Title-case first word
-  return cleaned.split(' ')[0].charAt(0).toUpperCase() + cleaned.split(' ')[0].slice(1).toLowerCase();
+  return firstWord.charAt(0).toUpperCase() + firstWord.slice(1);
+}
+
+function looksLikeEmail(str) {
+  return str && str.indexOf('@') !== -1 && str.indexOf('.') !== -1;
 }
 
 function resolveContactFields(lead) {
   var name = (lead.name || '').trim();
+  var email = (lead.email || '').trim();
+
+  // Treat email-as-name as no name at all
+  if (looksLikeEmail(name) || (name && email && name.toLowerCase() === email.toLowerCase())) {
+    name = '';
+  }
+
   var firstName = name ? name.split(' ')[0] : '';
   var lastName = name ? name.split(' ').slice(1).join(' ') : '';
 
   // Fallback chain for firstName: name → first_name field → email-derived → 'there'
-  if (!firstName && lead.first_name) firstName = lead.first_name.trim();
-  if (!firstName) firstName = cleanEmailToName(lead.email);
+  if (!firstName && lead.first_name) {
+    var fn = lead.first_name.trim();
+    firstName = looksLikeEmail(fn) ? '' : fn;
+  }
+  if (!firstName) firstName = cleanEmailToName(email);
 
   // Fallback for lastName
   if (!lastName && lead.last_name) lastName = (lead.last_name || '').trim();
 
   var fullName = (firstName + ' ' + lastName).trim() || firstName;
 
+  // Company: treat email-like values as missing
+  var company = lead.company || lead.company_name || '';
+  if (looksLikeEmail(company)) company = '';
+
   return {
     firstName: firstName || 'there',
     lastName: lastName || '',
     fullName: fullName || 'there',
-    company: lead.company || lead.company_name || 'your team',
-    email: lead.email || '',
+    company: company || 'your team',
+    email: email,
   };
 }
 
