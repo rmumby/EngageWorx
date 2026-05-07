@@ -153,16 +153,9 @@ module.exports = async function handler(req, res) {
         if (firstStep.data && firstStep.data.delay_days > 0) {
           startDate.setDate(startDate.getDate() + firstStep.data.delay_days);
         }
-        await supabase.from('lead_sequences').upsert({
-          tenant_id: tenant_id,
-          lead_id: results.lead_id,
-          sequence_id: config.sequence_id,
-          current_step: 0,
-          status: 'active',
-          enrolled_at: new Date().toISOString(),
-          next_step_at: startDate.toISOString(),
-        }, { onConflict: 'lead_id,sequence_id' });
-        results.sequence_enrolled = true;
+        var _safeEnrol = require('./_lib/safe-enrol-sequence');
+        var enrolRes = await _safeEnrol.safeEnrolSequence(supabase, { tenant_id: tenant_id, lead_id: results.lead_id, sequence_id: config.sequence_id, next_step_at: startDate.toISOString() });
+        results.sequence_enrolled = enrolRes.enrolled;
       } catch(e) { console.error('[Webhook] Sequence enrol error:', e.message); }
     }
 

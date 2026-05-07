@@ -139,11 +139,9 @@ module.exports = async function handler(req, res) {
               const { data: firstStep } = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqId).eq('step_number', 1).maybeSingle();
               const startDate = new Date();
               if (firstStep && firstStep.delay_days > 0) startDate.setDate(startDate.getDate() + firstStep.delay_days);
-              var enrolResult = await supabase.from('lead_sequences').upsert({
-                tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId,
-                current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: startDate.toISOString(),
-              }, { onConflict: 'lead_id,sequence_id' });
-              if (enrolResult.error) throw enrolResult.error;
+              var _safeEnrol = require('./_lib/safe-enrol-sequence');
+              var enrolResult = await _safeEnrol.safeEnrolSequence(supabase, { tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId, next_step_at: startDate.toISOString() });
+              if (!enrolResult.enrolled && enrolResult.reason === 'upsert_error') throw new Error(enrolResult.error);
               // Audit log
               try {
                 await supabase.from('lead_sequence_events').insert({ tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId, event_type: 'enrolled', reason: 'Orphan signup detected — abandoned checkout recovery' });

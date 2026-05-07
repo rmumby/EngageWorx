@@ -1,5 +1,6 @@
 var { createClient } = require('@supabase/supabase-js');
 var { getNotifyEmails } = require('./_notify');
+var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -429,15 +430,7 @@ module.exports = async function handler(req, res) {
         if (firstStep.data && firstStep.data.delay_days > 0) {
           startDate.setDate(startDate.getDate() + firstStep.data.delay_days);
         }
-        await supabase.from('lead_sequences').upsert({
-          tenant_id: EW_SP_TENANT_ID,
-          lead_id: abandonedLeadId,
-          sequence_id: seqId,
-          current_step: 0,
-          status: 'active',
-          enrolled_at: new Date().toISOString(),
-          next_step_at: startDate.toISOString(),
-        }, { onConflict: 'lead_id,sequence_id' });
+        await safeEnrolSequence(supabase, { tenant_id: EW_SP_TENANT_ID, lead_id: abandonedLeadId, sequence_id: seqId, next_step_at: startDate.toISOString() });
         console.log('[Stripe] Enrolled abandoned lead in sequence:', abandonSeqs.data[0].name);
       }
     }
@@ -536,10 +529,7 @@ module.exports = async function handler(req, res) {
                   var rFirstStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', rSeqId).eq('step_number', 1).single();
                   var rStart = new Date();
                   if (rFirstStep.data && rFirstStep.data.delay_days > 0) rStart.setDate(rStart.getDate() + rFirstStep.data.delay_days);
-                  await supabase.from('lead_sequences').upsert({
-                    tenant_id: EW_SP_TENANT_ID, lead_id: ownerLeadId, sequence_id: rSeqId,
-                    current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: rStart.toISOString(),
-                  }, { onConflict: 'lead_id,sequence_id' });
+                  await safeEnrolSequence(supabase, { tenant_id: EW_SP_TENANT_ID, lead_id: ownerLeadId, sequence_id: rSeqId, next_step_at: rStart.toISOString() });
                   console.log('[Stripe] Enrolled churned lead in recovery sequence:', recoverySeq.data[0].name);
                 }
               }
@@ -615,10 +605,7 @@ module.exports = async function handler(req, res) {
                   var fFirstStep = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', fSeqId).eq('step_number', 1).single();
                   var fStart = new Date();
                   if (fFirstStep.data && fFirstStep.data.delay_days > 0) fStart.setDate(fStart.getDate() + fFirstStep.data.delay_days);
-                  await supabase.from('lead_sequences').upsert({
-                    tenant_id: EW_SP_TENANT_ID, lead_id: failLeadId, sequence_id: fSeqId,
-                    current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: fStart.toISOString(),
-                  }, { onConflict: 'lead_id,sequence_id' });
+                  await safeEnrolSequence(supabase, { tenant_id: EW_SP_TENANT_ID, lead_id: failLeadId, sequence_id: fSeqId, next_step_at: fStart.toISOString() });
                   console.log('[Stripe] Enrolled failed-payment lead in recovery sequence');
                 }
               }

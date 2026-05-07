@@ -425,10 +425,8 @@ async function analyzeAndActionEmail(ctx) {
           if (seq.data) {
             var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
             var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
-            await supabase.from('lead_sequences').upsert({
-              tenant_id: match.tenantId, lead_id: match.leadId, sequence_id: seq.data.id,
-              current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
-            }, { onConflict: 'lead_id,sequence_id' });
+            var _safeEnrol1 = require('./_lib/safe-enrol-sequence');
+            await _safeEnrol1.safeEnrolSequence(supabase, { tenant_id: match.tenantId, lead_id: match.leadId, sequence_id: seq.data.id, next_step_at: nextAt });
             if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
           }
         }
@@ -539,10 +537,8 @@ async function reactivateArchivedLeadsForContact(email) {
           var sid = seq.data[0].id;
           var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sid).eq('step_number', 1).single();
           var start = new Date(); if (fs.data && fs.data.delay_days > 0) start.setDate(start.getDate() + fs.data.delay_days);
-          await supabase.from('lead_sequences').upsert({
-            tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid,
-            current_step: 0, status: 'active', enrolled_at: now, next_step_at: start.toISOString(),
-          }, { onConflict: 'lead_id,sequence_id' });
+          var _safeEnrol2 = require('./_lib/safe-enrol-sequence');
+          await _safeEnrol2.safeEnrolSequence(supabase, { tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid, next_step_at: start.toISOString() });
         }
       } catch (seqErr) {}
     }

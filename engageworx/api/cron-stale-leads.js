@@ -132,10 +132,8 @@ async function executeAction(supabase, lead, decision) {
       if (!seq.data) return false;
       var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seq.data.id).eq('step_number', 1).single();
       var nextAt = new Date(Date.now() + ((fs.data && fs.data.delay_days) || 0) * 86400000).toISOString();
-      await supabase.from('lead_sequences').upsert({
-        tenant_id: lead.tenant_id, lead_id: lead.id, sequence_id: seq.data.id,
-        current_step: 0, status: 'active', enrolled_at: new Date().toISOString(), next_step_at: nextAt,
-      }, { onConflict: 'lead_id,sequence_id' });
+      var _safeEnrol = require('./_lib/safe-enrol-sequence');
+      await _safeEnrol.safeEnrolSequence(supabase, { tenant_id: lead.tenant_id, lead_id: lead.id, sequence_id: seq.data.id, next_step_at: nextAt });
       return true;
     } catch (e) { console.warn('[StaleLeads] Enrol error:', e.message); }
   }

@@ -531,19 +531,15 @@ module.exports = async function handler(req, res) {
       startDate.setDate(startDate.getDate() + firstStep.delay_days);
     }
 
-    var enrolRes = await supabase.from('lead_sequences').upsert({
-      tenant_id: tenant_id,
-      lead_id: lead_id,
-      sequence_id: sequence_id,
-      current_step: 0,
-      status: 'active',
-      enrolled_at: new Date().toISOString(),
-      next_step_at: startDate.toISOString(),
-    }, { onConflict: 'lead_id,sequence_id' }).select().single();
+    var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
+    var enrolRes = await safeEnrolSequence(supabase, { tenant_id: tenant_id, lead_id: lead_id, sequence_id: sequence_id, next_step_at: startDate.toISOString() });
 
-    if (enrolRes.error) return res.status(500).json({ error: enrolRes.error.message });
+    if (!enrolRes.enrolled) {
+      if (enrolRes.reason === 'sticky_status') return res.status(409).json({ error: 'Lead has existing enrollment in state: ' + enrolRes.existing_status + '. Reset it before re-enrolling.' });
+      return res.status(500).json({ error: enrolRes.error || enrolRes.reason });
+    }
     console.log('[Sequences] Lead enrolled:', lead_id, 'in sequence:', sequence_id);
-    return res.status(200).json({ success: true, enrolment: enrolRes.data });
+    return res.status(200).json({ success: true });
   }
 
   // ── BULK ENROL multiple leads ─────────────────────────────────────────────
@@ -595,16 +591,9 @@ module.exports = async function handler(req, res) {
         var bulkFirstStep = bulkFirstStepRes.data;
         var bulkStartDate = new Date();
         if (bulkFirstStep && bulkFirstStep.delay_days > 0) bulkStartDate.setDate(bulkStartDate.getDate() + bulkFirstStep.delay_days);
-        var bulkEnrolRes = await supabase.from('lead_sequences').upsert({
-          tenant_id: bulkTenantId,
-          lead_id: bulkLeadId,
-          sequence_id: bulkSeqId,
-          current_step: 0,
-          status: 'active',
-          enrolled_at: new Date().toISOString(),
-          next_step_at: bulkStartDate.toISOString(),
-        }, { onConflict: 'lead_id,sequence_id' });
-        if (bulkEnrolRes.error) { results.errors.push(bulkLeadId + ': ' + bulkEnrolRes.error.message); continue; }
+        var _safeEnrolBulk = require('./_lib/safe-enrol-sequence');
+        var bulkEnrolRes = await _safeEnrolBulk.safeEnrolSequence(supabase, { tenant_id: bulkTenantId, lead_id: bulkLeadId, sequence_id: bulkSeqId, next_step_at: bulkStartDate.toISOString() });
+        if (!bulkEnrolRes.enrolled) { results.errors.push(bulkLeadId + ': ' + (bulkEnrolRes.reason || 'enrol failed')); results.skipped++; continue; }
         results.enrolled++;
       } catch(e) { results.errors.push((bulkLead.email || 'unknown') + ': ' + e.message); }
     }

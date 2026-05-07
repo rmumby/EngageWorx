@@ -141,10 +141,8 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
           var sid = seq.data[0].id;
           var fs = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sid).eq('step_number', 1).single();
           var start = new Date(); if (fs.data && fs.data.delay_days > 0) start.setDate(start.getDate() + fs.data.delay_days);
-          await supabase.from('lead_sequences').upsert({
-            tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid,
-            current_step: 0, status: 'active', enrolled_at: now, next_step_at: start.toISOString(),
-          }, { onConflict: 'lead_id,sequence_id' });
+          var _safeEnrol = require('./_lib/safe-enrol-sequence');
+          await _safeEnrol.safeEnrolSequence(supabase, { tenant_id: l.tenant_id, lead_id: l.id, sequence_id: sid, next_step_at: start.toISOString() });
         }
       } catch (seqErr) { console.warn('[Reactivate] Seq enrol error:', seqErr.message); }
     }
