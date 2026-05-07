@@ -56,11 +56,26 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { name, email, company, plan = "Starter $99" } = req.body;
+    const { name, email, company, plan = "Starter $99", error: signupError } = req.body;
     if (!email) return res.status(400).json({ error: "Email required" });
 
     const displayName = name || email.split("@")[0];
-    const alertTo = process.env.ALERT_EMAIL || (process.env.PLATFORM_ADMIN_EMAIL || "rob@engwx.com");
+
+    // ── Signup error path: queue for platform visibility, skip pipeline ────
+    if (signupError) {
+      try {
+        const { createClient: _createClient } = require('@supabase/supabase-js');
+        const _supa = _createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+        await _supa.from('tenant_admin_notifications').insert({
+          tenant_id: null,
+          event_type: 'signup_error',
+          payload: { email, name: displayName, company, plan, error_message: signupError, timestamp: new Date().toISOString() },
+          reason: 'signup_failed_before_tenant_created',
+          status: 'unrouted',
+        });
+      } catch (e) { console.warn('[SignupNotify] error queue insert failed:', e.message); }
+      return res.status(200).json({ success: true, error_queued: true });
+    }
 
     // ── Step 1: Write to Supabase pipeline ─────────────────────────────────
     let leadId = null;
@@ -94,16 +109,12 @@ export default async function handler(req, res) {
       console.warn("Supabase insert failed:", sbErr.message);
     }
 
-    // ── Step 2: Alert email to Rob ──────────────────────────────────────────
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "EngageWorx Pipeline <hello@engwx.com>",
-        to: [alertTo],
+    // ── Step 2: Notify SP tenant admins ──────────────────────────────────────
+    const { notifyTenantAdmins: _notifySignup } = require('./_lib/notify-tenant-admins');
+    const { createClient: _createClient } = require('@supabase/supabase-js');
+    const _supa = _createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    const _spTenantId = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+    await _notifySignup(_supa, _spTenantId, 'new_lead', { name: displayName, email, company, plan, source: 'portal_signup' }, {
         subject: `🔥 New Signup: ${displayName}${company ? ` · ${company}` : ""} (${plan})`,
         html: `
           <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#070d1a;color:#f1f5f9;border-radius:12px;overflow:hidden;">
@@ -143,7 +154,6 @@ export default async function handler(req, res) {
             </div>
           </div>
         `,
-      }),
     });
 
     return res.status(200).json({ success: true, lead_id: leadId });

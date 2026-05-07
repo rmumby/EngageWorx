@@ -111,15 +111,13 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
 
     if (notifyEligible.length > 0) {
       try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        var { notifyTenantAdmins: _notifyWA2 } = require('./_lib/notify-tenant-admins');
+        var _waTenantId = notifyEligible[0].tenant_id || null;
+        await _notifyWA2(supabase, _waTenantId, 'whatsapp_optin', { leads: notifyEligible.map(function(x) { return x.name; }) }, {
           subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
           html: '<h3>Archived Lead Reactivated (WhatsApp inbound)</h3>' +
-            notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
-            '<p>Flipped <code>archived=true</code> → <code>false</code>. Enrolled in New Lead — General Outreach sequence.</p>',
+            notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b></p>'; }).join('') +
+            '<p>Lead unarchived and enrolled in outreach sequence.</p>',
         });
       } catch (nErr) {}
     } else {
@@ -131,19 +129,14 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
   } catch (err) { console.error('[Reactivate] Error:', err.message); return 0; }
 }
 
-async function notifyInboundSendGrid(contactName, channel, preview) {
+async function notifyInboundSendGrid(contactName, channel, preview, inboundTenantId) {
   try {
-    var sgKey = process.env.SENDGRID_API_KEY;
-    if (!sgKey) return;
-    var sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(sgKey);
-    await sgMail.send({
-      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+    var { notifyTenantAdmins: _notifyWA3 } = require('./_lib/notify-tenant-admins');
+    await _notifyWA3(supabase, inboundTenantId || null, 'whatsapp_inbound', { contact: contactName, channel: channel }, {
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3><p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Preview:</b> ' + (preview || '').substring(0, 300) + '</p><p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
     });
-  } catch (err) { console.error('[Notify] SendGrid error:', err.message); }
+  } catch (err) { console.error('[Notify] notifyTenantAdmins error:', err.message); }
 }
 
 async function sendWhatsApp(to, body, from, mediaUrl) {
@@ -667,7 +660,7 @@ module.exports = async function handler(req, res) {
           // Notify admin via SendGrid
           var contactName = cleanFrom;
           try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || cleanFrom; } catch(e) {}
-          notifyInboundSendGrid(contactName, 'WhatsApp', messageBody).catch(function() {});
+          notifyInboundSendGrid(contactName, 'WhatsApp', messageBody, tenantId).catch(function() {});
         }
       } catch (whErr) {
         console.error('[WhatsApp] Webhook error:', whErr.message);

@@ -118,21 +118,13 @@ module.exports = async function handler(req, res) {
       console.error('[Sandbox] Profile create error:', profileErr.message);
     }
 
-    // Step 5: Send notification to Rob
+    // Step 5: Queue notification (no email, no credentials in payload)
     try {
-      var RESEND_KEY = process.env.RESEND_API_KEY;
-      if (RESEND_KEY) {
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'EngageWorx <hello@engwx.com>',
-            to: [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')],
-            subject: 'Sandbox created: ' + companyName,
-            html: '<h2>New Sandbox Account</h2><p><b>Company:</b> ' + companyName + '</p><p><b>Contact:</b> ' + fullName + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p><p><b>Tenant ID:</b> ' + tenant.id + '</p><p><b>Password:</b> ' + password + '</p><p>Created via SP Portal.</p>',
-          }),
-        });
-      }
+      var { notifyTenantAdmins: _notifySB } = require('./_lib/notify-tenant-admins');
+      await _notifySB(supabase, tenant.id, 'sandbox_created', { company: companyName, contact: fullName, email: email, plan: plan }, {
+        subject: 'Sandbox created: ' + companyName,
+        html: '<h2>New Sandbox Account</h2><p><b>Company:</b> ' + companyName + '</p><p><b>Contact:</b> ' + fullName + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p><p>Created via SP Portal. Log in to the portal to manage.</p>',
+      });
     } catch (e) { /* notification error is non-fatal */ }
 
     return res.status(200).json({

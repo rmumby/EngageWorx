@@ -28,6 +28,12 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
   var baseC = getColors();
   var [brandOverrides, setBrandOverrides] = useState({});
   var [brandingKey, setBrandingKey] = useState(0);
+  var [supportEmail, setSupportEmail] = useState('hello@engwx.com');
+  useEffect(function() {
+    fetch('/api/platform-config').then(function(r) { return r.json(); }).then(function(d) {
+      if (d.support_email) setSupportEmail(d.support_email);
+    }).catch(function() {});
+  }, []);
   useEffect(function() {
     if (!agentTenantId) return;
     (async function() {
@@ -609,7 +615,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
             <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>Resources</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 28 }}>Everything you need to close deals</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, marginBottom: 20 }}>
-              {[{ title: 'Platform Demo', desc: 'Live interactive demo to share with prospects', icon: '🎯', link: 'https://engwx.com/demo' }, { title: 'Pricing', desc: 'Current plans and pricing sheets', icon: '💲', link: 'https://engwx.com/pricing' }, { title: 'API Docs', desc: 'Technical documentation for clients', icon: '🔌', link: 'https://docs.engwx.com' }, { title: 'Support', desc: 'Contact the EngageWorx team', icon: '📞', link: 'mailto:rob@engwx.com' }].map(function(r, i) {
+              {[{ title: 'Platform Demo', desc: 'Live interactive demo to share with prospects', icon: '🎯', link: 'https://engwx.com/demo' }, { title: 'Pricing', desc: 'Current plans and pricing sheets', icon: '💲', link: 'https://engwx.com/pricing' }, { title: 'API Docs', desc: 'Technical documentation for clients', icon: '🔌', link: 'https://docs.engwx.com' }, { title: 'Support', desc: 'Contact the EngageWorx team', icon: '📞', link: 'mailto:' + supportEmail }].map(function(r, i) {
                 return <div key={i} style={Object.assign({}, card, { cursor: 'pointer' })} onClick={function() { window.open(r.link, '_blank'); }}>
                   <div style={{ fontSize: 32, marginBottom: 10 }}>{r.icon}</div>
                   <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{r.title}</div>

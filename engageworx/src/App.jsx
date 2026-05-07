@@ -2455,31 +2455,18 @@ var spNavBase = [
                     });
                     const checkoutData = await checkoutRes.json();
                     if (checkoutData.url) {
-                      // Send admin notification in background
-                      fetch("/api/email?action=send", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          to: (process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || "rob@engwx.com"),
-                          subject: "🎉 New Signup: " + loginForm.companyName + " (starter)",
-                          html: "<h2>New EngageWorx Signup</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Business:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p>",
-                        }),
-                      }).catch(() => {});
+                      // Notification handled by Stripe webhook + signup-notify
                       window.location.href = checkoutData.url;
                     } else {
                       throw new Error(checkoutData.error || "Something went wrong. Please try again or contact hello@engwx.com for help.");
                     }
                   } catch (err) {
                     console.error("SIGNUP ERROR:", err);
-                    // Send error report to Rob
-                    fetch("/api/email?action=send", {
+                    // Queue signup error for platform visibility
+                    fetch("/api/signup-notify", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        to: (process.env.REACT_APP_PLATFORM_ADMIN_EMAIL || "rob@engwx.com"),
-                        subject: "Signup Error: " + loginForm.email,
-                        html: "<h2>Signup Failed</h2><p><b>Name:</b> " + loginForm.fullName + "</p><p><b>Company:</b> " + loginForm.companyName + "</p><p><b>Email:</b> " + loginForm.email + "</p><p><b>Error:</b> " + (err.message || "Unknown") + "</p>",
-                      }),
+                      body: JSON.stringify({ name: loginForm.fullName, email: loginForm.email, company: loginForm.companyName, plan: "starter", error: err.message || "Unknown" }),
                     }).catch(function() {});
                     setLoginMessage({ type: "error", text: "We're having trouble processing your signup. Please try again or contact us at hello@engwx.com and we'll get you set up right away." });
                     setLoginLoading(false);

@@ -324,7 +324,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/whatsapp` | POST | WhatsApp send/webhook. Qualify notifications via notifyTenantAdmins. |
 | `/api/meta-whatsapp` | POST | Meta WhatsApp API |
 | `/api/email` | POST | Email send/test/template |
-| `/api/send-email-gmail` | POST | Gmail SMTP send |
+| `/api/send-email-gmail` | — | **DELETED** (unauthenticated orphan, security risk). Gmail SMTP handled by sendTenantEmail. |
 | `/api/twilio-voice` | POST | Voice call webhook |
 
 ### Tenant & User Management
@@ -422,7 +422,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/poland-carrier` | POST/GET | Polish carrier integration |
 | `/api/calendly-connect` | POST | Calendly connection |
 | `/api/send-onboarding-reminder` | POST | Onboarding nudge |
-| `/api/signup-notify` | POST | Signup alert to admin |
+| `/api/signup-notify` | POST | Signup alert via notifyTenantAdmins to SP tenant. Also handles signup errors (error field → queues to tenant_admin_notifications). |
 | `/api/notify-admin` | POST | Admin notification |
 | `/api/intake` | POST | Lead intake form |
 
