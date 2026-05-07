@@ -68,15 +68,14 @@ module.exports = async function handler(req, res) {
       }).eq('id', tenantId);
 
       try {
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        var { notifyTenantAdmins: _notifyTW1 } = require('./_lib/notify-tenant-admins');
+        await _notifyTW1(supabase, tenantId, 'tcr_approved', { brand_sid: brandSid, trust_score: event.BrandScore }, {
           subject: 'TCR Approved: ' + tenantName,
           html: '<h3>TCR Registration Approved</h3>' +
             '<p><b>Tenant:</b> ' + tenantName + '</p>' +
-            '<p><b>Brand SID:</b> ' + brandSid + '</p>' +
             '<p><b>Trust Score:</b> ' + (event.BrandScore || 'N/A') + '</p>' +
-            '<p>SMS sending has been enabled for this tenant.</p>',
+            '<p>SMS sending is now enabled on your account.</p>' +
+            '<p><a href="https://portal.engwx.com">Log in to start sending →</a></p>',
         });
       } catch (ne) {}
 
@@ -122,14 +121,14 @@ module.exports = async function handler(req, res) {
       }).eq('id', tenantId);
 
       try {
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-          subject: 'TCR Rejected: ' + tenantName,
+        var { notifyTenantAdmins: _notifyTW2 } = require('./_lib/notify-tenant-admins');
+        await _notifyTW2(supabase, tenantId, 'tcr_rejected', { reason: failureReason, ai_suggestion: aiSuggestion }, {
+          subject: '⚠️ TCR Rejected — action required: ' + tenantName,
           html: '<h3>TCR Registration Rejected</h3>' +
             '<p><b>Tenant:</b> ' + tenantName + '</p>' +
             '<p><b>Reason:</b> ' + failureReason + '</p>' +
-            '<p><b>AI Suggestion:</b> ' + aiSuggestion + '</p>',
+            (aiSuggestion ? '<p><b>Suggested fix:</b> ' + aiSuggestion + '</p>' : '') +
+            '<p><b>Next steps:</b> Review the rejection reason, address the issue, and resubmit from <a href="https://portal.engwx.com">the portal</a>. Contact support if you need assistance.</p>',
         });
       } catch (ne) {}
 

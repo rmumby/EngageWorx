@@ -83,16 +83,13 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
         }
       } catch (sErr) {}
 
-      // Notify rob@engwx.com
+      // Notify tenant admins
       try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        var { notifyTenantAdmins: _notifySMS1 } = require('./_lib/notify-tenant-admins');
         var qualName = upd.name || l.name || 'Prospect';
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        await _notifySMS1(supabase, l.tenant_id, 'sms_optout', { name: qualName, phone: upd.phone || l.phone, channel: channel }, {
           subject: '✅ ' + qualName + ' just qualified from ' + channel,
-          html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p><p><b>Lead ID:</b> <code>' + l.id + '</code></p>',
+          html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p>',
         });
       } catch (nErr) {}
     }
@@ -147,18 +144,16 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
       } catch (seqErr) { console.warn('[Reactivate] Seq enrol error:', seqErr.message); }
     }
 
-    // Notify rob@engwx.com — only for leads not already reactivated in the last 24h
+    // Notify tenant admins — only for leads not already reactivated in the last 24h
     if (notifyEligible.length > 0) {
       try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        var { notifyTenantAdmins: _notifySMS2 } = require('./_lib/notify-tenant-admins');
+        var _reactTenantId = notifyEligible[0].tenant_id || null;
+        await _notifySMS2(supabase, _reactTenantId, 'sms_optin', { leads: notifyEligible.map(function(x) { return x.name; }) }, {
           subject: '🔄 Lead Reactivated: ' + notifyEligible.map(function(x) { return x.name; }).join(', '),
           html: '<h3>Archived Lead Reactivated (SMS inbound)</h3>' +
-            notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b> — id: <code>' + x.id + '</code></p>'; }).join('') +
-            '<p>Flipped <code>archived=true</code> → <code>false</code>. Enrolled in New Lead — General Outreach sequence.</p>',
+            notifyEligible.map(function(x) { return '<p><b>' + x.name + '</b></p>'; }).join('') +
+            '<p>Lead unarchived and enrolled in outreach sequence.</p>',
         });
       } catch (nErr) {}
     } else {
@@ -170,16 +165,11 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
   } catch (err) { console.error('[Reactivate] Error:', err.message); return 0; }
 }
 
-// ─── INBOUND NOTIFICATION (SENDGRID) ─────────────────────────────────────
-async function notifyInboundSendGrid(contactName, channel, messagePreview) {
+// ─── INBOUND NOTIFICATION ─────────────────────────────────────
+async function notifyInboundSendGrid(contactName, channel, messagePreview, inboundTenantId) {
   try {
-    var sgKey = process.env.SENDGRID_API_KEY;
-    if (!sgKey) return;
-    var sgMail = require('@sendgrid/mail');
-    sgMail.setApiKey(sgKey);
-    await sgMail.send({
-      to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-      from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+    var { notifyTenantAdmins: _notifySMS3 } = require('./_lib/notify-tenant-admins');
+    await _notifySMS3(supabase, inboundTenantId || null, 'sms_unknown_sender', { contact: contactName, channel: channel }, {
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3>' +
         '<p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p>' +
@@ -187,7 +177,7 @@ async function notifyInboundSendGrid(contactName, channel, messagePreview) {
         '<p><b>Preview:</b> ' + (messagePreview || '').substring(0, 300) + '</p>' +
         '<p><a href="https://portal.engwx.com">Open Live Inbox →</a></p>',
     });
-  } catch (e) { console.error('[Notify] SendGrid error:', e.message); }
+  } catch (e) { console.error('[Notify] notifyTenantAdmins error:', e.message); }
 }
 
 // ─── FORM BODY PARSER ─────────────────────────────────────────────────────
@@ -595,7 +585,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       // 9. Notify inbound (non-blocking)
       var contactDisplayName = From;
       try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactDisplayName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || From; } catch(e) {}
-      notifyInboundSendGrid(contactDisplayName, channel.toUpperCase(), Body).catch(function() {});
+      notifyInboundSendGrid(contactDisplayName, channel.toUpperCase(), Body, tenantId).catch(function() {});
       notifyInbound(supabase, tenantId, From, Body).catch(function(err) {
         console.error('[Notify] Error:', err.message);
       });

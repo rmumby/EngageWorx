@@ -377,7 +377,15 @@ async function escalateTicket(req, res) {
   try {
     var notifyTenantId = (ticketDetails && ticketDetails.tenant_id) || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
     var notifyEmails = await getNotifyEmails(notifyTenantId, 'notify_on_escalation');
-    if (notifyEmails.length === 0) notifyEmails = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
+    if (notifyEmails.length === 0) {
+      // No recipients — queue and skip
+      var { notifyTenantAdmins: _notifyHD } = require('./_lib/notify-tenant-admins');
+      await _notifyHD(supabase, notifyTenantId, 'helpdesk_escalation', { ticket_id: ticket_id, reason: reason }, {
+        subject: '🚨 Escalation — no recipients configured',
+      });
+      console.warn('[helpdesk] Escalation for', ticket_id, '— no notify emails, queued');
+      return res.status(200).json({ success: true });
+    }
 
     var tn = ticketDetails ? ticketDetails.ticket_number : ticket_id;
     var subj = ticketDetails ? ticketDetails.subject : 'Support Request';

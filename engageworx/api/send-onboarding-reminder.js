@@ -83,10 +83,13 @@ module.exports = async function handler(req, res) {
       '<p style="color:#94a3b8;font-size:12px;margin:0;">Reply to this email if you\'re stuck — we\'re here to help.</p>' +
       '</div></div>';
 
+    var { getTenantSender } = require('./_lib/get-tenant-sender');
+    var senderInfo = await getTenantSender(supabase, tenantId);
+
     await sgMail.send({
       to: to,
-      from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'Rob at EngageWorx' },
-      replyTo: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
+      from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: senderInfo.name || 'EngageWorx' },
+      replyTo: senderInfo.from,
       subject: '👋 Let\'s finish setting up ' + brand,
       html: html,
     });

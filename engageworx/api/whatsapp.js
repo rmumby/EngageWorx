@@ -64,12 +64,9 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
         }
       } catch (sErr) {}
       try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        var { notifyTenantAdmins: _notifyWA } = require('./_lib/notify-tenant-admins');
         var qualName = upd.name || l.name || 'Prospect';
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+        await _notifyWA(supabase, l.tenant_id, 'whatsapp_unknown_sender', { name: qualName, phone: upd.phone || l.phone, channel: channel }, {
           subject: '✅ ' + qualName + ' just qualified from ' + channel,
           html: '<h3>Lead Qualified</h3><p><b>Name:</b> ' + qualName + '</p><p><b>Phone:</b> ' + (upd.phone || l.phone || '—') + '</p><p><b>Email:</b> ' + (l.email || '—') + '</p><p><b>Channel:</b> ' + channel + '</p><p><b>Reply preview:</b> ' + (replyBody || '').substring(0, 300) + '</p>',
         });

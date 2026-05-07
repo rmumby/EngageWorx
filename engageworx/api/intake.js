@@ -141,20 +141,15 @@ JSON structure:
     const sbData = await sbRes.json();
     const leadId = Array.isArray(sbData) ? sbData[0]?.id : sbData?.id;
 
-    // ── Step 3: Branded email alert to Rob ──────────────────────────────────
+    // ── Step 3: Notify tenant admins of new lead ──────────────────────────────────
     const urgencyEmoji = { Hot: "🔥", Warm: "⚡", Cold: "❄️" }[classification.urgency] || "📥";
-    const alertTo = process.env.ALERT_EMAIL || (process.env.PLATFORM_ADMIN_EMAIL || "rob@engwx.com");
+    const { notifyTenantAdmins: _notifyIntake } = require('./_lib/notify-tenant-admins');
+    const { createClient: _createClient } = require('@supabase/supabase-js');
+    const _supa = _createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    const _spTenantId = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
     try {
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          from: "EngageWorx Pipeline <hello@engwx.com>",
-          to: [alertTo],
+      await _notifyIntake(_supa, _spTenantId, 'new_lead', { name, email, company, urgency: classification.urgency, source }, {
           subject: `${urgencyEmoji} New Lead: ${name}${company ? ` · ${company}` : ""} [${classification.urgency}]`,
           html: `
             <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#070d1a;color:#f1f5f9;border-radius:12px;overflow:hidden;">
@@ -209,7 +204,6 @@ JSON structure:
               </div>
             </div>
           `,
-        }),
       });
     } catch (emailErr) {
       console.warn("Email alert failed:", emailErr.message);

@@ -235,21 +235,16 @@ module.exports = async function handler(req, res) {
       await supabase.from('tenants').update({ tcr_status: 'pending', updated_at: new Date().toISOString() }).eq('id', tenantId);
 
       try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        var { notifyTenantAdmins: _notifyTCR1 } = require('./_lib/notify-tenant-admins');
         var tenantName = body.legalName || body.dba || 'Unknown';
-        var _sig1 = require('./_email-signature');
-        var sig1 = await _sig1.getSignature(supabase, { tenantId: tenantId, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: sig1.fromName || 'EngageWorx' },
+        await _notifyTCR1(supabase, tenantId, 'tcr_submitted', { useCase: body.useCase, volume: body.messageVolume }, {
           subject: 'TCR Submission: ' + tenantName + ' (' + (body.useCase || 'mixed') + ')',
           html: '<h3>New TCR A2P Registration</h3>' +
             '<p><b>Tenant:</b> ' + tenantName + '</p>' +
             '<p><b>Use Case:</b> ' + (body.useCase || 'mixed') + '</p>' +
             '<p><b>Volume:</b> ' + (body.messageVolume || 'medium') + '</p>' +
-            '<p><b>AI Score:</b> ' + (body.aiReviewResult?.score || 'N/A') + '/100</p>' +
-            '<p><a href="https://portal.engwx.com">Review in TCR Queue →</a></p>',
+            '<p>Your registration has been submitted and is under review. You will be notified when the carriers process it — typically 1-5 business days.</p>' +
+            '<p><a href="https://portal.engwx.com">View status in portal →</a></p>',
         });
       } catch (ne) { console.log('[TCR] Notification error:', ne.message); }
 
@@ -374,21 +369,18 @@ module.exports = async function handler(req, res) {
           }
         } catch (tplErr) { console.warn('[TCR] template seed error:', tplErr.message); }
 
+        try {
+          var { notifyTenantAdmins: _notifyTCR2 } = require('./_lib/notify-tenant-admins');
+          await _notifyTCR2(supabase, sub.tenant_id, 'tcr_approved', { brand_sid: sub.tcr_brand_id, trust_score: brandScore }, {
+            subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
+            html: '<h3>TCR Registration Approved</h3>' +
+              '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
+              '<p><b>Trust Score:</b> ' + (brandScore || 'N/A') + '</p>' +
+              '<p>SMS sending is now enabled on your account.</p>' +
+              '<p><a href="https://portal.engwx.com">Log in to start sending →</a></p>',
+          });
+        } catch (e) {}
         if (sgMail) {
-          var _sigA = require('./_email-signature');
-          var sigA = await _sigA.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
-          try {
-            await sgMail.send({
-              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-              from: { email: 'notifications@engwx.com', name: sigA.fromName || 'EngageWorx' },
-              subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
-              html: '<h3>TCR Registration Approved (via polling)</h3>' +
-                '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
-                '<p><b>Brand SID:</b> ' + sub.tcr_brand_id + '</p>' +
-                '<p><b>Trust Score:</b> ' + (brandScore || 'N/A') + '</p>' +
-                '<p>SMS sending enabled.</p>',
-            });
-          } catch (e) {}
           if (sub.contact_email) {
             try {
               var sigB = await _sigA.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });
@@ -424,20 +416,18 @@ module.exports = async function handler(req, res) {
           tcr_status: 'rejected', updated_at: new Date().toISOString(),
         }).eq('id', sub.tenant_id);
 
+        try {
+          var { notifyTenantAdmins: _notifyTCR3 } = require('./_lib/notify-tenant-admins');
+          await _notifyTCR3(supabase, sub.tenant_id, 'tcr_rejected', { reason: failureReason, ai_suggestion: aiSuggestion }, {
+            subject: '⚠️ TCR Rejected — action required: ' + (sub.legal_name || 'Tenant'),
+            html: '<h3>TCR Registration Rejected</h3>' +
+              '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
+              '<p><b>Reason:</b> ' + (failureReason || 'Unknown') + '</p>' +
+              (aiSuggestion ? '<p><b>Suggested fix:</b> ' + aiSuggestion + '</p>' : '') +
+              '<p><b>Next steps:</b> Review the rejection reason above, address the issue, and resubmit your TCR registration from <a href="https://portal.engwx.com">the portal</a>. If you need help, contact support.</p>',
+          });
+        } catch (e) {}
         if (sgMail) {
-          var _sigR = require('./_email-signature');
-          var sigR = await _sigR.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
-          try {
-            await sgMail.send({
-              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-              from: { email: 'notifications@engwx.com', name: sigR.fromName || 'EngageWorx' },
-              subject: 'TCR Rejected: ' + (sub.legal_name || 'Tenant'),
-              html: '<h3>TCR Registration Rejected (via polling)</h3>' +
-                '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
-                '<p><b>Reason:</b> ' + (failureReason || 'Unknown') + '</p>' +
-                '<p><b>AI Suggestion:</b> ' + aiSuggestion + '</p>',
-            });
-          } catch (e) {}
           if (sub.contact_email) {
             try {
               var sigRC = await _sigR.getSignature(supabase, { tenantId: sub.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'reply' });

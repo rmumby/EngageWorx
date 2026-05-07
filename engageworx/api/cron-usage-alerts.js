@@ -3,6 +3,7 @@
 // Alerts de-duped by (tenant_id, metric, threshold_pct, period) via the usage_alerts table.
 
 var { createClient } = require('@supabase/supabase-js');
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
 
 function getSupabase() {
   return createClient(
@@ -69,7 +70,7 @@ async function resolveDigestEmail(supabase, tenantId) {
       }
     }
   } catch (e) {}
-  return (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
+  return null;
 }
 
 function alertHtml(tenantName, metric, pct, used, limit, threshold) {
@@ -131,19 +132,11 @@ module.exports = async function handler(req, res) {
           if (pct < threshold) continue;
           if (await alreadyAlerted(supabase, t.id, metric, threshold, period)) continue;
 
-          var digestEmail = await resolveDigestEmail(supabase, t.id);
-          var to = [digestEmail];
-          if (threshold >= 90 && to.indexOf((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')) === -1) to.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
-
           var subjectPrefix = threshold === 75 ? '⚠️ Usage warning' : (threshold === 90 ? '🚨 Urgent: 90% used' : '🛑 Cap reached');
           var subject = subjectPrefix + ' — ' + (t.name || 'Tenant') + ' · ' + metric;
           var html = alertHtml(t.name || 'Tenant', metric, pct, used, cap, threshold);
 
-          if (sgMail) {
-            try {
-              await sgMail.send({ to: to, from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: subject, html: html });
-            } catch (sErr) { console.warn('[UsageAlert] send error:', sErr.message); }
-          }
+          await notifyTenantAdmins(supabase, t.id, 'usage_alert', { metric: metric, pct: pct, used: used, cap: cap, threshold: threshold }, { subject: subject, html: html });
           await recordAlert(supabase, t.id, metric, threshold, period);
           alertsFired++;
 

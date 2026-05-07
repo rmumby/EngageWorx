@@ -101,18 +101,13 @@ module.exports = async function handler(req, res) {
           kyc_verified_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }).eq('id', tenant.id);
-        if (sgMail) {
-          try {
-            var _sigK1 = require('./_email-signature');
-            var sigK1 = await _sigK1.getSignature(supabase, { tenantId: tenant.id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
-            await sgMail.send({
-              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-              from: { email: 'notifications@engwx.com', name: sigK1.fromName || 'EngageWorx' },
-              subject: '🪪 KYC Approved: ' + tenant.name,
-              html: '<h3>Identity verified via Stripe Identity</h3><p><b>Tenant:</b> ' + tenant.name + '</p><p>Lead Scan is now unlocked for this tenant.</p>',
-            });
-          } catch (ne) {}
-        }
+        try {
+          var { notifyTenantAdmins: _notifyKYC1 } = require('./_lib/notify-tenant-admins');
+          await _notifyKYC1(supabase, tenant.id, 'kyc_passed', {}, {
+            subject: '🪪 KYC Approved: ' + tenant.name,
+            html: '<h3>Identity Verified</h3><p><b>Tenant:</b> ' + tenant.name + '</p><p>Your identity has been verified. Lead Scan is now unlocked on your account.</p>',
+          });
+        } catch (ne) {}
         console.log('[KYC Webhook] Approved:', tenant.name);
       } else if (event.type === 'identity.verification_session.requires_input' ||
                  event.type === 'identity.verification_session.canceled') {
@@ -120,19 +115,17 @@ module.exports = async function handler(req, res) {
           kyc_status: 'rejected',
           updated_at: new Date().toISOString(),
         }).eq('id', tenant.id);
-        if (sgMail) {
-          try {
-            var lastErr = (verSession.last_error && verSession.last_error.reason) || 'unknown';
-            var _sigK2 = require('./_email-signature');
-            var sigK2 = await _sigK2.getSignature(supabase, { tenantId: tenant.id, fromEmail: 'notifications@engwx.com', isFirstTouch: false, closingKind: 'reply' });
-            await sgMail.send({
-              to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-              from: { email: 'notifications@engwx.com', name: sigK2.fromName || 'EngageWorx' },
-              subject: '⚠️ KYC Rejected: ' + tenant.name,
-              html: '<h3>Identity verification rejected</h3><p><b>Tenant:</b> ' + tenant.name + '</p><p><b>Reason:</b> ' + lastErr + '</p><p>Review in Tenant Management; may need manual override.</p>',
-            });
-          } catch (ne) {}
-        }
+        var lastErr = (verSession.last_error && verSession.last_error.reason) || 'unknown';
+        try {
+          var { notifyTenantAdmins: _notifyKYC2 } = require('./_lib/notify-tenant-admins');
+          await _notifyKYC2(supabase, tenant.id, 'kyc_failed', { reason: lastErr }, {
+            subject: '⚠️ KYC Verification Failed — action required: ' + tenant.name,
+            html: '<h3>Identity Verification Failed</h3>' +
+              '<p><b>Tenant:</b> ' + tenant.name + '</p>' +
+              '<p><b>Reason:</b> ' + lastErr + '</p>' +
+              '<p><b>Next steps:</b> Please retry the identity verification from your <a href="https://portal.engwx.com">portal settings</a>. Ensure your ID photo is clear and matches your registered details. Contact support if the issue persists.</p>',
+          });
+        } catch (ne) {}
         console.log('[KYC Webhook] Rejected:', tenant.name);
       }
 

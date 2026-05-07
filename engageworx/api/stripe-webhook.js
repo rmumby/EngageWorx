@@ -2,6 +2,7 @@ var { createClient } = require('@supabase/supabase-js');
 var { getNotifyEmails } = require('./_notify');
 var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
 var { sendTenantEmail: _sendTenantEmail } = require('./_lib/send-tenant-email');
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -485,17 +486,12 @@ module.exports = async function handler(req, res) {
         console.log('[Stripe] Tenant soft-disabled:', cancelTenant.name);
 
         try {
-          var sgCancel = require('@sendgrid/mail');
-          sgCancel.setApiKey(process.env.SENDGRID_API_KEY);
-          await sgCancel.send({
-            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+          await notifyTenantAdmins(supabase, cancelTenant.id, 'checkout_completed', { event: cancelEventName, plan: cancelTenant.plan, stripe_customer: cancelCustomerId }, {
             subject: 'Subscription ' + cancelEventName + ': ' + cancelTenant.name,
             html: '<h3>Subscription ' + cancelEventName.charAt(0).toUpperCase() + cancelEventName.slice(1) + '</h3>' +
               '<p><b>Tenant:</b> ' + cancelTenant.name + '</p>' +
               '<p><b>Plan:</b> ' + (cancelTenant.plan || 'unknown') + '</p>' +
               '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
-              '<p><b>Stripe Customer:</b> ' + cancelCustomerId + '</p>' +
               '<p>Tenant soft-disabled. Data preserved for recovery.</p>',
           });
         } catch (ne) { console.log('[Stripe] Cancel notification failed:', ne.message); }
@@ -561,18 +557,14 @@ module.exports = async function handler(req, res) {
         await supabase.from('tenant_members').update({ status: 'inactive' }).eq('tenant_id', failedTenant.id);
 
         try {
-          var sgFail = require('@sendgrid/mail');
-          sgFail.setApiKey(process.env.SENDGRID_API_KEY);
-          await sgFail.send({
-            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-            subject: 'Payment failed (final): ' + failedTenant.name,
+          await notifyTenantAdmins(supabase, failedTenant.id, 'payment_failed', { plan: failedTenant.plan, stripe_customer: failedCustomerId }, {
+            subject: '🚨 Payment failed — action required: ' + failedTenant.name,
             html: '<h3>Payment Failed — Account Disabled</h3>' +
               '<p><b>Tenant:</b> ' + failedTenant.name + '</p>' +
               '<p><b>Plan:</b> ' + (failedTenant.plan || 'unknown') + '</p>' +
               '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
-              '<p><b>Stripe Customer:</b> ' + failedCustomerId + '</p>' +
-              '<p>All retries exhausted. Tenant soft-disabled, data preserved.</p>',
+              '<p>All payment retries have been exhausted and your account has been temporarily disabled. Your data is preserved.</p>' +
+              '<p><b>To restore access:</b> please update your payment method at <a href="https://portal.engwx.com">portal.engwx.com</a> or contact support.</p>',
           });
         } catch (ne) { console.log('[Stripe] Fail notification error:', ne.message); }
 
@@ -651,16 +643,11 @@ module.exports = async function handler(req, res) {
         } catch (seqErr) { console.log('[Stripe] Sequence cancel failed:', seqErr.message); }
 
         try {
-          var sgReact = require('@sendgrid/mail');
-          sgReact.setApiKey(process.env.SENDGRID_API_KEY);
-          await sgReact.send({
-            to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-            from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
+          await notifyTenantAdmins(supabase, reactiveTenant.id, 'subscription_updated', { event: 'reactivated', stripe_customer: paidCustomerId }, {
             subject: 'Tenant reactivated: ' + reactiveTenant.name,
             html: '<h3>Subscription Reactivated</h3>' +
               '<p><b>Tenant:</b> ' + reactiveTenant.name + '</p>' +
               '<p><b>Date:</b> ' + new Date().toISOString() + '</p>' +
-              '<p><b>Stripe Customer:</b> ' + paidCustomerId + '</p>' +
               '<p>Tenant and team member access restored.</p>',
           });
         } catch (ne) { console.log('[Stripe] Reactivation notification error:', ne.message); }

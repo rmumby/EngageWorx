@@ -32,8 +32,10 @@ function getSupabase() {
   );
 }
 
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
+
 async function resolveRecipient(supabase, tenantId) {
-  if (!tenantId) return (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
+  if (!tenantId) return null;
   try {
     var t = await supabase.from('tenants').select('digest_email, name').eq('id', tenantId).maybeSingle();
     if (t.data && t.data.digest_email && t.data.digest_email.trim()) {
@@ -47,9 +49,9 @@ async function resolveRecipient(supabase, tenantId) {
         if (p.data && p.data.email) return { email: p.data.email, tenantName: (t.data || {}).name };
       }
     }
-    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: (t.data || {}).name };
+    return null;
   } catch (e) {
-    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
+    return null;
   }
 }
 
@@ -191,7 +193,13 @@ module.exports = async function handler(req, res) {
         } catch (e) {}
       }
 
-      var r = tenantId ? await resolveRecipient(supabase, tenantId) : { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
+      var r = tenantId ? await resolveRecipient(supabase, tenantId) : null;
+      if (!r) {
+        // No recipient — queue for admin review, skip sending
+        await notifyTenantAdmins(supabase, tenantId, 'digest', { action_count: acts.length }, { subject: '📧 Daily AI Digest — no recipient configured' });
+        console.warn('[Cron] Digest skipped for tenant', tenantKey, '— no recipient, queued');
+        continue;
+      }
       var to = r.email;
       var tenantName = r.tenantName;
       var html = buildHtml(tenantName, acts);

@@ -43,8 +43,10 @@ function getSupabase() {
   );
 }
 
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
+
 async function resolveRecipient(supabase, tenantId) {
-  if (!tenantId) return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null };
+  if (!tenantId) return null;
   try {
     var t = await supabase.from('tenants').select('digest_email, name').eq('id', tenantId).maybeSingle();
     if (t.data && t.data.digest_email && t.data.digest_email.trim()) return { email: t.data.digest_email.trim(), tenantName: t.data.name };
@@ -55,8 +57,8 @@ async function resolveRecipient(supabase, tenantId) {
         if (p.data && p.data.email) return { email: p.data.email, tenantName: (t.data || {}).name };
       }
     }
-    return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: (t.data || {}).name };
-  } catch (e) { return { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null }; }
+    return null;
+  } catch (e) { return null; }
 }
 
 async function getMode(supabase) {
@@ -297,7 +299,12 @@ module.exports = async function handler(req, res) {
 
       for (var tenantKey in createdByTenant) {
         var items = createdByTenant[tenantKey];
-        var r = tenantKey === '_orphan' ? { email: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'), tenantName: null } : await resolveRecipient(supabase, tenantKey);
+        var r = tenantKey === '_orphan' ? null : await resolveRecipient(supabase, tenantKey);
+        if (!r) {
+          await notifyTenantAdmins(supabase, tenantKey === '_orphan' ? null : tenantKey, 'stale_leads', { lead_count: items.length }, { subject: '📋 Stale leads report — no recipient configured' });
+          console.warn('[StaleLeads] Skipped tenant', tenantKey, '— no recipient, queued');
+          continue;
+        }
         var rowsHtml = items.map(function(x) {
           var actionLabel = x.decision.action === 'auto_reply' ? '✉️ Personal email' : x.decision.action === 'enroll_sequence' ? '📤 Enrol in "' + (x.decision.sequence_name || '?') + '"' : '—';
           var statusLabel = x.status === 'actioned' ? '<span style="color:#059669;font-weight:700;">✓ Sent</span>' : '<span style="color:#d97706;font-weight:700;">⏳ Pending your approval</span>';

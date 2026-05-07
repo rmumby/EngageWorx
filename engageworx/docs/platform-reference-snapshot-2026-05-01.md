@@ -312,7 +312,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/improve-draft` | POST | AI-improve draft message |
 | `/api/generate-followup` | POST | AI follow-up generation |
 | `/api/vip-research` | POST | AI VIP contact research |
-| `/api/vip-followup` | POST | AI VIP follow-up draft |
+| `/api/vip-followup` | POST | AI VIP follow-up draft. Sender via getTenantSender (no hardcoded rob@). |
 | `/api/read-card` | POST | OCR business card reading |
 | `/api/detect-brand` | POST | Brand detection from URL |
 | `/api/check-models` | GET | Verify available AI models |
@@ -320,8 +320,8 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Messaging Endpoints
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/sms` | POST | SMS send/webhook |
-| `/api/whatsapp` | POST | WhatsApp send/webhook |
+| `/api/sms` | POST | SMS send/webhook. Qualify/reactivation/inbound notifications via notifyTenantAdmins (no Rob fallback). |
+| `/api/whatsapp` | POST | WhatsApp send/webhook. Qualify notifications via notifyTenantAdmins. |
 | `/api/meta-whatsapp` | POST | Meta WhatsApp API |
 | `/api/email` | POST | Email send/test/template |
 | `/api/send-email-gmail` | POST | Gmail SMTP send |
@@ -391,12 +391,12 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Cron Jobs
 | Route | Schedule | Purpose |
 |-------|----------|---------|
-| `/api/cron-stale-leads` | Hourly | Flag stale pipeline leads |
+| `/api/cron-stale-leads` | Hourly | Flag stale pipeline leads. Recipients via tenant config; queues if none (no Rob fallback). |
 | `/api/cron-tenant-engagement` | Daily | Tenant health/engagement |
 | `/api/cron-signup-recovery` | Every 6h | Recover abandoned signups |
-| `/api/cron-email-digest` | Hourly | Generate/send email digests |
+| `/api/cron-email-digest` | Hourly | Generate/send email digests. Recipients via tenant config; queues if none (no Rob fallback). |
 | `/api/cron-digest-scheduled` | 30min | Execute scheduled digest actions |
-| `/api/cron-usage-alerts` | Daily | Usage threshold alerts |
+| `/api/cron-usage-alerts` | Daily | Usage threshold alerts. Via notifyTenantAdmins; no CC-to-Rob at 90%. |
 | `/api/cron-channel-health` | Daily | Channel health checks |
 | `/api/cron-archive-leads` | Daily | Archive old leads |
 | `/api/cron-weekly-update` | Weekly | Platform update summary |
@@ -491,7 +491,7 @@ After re-enabling cron from round 1+2 fixes, broken AI scratchpad emails fired a
 **Banned pattern** (added to CLAUDE.md): direct SMTP sends to leads/contacts. ALL must go through sendTenantEmail. Internal admin notifications may still use direct SMTP if recipient is hardcoded to a known internal address.
 
 **Outstanding cleanup (tracked in backlog):**
-- Tier 2: cron-email-digest, cron-stale-leads, cron-digest-scheduled still use `sgMail.send()` to tenant admins (lower urgency)
+- Tier 2: cron-digest-scheduled still uses `sgMail.send()` to tenant admins (lower urgency). cron-email-digest and cron-stale-leads migrated to notifyTenantAdmins in Phase 7.
 - Tier 3: 17 internal admin notification sites still use sgMail
 - `send-email-gmail.js` — orphaned unauthenticated endpoint, no callers found, safe to delete or auth-protect
 

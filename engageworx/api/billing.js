@@ -397,23 +397,15 @@ if (!priceId) {
               });
               console.log('[Stripe] Top-up credited:', sessionMeta.messages, 'messages');
 
-              // Notify SP admins via _notify.js
+              // Notify tenant admins via notifyTenantAdmins
               try {
-                var { getNotifyEmails } = require('./_notify');
-                var sgMailTopup = require('@sendgrid/mail');
-                sgMailTopup.setApiKey(process.env.SENDGRID_API_KEY);
+                var { notifyTenantAdmins: _notifyTA1 } = require('./_lib/notify-tenant-admins');
                 var tenantRes = await supabase.from('tenants').select('name').eq('id', sessionMeta.tenant_id).single();
                 var tName = tenantRes.data ? tenantRes.data.name : sessionMeta.tenant_id;
-                var EW_SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-                var notifyEmails = await getNotifyEmails(EW_SP_TENANT_ID, 'notify_on_payment');
-                if (notifyEmails.length === 0) notifyEmails = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
-                await sgMailTopup.send({
-                  to: notifyEmails,
-                  from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
+                await _notifyTA1(supabase, sessionMeta.tenant_id, 'billing_payment', { messages: sessionMeta.messages, amount: ((session.amount_total || 0) / 100).toFixed(2) }, {
                   subject: 'Top-up purchased: ' + tName + ' (' + sessionMeta.messages + ' messages)',
                   html: '<h2>Message Top-Up</h2><p><b>Tenant:</b> ' + tName + '</p><p><b>Messages:</b> ' + sessionMeta.messages + '</p><p><b>Amount:</b> $' + ((session.amount_total || 0) / 100).toFixed(2) + '</p>',
                 });
-                console.log('[Billing] Top-up notify sent to:', notifyEmails);
               } catch (ne) { console.log('[Billing] Top-up notify failed (non-fatal):', ne.message); }
             } catch (topupErr) {
               console.error('[Stripe] Top-up credit error:', topupErr.message);
@@ -503,13 +495,10 @@ if (!priceId) {
                 role: 'admin',
               });
 
-              // ── Notify SP + create Pipeline lead ──
+              // ── Notify tenant admins + create Pipeline lead ──
             try {
-              var sgMailNotify = require('@sendgrid/mail');
-              sgMailNotify.setApiKey(process.env.SENDGRID_API_KEY);
-              await sgMailNotify.send({
-                to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-                from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'EngageWorx' },
+              var { notifyTenantAdmins: _notifyTA2 } = require('./_lib/notify-tenant-admins');
+              await _notifyTA2(supabase, tenant.id, 'billing_subscription', { company: name, email: email, plan: plan }, {
                 subject: '⚡ New Sign-Up: ' + name + ' [' + plan + ']',
                 html: '<div style="font-family:Arial,sans-serif;max-width:500px;padding:24px;background:#070d1a;color:#f1f5f9;border-radius:12px;">' +
                   '<h2 style="color:#00C9FF;margin:0 0 16px;">⚡ New Sign-Up</h2>' +
@@ -520,7 +509,6 @@ if (!priceId) {
                   '<p style="margin-top:20px;"><a href="https://portal.engwx.com" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;">View in Pipeline →</a></p>' +
                   '</div>',
               });
-              console.log('[Billing] SP notification sent for:', email);
             } catch (notifyErr) { console.log('[Billing] Notify failed (non-fatal):', notifyErr.message); }
 
             // ── Create Pipeline lead ──

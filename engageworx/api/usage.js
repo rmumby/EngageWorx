@@ -164,23 +164,15 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: insertResult.error.message });
       }
 
-      // Send confirmation to Rob
+      // Notify tenant admins of top-up
       try {
-        var RESEND_KEY = process.env.RESEND_API_KEY;
-        if (RESEND_KEY) {
-          var tenantResult = await supabase.from('tenants').select('name').eq('id', tenantId).single();
-          var tenantName = tenantResult.data ? tenantResult.data.name : tenantId;
-          await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              from: 'EngageWorx <hello@engwx.com>',
-              to: [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')],
-              subject: 'Top-up purchased: ' + tenantName + ' (' + messages + ' messages)',
-              html: '<h2>Message Top-Up Purchased</h2><p><b>Tenant:</b> ' + tenantName + '</p><p><b>Messages:</b> ' + messages + '</p><p><b>Amount:</b> $' + (parseFloat(amount) || 0).toFixed(2) + '</p>',
-            }),
-          });
-        }
+        var { notifyTenantAdmins: _notifyUsage1 } = require('./_lib/notify-tenant-admins');
+        var tenantResult = await supabase.from('tenants').select('name').eq('id', tenantId).single();
+        var tenantName = tenantResult.data ? tenantResult.data.name : tenantId;
+        await _notifyUsage1(supabase, tenantId, 'usage_topup', { messages: messages, amount: (parseFloat(amount) || 0).toFixed(2) }, {
+          subject: 'Top-up purchased: ' + tenantName + ' (' + messages + ' messages)',
+          html: '<h2>Message Top-Up Purchased</h2><p><b>Tenant:</b> ' + tenantName + '</p><p><b>Messages:</b> ' + messages + '</p><p><b>Amount:</b> $' + (parseFloat(amount) || 0).toFixed(2) + '</p>',
+        });
       } catch (e) { /* non-fatal */ }
 
       return res.status(200).json({ success: true, messages_credited: parseInt(messages) });
@@ -298,21 +290,11 @@ async function checkAndSendAlerts(supabase, tenantId, pct, usage) {
     + '<a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00BFFF,#A855F7);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:10px;">View Dashboard</a>'
     + '</div></div>';
 
-  // Send to tenant admin
-  var recipients = [(process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')];
-  if (adminEmail && adminEmail !== (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com')) {
-    recipients.push(adminEmail);
-  }
-
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: 'EngageWorx <hello@engwx.com>',
-      to: recipients,
-      subject: subject,
-      html: html,
-    }),
+  // Route via notifyTenantAdmins
+  var { notifyTenantAdmins: _notifyUsage2 } = require('./_lib/notify-tenant-admins');
+  await _notifyUsage2(supabase, tenantId, 'usage_alert', { metric: 'messages', threshold: threshold, usage: usage }, {
+    subject: subject,
+    html: html,
   });
 
   return true;

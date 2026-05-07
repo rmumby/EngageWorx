@@ -53,7 +53,9 @@ module.exports = async function handler(req, res) {
   // Load original outbound message to this contact
   var originalBody = '';
   var originalSubject = '';
-  var originalFromEmail = 'rob@engwx.com';
+  var { getTenantSender } = require('./_lib/get-tenant-sender');
+  var _senderInfo = await getTenantSender(supabase, tenantId, userId);
+  var originalFromEmail = _senderInfo.from;
   try {
     var msgQ = supabase.from('messages').select('body, metadata')
       .eq('contact_id', contactId).eq('direction', 'outbound')

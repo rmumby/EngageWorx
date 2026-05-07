@@ -602,9 +602,12 @@ module.exports = async function handler(req, res) {
             } catch(e) {}
           }
         }
-        if (vmRecipients.length === 0) vmRecipients.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
+        if (vmRecipients.length === 0) {
+          try { var { notifyTenantAdmins: _notifyVM } = require('./_lib/notify-tenant-admins'); await _notifyVM(supabase, vmTenantId, 'voicemail', { call_sid: vmCallSid }, { subject: 'New voicemail — no recipients configured' }); } catch (e) {}
+          console.warn('[Voice] Voicemail for', vmTenantId, '— no recipients, queued');
+        }
         var RESEND_KEY = process.env.RESEND_API_KEY;
-        if (RESEND_KEY && sendVmEmail) {
+        if (RESEND_KEY && sendVmEmail && vmRecipients.length > 0) {
           var callerNum = body.From || 'Unknown';
           var vmDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' });
           var vmDur = vmRecordingDuration ? (Math.floor(vmRecordingDuration / 60) + 'm ' + (vmRecordingDuration % 60) + 's') : 'Unknown';
@@ -671,7 +674,10 @@ module.exports = async function handler(req, res) {
               } catch(e) {}
             }
           }
-          if (txRecipients.length === 0) txRecipients.push((process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'));
+          if (txRecipients.length === 0) {
+            try { var { notifyTenantAdmins: _notifyTX } = require('./_lib/notify-tenant-admins'); await _notifyTX(supabase, txTenantId, 'call_transcript', { call_sid: txCallSid }, { subject: 'Call transcript — no recipients configured' }); } catch (e) {}
+            console.warn('[Voice] Transcript for', txTenantId, '— no recipients, queued');
+          }
           var txCallerNum = 'Unknown';
           try {
             var txCall = await supabase.from('calls').select('from_number').eq('call_sid', txCallSid).single();
@@ -679,7 +685,7 @@ module.exports = async function handler(req, res) {
           } catch(e) {}
 
           var TX_KEY = process.env.RESEND_API_KEY;
-          if (TX_KEY && sendTxEmail) {
+          if (TX_KEY && sendTxEmail && txRecipients.length > 0) {
             var txDate = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', dateStyle: 'medium', timeStyle: 'short' });
             var txHtml = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb"><div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb"><h1 style="font-size:20px;font-weight:700;color:#111827;margin:0 0 4px">Voice Call Transcript</h1><p style="color:#6b7280;font-size:14px;margin:0 0 24px">EngageWorx Voice System</p><div style="background:#f3f4f6;border-radius:8px;padding:20px;margin-bottom:24px"><p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Caller:</strong> ' + txCallerNum + '</p><p style="margin:6px 0;color:#6b7280;font-size:14px"><strong>Date:</strong> ' + txDate + '</p></div><div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-bottom:24px"><p style="color:#92400e;font-size:14px;line-height:1.6;margin:0">' + escapeXml(txText) + '</p></div><div style="border-top:1px solid #e5e7eb;padding-top:16px"><p style="color:#9ca3af;font-size:12px;margin:0">EngageWorx Voice | <a href="https://portal.engwx.com" style="color:#2563eb;text-decoration:none">Log in to portal</a></p></div></div></div>';
             await fetch('https://api.resend.com/emails', {

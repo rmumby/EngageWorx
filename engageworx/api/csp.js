@@ -297,33 +297,13 @@ module.exports = async function handler(req, res) {
         }
       } catch (seedErr) { console.warn('[CSP] Signature seed failed:', seedErr.message); }
 
-      // Notify SP admin — read alert email from sp_settings
+      // Notify CSP parent tenant admins
       try {
-        var RESEND_KEY = process.env.RESEND_API_KEY;
-        if (RESEND_KEY) {
-          var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-          var alertSettings = await supabase
-            .from('sp_settings')
-            .select('value')
-            .eq('tenant_id', SP_TENANT_ID)
-            .eq('key', 'csp_alerts')
-            .maybeSingle();
-          var alertConfig = (alertSettings.data && alertSettings.data.value) ? alertSettings.data.value : {};
-          var alertEmail = alertConfig.alert_email || (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com');
-          var notifyOnCreate = alertConfig.notify_on_csp_tenant_created !== false; // default true
-          if (notifyOnCreate) {
-            await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: { 'Authorization': 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                from: 'EngageWorx <hello@engwx.com>',
-                to: [alertEmail],
-                subject: '🏢 New CSP tenant: ' + companyName + ' (under ' + cspCheck.data.name + ')',
-                html: '<h2>New CSP Sub-Tenant Created</h2><p><b>CSP:</b> ' + cspCheck.data.name + '</p><p><b>Tenant:</b> ' + companyName + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p><p><b>Tenant ID:</b> ' + tenant.id + '</p>',
-              }),
-            });
-          }
-        }
+        var { notifyTenantAdmins: _notifyCSP } = require('./_lib/notify-tenant-admins');
+        await _notifyCSP(supabase, cspTenantId, 'csp_event', { sub_tenant: companyName, email: email, plan: plan }, {
+          subject: '🏢 New CSP tenant: ' + companyName + ' (under ' + cspCheck.data.name + ')',
+          html: '<h2>New CSP Sub-Tenant Created</h2><p><b>CSP:</b> ' + cspCheck.data.name + '</p><p><b>Tenant:</b> ' + companyName + '</p><p><b>Email:</b> ' + email + '</p><p><b>Plan:</b> ' + plan + '</p>',
+        });
       } catch (ne) { console.warn('CSP alert email failed:', ne.message); }
 
       // Send welcome email to new tenant
