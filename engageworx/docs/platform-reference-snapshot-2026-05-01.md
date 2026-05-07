@@ -385,6 +385,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/cron-health-check` | Hourly | Platform health monitoring |
 | `/api/cron-sequences` | 15min | Process due sequence steps |
 | `/api/cron-tcr-poll` | Hourly | Poll Twilio TCR status |
+| `/api/cron-weekly-summary` | Hourly | Per-user weekly summary email (fires when user's configured day + tenant send hour match) |
 
 ### Webhooks (Inbound)
 | Route | Source | Purpose |
