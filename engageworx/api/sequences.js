@@ -106,6 +106,12 @@ async function personaliseMessage(template, lead, tenantName) {
 }
 
 async function sendStep(supabase, step, lead, tenant) {
+  // Guard: refuse to send email to a lead with no email address
+  if (step.channel === 'email' && (!lead.email || !lead.email.trim())) {
+    console.error('[Sequences] Send skipped — lead has no email:', { lead_id: lead.id, tenant_id: tenant.id, sequence_id: step.sequence_id, step: step.step_number });
+    return { refused: true, missing: ['no_email_address'] };
+  }
+
   var body = step.ai_personalise
     ? await personaliseMessage(step.body_template, lead, tenant.name)
     : mergePlaceholders(step.body_template, lead, tenant.name);
@@ -498,6 +504,13 @@ module.exports = async function handler(req, res) {
     if (!lead_id || !sequence_id) return res.status(400).json({ error: 'lead_id and sequence_id required' });
     if (!tenant_id) return res.status(400).json({ error: 'tenant_id required' });
 
+    // Block enrolment of leads with no email (email sequences can't send)
+    var leadCheck = await supabase.from('leads').select('email').eq('id', lead_id).maybeSingle();
+    if (!leadCheck.data || !leadCheck.data.email || !leadCheck.data.email.trim()) {
+      console.warn('[Sequences] Enrol blocked — lead has no email:', lead_id);
+      return res.status(400).json({ error: 'Lead has no email address — cannot enrol in sequence' });
+    }
+
     // Block enrolment into paused or deleted sequences
     var seqCheck = await supabase.from('sequences').select('paused_at, deleted_at').eq('id', sequence_id).maybeSingle();
     if (seqCheck.data && seqCheck.data.deleted_at) return res.status(400).json({ error: 'Sequence has been deleted' });
@@ -549,12 +562,28 @@ module.exports = async function handler(req, res) {
     var results = { enrolled: 0, skipped: 0, errors: [] };
     for (var bulkLead of leadList) {
       try {
+        // Skip leads with no email — sequences require a deliverable address
+        var bulkLeadEmail = bulkLead.email ? bulkLead.email.trim() : '';
+        if (!bulkLeadEmail && !bulkLead.id) {
+          results.errors.push((bulkLead.first_name || 'Unknown') + ': no email address');
+          results.skipped++;
+          continue;
+        }
         var bulkLeadId = bulkLead.id;
+        if (bulkLeadId && !bulkLeadEmail) {
+          // Existing lead — verify they have an email
+          var existingLeadCheck = await supabase.from('leads').select('email').eq('id', bulkLeadId).maybeSingle();
+          if (!existingLeadCheck.data || !existingLeadCheck.data.email || !existingLeadCheck.data.email.trim()) {
+            results.errors.push(bulkLeadId + ': no email address');
+            results.skipped++;
+            continue;
+          }
+        }
         if (!bulkLeadId) {
           var newLeadRes = await supabase.from('leads').insert({
-            name: ((bulkLead.first_name || '') + ' ' + (bulkLead.last_name || '')).trim() || bulkLead.email || 'Unknown',
+            name: ((bulkLead.first_name || '') + ' ' + (bulkLead.last_name || '')).trim() || bulkLeadEmail || 'Unknown',
             company: bulkLead.company || '',
-            email: bulkLead.email || null,
+            email: bulkLeadEmail || null,
             phone: bulkLead.phone || null,
             type: 'Unknown',
             urgency: 'Warm',
