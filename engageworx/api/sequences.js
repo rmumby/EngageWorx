@@ -396,37 +396,25 @@ async function processDueSteps(supabase) {
 
         processed++;
       }
-    } catch (e) {
-      console.error('[Sequences] Error processing enrolment:', enrolment.id, e.message);
+    } catch (sendError) {
+      console.error('[Sequences] Step send failed for enrolment ' + enrolment.id + ':', sendError.message);
+
+      await supabase.from('lead_sequences').update({
+        status: 'error',
+        last_error: (sendError.message || 'Unknown error').substring(0, 500),
+        last_error_at: new Date().toISOString(),
+        send_attempts: (enrolment.send_attempts || 0) + 1,
+      }).eq('id', enrolment.id);
+
+      // TODO: migrate to proper admin notification helper when send-notification.js is built
+      console.error('[Sequences] ADMIN ALERT: enrolment', enrolment.id, 'lead', enrolment.lead_id, 'errored:', sendError.message);
+
       errors++;
+      continue;
     }
   }
 
-  // Self-healing: detect stuck leads that have been past-due for 4+ hours and
-  // weren't processed in this run (e.g. they errored silently on a prior run and
-  // never got their next_step_at bumped). Reset them to fire on the next cron tick.
-  var stuckFixed = 0;
-  try {
-    var fourHoursAgo = new Date(Date.now() - 4 * 3600000).toISOString();
-    var stuckRes = await supabase.from('lead_sequences')
-      .select('id, lead_id, next_step_at')
-      .eq('status', 'active')
-      .lt('next_step_at', fourHoursAgo);
-    var stuckRows = stuckRes.data || [];
-    if (stuckRows.length > 0) {
-      var resetTo = new Date().toISOString();
-      for (var sr of stuckRows) {
-        try {
-          await supabase.from('lead_sequences').update({ next_step_at: resetTo }).eq('id', sr.id);
-          stuckFixed++;
-          console.warn('[Sequences] Self-heal: reset stuck lead_sequence', sr.id, 'lead:', sr.lead_id, 'was due:', sr.next_step_at, '→ now');
-        } catch (e) { console.warn('[Sequences] Self-heal update failed:', sr.id, e.message); }
-      }
-      console.warn('[Sequences] Self-healed', stuckFixed, 'stuck lead(s) (due 4+ hours ago)');
-    }
-  } catch (e) { console.warn('[Sequences] Self-heal query error:', e.message); }
-
-  return { processed: processed, errors: errors, stuck_leads_fixed: stuckFixed };
+  return { processed: processed, errors: errors };
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
