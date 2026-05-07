@@ -361,7 +361,7 @@ module.exports = async function handler(req, res) {
     var existingAbandon = await supabase.from('leads').select('id').eq('email', expiredEmail).limit(1);
     if (!existingAbandon.data || existingAbandon.data.length === 0) {
       var abandonRes = await supabase.from('leads').insert({
-        name: expiredName || expiredEmail,
+        name: expiredName || null,
         company: expiredName || '',
         email: expiredEmail,
         source: 'abandoned_checkout',

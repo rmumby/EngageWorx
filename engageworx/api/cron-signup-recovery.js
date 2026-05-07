@@ -77,7 +77,7 @@ module.exports = async function handler(req, res) {
           const { data: lead, error: leadErr } = await supabase
             .from('leads')
             .insert({
-              name: user.full_name || user.email,
+              name: user.full_name || null,
               company: user.company_name || '',
               email: user.email,
               type: 'Direct Business',

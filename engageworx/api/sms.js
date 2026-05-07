@@ -551,7 +551,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
           var leadCheck = await supabase.from('leads').select('id').or('name.eq.' + From + ',notes.ilike.%' + From + '%').limit(1);
           if (!leadCheck.data || leadCheck.data.length === 0) {
             await supabase.from('leads').insert({
-              name: From, company: From, type: 'Unknown', urgency: 'Warm', stage: 'inquiry',
+              name: null, company: null, type: 'Unknown', urgency: 'Warm', stage: 'inquiry',
               source: 'inbound_sms',
               notes: 'Auto-created from inbound SMS from ' + From + '. Message: ' + (Body || '').substring(0, 200),
               last_action_at: new Date().toISOString().split('T')[0],

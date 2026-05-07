@@ -1025,7 +1025,7 @@ module.exports = async function handler(req, res) {
         var company = senderEmail.split('@')[1] ? senderEmail.split('@')[1].split('.')[0] : '';
         company = company.charAt(0).toUpperCase() + company.slice(1);
         await supabase.from('leads').insert({
-          name: senderName || senderEmail,
+          name: senderName || null,
           email: senderEmail,
           company: company,
           source: 'inbound_email',

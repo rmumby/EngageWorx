@@ -124,8 +124,14 @@ async function sendStep(supabase, step, lead, tenant) {
     return { refused: true, missing: ['no_email_address'] };
   }
 
-  // Layer 1: only use AI personalisation if lead has real data to personalise with
-  var hasPersonalisableData = (lead.name || '').trim() || (lead.company || lead.company_name || '').trim();
+  // Layer 1: only use AI personalisation if lead has real name/company data
+  var leadName = (lead.name || '').trim();
+  var leadCompany = (lead.company || lead.company_name || '').trim();
+  var nameIsEmail = leadName && (leadName.indexOf('@') !== -1 && leadName.indexOf('.') !== -1);
+  var nameMatchesEmail = leadName && lead.email && leadName.toLowerCase() === lead.email.toLowerCase();
+  var hasRealName = leadName && !nameIsEmail && !nameMatchesEmail;
+  var hasRealCompany = leadCompany && leadCompany.indexOf('@') === -1;
+  var hasPersonalisableData = hasRealName || hasRealCompany;
   var body = (step.ai_personalise && hasPersonalisableData)
     ? await personaliseMessage(step.body_template, lead, tenant.name)
     : mergePlaceholders(step.body_template, lead, tenant.name);

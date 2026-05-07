@@ -95,7 +95,7 @@ module.exports = async function handler(req, res) {
         if (!existingLead) {
           var leadRes = await supabase.from('leads').insert({
             tenant_id: tenant_id,
-            name: name || email || 'Unknown',
+            name: name || null,
             company: company || '',
             email: email,
             phone: phone,
