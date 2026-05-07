@@ -65,6 +65,27 @@ Direct SMTP bypasses all of this. We have shipped two Tom-scale incidents becaus
 
 Internal/system emails (e.g. admin alerts to `rob@engwx.com`) MAY use direct SMTP, but only if recipient is hardcoded to a known internal address.
 
+### No personal escalation paths
+
+The platform must NEVER hardcode "email Rob" or "notify Rob" as the escalation destination for any tenant-related event. All escalations route through:
+
+1. escalation_recipients on the tenant (existing) or notify flags on tenant_members (existing)
+2. A queue/badge surfaced in the platform UI (e.g., support_tickets.needs_platform_review = true displayed in HelpDesk dashboard)
+3. Optional webhook/Slack/in-app notification (future)
+
+Why:
+- Scalability — Rob is not always the right escalation target as the team grows
+- Multi-tenant correctness — CSP customers should not escalate to Rob; they escalate to their own tenant's escalation_recipients, which may bubble to platform_admin only when the issue is platform-level
+- Inbox sanity — hardcoded notifications create noise and become invisible at volume
+- Product positioning — every "email Rob" hardcoded is a feature gap from a product standpoint
+
+The only acceptable hardcoded internal email is operational infrastructure alerts to a designated platform_admin_email (currently Rob, but configurable via env). Even those should log to a status table or monitoring dashboard first; email is the secondary signal.
+
+Banned patterns:
+- `to: 'rob@engwx.com'`
+- `to: process.env.PLATFORM_ADMIN_EMAIL` — without first writing to a database queue/table that surfaces in the UI
+- Any sgMail.send / sendTenantEmail call where the recipient is derived from a hardcoded internal user identity instead of a tenant-configurable field
+
 ## Information Protection
 
 These vendors are NEVER named in customer-facing content (UI copy, email templates, help docs, error messages, marketing pages):
