@@ -458,6 +458,31 @@ Two-day, ten-bug incident. ~130 broken emails to a single lead over 36 hours.
 
 **Smoke test pattern:** Dedicated test sequence on isolated tenant. Three cases: clean lead, null-name lead, email-as-name lead. `curl -X POST .../api/sequences?action=process`. Verify completion + body content. Fire second curl to verify no duplicate send.
 
+### Sequence Runaway Sends — Round 3, May 7, 2026 (afternoon)
+
+After re-enabling cron from round 1+2 fixes, broken AI scratchpad emails fired again at 1:00 PM ET to multiple leads (Anith, Daniel, Tom). Investigation revealed:
+
+- Source was `api/cron-signup-recovery.js` (NOT `api/sequences.js`) — separate cron with its own AI personalization that bypassed Layer 1 + Layer 2 entirely
+- Plus 33 dormant `sgMail.send()` calls across the codebase, inherited from pre-Apr 29 SendGrid setup, all bypassing the hardened sendTenantEmail path
+
+**Architectural fix:**
+- Layer 1 (skip AI when name empty/email-shaped) and Layer 2 (block 18 meta-language patterns) moved INTO `sendTenantEmail()` itself, via new shared module `api/_lib/email-safety-gates.js`
+- Layer 2 is unconditional on every send through sendTenantEmail, regardless of caller. Returns `{ sent: false, blocked: true }` if patterns match.
+- 5 customer-facing direct `sgMail.send()` calls migrated to sendTenantEmail (helpdesk ×2, stripe-webhook ×2, fire-escalation ×1)
+- `cron-signup-recovery` rewritten: dedup via `user_profiles.recovery_email_sent_at`, route through sendTenantEmail, write to messages table for audit
+- Schedule changed: cron-signup-recovery from hourly to every 6 hours
+
+**Banned pattern** (added to CLAUDE.md): direct SMTP sends to leads/contacts. ALL must go through sendTenantEmail. Internal admin notifications may still use direct SMTP if recipient is hardcoded to a known internal address.
+
+**Outstanding cleanup (tracked in backlog):**
+- Tier 2: cron-email-digest, cron-stale-leads, cron-digest-scheduled still use `sgMail.send()` to tenant admins (lower urgency)
+- Tier 3: 17 internal admin notification sites still use sgMail
+- `send-email-gmail.js` — orphaned unauthenticated endpoint, no callers found, safe to delete or auth-protect
+
+**Diagnostic patterns added:**
+- Mixed clean/scratchpad emails to same recipient = parallel send path bypassing safety. Search for direct SMTP calls.
+- "Sent emails not appearing in messages table" = code path skips the audit insert. Hunt that path.
+
 ---
 
 ## 10. TCR / Compliance
