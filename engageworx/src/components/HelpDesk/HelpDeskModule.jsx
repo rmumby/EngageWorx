@@ -169,7 +169,11 @@ function TicketDetail({ ticket, messages, userId, userName, isSPAdmin, isAgent, 
           </div>
           {canActAsAgent && (
             <button onClick={async function() {
-              await supabase.from('support_tickets').update({ needs_platform_review: false }).eq('id', ticket.id);
+              await supabase.from('support_tickets').update({
+                needs_platform_review: false,
+                platform_reviewed_by: userId,
+                platform_reviewed_at: new Date().toISOString()
+              }).eq('id', ticket.id);
               console.log('[HelpDesk] Platform review cleared by', userName || userId);
               onBack();
             }} style={btnStyle('rgba(16,185,129,0.15)', 'rgba(16,185,129,0.3)', '#10b981')}>✓ Mark Reviewed</button>
