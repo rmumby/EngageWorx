@@ -51,6 +51,20 @@ If the platform reference doc lives outside this repo, output the exact markdown
 - Errors return actionable messages; never leak stack traces or internal IDs.
 - Log the `tenant_id` on every significant operation for audit and debugging.
 
+### Email sends MUST go through sendTenantEmail
+
+All outbound emails to leads, contacts, customers, or any external recipient MUST be sent via the `sendTenantEmail()` helper. Direct SMTP calls (`sgMail.send`, `transporter.sendMail`, `nodemailer.createTransport`) are BANNED in any code path that touches lead/contact/customer data.
+
+Why: `sendTenantEmail()` routes through:
+- Tenant white-label branding (correct sender, signature, domain)
+- Layer 1 personalization safety (skip AI when name is empty/email-shaped)
+- Layer 2 output validation (block AI scratchpad meta-language)
+- Messages table audit insert (debuggability)
+
+Direct SMTP bypasses all of this. We have shipped two Tom-scale incidents because of inline SMTP sends.
+
+Internal/system emails (e.g. admin alerts to `rob@engwx.com`) MAY use direct SMTP, but only if recipient is hardcoded to a known internal address.
+
 ## Information Protection
 
 These vendors are NEVER named in customer-facing content (UI copy, email templates, help docs, error messages, marketing pages):
