@@ -151,6 +151,11 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `whatsapp_templates` | WhatsApp message templates |
 | `whatsapp_provisioning` | WhatsApp setup progress |
 
+### Notification Tables
+| Table | Purpose |
+|-------|---------|
+| `tenant_admin_notifications` | Queue for unrouted tenant admin notifications (no recipients configured). Surfaced in admin UI. |
+
 ### Support Tables
 | Table | Purpose |
 |-------|---------|
@@ -354,6 +359,17 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid). AI response + status mapping only — root-cause classification delegated to api/support-triage.js. |
 | `/api/support-triage` | POST | Auto-triage tickets (single source of truth for classification). Maps USER_ERROR/CONFIG_ISSUE/CODE_BUG/UNKNOWN → support_tickets.root_cause_type (user_level/tenant_level/platform_level/unknown). CODE_BUG and UNKNOWN flag via support_tickets.needs_platform_review. |
 | `/api/send-digest-reply` | POST | Digest reply as email |
+
+### Shared Helpers (`api/_lib/`)
+| Module | Purpose |
+|--------|---------|
+| `send-tenant-email.js` | Tenant→customer outbound routing (resend/gmail/smtp) with Layer 1+2 safety |
+| `email-safety-gates.js` | Layer 1 (email-as-name sanitization) + Layer 2 (blocked pattern gate) |
+| `notify-tenant-admins.js` | Route admin notifications to tenant's configured recipients. Queues to tenant_admin_notifications if no recipients. Never falls back to rob@engwx.com. |
+| `get-tenant-sender.js` | Resolve tenant's outbound sender address (user sender_email → chatbot config → primary_contact_email → platform fallback) |
+| `action-item-generator.js` | AI action-item generator for pipeline/engagement events |
+| `reply-thread.js` | Email thread ID generation + reply-to address builder |
+| `platform-config.js` | Platform config loader with caching |
 
 ### TCR / Compliance
 | Route | Method | Purpose |
