@@ -4,6 +4,7 @@
 // Creates Pipeline lead + Contact + enrolls in abandoned checkout sequence
 
 const { createClient } = require('@supabase/supabase-js');
+var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
 const SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
@@ -30,8 +31,9 @@ module.exports = async function handler(req, res) {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { data: orphanUsers, error } = await supabase
       .from('user_profiles')
-      .select('id, email, full_name, company_name, plan, created_at')
+      .select('id, email, full_name, company_name, plan, created_at, recovery_email_sent_at')
       .is('tenant_id', null)
+      .is('recovery_email_sent_at', null)
       .lt('created_at', oneHourAgo)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -108,7 +110,7 @@ module.exports = async function handler(req, res) {
         if (!existingContact) {
           const nameParts = (user.full_name || '').trim().split(' ');
           await supabase.from('contacts').insert({
-            first_name: nameParts[0] || user.email,
+            first_name: nameParts[0] || null,
             last_name: nameParts.slice(1).join(' ') || null,
             email: user.email,
             company_name: user.company_name || null,
@@ -149,41 +151,58 @@ module.exports = async function handler(req, res) {
             }
           } catch (enrolErr) {
             console.error('[cron-signup-recovery] Enrol error for lead', leadId, ':', enrolErr.message);
-            // Notify admin on trigger failure
-            try {
-              if (process.env.SENDGRID_API_KEY) {
-                var sgNotify = require('@sendgrid/mail');
-                sgNotify.setApiKey(process.env.SENDGRID_API_KEY);
-                await sgNotify.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Cron] Signup recovery enrol failed — ' + user.email, html: '<p>Lead ID: ' + leadId + '</p><p>Email: ' + user.email + '</p><p>Error: ' + enrolErr.message + '</p>' });
-              }
-            } catch (notifyErr) {}
+            // TODO: migrate to send-notification.js when internal email path is rebuilt
+            console.error('[cron-signup-recovery] ADMIN ALERT: enrol failed for', user.email, 'lead', leadId, ':', enrolErr.message);
           }
         }
 
-        // Send recovery email via SendGrid
+        // Send recovery email via sendTenantEmail (white-label, audit trail)
+        var recoverySubject = 'Did you have any questions about EngageWorx?';
+        var recoveryFirstName = (user.full_name || '').split(' ')[0] || 'there';
+        var recoveryHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
+          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">Hi ' + recoveryFirstName + ',</p>' +
+          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">I noticed you signed up for EngageWorx but didn\'t complete the payment step — no worries at all.</p>' +
+          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">If you had any questions or hit a snag, just reply to this email and I\'ll get back to you personally.</p>' +
+          '<div style="text-align:center;margin:28px 0;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a></div>' +
+          '<div style="text-align:center;margin:0 0 24px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
+          '<p style="font-size:13px;color:#64748b;">Rob Mumby · Founder & CEO, EngageWorx · +1 (786) 982-7800 · engwx.com</p></div>';
+
+        var emailSent = false;
         try {
-          const sgMail = require('@sendgrid/mail');
-          sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-          const firstName = (user.full_name || '').split(' ')[0] || 'there';
-          await sgMail.send({
+          await sendTenantEmail(supabase, {
+            tenant_id: SP_TENANT_ID,
             to: user.email,
-            from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: 'Rob at EngageWorx' },
-            subject: 'Did you have any questions about EngageWorx?',
-            html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">
-              <p style="font-size:15px;color:#1e293b;line-height:1.7;">Hi ${firstName},</p>
-              <p style="font-size:15px;color:#1e293b;line-height:1.7;">I noticed you signed up for EngageWorx but didn't complete the payment step — no worries at all.</p>
-              <p style="font-size:15px;color:#1e293b;line-height:1.7;">If you had any questions or hit a snag, just reply to this email and I'll get back to you personally.</p>
-              <div style="text-align:center;margin:28px 0;">
-                <a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a>
-              </div>
-              <div style="text-align:center;margin:0 0 24px;">
-                <a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a>
-              </div>
-              <p style="font-size:13px;color:#64748b;">Rob Mumby · Founder & CEO, EngageWorx · +1 (786) 982-7800 · engwx.com</p>
-            </div>`,
+            from_name: 'Rob at EngageWorx',
+            subject: recoverySubject,
+            html: recoveryHtml,
           });
+          emailSent = true;
         } catch (emailErr) {
-          console.log(`[Cron] Recovery email failed for ${user.email}:`, emailErr.message);
+          console.error('[cron-signup-recovery] Recovery email failed for', user.email, ':', emailErr.message);
+        }
+
+        // Audit: write to messages table
+        try {
+          var contactRow = await supabase.from('contacts').select('id').eq('email', user.email).eq('tenant_id', SP_TENANT_ID).limit(1).maybeSingle();
+          var contactId = contactRow.data ? contactRow.data.id : null;
+          await supabase.from('messages').insert({
+            tenant_id: SP_TENANT_ID,
+            contact_id: contactId,
+            channel: 'email',
+            direction: 'outbound',
+            sender_type: 'bot',
+            body: recoveryHtml,
+            status: emailSent ? 'sent' : 'failed',
+            metadata: { source: 'signup_recovery', subject: recoverySubject, to: user.email },
+            created_at: new Date().toISOString(),
+          });
+        } catch (msgErr) {
+          console.warn('[cron-signup-recovery] Messages audit insert error:', msgErr.message);
+        }
+
+        // Mark user as processed — prevents re-sending on next cron tick
+        if (emailSent) {
+          await supabase.from('user_profiles').update({ recovery_email_sent_at: new Date().toISOString() }).eq('id', user.id);
         }
 
         console.log(`[Cron] Processed: ${user.email} → lead ${leadId}`);
@@ -195,15 +214,9 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // Send summary email for stale orphans
-    if (staleOrphans.length > 0 && process.env.SENDGRID_API_KEY) {
-      try {
-        var sgSummary = require('@sendgrid/mail');
-        sgSummary.setApiKey(process.env.SENDGRID_API_KEY);
-        var listHtml = staleOrphans.map(function(s) { return '<tr><td style="padding:4px 8px;">' + s.email + '</td><td style="padding:4px 8px;">' + s.age + ' days</td><td style="padding:4px 8px;">' + new Date(s.created_at).toLocaleDateString() + '</td></tr>'; }).join('');
-        await sgSummary.send({ to: process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com', from: { email: 'notifications@engwx.com', name: 'EngageWorx' }, subject: '[Cron] ' + staleOrphans.length + ' stale orphan signup(s) need manual review', html: '<div style="font-family:Arial,sans-serif;"><p>These signups are older than ' + MAX_AGE_DAYS + ' days and were skipped by the recovery cron. Review and decide whether to reach out manually or archive.</p><table style="border-collapse:collapse;font-size:13px;"><tr style="background:#f1f5f9;"><th style="padding:6px 8px;text-align:left;">Email</th><th style="padding:6px 8px;">Age</th><th style="padding:6px 8px;">Signed Up</th></tr>' + listHtml + '</table></div>' });
-        console.log('[Cron] Stale orphans summary sent:', staleOrphans.length);
-      } catch (summaryErr) { console.warn('[Cron] Stale orphan summary email error:', summaryErr.message); }
+    // Log stale orphans (admin notification deferred to send-notification.js)
+    if (staleOrphans.length > 0) {
+      console.warn('[cron-signup-recovery] ADMIN ALERT:', staleOrphans.length, 'stale orphan(s) older than', MAX_AGE_DAYS, 'days — need manual review');
     }
 
     return res.status(200).json({
