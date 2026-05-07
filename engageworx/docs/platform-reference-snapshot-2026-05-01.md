@@ -483,6 +483,10 @@ After re-enabling cron from round 1+2 fixes, broken AI scratchpad emails fired a
 - Mixed clean/scratchpad emails to same recipient = parallel send path bypassing safety. Search for direct SMTP calls.
 - "Sent emails not appearing in messages table" = code path skips the audit insert. Hunt that path.
 
+### Helpdesk ticket stuck in "AI handled + Open" state — May 7, 2026
+
+Cause: AI response handler in api/helpdesk.js mapped to invalid status strings ('ai_active') that silently failed DB update due to missing status CHECK enforcement at app layer. Fix: explicit status mapping for [RESOLVED]/[PENDING]/[ESCALATE] prefixes, plus 'pending_review' fallback for unparseable AI output. Update errors now logged loudly instead of swallowed.
+
 ---
 
 ## 10. TCR / Compliance

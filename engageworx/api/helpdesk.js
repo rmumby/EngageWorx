@@ -182,7 +182,7 @@ async function runAIResponse(ticket, latestMessage, history) {
 
     var cleanText = aiText.replace(/^\[(RESOLVED|ESCALATE|PENDING)\]\s*/, '').trim();
     var confidence = isEscalated ? 0.2 : isPending ? 0.5 : 0.9;
-    var newStatus  = isEscalated ? 'escalated' : isPending ? 'pending' : isResolved ? 'resolved' : 'ai_active';
+    var newStatus  = isEscalated ? 'escalated' : isPending ? 'pending_user' : isResolved ? 'resolved' : 'pending_review';
 
     // Parse root-cause tags from AI response
     var rcTypeMatch = aiText.match(/ROOT_CAUSE:\s*(\w+)/);
@@ -209,7 +209,8 @@ async function runAIResponse(ticket, latestMessage, history) {
     if (isResolved)  { updates.resolved_at = new Date().toISOString(); updates.ai_resolution_summary = cleanText.substring(0, 200); }
     if (isEscalated) { updates.escalation_reason = cleanText.substring(0, 200); updates.escalation_trigger = 'ai_decision'; }
 
-    await supabase.from('support_tickets').update(updates).eq('id', ticket.id);
+    var { error: updateErr } = await supabase.from('support_tickets').update(updates).eq('id', ticket.id);
+    if (updateErr) console.error('[helpdesk] ticket status update failed:', ticket.id, updateErr.message, 'attempted status:', newStatus);
 
     await supabase.from('ticket_messages').insert({
       ticket_id: ticket.id,
