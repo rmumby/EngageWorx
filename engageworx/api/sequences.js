@@ -163,7 +163,7 @@ async function sendStep(supabase, step, lead, tenant) {
     var bodyClose = '</div>';
 
     var seqThreadId = generateThreadId();
-    var seqReplyTo = makeReplyToAddress(seqThreadId);
+    var seqReplyTo = makeReplyToAddress(seqThreadId, tenant.email_tracking_domain);
 
     await sendTenantEmail(supabase, {
       tenant_id: tenant.id,
@@ -310,7 +310,7 @@ async function processDueSteps(supabase) {
         }
       }
 
-      var tenantRes = await supabase.from('tenants').select('id, name').eq('id', sequence.tenant_id).single();
+      var tenantRes = await supabase.from('tenants').select('id, name, email_tracking_domain').eq('id', sequence.tenant_id).single();
       var tenant = tenantRes.data;
 
       // Backfill lead name if missing — derive from email
