@@ -432,6 +432,29 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 - `onAuthStateChange` re-fetched profile without await, could overwrite good profile
 - Fixed: guard with `if (!profile)` to prevent redundant fetch
 
+### Sequence Runaway Sends (fixed 2026-05-07)
+
+Two-day, ten-bug incident. ~130 broken emails to a single lead over 36 hours.
+
+**Day 1 root causes:**
+- **Self-heal loop (deleted):** Lines 405-427 reset `next_step_at` on stuck enrollments every 4h, causing infinite retry when `sendStep` threw. Amplified 1 broken send into 30.
+- **Silent catch:** Error catch left enrollment `status: 'active'` — rewritten to set `status: 'error'` with `last_error`, `last_error_at`, `send_attempts` columns.
+- **Vercel timeout:** 60s function timeout killed mid-batch sends. Fixed: `maxDuration: 300s` + `processing_started_at` in-flight lock (5-min window, cleared on success/error).
+- **13 raw upserts:** `lead_sequences.upsert()` across 9 files overwrote `paused_emergency`/`error` statuses to `active`. Consolidated into `_lib/safe-enrol-sequence.js` with sticky-status guard.
+- **Stripe re-activation:** Every Stripe webhook event upserted enrollment to `active`. Now uses `safeEnrolSequence`.
+- **DB trigger bypass:** `enrol_unqualified_in_qualification_seq()` trigger wrote directly to `lead_sequences`, bypassing API null-email guards. Added `IF NEW.email IS NULL` guard in trigger function.
+
+**Day 2 root causes:**
+- **AI scratchpad shipping:** `personaliseMessage()` returned Claude's reasoning ("I don't have the lead's first name...") when lead had no name/company. Layer 1: skip AI entirely when no personalisable data. Layer 2: 18 blocked meta-language patterns scanned before every send.
+- **Email-as-name:** 5 upstream intake files defaulted `name = email` when no real name provided. Fixed to `name: null`. `resolveContactFields` now detects email-shaped names.
+- **Generic prefix names:** `cleanEmailToName` now blocks `info@`, `sales@`, `support@` etc. and requires ≥2 alpha characters.
+
+**Commits:** bb0d645, b4b37ba, 1a6f8de, 635745d, 0706111, d7caaff, de18b23, 05a3a0d, 0ed3f85, 6e37c3c.
+
+**Diagnostic fingerprints:** Identical-millisecond `next_step_at` across rows = self-heal/bulk-update; Vercel Runtime Timeout mid-batch = function killed; email says "Hi rob@engwx.com" = mergePlaceholders not sanitizing; email says "I don't have the lead's first name" = AI scratchpad (Layer 2 blocks, Layer 1 is the proper fix).
+
+**Smoke test pattern:** Dedicated test sequence on isolated tenant. Three cases: clean lead, null-name lead, email-as-name lead. `curl -X POST .../api/sequences?action=process`. Verify completion + body content. Fire second curl to verify no duplicate send.
+
 ---
 
 ## 10. TCR / Compliance

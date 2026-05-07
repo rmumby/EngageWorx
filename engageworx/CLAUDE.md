@@ -16,29 +16,33 @@ This is the standing instruction set for every Claude Code session on the Engage
 - After every build: suggest **ONE** optimization or simplification that would improve the feature without scope creep. Rob decides if it's in or deferred.
 - After every build: flag **ONE** thing that could streamline via AI that currently requires manual work or clicks.
 - Never add new config storage (new table, new JSON blob) without checking if existing config infrastructure can be extended instead.
-- ### Documentation Sync Requirement
+- ### Platform reference doc is source of truth
 
-Any change that adds or modifies the following must be reflected in the
-platform reference doc (the EngageWorx project's `engageworx-platform-code-reference.md`)
-in the SAME commit/PR:
+After shipping any feature, schema change, endpoint, or behavior change, update `engageworx-platform-code-reference.md` in the same commit. The reference doc is the cross-chat source of truth — without it being current, any other Claude session (specs, customer comms, support drafts) operates on stale assumptions.
 
-- New database tables or significant column additions (Section 5)
-- New API endpoints or routes (Section 8)
-- New environment variables (Section 6)
-- New tech stack components or vendor changes (Section 3)
-- Changes to pricing tiers or plan limits (Section 7)
-- Changes to tenant architecture or customer types (Section 2)
-- New recurring issue patterns or fixes worth documenting (Section 9)
-- TCR/compliance pattern changes (Section 10)
+**What requires a doc update:**
+- New table → add row to Section 5 with purpose and notable columns
+- New endpoint → add row to Section 8 with file path and one-line purpose
+- New env var → add to Section 6
+- New tenant config field → mention in Section 2 if it gates behavior, Section 5 if it's data
+- New pricing/plan/limit change → Section 7
+- New recurring issue + fix → Section 9
+- New compliance pattern → Section 10
+- New channel capability → Section 11
+- New tech stack component or vendor change → Section 3
+- Changes to tenant architecture or customer types → Section 2
 
-If the platform reference doc lives outside this repo, output the exact
-markdown diff to apply, clearly labeled, at the end of the build summary
-so Rob can paste it into the project doc immediately.
+**What does NOT require a doc update:**
+- Bug fixes that don't change behavior
+- Refactors that preserve external surface
+- Test additions
+- Docs typos
 
-Rationale: The platform reference doc is the source of truth shared across
-all Claude surfaces (chat sessions, other Claude Code sessions, AI
-collaborators). Stale docs cause duplicate tables, conflicting migrations,
-and rework. Doc-in-the-same-PR is non-negotiable.
+Format: match existing section style. Add to existing tables and sections, don't reorganize.
+
+Commit message convention: when the change includes a doc update, prefix or suffix with `[doc]` so the weekly summary cron can identify intentional updates vs raw commits.
+
+If the platform reference doc lives outside this repo, output the exact markdown diff to apply, clearly labeled, at the end of the build summary so Rob can paste it into the project doc immediately.
 
 ## Code Quality
 
