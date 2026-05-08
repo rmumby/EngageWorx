@@ -1,10 +1,11 @@
 // api/cron-signup-recovery.js
-// Runs every hour via Vercel Cron
+// Runs every 6h via Vercel Cron
 // Finds users who signed up but have no tenant after 1 hour
 // Creates Pipeline lead + Contact + enrolls in abandoned checkout sequence
+// Does NOT send email directly — the sequence engine handles all outreach.
+// recovery_email_sent_at is set after successful enrollment to prevent re-processing.
 
 const { createClient } = require('@supabase/supabase-js');
-var { sendTenantEmail } = require('./_lib/send-tenant-email');
 
 const SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
@@ -122,21 +123,22 @@ module.exports = async function handler(req, res) {
         }
 
         // Enrol in abandoned checkout sequence (cancel-and-replace if needed)
+        // Sequence engine handles all outreach — no direct email from this cron.
+        var enrolled = false;
         if (seqId) {
           try {
-            // Check for existing active enrollment
             var existingEnrol = await supabase.from('lead_sequences').select('id, sequence_id, sequences(name)').eq('lead_id', leadId).eq('status', 'active').maybeSingle();
             if (existingEnrol.data && existingEnrol.data.sequence_id === seqId) {
               console.log('[Cron] Lead', leadId, 'already enrolled in recovery sequence — skipping');
+              enrolled = true;
             } else {
               if (existingEnrol.data) {
                 var oldName = (existingEnrol.data.sequences && existingEnrol.data.sequences.name) || 'unknown';
                 await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', existingEnrol.data.id);
-                console.log('[cron-signup-recovery] Cancelled existing enrollment in', oldName, 'for lead', leadId, 'to make room for recovery');
-                // Audit log
+                console.log('[cron-signup-recovery] Cancelled existing enrollment in', oldName, 'for lead', leadId);
                 try {
                   await supabase.from('lead_sequence_events').insert({ tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: existingEnrol.data.sequence_id, event_type: 'cancelled', reason: 'Replaced by Abandoned Checkout Recovery (more specific to lead state)' });
-                } catch (logErr) { console.warn('[cron-signup-recovery] Audit log error:', logErr.message); }
+                } catch (logErr) {}
               }
               const { data: firstStep } = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', seqId).eq('step_number', 1).maybeSingle();
               const startDate = new Date();
@@ -144,65 +146,26 @@ module.exports = async function handler(req, res) {
               var _safeEnrol = require('./_lib/safe-enrol-sequence');
               var enrolResult = await _safeEnrol.safeEnrolSequence(supabase, { tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId, next_step_at: startDate.toISOString() });
               if (!enrolResult.enrolled && enrolResult.reason === 'upsert_error') throw new Error(enrolResult.error);
-              // Audit log
+              enrolled = enrolResult.enrolled;
               try {
                 await supabase.from('lead_sequence_events').insert({ tenant_id: SP_TENANT_ID, lead_id: leadId, sequence_id: seqId, event_type: 'enrolled', reason: 'Orphan signup detected — abandoned checkout recovery' });
-              } catch (logErr) { console.warn('[cron-signup-recovery] Audit log error:', logErr.message); }
+              } catch (logErr) {}
             }
           } catch (enrolErr) {
             console.error('[cron-signup-recovery] Enrol error for lead', leadId, ':', enrolErr.message);
-            // TODO: migrate to send-notification.js when internal email path is rebuilt
-            console.error('[cron-signup-recovery] ADMIN ALERT: enrol failed for', user.email, 'lead', leadId, ':', enrolErr.message);
           }
+        } else {
+          // No sequence found — still mark as processed to avoid infinite loop
+          console.warn('[cron-signup-recovery] No abandoned checkout sequence found — marking processed anyway');
+          enrolled = true;
         }
 
-        // Send recovery email via sendTenantEmail (white-label, audit trail)
-        var recoverySubject = 'Did you have any questions about EngageWorx?';
-        var recoveryFirstName = (user.full_name || '').split(' ')[0] || 'there';
-        var recoveryHtml = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
-          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">Hi ' + recoveryFirstName + ',</p>' +
-          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">I noticed you signed up for EngageWorx but didn\'t complete the payment step — no worries at all.</p>' +
-          '<p style="font-size:15px;color:#1e293b;line-height:1.7;">If you had any questions or hit a snag, just reply to this email and I\'ll get back to you personally.</p>' +
-          '<div style="text-align:center;margin:28px 0;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a></div>' +
-          '<div style="text-align:center;margin:0 0 24px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
-          '<p style="font-size:13px;color:#64748b;">Rob Mumby · Founder & CEO, EngageWorx · +1 (786) 982-7800 · engwx.com</p></div>';
-
-        var emailSent = false;
-        try {
-          await sendTenantEmail(supabase, {
-            tenant_id: SP_TENANT_ID,
-            to: user.email,
-            from_name: 'Rob at EngageWorx',
-            subject: recoverySubject,
-            html: recoveryHtml,
-          });
-          emailSent = true;
-        } catch (emailErr) {
-          console.error('[cron-signup-recovery] Recovery email failed for', user.email, ':', emailErr.message);
-        }
-
-        // Audit: write to messages table
-        try {
-          var contactRow = await supabase.from('contacts').select('id').eq('email', user.email).eq('tenant_id', SP_TENANT_ID).limit(1).maybeSingle();
-          var contactId = contactRow.data ? contactRow.data.id : null;
-          await supabase.from('messages').insert({
-            tenant_id: SP_TENANT_ID,
-            contact_id: contactId,
-            channel: 'email',
-            direction: 'outbound',
-            sender_type: 'bot',
-            body: recoveryHtml,
-            status: emailSent ? 'sent' : 'failed',
-            metadata: { source: 'signup_recovery', subject: recoverySubject, to: user.email },
-            created_at: new Date().toISOString(),
-          });
-        } catch (msgErr) {
-          console.warn('[cron-signup-recovery] Messages audit insert error:', msgErr.message);
-        }
-
-        // Mark user as processed — prevents re-sending on next cron tick
-        if (emailSent) {
+        // Mark user as processed ONLY on successful enrollment — retry on next tick if failed
+        if (enrolled) {
           await supabase.from('user_profiles').update({ recovery_email_sent_at: new Date().toISOString() }).eq('id', user.id);
+          console.log('[Cron] Enrolled for outreach via sequence:', user.email, '→ lead', leadId);
+        } else {
+          console.warn('[cron-signup-recovery]', user.email, '— enrollment failed, will retry next tick');
         }
 
         console.log(`[Cron] Processed: ${user.email} → lead ${leadId}`);

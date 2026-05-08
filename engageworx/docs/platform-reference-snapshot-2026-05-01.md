@@ -393,7 +393,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 |-------|----------|---------|
 | `/api/cron-stale-leads` | Hourly | Flag stale pipeline leads. Recipients via tenant config; queues if none (no Rob fallback). |
 | `/api/cron-tenant-engagement` | Daily | Tenant health/engagement |
-| `/api/cron-signup-recovery` | Every 6h | Recover abandoned signups |
+| `/api/cron-signup-recovery` | Every 6h | Recover abandoned signups. Creates lead/contact + enrolls in Abandoned Checkout Recovery sequence. Does NOT send email directly — sequence engine handles all outreach. Dedup via user_profiles.recovery_email_sent_at (set after successful enrollment). |
 | `/api/cron-email-digest` | Hourly | Generate/send email digests. Recipients via tenant config; queues if none (no Rob fallback). |
 | `/api/cron-digest-scheduled` | 30min | Execute scheduled digest actions |
 | `/api/cron-usage-alerts` | Daily | Usage threshold alerts. Via notifyTenantAdmins; no CC-to-Rob at 90%. |

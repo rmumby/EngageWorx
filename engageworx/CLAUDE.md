@@ -51,6 +51,16 @@ If the platform reference doc lives outside this repo, output the exact markdown
 - Errors return actionable messages; never leak stack traces or internal IDs.
 - Log the `tenant_id` on every significant operation for audit and debugging.
 
+### Single sender per outreach event
+
+For any given outreach event (lead, recovery, follow-up, etc.), only ONE code path should be responsible for sending the email. Multiple paths sending in response to the same event causes duplicate-send incidents.
+
+If a cron enrolls a lead in a sequence, the sequence engine sends. The cron does NOT also send. The cron's responsibility ends at enrollment.
+
+If a webhook creates a tenant, the welcome email comes from ONE place — usually a sequence, not multiple direct sends from the webhook handler.
+
+When in doubt, the sequence engine is the canonical sender. Direct sends from crons/webhooks should be reserved for events that shouldn't be on a multi-step cadence (e.g., immediate acknowledgments, transactional confirmations).
+
 ### Email sends MUST go through sendTenantEmail
 
 All outbound emails to leads, contacts, customers, or any external recipient MUST be sent via the `sendTenantEmail()` helper. Direct SMTP calls (`sgMail.send`, `transporter.sendMail`, `nodemailer.createTransport`) are BANNED in any code path that touches lead/contact/customer data.
