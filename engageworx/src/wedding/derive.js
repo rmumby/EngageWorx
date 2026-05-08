@@ -6,7 +6,7 @@
 // these come from the underlying state of the plan, suppliers, menu, and
 // seating. Centralising the derivation here keeps the component dumb.
 
-import { formatGBDate } from './freeze';
+import { formatGBDate, toLocalDate as parseLocalDate } from './freeze';
 
 /**
  * Derive the To Do list shown on the dashboard.
@@ -100,7 +100,7 @@ export function deriveTasks({ plan, suppliers = [], menuChoices = [], seating = 
  *
  * Mirrors the demo's six milestones. Dates and details come from data.
  */
-export function deriveMilestones({ wedding, plan, suppliers = [], menuChoices = [], freezeState }) {
+export function deriveMilestones({ wedding, plan, suppliers = [], menuChoices = [], freezeState, venueConfig }) {
   const guests = plan?.guests || {};
   const supplierTotal = suppliers.length;
   const supplierConfirmed = suppliers.filter((s) => s.status === 'confirmed').length;
@@ -109,9 +109,10 @@ export function deriveMilestones({ wedding, plan, suppliers = [], menuChoices = 
   const menuCourses = menuChoices.map((m) => m.item_name || m.name).filter(Boolean);
   const menuSummary = menuCourses.length ? menuCourses.join(' · ') : null;
 
-  const weddingDay = wedding?.wedding_date ? new Date(wedding.wedding_date) : null;
+  const checkInDaysBefore = venueConfig?.check_in_days_before ?? 2;
+  const weddingDay = wedding?.wedding_date ? parseLocalDate(wedding.wedding_date) : null;
   const checkInDay = weddingDay
-    ? new Date(weddingDay.getTime() - 2 * 86_400_000)
+    ? new Date(weddingDay.getTime() - checkInDaysBefore * 86_400_000)
     : null;
 
   const milestones = [];
