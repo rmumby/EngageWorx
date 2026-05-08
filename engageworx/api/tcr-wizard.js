@@ -1,5 +1,5 @@
 // api/tcr-wizard.js — Self-service TCR registration wizard
-// Tenant-facing. No Rob in the loop. Telnyx integration mocked until API keys land.
+// Tenant-facing. No Rob in the loop. Supplier-aware (Telnyx or Twilio per tenant).
 //
 // Actions: start, save_step, ai_validate, ai_pre_fill, submit, interpret_rejection, status
 //
@@ -7,7 +7,7 @@
 // Per single-sender principle: only this endpoint creates wizard sessions.
 
 var { createClient } = require('@supabase/supabase-js');
-var tcrSupplier = require('./_lib/tcr-supplier');
+var { loadSupplier, USECASE_ENUM } = require('./_lib/tcr-supplier');
 
 var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
@@ -79,12 +79,11 @@ async function runAiValidation(session, reference) {
     }
   }
 
-  // AI content validation via Claude — aligned to Telnyx use case enum
-  var { USECASE_ENUM } = require('./_lib/tcr-supplier');
+  // AI content validation via Claude — TCR use case enum applies to all suppliers
   var sampleMessages = campaign.sample_messages || [];
   var declaredUseCase = (campaign.use_case || 'MIXED').toUpperCase();
-  var prompt = 'You are a TCR (The Campaign Registry) compliance reviewer for A2P 10DLC SMS campaigns submitted via Telnyx.\n\n' +
-    'TELNYX USE CASE ENUM: ' + USECASE_ENUM.join(', ') + '\n\n' +
+  var prompt = 'You are a TCR (The Campaign Registry) compliance reviewer for A2P 10DLC SMS campaigns.\n\n' +
+    'TCR USE CASE ENUM (standard across all suppliers): ' + USECASE_ENUM.join(', ') + '\n\n' +
     'DECLARED USE CASE: ' + declaredUseCase + '\n\n' +
     'BRAND:\n' + JSON.stringify(brand, null, 2) + '\n\n' +
     'CAMPAIGN:\n' + JSON.stringify(campaign, null, 2) + '\n\n' +
@@ -140,7 +139,7 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
   var brand = session.brand_data || {};
   var campaign = session.campaign_data || {};
 
-  var { USECASE_ENUM: _UC } = require('./_lib/tcr-supplier');
+  var _UC = USECASE_ENUM;
   var promptMap = {
     brand_description: 'Write a 1-2 sentence brand description for TCR registration. Brand: ' + (brand.legal_name || brand.dba || tenantInfo.name || 'Unknown') + '. Industry: ' + (brand.vertical || 'technology') + '. Keep it factual, professional, under 100 words.',
     use_case: 'Suggest a use_case category for this TCR campaign.\n\n' +
@@ -356,9 +355,10 @@ module.exports = async function handler(req, res) {
         .select('amount_cents').eq('fee_type', 'campaign_registration').eq('use_case', 'standard').maybeSingle();
       var totalCents = ((brandFee && brandFee.amount_cents) || 5000) + ((campaignFee && campaignFee.amount_cents) || 1500);
 
-      // Submit to supplier (mocked)
-      var brandResult = await tcrSupplier.createBrand(session.brand_data);
-      var campaignResult = await tcrSupplier.createCampaign(brandResult.supplier_brand_id, session.campaign_data);
+      // Submit to supplier (routed by tenant.phone_supplier)
+      var supplier = await loadSupplier(supabase, session.tenant_id);
+      var brandResult = await supplier.createBrand(session.brand_data);
+      var campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session);
 
       // Update session
       var { data: submitted, error: submitErr } = await supabase.from('tcr_wizard_sessions').update({
@@ -375,14 +375,15 @@ module.exports = async function handler(req, res) {
 
       if (submitErr) return res.status(500).json({ error: submitErr.message });
 
-      console.log('[TCR Wizard] Submitted session', sessionId, 'brand:', brandResult.supplier_brand_id, 'campaign:', campaignResult.supplier_campaign_id, 'mode:', tcrSupplier.getMode());
+      console.log('[TCR Wizard] Submitted session', sessionId, 'supplier:', supplier.supplierName, 'brand:', brandResult.supplier_brand_id, 'campaign:', campaignResult.supplier_campaign_id, 'mode:', supplier.getMode());
       return res.status(200).json({
         success: true,
         session: submitted,
         supplier_brand_id: brandResult.supplier_brand_id,
         supplier_campaign_id: campaignResult.supplier_campaign_id,
         fee_cents: totalCents,
-        supplier_mode: tcrSupplier.getMode(),
+        supplier_name: supplier.supplierName,
+        supplier_mode: supplier.getMode(),
       });
     }
 
@@ -428,8 +429,9 @@ module.exports = async function handler(req, res) {
       // If submitted, poll supplier for latest status
       if (session.status === 'submitted' && session.supplier_brand_id) {
         try {
-          var brandStatus = await tcrSupplier.getBrandStatus(session.supplier_brand_id);
-          var campaignStatus = session.supplier_campaign_id ? await tcrSupplier.getCampaignStatus(session.supplier_campaign_id) : { campaign_status: 'PENDING', mno_status: {} };
+          var supplier = await loadSupplier(supabase, session.tenant_id);
+          var brandStatus = await supplier.getBrandStatus(session.supplier_brand_id);
+          var campaignStatus = session.supplier_campaign_id ? await supplier.getCampaignStatus(session.supplier_campaign_id) : { campaign_status: 'PENDING', mno_status: {} };
 
           // Persist latest MNO + campaign status
           var statusUpdate = {

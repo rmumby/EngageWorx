@@ -100,6 +100,19 @@
 
 Exception: Anthropic Claude can be confirmed if customer asks directly.
 
+Both Telnyx and Twilio are undisclosed externally — refer to as "underlying CSP infrastructure" regardless of which supplier a tenant uses.
+
+---
+
+## 4b. Supplier Strategy
+
+Hybrid supplier model: Telnyx for new tenants (lower cost, campaignBuilder API), Twilio for existing tenants (already provisioned).
+
+- `tenants.phone_supplier` column controls routing: `'twilio'` (default for existing) or `'telnyx'`
+- TCR wizard routes via `api/_lib/tcr-supplier.js` dispatcher → loads `tcr-supplier-telnyx.js` or `tcr-supplier-twilio.js` per tenant
+- Voice, SMS send paths will follow the same pattern when supplier-aware routing extends beyond TCR
+- Conecta Cloud (tenant `8bb1ab11`) is the first tenant on Telnyx
+
 ---
 
 ## 5. Database Tables
@@ -107,7 +120,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Core Tables
 | Table | Purpose | RLS | Key Columns |
 |-------|---------|-----|-------------|
-| `tenants` | Tenant records | Yes | id, name, customer_type, entity_tier, parent_tenant_id, legal_entity_id, plan, email_send_method, primary_contact_email, primary_contact_first_name, primary_contact_last_name, contract_type |
+| `tenants` | Tenant records | Yes | id, name, customer_type, entity_tier, parent_tenant_id, legal_entity_id, plan, email_send_method, phone_supplier ('twilio'\|'telnyx'), primary_contact_email, primary_contact_first_name, primary_contact_last_name, contract_type |
 | `tenant_members` | User-tenant membership | Yes | user_id, tenant_id, role, status, notify_email, notify_on_escalation/signup/payment/new_lead |
 | `user_profiles` | User data | Yes | id, email, full_name, tenant_id, role, phone_number, sender_email |
 | `contacts` | Customer contacts | Yes | tenant_id, email, first_name, last_name, company, title, is_vip, vip_marked_at, priority_until |
@@ -376,7 +389,9 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 | `action-item-generator.js` | AI action-item generator for pipeline/engagement events |
 | `reply-thread.js` | Email thread ID generation + reply-to address builder |
 | `platform-config.js` | Platform config loader with caching |
-| `tcr-supplier.js` | Telnyx TCR adapter. Mock mode (default) returns simulated brand/campaign IDs. Live mode stubs for when TELNYX_API_KEY lands. |
+| `tcr-supplier.js` | Tenant-aware TCR supplier dispatcher. Routes to telnyx or twilio adapter based on tenants.phone_supplier. Exports loadSupplier(supabase, tenantId). |
+| `tcr-supplier-telnyx.js` | Telnyx TCR adapter (/v2/10dlc/campaignBuilder). Mock + live modes. Exponential backoff for 429s. |
+| `tcr-supplier-twilio.js` | Twilio TCR adapter (stub). Mock mode functional; live mode throws "not yet implemented". |
 
 ### TCR / Compliance
 | Route | Method | Purpose |
