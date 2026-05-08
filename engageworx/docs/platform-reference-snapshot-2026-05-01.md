@@ -356,7 +356,7 @@ Exception: Anthropic Claude can be confirmed if customer asks directly.
 ### Support
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/helpdesk` | POST/GET | Ticket management (escalation emails via sendTenantEmail, no direct SendGrid). AI response + status mapping only — root-cause classification delegated to api/support-triage.js. |
+| `/api/helpdesk` | POST/GET | Ticket management. AI response + status mapping only — root-cause classification delegated to api/support-triage.js. AI [ESCALATE] prefix sets status=escalated in DB; NO email sent. Visibility via needs_platform_review + dashboard badge. Manual escalation routes via notifyTenantAdmins (queues if no recipients). |
 | `/api/support-triage` | POST | Auto-triage tickets (single source of truth for classification). Maps USER_ERROR/CONFIG_ISSUE/CODE_BUG/UNKNOWN → support_tickets.root_cause_type (user_level/tenant_level/platform_level/unknown). CODE_BUG and UNKNOWN flag via support_tickets.needs_platform_review. |
 | `/api/send-digest-reply` | POST | Digest reply as email |
 
@@ -508,6 +508,16 @@ Fix: removed the direct `sendTenantEmail` from cron-signup-recovery entirely. Th
 New architectural principle added to CLAUDE.md: **"Single sender per outreach event"** — for any given event, only one code path sends the email. If a cron enrolls a lead in a sequence, the sequence engine sends. The cron does NOT also send.
 
 **Diagnostic pattern added:** Same recipient getting emails from two different sources (cron direct + sequence) = dual-sender architecture. Check if the cron both sends AND enrolls.
+
+### AI escalation duplicate-send — Round 4.5, May 7 evening
+
+Symptom: Phase 8 verification ticket (TKT-202605-0014) emailed Rob with subject "AI Escalation: TKT-202605-0014" despite the new `flagForPlatformReview()` DB path being live and working. Rob received the email hours after the ticket was created.
+
+Root cause: `api/helpdesk.js` `runAIResponse()` had a SEPARATE email path (37 lines) that fired on AI `[ESCALATE]` prefix — completely parallel to the `needs_platform_review` DB flag + dashboard badge built in Phase 5. Two visibility paths for the same event: DB flag (correct) + direct email (legacy).
+
+Fix: deleted the entire AI escalation email block from `runAIResponse()`. AI escalation visibility is now entirely via `status=escalated` + `needs_platform_review=true` in DB, surfaced in HelpDesk dashboard with red badge + stat card + Mark Reviewed button.
+
+Pattern: third instance today of "duplicate sender" structural debt (Round 3: cron + sequences, Round 4: cron-signup-recovery + sequences, Round 4.5: DB flag + email). Each closed one at a time as it surfaced. The "Single sender per outreach event" CLAUDE.md principle was added after Round 4 to prevent future instances.
 
 ### Helpdesk ticket stuck in "AI handled + Open" state — May 7, 2026
 

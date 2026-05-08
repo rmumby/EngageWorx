@@ -193,47 +193,10 @@ async function runAIResponse(ticket, latestMessage, history) {
       escalation_data: isEscalated ? { reason: cleanText } : null
     });
 
-    // ── Send escalation email notification ────────────────────────────────
+    // AI escalation visibility is via HelpDesk dashboard (needs_platform_review badge + stat card).
+    // No per-ticket email — per CLAUDE.md "Single sender per outreach event" rule.
     if (isEscalated) {
-      try {
-        var notifyTenantId = ticket.tenant_id || (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-        var notifyEmails = await getNotifyEmails(notifyTenantId, 'notify_on_escalation');
-        if (notifyEmails.length > 0) {
-          var tn = ticket.ticket_number || ticket.id;
-          var portalUrl = 'https://portal.engwx.com';
-          var escalHtml =
-            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
-            '<div style="background:linear-gradient(135deg,#FF6B35,#FF3B30);padding:20px 24px;border-radius:10px 10px 0 0;">' +
-            '<h2 style="color:#fff;margin:0;font-size:18px;">🚨 AI Escalation — Human Required</h2>' +
-            '<p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">AI could not resolve this ticket</p>' +
-            '</div>' +
-            '<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;">' +
-            '<table style="width:100%;border-collapse:collapse;font-size:14px;">' +
-            '<tr><td style="padding:8px 0;color:#64748b;width:140px;">Ticket</td><td style="padding:8px 0;font-weight:700;color:#1e293b;">' + tn + '</td></tr>' +
-            '<tr><td style="padding:8px 0;color:#64748b;">Subject</td><td style="padding:8px 0;color:#1e293b;">' + ticket.subject + '</td></tr>' +
-            '<tr><td style="padding:8px 0;color:#64748b;">From</td><td style="padding:8px 0;color:#1e293b;">' + (ticket.submitter_name || ticket.submitter_email || 'Unknown') + '</td></tr>' +
-            '<tr><td style="padding:8px 0;color:#64748b;">Category</td><td style="padding:8px 0;color:#1e293b;">' + (ticket.category || 'General') + '</td></tr>' +
-            '</table>' +
-            '<div style="margin:16px 0;padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">' +
-            '<div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">AI Escalation Reason</div>' +
-            '<div style="color:#334155;font-size:14px;line-height:1.6;">' + cleanText.substring(0, 300) + '</div>' +
-            '</div>' +
-            '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View Ticket →</a>' +
-            '</div></div>';
-          for (var nei = 0; nei < notifyEmails.length; nei++) {
-            await sendTenantEmail(supabase, {
-              tenant_id: notifyTenantId,
-              to: notifyEmails[nei],
-              subject: '🚨 AI Escalation: ' + tn + ' — ' + ticket.subject,
-              html: escalHtml,
-              text: 'Ticket ' + tn + ' escalated by AI.\n\nSubject: ' + ticket.subject + '\nFrom: ' + (ticket.submitter_name || ticket.submitter_email || 'Unknown') + '\nReason: ' + cleanText.substring(0, 300) + '\n\nView: ' + portalUrl,
-            });
-          }
-          console.log('AI escalation email sent to:', notifyEmails);
-        }
-      } catch (escalEmailErr) {
-        console.log('AI escalation email failed (non-fatal):', escalEmailErr.message);
-      }
+      console.log('[helpdesk] AI escalated ticket', ticket.ticket_number || ticket.id, '— visible in dashboard via status=escalated');
     }
 
     return { status: newStatus, confidence: confidence, response: cleanText, escalated: isEscalated, resolved: isResolved };
