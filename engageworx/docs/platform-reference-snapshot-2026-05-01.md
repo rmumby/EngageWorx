@@ -499,6 +499,16 @@ After re-enabling cron from round 1+2 fixes, broken AI scratchpad emails fired a
 - Mixed clean/scratchpad emails to same recipient = parallel send path bypassing safety. Search for direct SMTP calls.
 - "Sent emails not appearing in messages table" = code path skips the audit insert. Hunt that path.
 
+### Sequence/recovery duplicate sender — Round 4, May 7, 2026 (evening)
+
+Symptom: 5pm send despite morning dedup work — same recipient received emails May 5, 1pm today, 5pm today. Investigation revealed cron-signup-recovery had TWO output paths: a direct `sendTenantEmail` call AND a `safeEnrolSequence` call into the Abandoned Checkout Recovery sequence. When `cron-sequences` fired 4 hours later, it processed the sequence step and sent a second email to the same recipient.
+
+Fix: removed the direct `sendTenantEmail` from cron-signup-recovery entirely. The cron now ONLY creates lead/contact + enrolls in the sequence. The sequence engine is the sole sender. `recovery_email_sent_at` semantic changed — now stamps after enrollment success (with retry-if-failed safety), not after email send.
+
+New architectural principle added to CLAUDE.md: **"Single sender per outreach event"** — for any given event, only one code path sends the email. If a cron enrolls a lead in a sequence, the sequence engine sends. The cron does NOT also send.
+
+**Diagnostic pattern added:** Same recipient getting emails from two different sources (cron direct + sequence) = dual-sender architecture. Check if the cron both sends AND enrolls.
+
 ### Helpdesk ticket stuck in "AI handled + Open" state — May 7, 2026
 
 Cause: AI response handler in api/helpdesk.js mapped to invalid status strings ('ai_active') that silently failed DB update due to missing status CHECK enforcement at app layer. Fix: explicit status mapping for [RESOLVED]/[PENDING]/[ESCALATE] prefixes, plus 'pending_review' fallback for unparseable AI output. Update errors now logged loudly instead of swallowed.
