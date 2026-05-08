@@ -45,6 +45,7 @@ import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
 const ApiDocs = lazy(() => import('./ApiDocs'));
+const WeddingDashboard = lazy(() => import('./wedding/WeddingDashboard'));
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
 function useLiveData(demoMode, isSPAdmin) {
@@ -2127,6 +2128,14 @@ var spNavBase = [
       return <Suspense fallback={<div style={{background:'#0a0d14',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading...</div>}><ApiDocs onBack={function() { window.location.href = '/'; }} /></Suspense>;
     }
     return <LandingPage />;
+  }
+
+  // Wedding portal route — intercepts before auth gate (couple sessions won't have tenant)
+  if (window.location.pathname.startsWith('/weddings/')) {
+    var _weddingId = window.location.pathname.split('/weddings/')[1].split('/')[0].split('?')[0];
+    if (_weddingId) {
+      return <Suspense fallback={<div style={{background:'#1a1a2e',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading wedding…</div>}><WeddingDashboard weddingId={_weddingId} /></Suspense>;
+    }
   }
 
   // Signup page should NEVER be interrupted by loading state
