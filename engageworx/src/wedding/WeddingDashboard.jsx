@@ -59,8 +59,7 @@ export default function WeddingDashboard({ weddingId: weddingIdProp, match, para
   }
 
   // ─── Derive display values ─────────────────────────────────────────────
-  const venueName = tenant?.name || venueConfig?.venue_name || 'Your Venue';
-  // venue_location: not in core schema; check meta then venue_config.
+  const venueName = venueConfig?.venue_display_name || tenant?.name || 'Your Venue';
   const venueLocation =
     venueConfig?.venue_location ||
     wedding.meta?.venue_location ||
@@ -86,6 +85,7 @@ export default function WeddingDashboard({ weddingId: weddingIdProp, match, para
     suppliers,
     menuChoices,
     freezeState,
+    venueConfig,
   });
 
   // Sub-line for the days-to-go stat reflects freeze state (matches demo).
