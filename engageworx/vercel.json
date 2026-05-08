@@ -55,10 +55,7 @@
       "maxDuration": 30
     }
   },
-  "crons": [
-    { "path": "/api/cron-sequences", "schedule": "0 */4 * * *" },
-    { "path": "/api/cron-signup-recovery", "schedule": "0 */6 * * *" }
-  ],
+  "crons": [],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/sms-terms", "destination": "/sms-terms.html" },
