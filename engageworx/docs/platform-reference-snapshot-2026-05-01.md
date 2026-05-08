@@ -519,6 +519,16 @@ Fix: deleted the entire AI escalation email block from `runAIResponse()`. AI esc
 
 Pattern: third instance today of "duplicate sender" structural debt (Round 3: cron + sequences, Round 4: cron-signup-recovery + sequences, Round 4.5: DB flag + email). Each closed one at a time as it surfaced. The "Single sender per outreach event" CLAUDE.md principle was added after Round 4 to prevent future instances.
 
+### safeEnrolSequence sticky-status overwrite — Round 5, May 8, 2026
+
+Symptom: 6 cancelled enrollments resurrected to active overnight by signup-recovery cron, then sent emails (Tom + 5 others). All had `lead_sequences.status = 'cancelled'` from the Round 4 cleanup SQL, but were overwritten back to `active` by `safeEnrolSequence`.
+
+Root cause: `STICKY_STATUSES` blocklist in `api/_lib/safe-enrol-sequence.js` was `['error', 'paused_emergency', 'paused', 'cancelled_invalid_lead', 'completed']` — missing `'cancelled'` and all `cancelled_*` variants. When `cron-signup-recovery` called `safeEnrolSequence` for an existing cancelled row, the check passed (not in blocklist), and the upsert overwrote `cancelled` → `active`. The sequence engine then processed the active enrollment and sent the email.
+
+Fix: inverted from blocklist to allowlist. `OVERWRITABLE_STATUSES = ['active']` — only `active` rows can be overwritten. Every other status (cancelled, completed, paused, error, and any future variant) is protected by default. New status strings are safe without code changes.
+
+Pattern lesson: **Allowlist beats blocklist for state-machine guards.** This is the same lesson as the AI safety gates (Layer 2 blocks specific bad patterns, but Layer 1's "skip when name is empty" is the structural safety). Allowlists fail closed; blocklists fail open.
+
 ### Helpdesk ticket stuck in "AI handled + Open" state — May 7, 2026
 
 Cause: AI response handler in api/helpdesk.js mapped to invalid status strings ('ai_active') that silently failed DB update due to missing status CHECK enforcement at app layer. Fix: explicit status mapping for [RESOLVED]/[PENDING]/[ESCALATE] prefixes, plus 'pending_review' fallback for unparseable AI output. Update errors now logged loudly instead of swallowed.
