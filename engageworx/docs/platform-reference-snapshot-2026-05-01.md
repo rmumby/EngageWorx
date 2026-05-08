@@ -537,6 +537,16 @@ Fix: inverted from blocklist to allowlist. `OVERWRITABLE_STATUSES = ['active']` 
 
 Pattern lesson: **Allowlist beats blocklist for state-machine guards.** This is the same lesson as the AI safety gates (Layer 2 blocks specific bad patterns, but Layer 1's "skip when name is empty" is the structural safety). Allowlists fail closed; blocklists fail open.
 
+### Single-sender audit cleanup — Round 5.5, May 8, 2026 evening
+
+Two final DUPLICATE SENDER sites resolved per the single-sender audit:
+
+1. **stripe-webhook.js** (`checkout.session.expired`): handler enrolled lead in Abandoned Checkout Recovery sequence AND sent a direct sgMail recovery email. Same bug class as Round 4. Fix: deleted 27-line sgMail.send block. Sequence handles recovery.
+
+2. **email-inbound.js** (reactivation + auto_reply): when an archived lead's email arrives, `reactivateArchivedLeadsForContact()` enrolls the lead in "New Lead — General Outreach" sequence, AND the AI decision may independently return `auto_reply` (direct send). Fix: `reactivateArchivedLeadsForContact` now returns the count synchronously (awaited, not fire-and-forget). If count > 0, auto_reply is skipped — sequence handles all outreach.
+
+**Single-sender principle is now structurally enforced across all known outreach paths in the codebase.** The audit found 2 DUPLICATE SENDER, 11 SEQUENTIAL (OK), 1 TRANSACTIONAL (OK), 4 ACCEPTABLE (infrastructure), 2 CLEAN (already fixed). Zero DUPLICATE SENDER sites remain.
+
 ### Helpdesk ticket stuck in "AI handled + Open" state — May 7, 2026
 
 Cause: AI response handler in api/helpdesk.js mapped to invalid status strings ('ai_active') that silently failed DB update due to missing status CHECK enforcement at app layer. Fix: explicit status mapping for [RESOLVED]/[PENDING]/[ESCALATE] prefixes, plus 'pending_review' fallback for unparseable AI output. Update errors now logged loudly instead of swallowed.

@@ -438,33 +438,7 @@ module.exports = async function handler(req, res) {
     }
   } catch (seqErr) { console.log('[Stripe] Sequence enrol failed:', seqErr.message); }
 
-  // Recovery email
-  try {
-    var sgMailRecover = require('@sendgrid/mail');
-    sgMailRecover.setApiKey(process.env.SENDGRID_API_KEY);
-    var firstName = expiredName ? expiredName.split(' ')[0] : 'there';
-    var recoverHtml =
-      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:40px 20px;">' +
-      '<div style="text-align:center;margin-bottom:32px;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);display:inline-block;padding:8px 16px;border-radius:8px;"><span style="color:#fff;font-weight:900;font-size:20px;">EngageWorx</span></div></div>' +
-      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Hi ' + firstName + ',</p>' +
-      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">Looks like you started signing up for EngageWorx but didn\'t quite finish — no worries at all.</p>' +
-      '<p style="font-size:15px;color:#1e293b;line-height:1.7;margin:0 0 16px;">If you hit a snag, had a question, or just got pulled away — I\'m happy to help. Just reply to this email and I\'ll get back to you personally.</p>' +
-      '<div style="text-align:center;margin:28px 0;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:800;font-size:15px;">Complete Signup →</a></div>' +
-      '<div style="text-align:center;margin:0 0 32px;"><a href="https://calendly.com/rob-engwx/30min" style="display:inline-block;border:2px solid #00C9FF;color:#00C9FF;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book a Quick Call →</a></div>' +
-      '<table cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:16px;vertical-align:top;"><div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:900;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div></td><td style="vertical-align:top;"><div style="font-weight:bold;color:#222;font-size:14px;">Rob Mumby</div><div style="color:#555;font-size:13px;">Founder &amp; CEO, EngageWorx</div><div style="margin-top:4px;font-size:12px;"><a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> | <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a></div></td></tr></table></div>';
-
-    var spRecoverCfg = await getSPEmailConfig();
-    await sgMailRecover.send({
-      to: expiredEmail,
-      from: { email: spRecoverCfg.from, name: spRecoverCfg.fromName },
-      subject: 'Did you have any questions about EngageWorx?',
-      text: 'Hi ' + firstName + ',\n\nLooks like you started signing up but didn\'t quite finish.\n\nReady to jump back in? portal.engwx.com\n\nBook a quick call: calendly.com/rob-engwx/30min\n\nRob Mumby\nFounder & CEO, EngageWorx',
-      html: recoverHtml,
-    });
-    console.log('[Stripe] Recovery email sent to:', expiredEmail);
-  } catch (recoverErr) {
-    console.log('[Stripe] Recovery email failed (non-fatal):', recoverErr.message);
-  }
+  // Recovery outreach handled by Abandoned Checkout Recovery sequence — single-sender principle (CLAUDE.md)
 
   break;
 }

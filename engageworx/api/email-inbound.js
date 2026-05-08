@@ -350,7 +350,11 @@ async function analyzeAndActionEmail(ctx) {
     var actionId = ins.data ? ins.data.id : null;
 
     // 5. Auto-execute if Claude chose auto_reply (email/WhatsApp only, not SMS)
-    if (decision.action === 'auto_reply' && decision.reply_draft && match.tenantId) {
+    // Single-sender principle: if reactivation enrolled the lead in a sequence, skip auto_reply.
+    // The sequence engine handles all outreach for this lead.
+    if (decision.action === 'auto_reply' && _reactivatedCount > 0) {
+      console.log('[email-inbound] Skipping auto_reply for', sender, '— reactivation enrolled in sequence (single-sender principle)');
+    } else if (decision.action === 'auto_reply' && decision.reply_draft && match.tenantId) {
       try {
         var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
         var _sig = require('./_email-signature');
@@ -1007,7 +1011,8 @@ module.exports = async function handler(req, res) {
     pauseSequencesForContact(senderEmail).catch(function() {});
 
     // ── Reactivate archived leads on reply ────────────────────────────────────
-    reactivateArchivedLeadsForContact(senderEmail).catch(function() {});
+    var _reactivatedCount = 0;
+    try { _reactivatedCount = await reactivateArchivedLeadsForContact(senderEmail); } catch (e) {}
 
     // ── Qualify unqualified prospects on reply ────────────────────────────────
     tryQualifyProspect(senderEmail, emailBody, 'Email').catch(function() {});
