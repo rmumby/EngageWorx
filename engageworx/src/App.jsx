@@ -426,12 +426,14 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     };
     var planVal = configForm.plan || tenant.plan;
     var defaults = planDefaults[planVal] || {};
-    var result = await supabase.from('tenants').update({
+    var updatePayload = {
       plan: planVal,
       message_limit: defaults.message_limit || tenant.message_limit,
       contact_limit: defaults.contact_limit || tenant.contact_limit,
       user_seats: defaults.user_seats || tenant.user_seats || 10,
-    }).eq('id', tenant.id);
+    };
+    if (configForm.custom_plan_label !== undefined) updatePayload.custom_plan_label = configForm.custom_plan_label.trim() || null;
+    var result = await supabase.from('tenants').update(updatePayload).eq('id', tenant.id);
     console.log('[SaveTenant]', planVal, defaults);
     setConfiguringTenant(null);
     window.location.reload();
@@ -1269,6 +1271,15 @@ setDemoCreating(false);
                         <select style={inputStyleTM}><option>100 req/sec</option><option>50 req/sec</option><option>200 req/sec</option><option>Unlimited</option></select>
                       </div>
                     </div>
+                    {getPlanVisibility({ slug: configForm.plan || c.plan, monthly_price: null, is_csp_tier: false }) === 'custom' && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Custom Plan Label</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input value={configForm.custom_plan_label !== undefined ? configForm.custom_plan_label : (c.custom_plan_label || '')} onChange={function(e){ setConfigForm(function(f){ return Object.assign({}, f, {custom_plan_label: e.target.value}); }); }} placeholder={'e.g. Enterprise Premium, Hybrid CSP'} style={Object.assign({}, inputStyleTM, { flex: 1 })} />
+                        <div style={{ color: C.muted, fontSize: 10, whiteSpace: 'nowrap' }}>Shown instead of plan slug</div>
+                      </div>
+                    </div>
+                    )}
                     <div style={{ display: "flex", gap: 10 }}>
                       <button onClick={() => handleSaveTenantConfig(c)} style={{ background: "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                       <button onClick={() => { openBrandEditor(c); setActiveTab("branding"); setConfiguringTenant(null); }} style={{ background: "rgba(124,77,255,0.13)", border: "1px solid rgba(124,77,255,0.27)", borderRadius: 8, padding: "8px 18px", color: "#7C4DFF", fontWeight: 600, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Edit Branding</button>
