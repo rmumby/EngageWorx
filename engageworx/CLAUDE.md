@@ -182,3 +182,11 @@ Exception: Anthropic Claude can be confirmed if a customer asks directly about A
   - When CSP/agent invites a sub-tenant, dropdown reads from THEIR retail plans, not platform_config
   - Plan margin tracking: CSP buys at wholesale (e.g. csp_platform $499), sells at their retail price, platform shows the spread for analytics
   - Discuss with Erik @ 0wire as design partner before building. (Identified 2026-04-30)
+
+### Git & Commit Hygiene
+
+- **No AI attribution in commit messages.** Never add `Co-Authored-By: Claude`, model identifiers ("Opus 4.6", "Sonnet", "1M context"), or any trailer that reveals AI was used in authorship. Plain commit messages only.
+- **Section 0 disclosure rules apply to commit history.** Don't name underlying infrastructure vendors (Twilio, Supabase, Resend, Vercel, Cloudflare, Anthropic) in commit subjects, bodies, or trailers. Use approved language patterns when describing changes to those layers — git history is visible in tech diligence.
+- **Imperative, descriptive messages.** What changed and why. Reference audit dates or issue numbers when useful.
+- **Catch attribution and disclosure issues at commit time.** Never push first and amend later — once it's on origin, the trailer is in history regardless of force-push.
+- **Never `git push --force` to main.** If history needs rewriting, do it on a branch and merge cleanly.
