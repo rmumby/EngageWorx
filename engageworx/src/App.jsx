@@ -1846,7 +1846,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
         )}
-        {page === "sms-registration" && <TCRWizard tenantId={tenantId} C={C} />}
+        {page === "sms-registration" && <TCRWizard tenantId={tenantId} C={C} fallbackComponent={<TCRRegistration tenantId={tenantId} C={C} />} />}
         {page === "pipeline" && entityTier === 'csp' && (
           <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
         )}

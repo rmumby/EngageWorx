@@ -33,7 +33,7 @@ var btnPrimary = { padding: '12px 28px', borderRadius: 10, border: 'none', backg
 var btnSecondary = { padding: '12px 28px', borderRadius: 10, border: '1px solid #E8EAF0', background: '#fff', color: '#0D1117', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" };
 var card = { background: '#fff', border: '1px solid #E8EAF0', borderRadius: 14, padding: '28px 32px', marginBottom: 20 };
 
-export default function TCRWizard({ tenantId, C }) {
+export default function TCRWizard({ tenantId, C, fallbackComponent }) {
   var [tenant, setTenant] = useState(null);
   var [loading, setLoading] = useState(true);
   var [step, setStep] = useState(0);
@@ -82,6 +82,8 @@ export default function TCRWizard({ tenantId, C }) {
   // Eligibility gates
   if (!tenant) return <div style={card}><p style={{ color: '#6B7280' }}>Tenant not found.</p></div>;
   if (tenant.phone_supplier !== 'telnyx') {
+    // Non-telnyx tenants use the legacy TCR registration flow
+    if (fallbackComponent) return fallbackComponent;
     return (
       <div style={card}>
         <h2 style={{ color: '#0D1117', fontSize: 20, fontWeight: 700, margin: '0 0 12px' }}>TCR Registration</h2>
