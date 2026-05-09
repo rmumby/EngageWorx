@@ -43,27 +43,8 @@ const DEMO_CONVERSATIONS = [
   ]},
 ];
 
-const BOT_ANALYTICS = {
-  totalConversations: 12847,
-  avgResolutionTime: "1.8 min",
-  satisfactionScore: 94.2,
-  escalationRate: 8.7,
-  containmentRate: 91.3,
-  topIntents: [
-    { name: "Pricing inquiry", pct: 28, count: 3597 },
-    { name: "Technical support", pct: 22, count: 2826 },
-    { name: "Account management", pct: 18, count: 2312 },
-    { name: "Product features", pct: 15, count: 1927 },
-    { name: "Billing questions", pct: 10, count: 1285 },
-    { name: "Other", pct: 7, count: 900 },
-  ],
-  dailyVolume: [
-    { day: "Mon", count: 2100 }, { day: "Tue", count: 2340 },
-    { day: "Wed", count: 1980 }, { day: "Thu", count: 2560 },
-    { day: "Fri", count: 2150 }, { day: "Sat", count: 890 },
-    { day: "Sun", count: 827 },
-  ],
-};
+// BOT_ANALYTICS removed — was hardcoded mock data (audit May 2026).
+// Real analytics will query conversations + messages tables scoped by tenant_id.
 
 export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("configure");
@@ -388,24 +369,7 @@ saveAIConfig(newSources);
             </div>
           </div>
 
-          {/* KPI Row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 24 }}>
-            {[
-              { label: "Conversations", value: BOT_ANALYTICS.totalConversations.toLocaleString(), color: C.primary, icon: "💬" },
-              { label: "Avg Resolution", value: BOT_ANALYTICS.avgResolutionTime, color: "#00E676", icon: "⏱️" },
-              { label: "Satisfaction", value: `${BOT_ANALYTICS.satisfactionScore}%`, color: "#FFD600", icon: "😊" },
-              { label: "Containment", value: `${BOT_ANALYTICS.containmentRate}%`, color: "#7C4DFF", icon: "🤖" },
-              { label: "Escalation Rate", value: `${BOT_ANALYTICS.escalationRate}%`, color: "#FF6B35", icon: "↗️" },
-            ].map((kpi, i) => (
-              <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderTop: `3px solid ${kpi.color}`, borderRadius: 10, padding: "14px 16px", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 0.8 }}>{kpi.label}</span>
-                  <span style={{ fontSize: 14 }}>{kpi.icon}</span>
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: "#fff", marginTop: 6 }}>{kpi.value}</div>
-              </div>
-            ))}
-          </div>
+          {/* KPI Row — will be populated from real queries when analytics are wired */}
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 2, marginBottom: 24 }}>
@@ -546,6 +510,9 @@ saveAIConfig(newSources);
           {/* PERSONALITY TAB */}
           {activeTab === "personality" && (
             <div>
+              {/* TODO: hidden until tone/temperature/length/toggles are read by build-system-prompt.js
+                  See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
+              {false && (
               <div style={{ ...card, marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Personality Preset</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -558,7 +525,11 @@ saveAIConfig(newSources);
                   ))}
                 </div>
               </div>
+              )}
 
+              {/* TODO: hidden until tone/temperature/length/toggles are read by build-system-prompt.js
+                  See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
+              {false && (
               <div style={{ ...card, marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Fine-Tuning</h3>
                 <div style={{ display: "grid", gap: 20 }}>
@@ -601,13 +572,18 @@ saveAIConfig(newSources);
                   </div>
                 </div>
               </div>
+              )}
 
               <div style={card}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Fallback & Instructions</h3>
+                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Bot Identity & Instructions</h3>
+                {/* TODO: hidden until fallback message is read by build-system-prompt.js
+                    See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
+                {false && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={label}>Fallback Message</label>
                   <textarea value={fallbackMsg} onChange={e => setFallbackMsg(e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
                 </div>
+                )}
                 <div>
                   <label style={label}>System Prompt</label>
                   <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }} />
@@ -852,38 +828,13 @@ saveAIConfig(newSources);
 
           {/* ANALYTICS TAB */}
           {activeTab === "analytics" && (
-            <div>
-              <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Bot Performance Analytics</h2>
-              <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Intents</h3>
-                {BOT_ANALYTICS.topIntents.map((intent, i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{intent.name}</span>
-                      <span style={{ color: C.primary, fontSize: 12, fontWeight: 700 }}>{intent.pct}% ({intent.count.toLocaleString()})</span>
-                    </div>
-                    <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3 }}>
-                      <div style={{ height: "100%", width: `${intent.pct}%`, background: `linear-gradient(90deg, ${C.primary}, ${C.accent || C.primary})`, borderRadius: 3 }} />
-                    </div>
-                  </div>
-                ))}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', minHeight: '420px' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0,191,255,0.07), rgba(168,85,247,0.07))', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               </div>
-              <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Daily Conversation Volume</h3>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 140, padding: "0 10px" }}>
-                  {BOT_ANALYTICS.dailyVolume.map((d, i) => {
-                    const maxVal = Math.max(...BOT_ANALYTICS.dailyVolume.map(x => x.count));
-                    const h = (d.count / maxVal) * 120;
-                    return (
-                      <div key={i} style={{ flex: 1, textAlign: "center" }}>
-                        <div style={{ color: "#fff", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>{d.count.toLocaleString()}</div>
-                        <div style={{ height: h, background: `linear-gradient(180deg, ${C.primary}, ${C.primary}44)`, borderRadius: "6px 6px 0 0" }} />
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 6 }}>{d.day}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Analytics will appear here soon</h3>
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.4)', maxWidth: '420px', margin: '0 0 1.5rem' }}>Once your bot starts handling conversations across SMS, WhatsApp, and email, you'll see volume, resolution time, satisfaction, and escalation metrics here.</p>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: C.primary, cursor: 'pointer' }} onClick={function() { window.location.hash = ''; }}>View live inbox →</span>
             </div>
           )}
 

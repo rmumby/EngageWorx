@@ -347,8 +347,14 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
     fetchLive();
   }, [demoMode, startDate, endDate, currentTenantId, tenantFilter, channelFilter]);
 
-  // Generate or fetch data
-  const data = demoMode ? generateDemoData(startDate, endDate, tenantFilter, channelFilter) : (liveData || generateDemoData(startDate, endDate, tenantFilter, channelFilter));
+  // Generate or fetch data — fail-closed: non-demo tenants never see demo data.
+  // Demo fixtures only render when demoMode is explicitly true.
+  // See AI Chatbot audit (May 2026) sanity sweep results.
+  const data = demoMode ? generateDemoData(startDate, endDate, tenantFilter, channelFilter) : (liveData || {
+    daily: [], hourly: [], channelBreakdown: [], tenantBreakdown: [], errorCodes: [],
+    responseTypes: [], latency: [], totals: { sent: 0, delivered: 0, failed: 0, opened: 0, clicked: 0, replied: 0, optOut: 0, revenue: 0 }, days: 0,
+  });
+  const hasData = data.totals && (data.totals.sent > 0 || data.totals.delivered > 0);
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
@@ -750,7 +756,9 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
 
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
             <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Performing Campaigns</h3>
-            {[
+            {/* Demo fixtures — only render when demoMode is explicitly true.
+                See AI Chatbot audit (May 2026) sanity sweep results. */}
+            {demoMode ? [
               { name: "Flash Sale Alert", tenant: "RetailCo", channel: "SMS", sent: 45200, openRate: 94.2, clickRate: 22.1, color: "#00E676" },
               { name: "Account Verification", tenant: "FinServ", channel: "SMS", sent: 38400, openRate: 98.1, clickRate: 8.2, color: "#7C4DFF" },
               { name: "Weekly Newsletter", tenant: "Acme Corp", channel: "Email", sent: 24100, openRate: 42.8, clickRate: 12.4, color: "#FF6B35" },
@@ -771,57 +779,22 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                   <span style={{ color: "rgba(255,255,255,0.4)" }}>Click: <strong style={{ color: C.accent }}>{c.clickRate}%</strong></span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div style={{ textAlign: 'center', padding: '28px 16px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Campaign performance data will appear once campaigns are launched.</div>
+            )}
           </div>
         </div>
       )}
 
       {/* ═══════════════ AI PERFORMANCE TAB ═══════════════ */}
       {activeTab === "ai" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>AI Chatbot Metrics</h3>
-            <div style={{ textAlign: "center", marginBottom: 24 }}>
-              <div style={{ fontSize: 56, fontWeight: 900, background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>94.2%</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Automated Resolution Rate</div>
-            </div>
-            {[
-              { label: "Total Conversations", value: "42,847", icon: "💬" },
-              { label: "Avg Response Time", value: "0.3s", icon: "⚡" },
-              { label: "Escalated to Human", value: "5.8%", icon: "🙋" },
-              { label: "Customer Satisfaction", value: "4.7 / 5.0", icon: "⭐" },
-              { label: "Avg Conversation Length", value: "4.2 msgs", icon: "📏" },
-              { label: "Cost Savings vs Human", value: "$28,400", icon: "💵" },
-            ].map(s => (
-              <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <span style={{ fontSize: 16, width: 24 }}>{s.icon}</span>
-                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, flex: 1 }}>{s.label}</span>
-                <span style={{ color: "#fff", fontSize: 14, fontWeight: 700 }}>{s.value}</span>
-              </div>
-            ))}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', minHeight: '420px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0,191,255,0.07), rgba(168,85,247,0.07))', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
-
-          <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Top Intents Detected</h3>
-            {[
-              { intent: "Order Status", count: 12840, pct: 30, color: "#00C9FF" },
-              { intent: "Product Information", count: 8420, pct: 20, color: "#E040FB" },
-              { intent: "Return / Refund", count: 6210, pct: 14, color: "#FF6B35" },
-              { intent: "Billing Question", count: 4890, pct: 11, color: "#FFD600" },
-              { intent: "Account Support", count: 3640, pct: 8, color: "#00E676" },
-              { intent: "Scheduling", count: 2780, pct: 6, color: "#7C4DFF" },
-              { intent: "Complaint", count: 1920, pct: 4, color: "#FF3B30" },
-              { intent: "Other", count: 2147, pct: 5, color: "#6B8BAE" },
-            ].map(item => (
-              <div key={item.intent} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>{item.intent}</span>
-                  <span style={{ fontSize: 12 }}><span style={{ color: item.color, fontWeight: 700 }}>{item.pct}%</span> <span style={{ color: "rgba(255,255,255,0.2)" }}>({item.count.toLocaleString()})</span></span>
-                </div>
-                <ProgressBar value={item.pct} color={item.color} />
-              </div>
-            ))}
-          </div>
+          <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>AI performance metrics coming soon</h3>
+          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.4)', maxWidth: '420px', margin: '0 0 1.5rem' }}>Once your AI chatbot handles conversations, resolution rates, response times, intent classification, and satisfaction metrics will appear here.</p>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: C.primary, cursor: 'pointer' }}>Configure AI chatbot →</span>
         </div>
       )}
 
