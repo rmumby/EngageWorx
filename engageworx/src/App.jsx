@@ -28,6 +28,7 @@ import LeadScan from './LeadScan';
 import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
 import TCRRegistration from './TCRRegistration';
+import TCRWizard from './TCRWizard';
 import TCRQueue from './TCRQueue';
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
@@ -1845,7 +1846,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
         )}
-        {page === "sms-registration" && <TCRRegistration tenantId={tenantId} C={C} />}
+        {page === "sms-registration" && <TCRWizard tenantId={tenantId} C={C} />}
         {page === "pipeline" && entityTier === 'csp' && (
           <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
         )}
