@@ -71,9 +71,9 @@ function generateAICopy(template, tone, channel, brandName) {
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-export default function CampaignsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+export default function CampaignsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false }) {
   const [view, setView] = useState("list"); // list, detail, create
-  const [campaigns, setCampaigns] = useState(() => demoMode ? generateDemoCampaigns(currentTenantId) : []);
+  const [campaigns, setCampaigns] = useState(() => demoMode === true ? generateDemoCampaigns(currentTenantId) : []);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterChannel, setFilterChannel] = useState("all");
@@ -86,7 +86,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
   // Fetch live campaigns from Supabase
   useEffect(() => {
-    if (demoMode) {
+    if (demoMode === true) {
       setCampaigns(generateDemoCampaigns(currentTenantId));
       return;
     }
@@ -178,7 +178,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
   // ─── COMPLIANCE CHECK (runs when reaching review step) ──────────────────
   useEffect(() => {
-    if (demoMode || createStep !== 5 || !currentTenantId) return;
+    if (demoMode === true || createStep !== 5 || !currentTenantId) return;
     const checkCompliance = async () => {
       setComplianceStatus('checking');
       setComplianceChecked(false);
@@ -270,7 +270,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
     if (!window.confirm('Delete "' + c.name + '"? This cannot be undone.')) return;
     setDeleting(true);
     try {
-      if (demoMode) {
+      if (demoMode === true) {
         setCampaigns(prev => prev.filter(x => x.id !== c.id));
       } else if (['draft', 'scheduled'].includes(c.status)) {
         // Hard delete for unsent campaigns
@@ -296,7 +296,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       var c = campaigns.find(x => x.id === id);
       if (!c) continue;
       try {
-        if (demoMode) {
+        if (demoMode === true) {
           setCampaigns(prev => prev.filter(x => x.id !== id));
         } else if (['draft', 'scheduled'].includes(c.status)) {
           var { supabase: s1 } = await import('./supabaseClient');
@@ -912,7 +912,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             </div>
 
             {/* Compliance Status */}
-            {!demoMode && (
+            {demoMode !== true &&(
               <div style={{ marginTop: 24 }}>
                 <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Channel Compliance</label>
                 {complianceStatus === 'checking' ? (
@@ -1026,7 +1026,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   };
 
                   // Save to Supabase if live mode
-                  if (!demoMode && currentTenantId) {
+                  if (demoMode !== true && currentTenantId) {
                     try {
                       const { data: saved, error } = await supabase.from('campaigns').insert({
                         tenant_id: currentTenantId,
@@ -1075,16 +1075,16 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   setView("list"); setCreateStep(1);
                   setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] });
                   setAiSuggestions([]);
-                }} disabled={!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)} style={{ ...btnPrimary, opacity: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? 0.4 : 1, cursor: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? "not-allowed" : "pointer" }}>
-                  {!demoMode && complianceStatus === 'checking'
+                }} disabled={demoMode !== true &&(!complianceChecked || complianceStatus?.canLaunch !== true)} style={{ ...btnPrimary, opacity: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? 0.4 : 1, cursor: (!demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)) ? "not-allowed" : "pointer" }}>
+                  {demoMode !== true &&complianceStatus === 'checking'
                     ? "⏳ Checking compliance..."
                     : !demoMode && (!complianceChecked || complianceStatus?.canLaunch !== true)
                     ? "🔒 Approval Required"
                     : (newCampaign.sendNow ? "🚀 Launch Campaign" : "⏰ Schedule Campaign")}
                 </button>
-                {!demoMode && complianceChecked && complianceStatus?.canLaunch !== true && (
+                {demoMode !== true &&complianceChecked && complianceStatus?.canLaunch !== true && (
                   <button onClick={async () => {
-                    if (!demoMode && currentTenantId) {
+                    if (demoMode !== true && currentTenantId) {
                       try {
                         await supabase.from('campaigns').insert({
                           tenant_id: currentTenantId,
@@ -1105,7 +1105,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                       }
                     }
                     // Refresh campaigns list
-                    if (!demoMode) {
+                    if (demoMode !== true) {
                       const { data } = await supabase.from('campaigns').select('*').eq('tenant_id', currentTenantId).order('created_at', { ascending: false });
                       if (data) {
                         setCampaigns(data.map(c => ({

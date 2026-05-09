@@ -170,7 +170,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
   const [detail, setDetail] = useState({ contacts: [], leads: [], loading: false });
 
   useEffect(() => {
-    if (demoMode || !currentTenantId) { setCompanies([]); setLoading(false); return; }
+    if (demoMode === true || !currentTenantId) { setCompanies([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
       try {
@@ -270,9 +270,9 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
 
 var CM_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
-export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, onNavigate }) {
+export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, onNavigate }) {
   var resolvedTenantId = currentTenantId || CM_SP_TENANT_ID;
-  const [contacts, setContacts] = useState(() => demoMode ? DEMO_CONTACTS : []);
+  const [contacts, setContacts] = useState(() => demoMode === true ? DEMO_CONTACTS : []);
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState("list");
   const [selectedContact, setSelectedContact] = useState(null);
@@ -301,7 +301,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   // Fetch real activity timeline from the database when opening a contact in live mode.
   // In demoMode we fall back to generateActivity(c) so the fixtures still drive the demo.
   useEffect(() => {
-    if (demoMode || !selectedContact || view !== 'detail') { setDetailStats(null); return; }
+    if (demoMode === true || !selectedContact || view !== 'detail') { setDetailStats(null); return; }
     const contactId = selectedContact.id;
     let cancelled = false;
     (async () => {
@@ -371,7 +371,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const pageSize = 15;
 
   useEffect(() => {
-    if (demoMode) { setContacts(DEMO_CONTACTS); return; }
+    if (demoMode === true) { setContacts(DEMO_CONTACTS); return; }
     const fetchContacts = async () => {
       setLiveLoading(true);
       try {
@@ -392,7 +392,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Load tenant list for the SP admin filter dropdown (only when viewLevel === 'sp')
   useEffect(() => {
-    if (demoMode || viewLevel !== 'sp') return;
+    if (demoMode === true || viewLevel !== 'sp') return;
     supabase.from('tenants')
       .select('id, name, status')
       .in('status', ['active', 'trial'])
@@ -402,7 +402,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   // Debounced email duplicate check on add form
   useEffect(() => {
-    if (demoMode || !resolvedTenantId || !newContact.email || !showAddContact) { setEmailWarning(null); return; }
+    if (demoMode === true || !resolvedTenantId || !newContact.email || !showAddContact) { setEmailWarning(null); return; }
     var em = newContact.email.trim().toLowerCase();
     if (em.length < 5 || !em.includes('@')) { setEmailWarning(null); return; }
     var timer = setTimeout(function() {
@@ -631,7 +631,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   const handleDedup = async () => {
     console.log('[Dedup] handleDedup clicked. demoMode=', demoMode, 'currentTenantId=', currentTenantId, 'viewLevel=', viewLevel);
-    if (demoMode) { alert('Dedup is disabled in demo mode.'); return; }
+    if (demoMode === true) { alert('Dedup is disabled in demo mode.'); return; }
 
     var scope = currentTenantId || (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all' ? spTenantFilter : null);
     var scopeMsg = scope
@@ -699,7 +699,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     if (emailWarning) {
       if (!window.confirm(emailWarning + '\n\nSave anyway? (A duplicate will be created and can be merged later.)')) return;
     }
-    if (demoMode) {
+    if (demoMode === true) {
       setContacts(prev => [{
         id: "ct_" + Date.now(),
         firstName: newContact.firstName, lastName: newContact.lastName,
@@ -763,7 +763,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   async function toggleVip(contact) {
     var newVal = !contact.is_vip;
-    if (!demoMode) {
+    if (demoMode !== true) {
       try { await supabase.from('contacts').update({ is_vip: newVal }).eq('id', contact.id); } catch (e) { console.warn('VIP toggle error:', e); }
     }
     setContacts(function(prev) { return prev.map(function(c) { return c.id === contact.id ? Object.assign({}, c, { is_vip: newVal }) : c; }); });
@@ -771,7 +771,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   }
 
   const handleEditContact = async (contact) => {
-    if (demoMode) {
+    if (demoMode === true) {
       setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, ...contact } : c));
       setEditingContact(null);
       if (selectedContact?.id === contact.id) setSelectedContact({ ...selectedContact, ...contact });
@@ -811,7 +811,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   };
 
   const handleDeleteContact = async (contactId) => {
-    if (demoMode) {
+    if (demoMode === true) {
       setContacts(prev => prev.filter(c => c.id !== contactId));
       if (selectedContact?.id === contactId) { setSelectedContact(null); setView("list"); }
       setSelectedContacts(prev => prev.filter(id => id !== contactId));
@@ -897,7 +897,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   };
 
   const handleMergeConfirm = async () => {
-    if (demoMode) { alert('Merge is disabled in demo mode.'); return; }
+    if (demoMode === true) { alert('Merge is disabled in demo mode.'); return; }
     if (!mergePrimaryId) return;
     const chosen = contacts.filter(c => selectedContacts.includes(c.id));
     const primary = chosen.find(c => c.id === mergePrimaryId);
@@ -948,7 +948,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const handleBulkDelete = async () => {
     if (selectedContacts.length === 0) return;
     if (!window.confirm(`Delete ${selectedContacts.length} contact${selectedContacts.length > 1 ? 's' : ''}?`)) return;
-    if (demoMode) {
+    if (demoMode === true) {
       setContacts(prev => prev.filter(c => !selectedContacts.includes(c.id)));
       setSelectedContacts([]);
       return;
@@ -1149,7 +1149,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 ].filter(Boolean).map(function(ch) {
                   var isPref = c.preferred_channel === ch.id;
                   return <button key={ch.id} onClick={function() {
-                    if (!demoMode) {
+                    if (demoMode !== true) {
                       supabase.from('contacts').update({ preferred_channel: ch.id }).eq('id', c.id).then(function() {});
                     }
                     var updated = Object.assign({}, c, { preferred_channel: ch.id });
@@ -1175,10 +1175,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Activity Timeline</h3>
                 <span style={{ color: C.muted, fontSize: 12 }}>{activities.length} events</span>
               </div>
-              {!demoMode && !detailStats && (
+              {demoMode !== true &&!detailStats && (
                 <div style={{ padding: '20px 0', color: C.muted, fontSize: 12, fontStyle: 'italic' }}>Loading real activity from the database…</div>
               )}
-              {!demoMode && detailStats && activities.length === 0 && (
+              {demoMode !== true &&detailStats && activities.length === 0 && (
                 <div style={{ padding: '20px 0', color: C.muted, fontSize: 12 }}>No activity yet — this contact has no messages on record.</div>
               )}
               <div style={{ position: "relative" }}>
@@ -1226,7 +1226,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           <button onClick={handleDownloadTemplate} style={btnSecondary}>📄 Download Template</button>
           <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import CSV</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
-          {!demoMode && <button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
+          {demoMode !== true &&<button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
           <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
         </div>
       </div>
@@ -1511,7 +1511,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             </div>
           )}
 
-          {!demoMode && contacts.length === 0 && !liveLoading && (
+          {demoMode !== true &&contacts.length === 0 && !liveLoading && (
             <div style={{ ...card, textAlign: "center", padding: 48, marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No contacts yet</div>

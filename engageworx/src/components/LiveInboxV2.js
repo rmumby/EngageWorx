@@ -323,7 +323,7 @@ function timeAgo(date) {
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 var LI_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
-function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, supabase, userProfile }) {
+function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, supabase, userProfile }) {
   const { t } = useTranslation();
   var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
   var isSPorCSP = viewLevel === 'sp' || viewLevel === 'csp';
@@ -349,10 +349,10 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   };
 
   // ALL hooks must be declared before any conditional return (React rules)
-  const [conversations, setConversations] = useState(() => demoMode ? DEMO_CONVERSATIONS : []);
+  const [conversations, setConversations] = useState(() => demoMode === true ? DEMO_CONVERSATIONS : []);
   const [selectedConv, setSelectedConv] = useState(null);
   const [liveError, setLiveError] = useState(null);
-  const [liveReady, setLiveReady] = useState(demoMode);
+  const [liveReady, setLiveReady] = useState(demoMode === true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -362,7 +362,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [filterTag, setFilterTag] = useState("all");
   const [tenantFromEmail, setTenantFromEmail] = useState('');
   useEffect(function() {
-    if (demoMode || !supabase || !currentTenantId) return;
+    if (demoMode === true || !supabase || !currentTenantId) return;
     (async function() {
       try {
         var r = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
@@ -410,7 +410,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   var currentUserRole = userProfile && userProfile.role;
   var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
-    if (demoMode || !supabase) return;
+    if (demoMode === true || !supabase) return;
     (async function() {
       try {
         var emails = [
@@ -445,11 +445,11 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   }, [resolvedTenantId, demoMode, supabase]);
 
   // Empty useEffects for live mode (must run every render to maintain hook count)
-  useEffect(() => { if (demoMode) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
+  useEffect(() => { if (demoMode === true) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
   useEffect(() => {
     // Load messages when conversation selected in live mode
     var convId = selectedConv ? selectedConv.id : null;
-    if (demoMode || !supabase || !convId) return;
+    if (demoMode === true || !supabase || !convId) return;
     (async function loadMsgs() {
       try {
         var result = await supabase.from('messages').select('*').eq('conversation_id', convId).order('created_at', { ascending: true });
@@ -475,7 +475,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   }, [demoMode, selectedConv?.id]);
   // Poll for new conversations every 15 seconds in live mode
   useEffect(() => {
-    if (demoMode || !supabase) return;
+    if (demoMode === true || !supabase) return;
     if (effectiveViewLevel === 'tenant' && !resolvedTenantId) return;
     var pollInterval = setInterval(function() {
       (async function pollFetch() {
@@ -549,9 +549,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Scroll handled by ChatThread
 
   // In live mode, fetch conversations using supabase prop
-  const [liveLoading, setLiveLoading] = useState(!demoMode);
+  const [liveLoading, setLiveLoading] = useState(demoMode !== true);
 useEffect(function() {
-  if (demoMode || !supabase) return;
+  if (demoMode === true || !supabase) return;
   if (effectiveViewLevel === 'tenant' && !resolvedTenantId) return;
   (async function() {
     try {
@@ -793,7 +793,7 @@ useEffect(function() {
       // Reset and close
       setNewConvOpen(false); setNewConvSearch(''); setNewConvResults([]); setNewConvContact(null); setNewConvManual(''); setNewConvBody(''); setNewConvChannel('sms');
       // Reload conversations with dedup
-      if (!demoMode) {
+      if (demoMode !== true) {
         try {
           var reloadConvResult = await supabase.from('conversations').select('*').eq('tenant_id', resolvedTenantId).order('last_message_at', { ascending: false }).limit(200);
           var reloadConvos = reloadConvResult.data || [];
@@ -976,7 +976,7 @@ useEffect(function() {
 
   const handleSend = () => {
     if (!composeText.trim()) return;
-    if (!demoMode) {
+    if (demoMode !== true) {
       handleSendLive();
       return;
     }
