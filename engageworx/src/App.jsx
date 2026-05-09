@@ -1271,7 +1271,13 @@ setDemoCreating(false);
                         <select style={inputStyleTM}><option>100 req/sec</option><option>50 req/sec</option><option>200 req/sec</option><option>Unlimited</option></select>
                       </div>
                     </div>
-                    {getPlanVisibility({ slug: configForm.plan || c.plan, monthly_price: null, is_csp_tier: false }) === 'custom' && (
+                    {(function() {
+                      var _planSlug = configForm.plan || c.plan;
+                      var _planObj = platformPlans.find(function(p) { return p.slug === _planSlug; }) || { slug: _planSlug };
+                      var _vis = getPlanVisibility(_planObj);
+                      console.log('[CustomLabel] plan source:', { configFormPlan: configForm.plan, cPlan: c && c.plan, platformPlansLoaded: platformPlans.length, planObj: _planObj, visibilityResult: _vis });
+                      return _vis === 'custom';
+                    })() && (
                     <div style={{ marginBottom: 16 }}>
                       <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Custom Plan Label</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
