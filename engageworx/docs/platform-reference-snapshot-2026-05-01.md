@@ -264,15 +264,23 @@ Hybrid supplier model: Telnyx for new tenants (lower cost, campaignBuilder API),
 
 ## 7. Pricing / Plans
 
-### Direct Business Plans (is_published=true, is_csp_tier=false)
+### Plan Visibility Classification
+
+Plans have a `visibility` field in `platform_config.plans` JSONB:
+- **`public`** — shown to all tenants in Billing and to SP admin for assignment
+- **`csp_only`** — shown to SP admin ONLY when target tenant.customer_type is 'csp_partner' or 'agent'
+- **`custom`** — never auto-rendered in any card/dropdown view. Created via manual flow only.
+
+Backward compatibility: if `visibility` field is missing, the code heuristic derives it from `is_csp_tier` and `monthly_price === null`.
+
+### Direct Business Plans (visibility: public)
 | Slug | Name | Price | SMS Limit | Contacts | Seats | Channels |
 |------|------|-------|-----------|----------|-------|----------|
 | starter | Starter | $99/mo | 5,000 | 10,000 | 3 | 2 |
 | growth | Growth | $249/mo | 25,000 | 50,000 | 10 | 4 |
 | pro | Pro | $499/mo | 50,000 | 100,000 | 25 | 6 |
-| enterprise | Enterprise | Custom | 250,000 | 500,000 | 100 | 6 |
 
-### CSP Tiers
+### CSP Tiers (visibility: csp_only)
 | Slug | Name | Price | Published | SMS Limit | Contacts | Seats |
 |------|------|-------|-----------|-----------|----------|-------|
 | silver | Silver | $499/mo | Yes | 10,000 | 50,000 | 10 |
@@ -280,9 +288,10 @@ Hybrid supplier model: Telnyx for new tenants (lower cost, campaignBuilder API),
 | platinum | Platinum | $3,999/mo | No | 200,000 | 500,000 | 200 |
 | diamond | Diamond | $7,999/mo | No | 500,000 | 1,000,000 | 500 |
 
-### Other Plans (is_published=false)
+### Custom Plans (visibility: custom — never auto-rendered)
 | Slug | Name | Notes |
 |------|------|-------|
+| enterprise | Enterprise | Custom pricing, assigned via sales |
 | csp_pilot | CSP Pilot | Active (0wire uses this) |
 | csp_platform | CSP Platform | Active partner tier |
 | custom | Custom | Manual assignment |

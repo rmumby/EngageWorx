@@ -353,6 +353,27 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
   );
 }
 
+// ─── Plan visibility helpers ────────────────────────────────────────────────────
+function getPlanVisibility(plan) {
+  if (plan.visibility) return plan.visibility;
+  if (plan.is_csp_tier) return 'csp_only';
+  if (plan.monthly_price === 'custom' || plan.monthly_price === null) return 'custom';
+  return 'public';
+}
+function filterPlansForView(plans, view, targetTenant) {
+  return plans.filter(function(p) { return p.is_published; }).filter(function(p) {
+    var v = getPlanVisibility(p);
+    if (view === 'tenant_billing') return v === 'public';
+    if (view === 'sp_assign') {
+      if (v === 'public') return true;
+      if (v === 'csp_only') return targetTenant && (targetTenant.customer_type === 'csp_partner' || targetTenant.customer_type === 'agent');
+      return false;
+    }
+    return false;
+  });
+}
+var PLAN_SEAT_DEFAULTS = { starter: 3, growth: 10, pro: 25, enterprise: 100, silver: 10, gold: 50, platinum: 200, diamond: 500 };
+
 // ─── TENANT MANAGEMENT (White-label config) ───────────────────────────────────
 function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, currentTenantId }) {
   const [activeTab, setActiveTab] = useState("tenants");
@@ -747,12 +768,13 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
                     <div>
                       <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
                       <select value={demoForm.plan} onChange={e => setDemoForm(p => ({ ...p, plan: e.target.value }))} style={{ ...inputStyleTM, cursor: "pointer" }}>
-                        {(platformPlans.filter(function(p) { return p.is_published && !p.is_csp_tier; }).length > 0
-                          ? platformPlans.filter(function(p) { return p.is_published && !p.is_csp_tier; })
-                          : [{ slug: 'starter', name: 'Starter', monthly_price: 99 }, { slug: 'growth', name: 'Growth', monthly_price: 249 }, { slug: 'pro', name: 'Pro', monthly_price: 499 }, { slug: 'enterprise', name: 'Enterprise', monthly_price: null }]
-                        ).map(function(p) {
-                          return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' ($' + p.monthly_price + '/mo)' : ' (Custom)'}</option>;
-                        })}
+                        {(function() {
+                          var demoPlans = filterPlansForView(platformPlans, 'sp_assign', null);
+                          if (demoPlans.length === 0) demoPlans = [{ slug: 'starter', name: 'Starter', monthly_price: 99 }, { slug: 'growth', name: 'Growth', monthly_price: 249 }, { slug: 'pro', name: 'Pro', monthly_price: 499 }];
+                          return demoPlans.map(function(p) {
+                            return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' ($' + p.monthly_price + '/mo)' : ' (Custom)'}</option>;
+                          });
+                        })()}
                       </select>
                     </div>
                     <div>
@@ -846,15 +868,16 @@ setDemoCreating(false);
 <div>
   <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Plan</label>
   <select value={newTenant.plan} onChange={e => setNewTenant({...newTenant, plan: e.target.value})} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, boxSizing: "border-box", colorScheme: "dark" }}>
-    <option value="starter">Starter $99/mo</option>
-    <option value="growth">Growth $249/mo</option>
-    <option value="pro">Pro $499/mo</option>
-    <option value="enterprise">Enterprise</option>
-    <option disabled>── CSP Partners ──</option>
-<option value="silver">Silver $499/mo</option>
-<option value="gold">Gold $1,499/mo</option>
-<option value="platinum">Platinum $3,999/mo</option>
-<option value="diamond">Diamond $7,999/mo</option>
+    {filterPlansForView(platformPlans, 'sp_assign', newTenant).length > 0
+      ? filterPlansForView(platformPlans, 'sp_assign', newTenant).map(function(p) {
+          return <option key={p.slug} value={p.slug}>{p.name}{p.monthly_price ? ' $' + p.monthly_price + '/mo' : ''}</option>;
+        })
+      : [
+          <option key="starter" value="starter">Starter $99/mo</option>,
+          <option key="growth" value="growth">Growth $249/mo</option>,
+          <option key="pro" value="pro">Pro $499/mo</option>,
+        ]
+    }
   </select>
 </div>
 <div>
@@ -1474,30 +1497,32 @@ setDemoCreating(false);
         <div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20 }}>
             {(function() {
-              var published = platformPlans.filter(function(p) { return p.is_published; });
+              var published = filterPlansForView(platformPlans, 'sp_assign', null);
               if (published.length === 0) published = [
                 { slug: 'starter', name: 'Starter', monthly_price: 99, message_limit: 1000, channels: 2, user_seats: 3 },
                 { slug: 'growth', name: 'Growth', monthly_price: 249, message_limit: 5000, channels: 4, user_seats: 10 },
                 { slug: 'pro', name: 'Pro', monthly_price: 499, message_limit: 20000, channels: 6, user_seats: 25 },
-                { slug: 'enterprise', name: 'Enterprise', monthly_price: null, message_limit: 250000, channels: 6, user_seats: 100 },
               ];
               var planColors = { starter: '#6B8BAE', growth: C.primary, pro: '#7C4DFF', enterprise: C.accent, silver: '#C0C0C0', gold: '#FFD600', platinum: '#E5E4E2', diamond: '#B9F2FF' };
               return published.map(function(p) {
                 var color = planColors[p.slug] || C.primary;
-                var msgs = p.message_limit >= 250000 ? 'Unlimited' : (p.message_limit || 0).toLocaleString();
-                var seats = p.user_seats >= 100 ? 'Unlimited' : p.user_seats;
+                var msgLimit = p.message_limit;
+                var msgs = (!msgLimit || msgLimit === 0) ? null : (msgLimit >= 250000 ? 'Unlimited' : msgLimit.toLocaleString());
+                var seatVal = p.user_seats || PLAN_SEAT_DEFAULTS[p.slug] || null;
+                var seats = (!seatVal) ? null : (seatVal >= 100 ? 'Unlimited' : seatVal);
+                var features = [
+                  msgs ? msgs + ' messages/mo' : null,
+                  (p.channels || 6) + ' channels',
+                  seats ? seats + ' users' : null,
+                  'White-label portal',
+                  'Custom domain',
+                  'Email support',
+                ].filter(Boolean);
                 return (
                   <div key={p.slug} style={{ background: "rgba(255,255,255,0.03)", border: "2px solid " + color + "44", borderRadius: 14, padding: 28, textAlign: "center" }}>
                     <div style={{ color: color, fontWeight: 800, fontSize: 18, marginBottom: 8 }}>{p.name}</div>
                     <div style={{ color: "#fff", fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{p.monthly_price ? '$' + p.monthly_price.toLocaleString() + '/mo' : 'Custom'}</div>
-                    {[
-                      msgs + ' messages/mo',
-                      (p.channels || 6) + ' channels',
-                      seats + ' users',
-                      'White-label portal',
-                      'Custom domain',
-                      p.slug === 'enterprise' ? 'Dedicated support' : 'Email support',
-                    ].map(function(f) {
+                    {features.map(function(f) {
                       return <div key={f} style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>✓ {f}</div>;
                     })}
                     <button style={{ marginTop: 20, width: "100%", background: color, border: "none", borderRadius: 8, padding: "12px", color: "#000", fontWeight: 700, cursor: "pointer" }}>Assign to Tenant</button>
