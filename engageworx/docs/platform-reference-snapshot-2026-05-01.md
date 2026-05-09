@@ -120,7 +120,7 @@ Hybrid supplier model: Telnyx for new tenants (lower cost, campaignBuilder API),
 ### Core Tables
 | Table | Purpose | RLS | Key Columns |
 |-------|---------|-----|-------------|
-| `tenants` | Tenant records | Yes | id, name, customer_type, entity_tier, parent_tenant_id, legal_entity_id, plan, email_send_method, phone_supplier ('twilio'\|'telnyx'), primary_contact_email, primary_contact_first_name, primary_contact_last_name, contract_type |
+| `tenants` | Tenant records | Yes | id, name, customer_type, entity_tier, parent_tenant_id, legal_entity_id, plan, email_send_method, phone_supplier ('twilio'\|'telnyx'), parent_product_label, display_alias, primary_contact_email, primary_contact_first_name, primary_contact_last_name, contract_type |
 | `tenant_members` | User-tenant membership | Yes | user_id, tenant_id, role, status, notify_email, notify_on_escalation/signup/payment/new_lead |
 | `user_profiles` | User data | Yes | id, email, full_name, tenant_id, role, phone_number, sender_email |
 | `contacts` | Customer contacts | Yes | tenant_id, email, first_name, last_name, company, title, is_vip, vip_marked_at, priority_until |

@@ -99,7 +99,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [drillDown, setDrillDown] = useState(null);
   var [drillDownTenant, setDrillDownTenant] = useState(null);
   var [showCreate, setShowCreate] = useState(false);
-  var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false });
+  var [createForm, setCreateForm] = useState({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, parentProductLabel: '', displayAlias: '' });
   var [createLoading, setCreateLoading] = useState(false);
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -175,6 +175,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           company_name: createForm.companyName.trim(),
           plan: createForm.plan,
           website_url: createForm.websiteUrl || null,
+          parent_product_label: createForm.parentProductLabel.trim() || null,
+          display_alias: createForm.displayAlias.trim() || null,
           brand_primary: createForm.detectedBrand ? createForm.detectedBrand.primaryColor : null,
           brand_secondary: createForm.detectedBrand ? createForm.detectedBrand.secondaryColor : null,
           brand_logo_url: createForm.detectedBrand ? createForm.detectedBrand.logoUrl : null,
@@ -658,8 +660,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     return (
                       <div key={tenant.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 120px', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
                         <div>
-                          <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{tenant.name}</div>
-                          <div style={{ color: C.muted, fontSize: 11 }}>{tenant.plan} · {tenant.status}</div>
+                          <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{tenant.display_alias || tenant.name}</div>
+                          <div style={{ color: C.muted, fontSize: 11 }}>{tenant.parent_product_label ? tenant.parent_product_label + ' · ' : ''}{tenant.plan} · {tenant.status}</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
                           <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{msgs.toLocaleString()}</div>
@@ -784,6 +786,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div><label style={labelStyle}>Email *</label><input value={createForm.email} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} /></div>
                       <div><label style={labelStyle}>Password *</label><input value={createForm.password} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { password: e.target.value })); }} style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} /></div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div><label style={labelStyle}>Product Label</label><input value={createForm.parentProductLabel} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { parentProductLabel: e.target.value })); }} placeholder="e.g. Cloud SMS, Business Messaging" style={inputStyle} /><div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>Generic product name shown in reporting</div></div>
+                      <div><label style={labelStyle}>Display Alias</label><input value={createForm.displayAlias} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { displayAlias: e.target.value })); }} placeholder="Optional display name override" style={inputStyle} /><div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>Overrides tenant name in your portal views</div></div>
                     </div>
                     {isSPAdmin ? (
                       <div>

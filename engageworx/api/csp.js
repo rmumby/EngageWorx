@@ -268,6 +268,8 @@ module.exports = async function handler(req, res) {
         is_sandbox: isSandbox,
         is_demo: isDemo,
         onboarding_completed: isDemo ? true : false,
+        parent_product_label: req.body.parent_product_label || null,
+        display_alias: req.body.display_alias || null,
       }).select().single();
 
       if (tenantResult.error) {
