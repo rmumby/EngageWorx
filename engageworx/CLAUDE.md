@@ -190,3 +190,7 @@ Exception: Anthropic Claude can be confirmed if a customer asks directly about A
 - **Imperative, descriptive messages.** What changed and why. Reference audit dates or issue numbers when useful.
 - **Catch attribution and disclosure issues at commit time.** Never push first and amend later — once it's on origin, the trailer is in history regardless of force-push.
 - **Never `git push --force` to main.** If history needs rewriting, do it on a branch and merge cleanly.
+
+### Visual verification gate
+
+Every phase that touches UI components must include a browser verification step before approval to proceed to the next phase. CLI build success and clean diffs are necessary but not sufficient — the UX has to be exercised in browser. The user will walk through the relevant flow and report what they see. Phases that report "build clean" without browser verification are incomplete and should not advance.
