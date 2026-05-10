@@ -27,9 +27,8 @@ import Settings from './Settings';
 import LeadScan from './LeadScan';
 import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
-import TCRRegistration from './TCRRegistration';
-import TCRWizard from './TCRWizard';
 import TCRQueue from './TCRQueue';
+const RegistrationsPage = lazy(() => import('./components/Registrations/RegistrationsPage'));
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
 import CustomerSuccessDashboard from './CustomerSuccessDashboard';
@@ -1750,7 +1749,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     entityTier === 'csp' ? { id: "customer-success", label: t('nav.customerSuccess'), icon: "📈" } : null,
     entityTier === 'csp' ? { id: "tcr-queue", label: "TCR Queue", icon: "📋" } : null,
     { id: "branding", label: t('nav.branding'), icon: "🎨" },
-    { id: "sms-registration", label: t('nav.smsRegistration'), icon: "📋" },
+    { id: "registrations", label: t('nav.registrations'), icon: "📋" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
     customerType === 'internal' ? { id: "streaming-test", label: "Streaming Test", icon: "🧪" } : null,
   ].filter(Boolean);
@@ -1872,7 +1871,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
         )}
-        {page === "sms-registration" && <TCRWizard tenantId={tenantId} C={C} fallbackComponent={<TCRRegistration tenantId={tenantId} C={C} />} />}
+        {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
         {page === "pipeline" && entityTier === 'csp' && (
           <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
         )}
@@ -1948,7 +1947,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             <BrandingEditor key={'brand-' + brandingKey} entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
           </div>
         )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "sms-registration" && (
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "registrations" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
@@ -2679,13 +2678,13 @@ var spNavBase = [
           ? <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") : profile?.tenant_id} />
           : <FeatureGate featureName="Sequence Roster" C={C} requirements={{ met: false, steps: [
               { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
-              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
+              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in Registrations.', done: !!profile?.sms_enabled, ctaHref: '#registrations', ctaLabel: 'Register' },
             ] }} />)}
         {spPage === "sequence-builder" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
           ? <SequenceBuilder C={C} currentTenantId={profile?.role === "superadmin" ? (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") : profile?.tenant_id} />
           : <FeatureGate featureName="Sequence Builder" C={C} requirements={{ met: false, steps: [
               { title: 'Accept AUP', description: 'Required for all messaging features.', done: !!profile?.aup_accepted },
-              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in SMS Registration.', done: !!profile?.sms_enabled, ctaHref: '#sms-registration', ctaLabel: 'Register' },
+              { title: 'TCR Approval', description: 'Complete A2P 10DLC registration in Registrations.', done: !!profile?.sms_enabled, ctaHref: '#registrations', ctaLabel: 'Register' },
             ] }} />)}
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}

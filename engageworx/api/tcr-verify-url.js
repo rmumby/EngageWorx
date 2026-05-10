@@ -47,14 +47,10 @@ module.exports = async function handler(req, res) {
       .eq('id', tenantId).maybeSingle();
     if (!tenant) return res.status(403).json({ ok: false, error: 'Tenant not found' });
 
-    // Allow: tenant custom domain, engwx.com subdomains, tenant slug subdomains
-    var allowed = ['engwx.com', 'www.engwx.com'];
-    if (tenant.custom_domain) allowed.push(tenant.custom_domain.toLowerCase());
-    if (tenant.slug) allowed.push(tenant.slug + '.engwx.com');
-    var domainOk = allowed.some(function(d) {
-      return domain === d || domain.endsWith('.' + d);
-    });
-    if (!domainOk) {
+    // Allow: any engwx.com URL (platform-hosted), tenant custom domain
+    var isEngwx = domain === 'engwx.com' || domain === 'www.engwx.com' || domain.endsWith('.engwx.com');
+    var isCustomDomain = tenant.custom_domain && (domain === tenant.custom_domain.toLowerCase() || domain.endsWith('.' + tenant.custom_domain.toLowerCase()));
+    if (!isEngwx && !isCustomDomain) {
       return res.status(403).json({ ok: false, error: 'URL domain (' + domain + ') is not associated with this tenant. Use your custom domain or an engwx.com URL.' });
     }
   } catch (e) {

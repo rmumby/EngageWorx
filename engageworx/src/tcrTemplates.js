@@ -23,11 +23,11 @@ export var VERTICALS = [
 ];
 
 export var ENTITY_TYPES = [
-  { value: 'LLC', label: 'LLC' },
-  { value: 'CORPORATION', label: 'Corporation' },
+  { value: 'PRIVATE_PROFIT', label: 'Private / For-Profit' },
+  { value: 'PUBLIC_PROFIT', label: 'Public (Stock Symbol required)' },
   { value: 'NON_PROFIT', label: 'Non-Profit' },
-  { value: 'PARTNERSHIP', label: 'Partnership' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'GOVERNMENT', label: 'Government' },
+  { value: 'SOLE_PROPRIETOR', label: 'Sole Proprietor' },
 ];
 
 export function sampleMessages(businessName) {

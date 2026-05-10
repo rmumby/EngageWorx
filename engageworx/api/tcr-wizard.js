@@ -1,6 +1,12 @@
 // api/tcr-wizard.js — Self-service TCR registration wizard
 // Tenant-facing. No Rob in the loop. Supplier-aware (Telnyx or Twilio per tenant).
 //
+// Brand naming convention for AI generation:
+// - tenants.name = platform internal label, NOT for customer-facing content
+// - brand_data.displayName = customer-facing brand (carriers, opt-in pages, sample messages)
+// - brand_data.companyName = legal entity (EIN paperwork, privacy policy, vetting)
+// AI prompts must use displayName/companyName from session, NEVER tenants.name.
+//
 // Actions: start, save_step, ai_validate, ai_pre_fill, submit, interpret_rejection, status
 //
 // Per CLAUDE.md: no personal escalation emails. Status surfaces via wizard UI.
@@ -25,10 +31,15 @@ async function verifyTenantMember(supabase, jwt, tenantId) {
   var { data, error } = await supabase.auth.getUser(jwt);
   if (error || !data || !data.user) return null;
   var userId = data.user.id;
+  // Check direct tenant membership first
   var { data: member } = await supabase.from('tenant_members')
     .select('id').eq('user_id', userId).eq('tenant_id', tenantId).eq('status', 'active').maybeSingle();
-  if (!member) return null;
-  return userId;
+  if (member) return userId;
+  // Fallback: allow SP admin cross-tenant access (View Portal flow)
+  var { data: profile } = await supabase.from('user_profiles')
+    .select('role').eq('id', userId).maybeSingle();
+  if (profile && ['superadmin', 'super_admin', 'sp_admin'].indexOf(profile.role) !== -1) return userId;
+  return null;
 }
 
 // ── Load reference data (EngageWorx known-good campaign) ────────────────────
@@ -139,25 +150,39 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
   var brand = session.brand_data || {};
   var campaign = session.campaign_data || {};
 
+  // Brand naming: use displayName for customer-facing, companyName for legal. Never tenants.name.
+  var displayName = brand.displayName || '';
+  var companyName = brand.companyName || displayName;
+  if (!displayName && field === 'sample_messages') return { suggestion: null, reasoning: 'Please fill Display Name in Step 1 first.' };
+  if (!campaign.use_case && field === 'sample_messages') return { suggestion: null, reasoning: 'Please select Use Case first.' };
+  if (!campaign.description && field === 'use_case') return { suggestion: null, reasoning: 'Fill campaign description first to get a use case suggestion.' };
+
   var _UC = USECASE_ENUM;
+  var useCase = (campaign.use_case || 'MIXED').toUpperCase();
   var promptMap = {
-    brand_description: 'Write a 1-2 sentence brand description for TCR registration. Brand: ' + (brand.legal_name || brand.dba || tenantInfo.name || 'Unknown') + '. Industry: ' + (brand.vertical || 'technology') + '. Keep it factual, professional, under 100 words.',
+    brand_description: 'Write a 1-2 sentence brand description for TCR registration.\nBrand name: ' + (displayName || companyName || 'Unknown') + '\nIndustry: ' + (brand.vertical || 'technology') + '\nKeep it factual, professional, under 100 words. Reference the brand name explicitly. Never use "EngageWorx" or generic placeholders.',
     use_case: 'Suggest a use_case category for this TCR campaign.\n\n' +
-      'Brand: ' + (brand.legal_name || '') + '\n' +
-      'They want to send: ' + (campaign.description || 'customer communications') + '\n\n' +
-      'VALID VALUES (Telnyx enum — return EXACTLY one): ' + _UC.join(', ') + '\n\n' +
-      'Return ONLY the enum value in uppercase. No explanation.',
+      'Brand: ' + (displayName || '') + '\n' +
+      'Campaign description: ' + (campaign.description || '') + '\n' +
+      'Industry: ' + (brand.vertical || '') + '\n\n' +
+      'VALID VALUES: ' + _UC.join(', ') + '\n\n' +
+      'Return STRICT JSON: {"suggestion":"ENUM_VALUE","confidence":0.0-1.0,"reasoning":"why this use case fits"}\nNo markdown fences.',
     sample_messages: 'Generate exactly 3 sample SMS messages for a TCR campaign registration.\n\n' +
-      'Brand: ' + (brand.legal_name || brand.dba || '') + '\n' +
-      'Use case: ' + ((campaign.use_case || 'MIXED').toUpperCase()) + '\n' +
+      'Brand name (use this EXACT name in messages): ' + displayName + '\n' +
+      'Use case: ' + useCase + '\n' +
       'Description: ' + (campaign.description || '') + '\n\n' +
       'Reference (approved messages from similar campaign):\n' + JSON.stringify(reference.sample_messages || [], null, 2) + '\n\n' +
-      'Rules:\n' +
+      'CRITICAL RULES:\n' +
       '- Each message under 160 chars\n' +
-      '- Messages MUST specifically match the use case (e.g. DELIVERY_NOTIFICATION = about deliveries)\n' +
-      '- Use the real brand name (not "test" or "example")\n' +
-      '- At least one message must include "Reply HELP for help, STOP to opt out"\n' +
-      '- Telnyx requires min 2, recommends 3. Tenant can add up to 5 max.\n' +
+      '- Messages MUST specifically match use_case "' + useCase + '":\n' +
+      '  DELIVERY_NOTIFICATION = only delivery/shipping content\n' +
+      '  ACCOUNT_NOTIFICATION = only billing/security/service alerts\n' +
+      '  CUSTOMER_CARE = only support/ticket/service updates\n' +
+      '  2FA = only verification codes\n' +
+      '  MARKETING = only promotional content\n' +
+      '  Mismatched samples cause carrier rejection.\n' +
+      '- Use brand name "' + displayName + '" (NOT "test", "example", "EngageWorx", "Acme")\n' +
+      '- At least one message must include "Reply HELP for help or STOP to opt out"\n' +
       '- Professional tone matching the reference\n\n' +
       'Return STRICT JSON array of 3 strings. No markdown fences.',
   };
@@ -176,9 +201,16 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
     var raw = text ? text.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim() : '';
 
     if (field === 'sample_messages') {
-      return { suggestion: JSON.parse(raw), reasoning: 'Generated 5 messages matching ' + (campaign.use_case || 'mixed') + ' use case with HELP/STOP compliance' };
+      return { suggestion: JSON.parse(raw), reasoning: 'Generated messages matching ' + useCase + ' use case' };
     }
-    return { suggestion: raw, reasoning: 'AI-suggested based on brand profile and industry' };
+    if (field === 'use_case') {
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed.confidence && parsed.confidence < 0.7) return { suggestion: null, reasoning: 'Could not determine use case with confidence — please select manually. AI reasoning: ' + (parsed.reasoning || '') };
+        return { suggestion: parsed.suggestion || raw, reasoning: parsed.reasoning || 'AI-suggested' };
+      } catch (e) { return { suggestion: raw.trim(), reasoning: 'AI-suggested' }; }
+    }
+    return { suggestion: raw, reasoning: 'AI-suggested based on brand profile' };
   } catch (e) {
     return { suggestion: null, reasoning: 'AI error: ' + e.message };
   }
@@ -460,6 +492,89 @@ module.exports = async function handler(req, res) {
       }
 
       return res.status(200).json({ session: session });
+    }
+
+    // ── GENERATE_BUNDLE ───────────────────────────────────────────────────
+    if (action === 'generate_bundle') {
+      var tenantId = req.body.tenant_id;
+      if (!tenantId) return res.status(400).json({ error: 'tenant_id required' });
+      var userId = await verifyTenantMember(supabase, jwt, tenantId);
+      if (!userId) return res.status(403).json({ error: 'Not authorized' });
+
+      // Load tenant context + session brand_data if available
+      var { data: tenantInfo } = await supabase.from('tenants')
+        .select('name, plan, industry, website_url').eq('id', tenantId).maybeSingle();
+      var tn = tenantInfo || { name: 'Your Business', plan: 'starter' };
+      // Prefer brand_data.displayName over tenants.name for customer-facing content
+      var sessionBrand = {};
+      if (req.body.session_id) {
+        var { data: sess } = await supabase.from('tcr_wizard_sessions').select('brand_data').eq('id', req.body.session_id).maybeSingle();
+        if (sess && sess.brand_data) sessionBrand = sess.brand_data;
+      }
+      var bundleBusinessName = sessionBrand.displayName || sessionBrand.companyName || tn.name || 'Your Business';
+
+      // Load EngageWorx reference campaign (approved, most recent)
+      var reference = {};
+      try {
+        var { data: refSession } = await supabase.from('tcr_wizard_sessions')
+          .select('brand_data, campaign_data')
+          .eq('tenant_id', SP_TENANT_ID).eq('status', 'approved')
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (refSession) reference = refSession;
+      } catch (e) {}
+      // Fallback if no approved reference exists
+      if (!reference.brand_data) {
+        var refFromSubmissions = await loadReference(supabase);
+        reference = { brand_data: {}, campaign_data: refFromSubmissions };
+      }
+
+      var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'AI service unavailable' });
+
+      var bundlePrompt = 'Generate a TCR-compliant compliance bundle for this tenant. Use the EngageWorx reference as a STRUCTURAL template, but populate all fields with the tenant\'s actual business specifics.\n\n' +
+        'TENANT:\n' +
+        '- Business name (use this in all customer-facing content): ' + bundleBusinessName + '\n' +
+        '- Industry: ' + (tn.industry || 'technology') + '\n' +
+        '- Plan: ' + (tn.plan || 'starter') + '\n' +
+        '- Website: ' + (tn.website_url || 'not set') + '\n\n' +
+        'REFERENCE (EngageWorx approved campaign — use as structural template ONLY):\n' +
+        JSON.stringify(reference, null, 2).substring(0, 3000) + '\n\n' +
+        'TCR USE CASE ENUM: ' + USECASE_ENUM.join(', ') + '\n\n' +
+        'Return STRICT JSON (no markdown fences):\n' +
+        '{\n' +
+        '  "form_fields": {\n' +
+        '    "brand": { "displayName": "...", "description": "1-2 sentence brand description", "vertical": "...", "website": "..." },\n' +
+        '    "campaign": { "use_case": "ACCOUNT_NOTIFICATION or appropriate", "description": "what messages will be sent", "sample_messages": ["msg1 with HELP/STOP","msg2","msg3"], "opt_in_keywords": "START", "help_message": "...", "stop_message": "..." },\n' +
+        '    "consent": { "opt_in_description": "how users opt in", "confirmation_message": "opt-in confirmation under 160 chars" }\n' +
+        '  },\n' +
+        '  "privacy_policy_section": "exact paragraph(s) to add to privacy policy covering SMS data handling, STOP/HELP, message frequency, data rates",\n' +
+        '  "sms_terms_page_html": "full HTML content for /sms-terms page with HELP, STOP, frequency, fees, opt-out instructions",\n' +
+        '  "optin_form_html": "working HTML consent form with unchecked checkbox, exact disclosure text, links to privacy and terms",\n' +
+        '  "implementation_checklist": ["step 1: publish SMS terms page at /sms-terms", "step 2: add privacy policy SMS section", "step 3: deploy opt-in form at /smsconsent", "step 4: verify all URLs return 200"]\n' +
+        '}\n\n' +
+        'RULES:\n' +
+        '- Brand description must reference the tenant\'s actual industry and business name, NOT EngageWorx\n' +
+        '- Sample messages must include the tenant\'s business name and "Reply HELP for help or STOP to opt out"\n' +
+        '- Privacy section must mention SMS specifically, not just generic data collection\n' +
+        '- All HTML must be clean, no scripts, no external resources\n' +
+        '- confirmation_message must be under 160 characters';
+
+      try {
+        var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, messages: [{ role: 'user', content: bundlePrompt }] }),
+        });
+        var aiData = await aiRes.json();
+        var text = (aiData.content || []).find(function(b) { return b.type === 'text'; });
+        var raw = text ? text.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim() : '{}';
+        var bundle = JSON.parse(raw);
+        console.log('[TCR Wizard] Generated compliance bundle for tenant', tenantId);
+        return res.status(200).json(bundle);
+      } catch (e) {
+        console.error('[TCR Wizard] generate_bundle error:', e.message);
+        return res.status(500).json({ error: 'Failed to generate compliance bundle. Please try again.' });
+      }
     }
 
     return res.status(400).json({ error: 'Unknown action: ' + action });
