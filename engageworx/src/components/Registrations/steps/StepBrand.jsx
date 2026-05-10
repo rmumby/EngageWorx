@@ -72,10 +72,10 @@ export default function StepBrand({ brand, onUpdate, onNext, onGenerateBundle, s
 
       <div style={card}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Display Name" required>
+          <Field label="Display Name" required hint="Your customer-facing brand name — must match what appears on your website and opt-in page">
             <div style={{ display: 'flex', gap: 6 }}>
-              <input style={Object.assign({}, inputStyle, { flex: 1 }, errBorder('displayName'))} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="Your Business Name" />
-              <AIAssistButton sessionId={sessionId} field="brand_description" onResult={function(v) { set('displayName', v); }} C={C} />
+              <input style={Object.assign({}, inputStyle, { flex: 1 }, errBorder('displayName'))} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="e.g. Acme Health Services" />
+              <AIAssistButton sessionId={sessionId} field="display_name" onResult={function(v) { set('displayName', v); }} C={C} />
             </div>
           </Field>
           <Field label="Company Name"><input style={inputStyle} value={brand.companyName || ''} onChange={function(e) { set('companyName', e.target.value); }} placeholder="Legal entity name (if different)" /></Field>
@@ -103,21 +103,27 @@ export default function StepBrand({ brand, onUpdate, onNext, onGenerateBundle, s
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
           <Field label="Business Phone" required>
             <div style={{ display: 'flex', gap: 6 }}>
-              {/* Backlog: PHONE-INPUT-CONSOLIDATE to merge with Settings.js country codes. */}
-              <select style={Object.assign({}, selectStyle, { width: 120, flex: 'none' })} value={brand.phoneCountry || '+1'} onChange={function(e) { set('phoneCountry', e.target.value); }}>
-                <option value="+1">🇺🇸 US +1</option><option value="+1-CA">🇨🇦 CA +1</option><option value="+44">🇬🇧 UK +44</option>
-                <option value="+49">🇩🇪 DE +49</option><option value="+33">🇫🇷 FR +33</option><option value="+34">🇪🇸 ES +34</option><option value="+39">🇮🇹 IT +39</option>
-                <option value="+31">🇳🇱 NL +31</option><option value="+32">🇧🇪 BE +32</option><option value="+41">🇨🇭 CH +41</option><option value="+43">🇦🇹 AT +43</option>
-                <option value="+353">🇮🇪 IE +353</option><option value="+46">🇸🇪 SE +46</option><option value="+47">🇳🇴 NO +47</option><option value="+45">🇩🇰 DK +45</option><option value="+358">🇫🇮 FI +358</option>
-                <option value="+48">🇵🇱 PL +48</option><option value="+420">🇨🇿 CZ +420</option><option value="+40">🇷🇴 RO +40</option><option value="+36">🇭🇺 HU +36</option><option value="+30">🇬🇷 GR +30</option>
-                <option value="+351">🇵🇹 PT +351</option><option value="+380">🇺🇦 UA +380</option><option value="+7">🇷🇺 RU +7</option><option value="+90">🇹🇷 TR +90</option>
-                <option value="+61">🇦🇺 AU +61</option><option value="+64">🇳🇿 NZ +64</option><option value="+81">🇯🇵 JP +81</option><option value="+82">🇰🇷 KR +82</option>
-                <option value="+65">🇸🇬 SG +65</option><option value="+852">🇭🇰 HK +852</option><option value="+91">🇮🇳 IN +91</option><option value="+86">🇨🇳 CN +86</option>
-                <option value="+62">🇮🇩 ID +62</option><option value="+66">🇹🇭 TH +66</option><option value="+60">🇲🇾 MY +60</option><option value="+63">🇵🇭 PH +63</option><option value="+84">🇻🇳 VN +84</option>
-                <option value="+55">🇧🇷 BR +55</option><option value="+52">🇲🇽 MX +52</option><option value="+54">🇦🇷 AR +54</option><option value="+57">🇨🇴 CO +57</option>
-                <option value="+56">🇨🇱 CL +56</option><option value="+51">🇵🇪 PE +51</option><option value="+58">🇻🇪 VE +58</option><option value="+504">🇭🇳 HN +504</option>
-                <option value="+971">🇦🇪 UAE +971</option><option value="+966">🇸🇦 SA +966</option><option value="+972">🇮🇱 IL +972</option><option value="+20">🇪🇬 EG +20</option>
-                <option value="+27">🇿🇦 ZA +27</option><option value="+234">🇳🇬 NG +234</option><option value="+254">🇰🇪 KE +254</option><option value="+212">🇲🇦 MA +212</option><option value="+252">🇸🇴 SO +252</option>
+              {/* Backlog: PHONE-INPUT-CONSOLIDATE to merge with Settings.js country codes. Sorted alphabetically. */}
+              <select style={Object.assign({}, selectStyle, { width: 130, flex: 'none' })} value={brand.phoneCountry || '+1'} onChange={function(e) { set('phoneCountry', e.target.value); }}>
+                <option value="+54">🇦🇷 Argentina +54</option><option value="+61">🇦🇺 Australia +61</option><option value="+43">🇦🇹 Austria +43</option>
+                <option value="+32">🇧🇪 Belgium +32</option><option value="+55">🇧🇷 Brazil +55</option><option value="+1-CA">🇨🇦 Canada +1</option>
+                <option value="+56">🇨🇱 Chile +56</option><option value="+86">🇨🇳 China +86</option><option value="+57">🇨🇴 Colombia +57</option>
+                <option value="+420">🇨🇿 Czechia +420</option><option value="+45">🇩🇰 Denmark +45</option><option value="+20">🇪🇬 Egypt +20</option>
+                <option value="+358">🇫🇮 Finland +358</option><option value="+33">🇫🇷 France +33</option><option value="+49">🇩🇪 Germany +49</option>
+                <option value="+30">🇬🇷 Greece +30</option><option value="+504">🇭🇳 Honduras +504</option><option value="+852">🇭🇰 Hong Kong +852</option>
+                <option value="+36">🇭🇺 Hungary +36</option><option value="+91">🇮🇳 India +91</option><option value="+62">🇮🇩 Indonesia +62</option>
+                <option value="+353">🇮🇪 Ireland +353</option><option value="+972">🇮🇱 Israel +972</option><option value="+39">🇮🇹 Italy +39</option>
+                <option value="+81">🇯🇵 Japan +81</option><option value="+254">🇰🇪 Kenya +254</option><option value="+60">🇲🇾 Malaysia +60</option>
+                <option value="+52">🇲🇽 Mexico +52</option><option value="+212">🇲🇦 Morocco +212</option><option value="+31">🇳🇱 Netherlands +31</option>
+                <option value="+64">🇳🇿 New Zealand +64</option><option value="+234">🇳🇬 Nigeria +234</option><option value="+47">🇳🇴 Norway +47</option>
+                <option value="+51">🇵🇪 Peru +51</option><option value="+63">🇵🇭 Philippines +63</option><option value="+48">🇵🇱 Poland +48</option>
+                <option value="+351">🇵🇹 Portugal +351</option><option value="+40">🇷🇴 Romania +40</option><option value="+7">🇷🇺 Russia +7</option>
+                <option value="+966">🇸🇦 Saudi Arabia +966</option><option value="+65">🇸🇬 Singapore +65</option><option value="+252">🇸🇴 Somalia +252</option>
+                <option value="+27">🇿🇦 South Africa +27</option><option value="+82">🇰🇷 South Korea +82</option><option value="+34">🇪🇸 Spain +34</option>
+                <option value="+46">🇸🇪 Sweden +46</option><option value="+41">🇨🇭 Switzerland +41</option><option value="+66">🇹🇭 Thailand +66</option>
+                <option value="+90">🇹🇷 Turkey +90</option><option value="+971">🇦🇪 UAE +971</option><option value="+380">🇺🇦 Ukraine +380</option>
+                <option value="+44">🇬🇧 United Kingdom +44</option><option value="+1">🇺🇸 United States +1</option><option value="+58">🇻🇪 Venezuela +58</option>
+                <option value="+84">🇻🇳 Vietnam +84</option>
               </select>
               <input style={Object.assign({}, inputStyle, { flex: 1 }, errBorder('phone'))} value={brand.phone || ''} onChange={function(e) { set('phone', e.target.value); }} placeholder="7869827800" />
             </div>

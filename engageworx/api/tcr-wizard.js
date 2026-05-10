@@ -160,6 +160,7 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
   var _UC = USECASE_ENUM;
   var useCase = (campaign.use_case || 'MIXED').toUpperCase();
   var promptMap = {
+    display_name: 'Suggest a TCR-compliant Display Name for a business.\nIndustry: ' + (brand.vertical || 'technology') + '\nCompany name (if known): ' + (companyName || 'not provided') + '\n\nThe Display Name must be suitable for carrier registration and match what appears on the business website and opt-in page. Examples: "Acme Health Services", "Riverside Auto Parts", "Metro Dental Group".\n\nReturn ONLY the suggested display name as a plain string. No quotes, no explanation.',
     brand_description: 'Write a 1-2 sentence brand description for TCR registration.\nBrand name: ' + (displayName || companyName || 'Unknown') + '\nIndustry: ' + (brand.vertical || 'technology') + '\nKeep it factual, professional, under 100 words. Reference the brand name explicitly. Never use "EngageWorx" or generic placeholders.',
     use_case: 'Suggest a use_case category for this TCR campaign.\n\n' +
       'Brand: ' + (displayName || '') + '\n' +
@@ -183,6 +184,10 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
       '  Mismatched samples cause carrier rejection.\n' +
       '- Use brand name "' + displayName + '" (NOT "test", "example", "EngageWorx", "Acme")\n' +
       '- At least one message must include "Reply HELP for help or STOP to opt out"\n' +
+      (campaign.embeddedLink ? '- At least one sample must include a URL/link (embeddedLink is enabled)\n' : '') +
+      (campaign.embeddedPhone ? '- At least one sample must include a phone number (embeddedPhone is enabled)\n' : '') +
+      (campaign.ageGated ? '- Messages must reference age verification (age-gated content)\n' : '') +
+      (campaign.directLending ? '- Messages must comply with direct lending disclosure requirements\n' : '') +
       '- Professional tone matching the reference\n\n' +
       'Return STRICT JSON array of 3 strings. No markdown fences.',
   };
@@ -531,40 +536,46 @@ module.exports = async function handler(req, res) {
       var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI service unavailable' });
 
-      var bundlePrompt = 'Generate a TCR-compliant compliance bundle for this tenant. Use the EngageWorx reference as a STRUCTURAL template, but populate all fields with the tenant\'s actual business specifics.\n\n' +
-        'TENANT:\n' +
-        '- Business name (use this in all customer-facing content): ' + bundleBusinessName + '\n' +
-        '- Industry: ' + (tn.industry || 'technology') + '\n' +
-        '- Plan: ' + (tn.plan || 'starter') + '\n' +
-        '- Website: ' + (tn.website_url || 'not set') + '\n\n' +
-        'REFERENCE (EngageWorx approved campaign — use as structural template ONLY):\n' +
-        JSON.stringify(reference, null, 2).substring(0, 3000) + '\n\n' +
-        'TCR USE CASE ENUM: ' + USECASE_ENUM.join(', ') + '\n\n' +
+      // AI generates COMPLIANCE CONTENT only — no factual data (EIN, address, phone).
+      // Factual data must be entered by the tenant from their business records.
+      var bundlePrompt = 'Generate TCR-compliant compliance content for business "' + bundleBusinessName + '" in the ' + (tn.industry || 'technology') + ' industry.\n\n' +
+        'Generate ONLY compliance content templates. Do NOT generate factual data (EIN, address, phone, stock symbol).\n\n' +
         'Return STRICT JSON (no markdown fences):\n' +
         '{\n' +
-        '  "form_fields": {\n' +
-        '    "brand": { "displayName": "...", "description": "1-2 sentence brand description", "vertical": "...", "website": "..." },\n' +
-        '    "campaign": { "use_case": "ACCOUNT_NOTIFICATION or appropriate", "description": "what messages will be sent", "sample_messages": ["msg1 with HELP/STOP","msg2","msg3"], "opt_in_keywords": "START", "help_message": "...", "stop_message": "..." },\n' +
-        '    "consent": { "opt_in_description": "how users opt in", "confirmation_message": "opt-in confirmation under 160 chars" }\n' +
-        '  },\n' +
-        '  "privacy_policy_section": "exact paragraph(s) to add to privacy policy covering SMS data handling, STOP/HELP, message frequency, data rates",\n' +
-        '  "sms_terms_page_html": "full HTML content for /sms-terms page with HELP, STOP, frequency, fees, opt-out instructions",\n' +
-        '  "optin_form_html": "working HTML consent form with unchecked checkbox, exact disclosure text, links to privacy and terms",\n' +
-        '  "implementation_checklist": ["step 1: publish SMS terms page at /sms-terms", "step 2: add privacy policy SMS section", "step 3: deploy opt-in form at /smsconsent", "step 4: verify all URLs return 200"]\n' +
+        '  "brand_description": "1-2 sentence brand description for TCR registration referencing ' + bundleBusinessName + '",\n' +
+        '  "campaign_description": "what messages ' + bundleBusinessName + ' will send to customers",\n' +
+        '  "sample_messages": ["msg1","msg2","msg3","msg4","msg5"],\n' +
+        '  "help_message": "HELP response message",\n' +
+        '  "stop_message": "STOP response message",\n' +
+        '  "opt_in_description": "how users opt in to receive messages",\n' +
+        '  "confirmation_message": "opt-in confirmation under 160 chars",\n' +
+        '  "privacy_policy_section": "paragraph(s) for privacy policy covering SMS data handling, STOP/HELP, frequency, data rates",\n' +
+        '  "sms_terms_page_html": "clean HTML for /sms-terms page with HELP, STOP, frequency, fees, opt-out",\n' +
+        '  "optin_form_html": "HTML consent form with unchecked checkbox, disclosure text, links to privacy and terms",\n' +
+        '  "implementation_checklist": ["publish SMS terms page","add privacy policy SMS section","deploy opt-in form","verify all URLs return 200"]\n' +
         '}\n\n' +
         'RULES:\n' +
-        '- Brand description must reference the tenant\'s actual industry and business name, NOT EngageWorx\n' +
-        '- Sample messages must include the tenant\'s business name and "Reply HELP for help or STOP to opt out"\n' +
-        '- Privacy section must mention SMS specifically, not just generic data collection\n' +
-        '- All HTML must be clean, no scripts, no external resources\n' +
-        '- confirmation_message must be under 160 characters';
+        '- Use "' + bundleBusinessName + '" as the brand name in ALL content. Never use "EngageWorx" or generic placeholders.\n' +
+        '- Each sample message under 160 chars. At least one must include "Reply HELP for help or STOP to opt out".\n' +
+        '- Privacy section must mention SMS specifically.\n' +
+        '- All HTML clean, no scripts, no external resources.\n' +
+        '- confirmation_message under 160 characters.';
 
       try {
+        var controller = new AbortController();
+        var timeout = setTimeout(function() { controller.abort(); }, 45000);
         var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4000, messages: [{ role: 'user', content: bundlePrompt }] }),
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 3000, messages: [{ role: 'user', content: bundlePrompt }] }),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
+        if (!aiRes.ok) {
+          var errBody = await aiRes.text().catch(function() { return ''; });
+          console.error('[TCR Wizard] generate_bundle API error:', aiRes.status, errBody.substring(0, 200));
+          return res.status(500).json({ error: 'AI service returned error ' + aiRes.status + '. Please try again.' });
+        }
         var aiData = await aiRes.json();
         var text = (aiData.content || []).find(function(b) { return b.type === 'text'; });
         var raw = text ? text.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim() : '{}';
@@ -572,8 +583,9 @@ module.exports = async function handler(req, res) {
         console.log('[TCR Wizard] Generated compliance bundle for tenant', tenantId);
         return res.status(200).json(bundle);
       } catch (e) {
-        console.error('[TCR Wizard] generate_bundle error:', e.message);
-        return res.status(500).json({ error: 'Failed to generate compliance bundle. Please try again.' });
+        var errMsg = e.name === 'AbortError' ? 'AI generation timed out (45s). Try again — the service may be busy.' : e.message;
+        console.error('[TCR Wizard] generate_bundle error:', errMsg);
+        return res.status(500).json({ error: errMsg });
       }
     }
 

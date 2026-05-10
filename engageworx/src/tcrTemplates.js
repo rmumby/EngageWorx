@@ -4,14 +4,20 @@
 
 export var USE_CASES = [
   { value: 'ACCOUNT_NOTIFICATION', label: 'Account Notifications', desc: 'Alerts about account status, login, password resets, billing.' },
+  { value: 'CHARITY', label: 'Charity / Non-Profit', desc: 'Charitable and non-profit messaging campaigns.' },
   { value: 'CUSTOMER_CARE', label: 'Customer Care', desc: 'Two-way support conversations initiated by the customer.' },
   { value: 'DELIVERY_NOTIFICATION', label: 'Delivery Notifications', desc: 'Order and shipment status updates.' },
-  { value: 'MIXED', label: 'Mixed', desc: 'Multiple use cases. Higher scrutiny — approval may take longer.', warn: true },
-  { value: 'MARKETING', label: 'Marketing', desc: 'Promotional messages, offers, sales.' },
-  { value: '2FA', label: 'Two-Factor Authentication', desc: 'One-time passcodes for login or transaction verification.' },
-  { value: 'SECURITY_ALERT', label: 'Security Alerts', desc: 'Fraud alerts, suspicious activity notifications.' },
-  { value: 'POLLING_VOTING', label: 'Polling & Voting', desc: 'Surveys, polls, voting notifications.' },
+  { value: 'EMERGENCY', label: 'Emergency', desc: 'Emergency and public safety notifications.' },
+  { value: 'HIGHER_EDUCATION', label: 'Higher Education', desc: 'University and college student notifications.' },
   { value: 'LOW_VOLUME', label: 'Low Volume', desc: 'Under 6,000 messages/month across all numbers.' },
+  { value: 'MARKETING', label: 'Marketing', desc: 'Promotional messages, offers, sales.' },
+  { value: 'MIXED', label: 'Mixed', desc: 'Multiple use cases. Higher scrutiny — approval may take longer.', warn: true },
+  { value: 'POLITICAL', label: 'Political', desc: 'Political campaign and election messaging.' },
+  { value: 'POLLING_VOTING', label: 'Polling & Voting', desc: 'Surveys, polls, voting notifications.' },
+  { value: 'PUBLIC_SERVICE_ANNOUNCEMENT', label: 'Public Service Announcement', desc: 'Government and public safety announcements.' },
+  { value: 'SECURITY_ALERT', label: 'Security Alerts', desc: 'Fraud alerts, suspicious activity notifications.' },
+  { value: 'SOCIAL', label: 'Social', desc: 'Social networking and community notifications.' },
+  { value: 'TWO_FACTOR_AUTHENTICATION', label: 'Two-Factor Authentication', desc: 'One-time passcodes for login or transaction verification.' },
 ];
 
 export var VERTICALS = [

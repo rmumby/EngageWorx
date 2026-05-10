@@ -59,11 +59,18 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, sessi
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '24px 28px', marginBottom: 20 };
   var errBorder = function(field) { return errors[field] ? { borderColor: '#EC4899' } : {}; };
   var selectedUC = USE_CASES.find(function(uc) { return uc.value === campaign.use_case; });
+  var samplesLocked = !campaign.use_case || !campaign.description || campaign.description.trim().length < 10;
 
   return (
     <div>
       <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Campaign Details</h2>
-      <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Define what messages you'll send and how users opt in</div>
+      <div style={{ color: C.muted, fontSize: 13, marginBottom: 12 }}>Define what messages you'll send and how users opt in</div>
+      <div style={{ background: 'rgba(0,191,255,0.06)', border: '1px solid rgba(0,191,255,0.15)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, color: 'rgba(255,255,255,0.5)', fontSize: 12, lineHeight: 1.6 }}>
+        <strong style={{ color: '#00BFFF' }}>How to complete this step:</strong><br/>
+        1. Select your <strong>Use Case</strong> — this determines what types of messages you can send.<br/>
+        2. Enter your <strong>Campaign Description</strong> (or click ✨ to refine).<br/>
+        3. <strong>Sample Messages</strong> — enter your own or click ✨ to generate based on Use Case and Description.
+      </div>
       {showErrors && Object.keys(errors).length > 0 && (
         <div style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, color: '#EC4899', fontSize: 13 }}>
           Please fix the highlighted fields before continuing.
@@ -90,7 +97,8 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, sessi
         </Field>
       </div>
 
-      <div style={card}>
+      <div style={Object.assign({}, card, samplesLocked ? { opacity: 0.5, pointerEvents: 'none' } : {})}>
+        {samplesLocked && <div style={{ color: '#F59E0B', fontSize: 12, marginBottom: 12 }}>Select Use Case and add Description above to unlock sample messages.</div>}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Sample Messages</div>

@@ -43,34 +43,34 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
   var [bundleModal, setBundleModal] = useState(false);
   var [bundle, setBundle] = useState(null);
 
-  // Scroll to top on mount and step transitions — target both window and parent scroll container
+  // Scroll to top on mount and step transitions
   var wizardRef = useRef(null);
   useEffect(function() {
-    window.scrollTo(0, 0);
-    if (wizardRef.current) wizardRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
-    // Also try scrolling the nearest scrollable parent
-    var el = wizardRef.current;
-    while (el && el.parentElement) {
-      el = el.parentElement;
-      if (el.scrollTop > 0) { el.scrollTop = 0; break; }
-    }
+    // Defer to next frame so DOM has rendered
+    setTimeout(function() {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      if (wizardRef.current) {
+        wizardRef.current.scrollIntoView({ behavior: 'auto', block: 'start' });
+        // Walk up to find scrollable parent and reset it
+        var el = wizardRef.current.parentElement;
+        while (el) {
+          if (el.scrollHeight > el.clientHeight) { el.scrollTop = 0; }
+          el = el.parentElement;
+        }
+      }
+    }, 0);
   }, [step]);
 
-  // Load tenant name for template pre-fill
+  // Pre-fill displayName hint from tenant name (user edits before content is generated).
+  // Sample messages/help/stop are NOT pre-filled with tenants.name — they use displayName
+  // after the user sets it, populated via AI assist or the compliance bundle.
   useEffect(function() {
     if (!tenantId) return;
     supabase.from('tenants').select('name').eq('id', tenantId).maybeSingle().then(function(r) {
       if (r.data && r.data.name) {
-        var name = r.data.name;
-        setCampaign(function(c) { return Object.assign({}, c, {
-          sample_messages: sampleMessages(name),
-          help_message: helpMessage(name),
-          stop_message: stopMessage(name),
-        }); });
-        setConsent(function(cn) { return Object.assign({}, cn, {
-          confirmation_message: optInConfirmation(name),
-        }); });
-        setBrand(function(b) { return Object.assign({}, b, { displayName: b.displayName || name }); });
+        setBrand(function(b) { return Object.assign({}, b, { displayName: b.displayName || r.data.name }); });
       }
     });
   }, [tenantId]);
@@ -144,15 +144,26 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
         body: JSON.stringify({ action: 'generate_bundle', tenant_id: tenantId, session_id: sid }),
       });
       var data = await res.json();
-      setBundle(data);
-    } catch (e) { console.warn('[TCRWizard] bundle error:', e.message); }
+      if (data.error) { setBundle({ error: data.error }); }
+      else { setBundle(data); }
+    } catch (e) {
+      console.warn('[TCRWizard] bundle error:', e.message);
+      setBundle({ error: 'Connection failed. Please try again.' });
+    }
   }
 
-  function applyBundle(b) {
-    if (!b || !b.form_fields) return;
-    if (b.form_fields.brand) setBrand(function(prev) { return Object.assign({}, prev, b.form_fields.brand); });
-    if (b.form_fields.campaign) setCampaign(function(prev) { return Object.assign({}, prev, b.form_fields.campaign); });
-    if (b.form_fields.consent) setConsent(function(prev) { return Object.assign({}, prev, b.form_fields.consent); });
+  function applyBundleToCampaign(b) {
+    if (!b) return;
+    setCampaign(function(prev) { return Object.assign({}, prev, {
+      description: b.campaign_description || prev.description,
+      sample_messages: b.sample_messages || prev.sample_messages,
+      help_message: b.help_message || prev.help_message,
+      stop_message: b.stop_message || prev.stop_message,
+    }); });
+    setConsent(function(prev) { return Object.assign({}, prev, {
+      opt_in_description: b.opt_in_description || prev.opt_in_description,
+      confirmation_message: b.confirmation_message || prev.confirmation_message,
+    }); });
     setBundleModal(false);
   }
 
@@ -208,9 +219,21 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
             ) : (
               <div>
                 <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, color: '#F59E0B', fontSize: 12, lineHeight: 1.5 }}>
-                  These templates are structurally correct but reflect a generic business. You MUST edit fields to reflect your actual business before submitting. Carrier review will reject submissions that don't accurately describe your business.
+                  AI generates compliance content templates. You must enter factual business details (EIN, address, phone) from your actual business records. Edit all generated content before submitting.
                 </div>
-                <button onClick={function() { applyBundle(bundle); }} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}>Fill form fields from bundle</button>
+                {bundle.brand_description && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Brand Description</div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: 16, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>{bundle.brand_description}</div>
+                  </div>
+                )}
+                {bundle.sample_messages && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Sample Messages</div>
+                    {bundle.sample_messages.map(function(m, i) { return <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6, padding: '8px 12px', marginBottom: 6, color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>"{m}"</div>; })}
+                  </div>
+                )}
+                <button onClick={function() { applyBundleToCampaign(bundle); }} style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", marginBottom: 16 }}>Use in Steps 3 & 4</button>
                 {bundle.privacy_policy_section && (
                   <div style={{ marginBottom: 16 }}>
                     <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Privacy Policy SMS Section</div>

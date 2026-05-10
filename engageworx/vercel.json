@@ -53,6 +53,12 @@
     },
     "api/action-items/send.js": {
       "maxDuration": 30
+    },
+    "api/tcr-wizard.js": {
+      "maxDuration": 120
+    },
+    "api/tcr-submit-telnyx.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
