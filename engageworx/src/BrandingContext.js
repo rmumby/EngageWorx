@@ -36,11 +36,11 @@ export function BrandingProvider({ children }) {
     if (isPlatform) return;
 
     // Custom domain — look up tenant
-    supabase.from('tenants')
-      .select('id, name, brand_name, brand_primary, brand_secondary, brand_logo_url, brand_favicon_url')
-      .eq('custom_domain', hostname)
+    supabase
+      .rpc('get_tenant_branding_by_domain', { p_hostname: hostname })
       .maybeSingle()
       .then(function(result) {
+        if (result.error) console.error('Branding lookup failed:', result.error);
         if (result.data) {
           var t = result.data;
           var name = t.brand_name || t.name || hostname;
