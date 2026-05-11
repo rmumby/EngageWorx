@@ -36,6 +36,11 @@ export var ENTITY_TYPES = [
   { value: 'SOLE_PROPRIETOR', label: 'Sole Proprietor' },
 ];
 
+export function campaignDescription(businessName) {
+  var bn = businessName || '[Your Business]';
+  return 'EXAMPLE: ' + bn + ' sends account notifications to opted-in customers, including billing updates, security alerts, and service maintenance notices. Messages are transactional and not promotional. Customers opt-in via our signup form at [your-website]/sms-signup and can opt out by replying STOP.';
+}
+
 export function sampleMessages(businessName) {
   var bn = businessName || '[Your Business]';
   return [

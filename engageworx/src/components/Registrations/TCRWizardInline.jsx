@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn } from '../../tcrTemplates';
+import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn, campaignDescription as templateDescription } from '../../tcrTemplates';
 import StepBrand from './steps/StepBrand';
 import StepVetting from './steps/StepVetting';
 import StepCampaign from './steps/StepCampaign';
@@ -69,6 +69,7 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
         setCampaign(function(c) {
           if (c.sample_messages.some(function(m) { return m; })) return c; // don't overwrite if already has content
           return Object.assign({}, c, {
+            description: c.description || templateDescription(name),
             sample_messages: templateSamples(name),
             help_message: c.help_message || templateHelp(name),
             stop_message: c.stop_message || templateStop(name),
