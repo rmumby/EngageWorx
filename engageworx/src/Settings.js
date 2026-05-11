@@ -7,6 +7,7 @@ import EmailSetupWizard from './components/EmailSetupWizard';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
+import TenantBranding from './TenantBranding';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -344,7 +345,7 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs, enabledModules, onSaveModules }) {
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs, enabledModules, onSaveModules, userRole }) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
@@ -1002,6 +1003,7 @@ return (<div>
           { id: "integrations", label: t('settings.integrations'), icon: "🔌" },
           { id: "api", label: t('settings.apiKeys'), icon: "🔑" },
           { id: "webhooks", label: t('settings.webhooks'), icon: "🔗" },
+          { id: "branding", label: "Branding", icon: "🎨" },
         ].filter(tab => !allowedTabs || allowedTabs.includes(tab.id)).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: activeTab === tab.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === tab.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === tab.id ? "#000" : C.muted, fontWeight: activeTab === tab.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{tab.icon} {tab.label}</button>
         ))}
@@ -1934,6 +1936,10 @@ return (<div>
     )}
   </div>
 )}
+
+      {activeTab === "branding" && (
+        <TenantBranding tenantId={resolvedTenantId || currentTenantId} userRole={userRole} />
+      )}
     {showEmailWizard && (
       <EmailSetupWizard
         C={C}

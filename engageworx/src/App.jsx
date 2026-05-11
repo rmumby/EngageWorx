@@ -33,6 +33,7 @@ import TCRQueue from './TCRQueue';
 import AuthCallback from './AuthCallback';
 const RegistrationsPage = lazy(() => import('./components/Registrations/RegistrationsPage'));
 import BrandingEditor from './BrandingEditor';
+
 import EmailDigest from './EmailDigest';
 import CustomerSuccessDashboard from './CustomerSuccessDashboard';
 import PlatformUpdates from './PlatformUpdates';
@@ -40,7 +41,7 @@ import StreamingTest from './StreamingTest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
-import AutoDetectBrandBar from './AutoDetectBrandBar';
+// AutoDetectBrandBar removed — branding is now self-serve via TenantBranding in Settings
 import SetupChecklist from './SetupChecklist';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
@@ -1706,7 +1707,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     })();
   }, [tenantId, cpAuth]);
   const [agentName, setAgentName] = useState('Aria');
-  const [brandingKey, setBrandingKey] = useState(0);
+
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
@@ -1751,7 +1752,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     entityTier !== 'csp' ? { id: "analytics", label: t('nav.analytics'), icon: "📊" } : null,
     entityTier === 'csp' ? { id: "customer-success", label: t('nav.customerSuccess'), icon: "📈" } : null,
     /* TCR Queue is SP-admin only (line 2137). CSP tenants use Registrations for their own TCR. */
-    { id: "branding", label: t('nav.branding'), icon: "🎨" },
+    /* Branding moved into Settings tab — admin/superadmin gated via allowedTabs */
     { id: "registrations", label: t('nav.registrations'), icon: "📋" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
     customerType === 'internal' ? { id: "streaming-test", label: "Streaming Test", icon: "🧪" } : null,
@@ -1872,7 +1873,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
-          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"]} />
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
         )}
         {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
         {page === "pipeline" && entityTier === 'csp' && (
@@ -1942,15 +1943,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
         {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}
         {/* TCR Queue removed from tenant view — SP-admin only */}
-        {page === "branding" && (
-          <div style={{ padding: "32px 36px", maxWidth: 900 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>
-            <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Customize your portal branding</p>
-            <AutoDetectBrandBar tenantId={tenantId} C={C} onDetected={function() { setBrandingKey(function(k) { return k + 1; }); }} />
-            <BrandingEditor key={'brand-' + brandingKey} entityId={tenantId} actor={{ tenantId: tenantId, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={C} />
-          </div>
-        )}
-        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "branding" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "registrations" && (
+        {/* Branding is now a tab inside Settings — see allowedTabs gating */}
+        {page !== "dashboard" && page !== "campaigns" && page !== "analytics" && page !== "contacts" && page !== "inbox" && page !== "chatbot" && page !== "flows" && page !== "settings" && page !== "registration" && page !== "support" && page !== "sequences" && page !== "sequenceroster" && page !== "billing" && page !== "integrations" && page !== "registrations" && (
           <div style={{ padding: "32px 36px" }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>{navItems.find(n => n.id === page)?.label}</h1>
             <p style={{ color: C.muted, fontSize: 14 }}>Manage your {page} within {tenant.brand.name}</p>
