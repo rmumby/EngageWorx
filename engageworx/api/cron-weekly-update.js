@@ -1,9 +1,12 @@
 // api/cron-weekly-update.js
 // Monday 14:00 UTC (10am ET): pulls the last 7 days of git commits from GitHub,
 // asks Claude to write a polished platform update, saves it as a DRAFT in
-// platform_updates, and emails rob@engwx.com to review + publish.
+// platform_updates, and notifies SP admins to review + publish.
 
 var { createClient } = require('@supabase/supabase-js');
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
+
+var SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
 var GITHUB_REPO = process.env.GITHUB_REPO || 'rmumby/EngageWorx';
 var GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -50,7 +53,8 @@ async function generateWithClaude(commits) {
     '\n## Improvements\n- (2-4 bullets about quality-of-life changes and fixes)' +
     '\n## Coming Next\n- (1-3 bullets speculating on what\'s next, honest and non-committal)' +
     '\n## Tip of the Week\n- (one short actionable tip for the reader)' +
-    '\n\nRules: no emoji overload (one or two per section max), no corporate fluff, no "we\'re excited" language, no commit SHAs, no internal jargon. Group related commits. Skip chore/refactor commits unless they\'re user-visible.';
+    '\n\nRules: no emoji overload (one or two per section max), no corporate fluff, no "we\'re excited" language, no commit SHAs, no internal jargon. Group related commits. Skip chore/refactor commits unless they\'re user-visible.' +
+    '\nNever mention third-party vendor or service names (Twilio, SendGrid, Resend, Supabase, Vercel, Anthropic, Cloudflare, Telnyx, etc.) — describe capabilities generically ("email delivery", "SMS registration", "database", "hosting"). Never reference internal incidents, emergency fixes, outages, or architectural details — summarize the user-visible outcome only.';
 
   var prompt = 'Last 7 days of commits on the EngageWorx repo (most recent first):\n\n' + (commitLines || '(no commits found)') + '\n\nWrite the weekly update markdown now.';
 
@@ -123,28 +127,22 @@ module.exports = async function handler(req, res) {
     var draftId = ins.data && ins.data.id;
     console.log('[WeeklyUpdate] Draft saved:', draftId);
 
-    // 4. Email Rob
-    if (process.env.SENDGRID_API_KEY) {
-      try {
-        var sgMail = require('@sendgrid/mail');
-        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-        var preview = markdown.substring(0, 800).replace(/</g, '&lt;').replace(/\n/g, '<br>');
-        var html = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f9fafb;">' +
-          '<div style="background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">' +
-          '<h1 style="font-size:20px;color:#111;margin:0 0 6px;">📝 Weekly platform update draft ready</h1>' +
-          '<p style="color:#475569;font-size:13px;margin:0 0 16px;">Week of ' + dateLabel + ' · ' + commits.length + ' commits analysed · source: ' + source + '</p>' +
-          '<div style="background:#f3f4f6;border-radius:8px;padding:16px;font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow:auto;">' + preview + (markdown.length > 800 ? '…' : '') + '</div>' +
-          '<div style="text-align:center;margin-top:20px;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Review & publish →</a></div>' +
-          '<p style="color:#94a3b8;font-size:11px;margin-top:16px;">Go to SP Admin → Platform Updates to edit or publish this draft.</p>' +
-          '</div></div>';
-        await sgMail.send({
-          to: (process.env.PLATFORM_ADMIN_EMAIL || 'rob@engwx.com'),
-          from: { email: 'notifications@engwx.com', name: 'EngageWorx' },
-          subject: '📝 Weekly platform update draft — ' + dateLabel,
-          html: html,
-        });
-      } catch (e) { console.warn('[WeeklyUpdate] Email send error:', e.message); }
-    }
+    // 4. Notify SP admins via notifyTenantAdmins (routes through sendTenantEmail / Resend)
+    try {
+      var preview = markdown.substring(0, 800).replace(/</g, '&lt;').replace(/\n/g, '<br>');
+      var notifyHtml = '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f9fafb;">' +
+        '<div style="background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">' +
+        '<h1 style="font-size:20px;color:#111;margin:0 0 6px;">Weekly platform update draft ready</h1>' +
+        '<p style="color:#475569;font-size:13px;margin:0 0 16px;">Week of ' + dateLabel + ' · ' + commits.length + ' items analysed · source: ' + source + '</p>' +
+        '<div style="background:#f3f4f6;border-radius:8px;padding:16px;font-size:13px;color:#1e293b;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow:auto;">' + preview + (markdown.length > 800 ? '…' : '') + '</div>' +
+        '<div style="text-align:center;margin-top:20px;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Review & publish →</a></div>' +
+        '<p style="color:#94a3b8;font-size:11px;margin-top:16px;">Go to SP Admin → Platform Updates to edit or publish this draft.</p>' +
+        '</div></div>';
+      await notifyTenantAdmins(supabase, SP_TENANT_ID, 'digest', { draft_id: draftId, week: stamp }, {
+        subject: 'Weekly platform update draft — ' + dateLabel,
+        html: notifyHtml,
+      });
+    } catch (e) { console.warn('[WeeklyUpdate] Notify error:', e.message); }
 
     return res.status(200).json({ success: true, draft_id: draftId, commits: commits.length, source: source, week: stamp });
   } catch (err) {
