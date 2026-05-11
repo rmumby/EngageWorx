@@ -1750,7 +1750,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     entityTier === 'csp' ? { id: "analytics-global", label: t('nav.globalAnalytics'), icon: "📊" } : null,
     entityTier !== 'csp' ? { id: "analytics", label: t('nav.analytics'), icon: "📊" } : null,
     entityTier === 'csp' ? { id: "customer-success", label: t('nav.customerSuccess'), icon: "📈" } : null,
-    entityTier === 'csp' ? { id: "tcr-queue", label: "TCR Queue", icon: "📋" } : null,
+    /* TCR Queue is SP-admin only (line 2137). CSP tenants use Registrations for their own TCR. */
     { id: "branding", label: t('nav.branding'), icon: "🎨" },
     { id: "registrations", label: t('nav.registrations'), icon: "📋" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
@@ -1941,7 +1941,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "hierarchy" && entityTier === 'csp' && <HierarchyView C={C} />}
         {page === "analytics-global" && entityTier === 'csp' && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="sp" demoMode={false} />}
         {page === "customer-success" && entityTier === 'csp' && <CustomerSuccessDashboard C={C} />}
-        {page === "tcr-queue" && entityTier === 'csp' && <TCRQueue C={C} />}
+        {/* TCR Queue removed from tenant view — SP-admin only */}
         {page === "branding" && (
           <div style={{ padding: "32px 36px", maxWidth: 900 }}>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: "0 0 8px" }}>Branding</h1>

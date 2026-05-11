@@ -35,7 +35,7 @@ export default function AIAssistButton({ sessionId, field, onResult, disabled, d
         onClick={handleClick}
         disabled={loading || disabled}
         title={disabled ? (disabledTooltip || 'Fill required fields first') : 'AI suggest'}
-        style={{ background: 'none', border: '1px solid rgba(168,85,247,0.3)', borderRadius: 6, padding: '4px 8px', cursor: (loading || disabled) ? 'not-allowed' : 'pointer', fontSize: 12, color: disabled ? 'rgba(168,85,247,0.3)' : '#A855F7', fontFamily: "'DM Sans', sans-serif", opacity: (loading || disabled) ? 0.4 : 1 }}>
+        style={{ background: (loading || disabled) ? 'rgba(168,85,247,0.1)' : '#A855F7', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: (loading || disabled) ? 'not-allowed' : 'pointer', fontSize: 12, color: '#fff', fontFamily: "'DM Sans', sans-serif", opacity: (loading || disabled) ? 0.4 : 1 }}>
         {loading ? '⏳' : '✨'}
       </button>
       {error && <span style={{ color: '#EF4444', fontSize: 10 }}>{error}</span>}
