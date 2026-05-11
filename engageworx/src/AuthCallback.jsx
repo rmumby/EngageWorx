@@ -113,7 +113,7 @@ export default function AuthCallback() {
             <button
               onClick={handleSetPassword}
               disabled={submitting}
-              style={{ width: '100%', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', border: 'none', borderRadius: 10, padding: '14px', color: '#fff', fontWeight: 700, fontSize: 15, cursor: submitting ? 'wait' : 'pointer', fontFamily: "'DM Sans', sans-serif", opacity: submitting ? 0.6 : 1 }}
+              style={{ width: '100%', background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))', border: 'none', borderRadius: 10, padding: '14px', color: '#fff', fontWeight: 700, fontSize: 15, cursor: submitting ? 'wait' : 'pointer', fontFamily: "'DM Sans', sans-serif", opacity: submitting ? 0.6 : 1 }}
             >
               {submitting ? 'Updating...' : 'Update Password'}
             </button>
@@ -125,7 +125,7 @@ export default function AuthCallback() {
             <div style={{ fontSize: 36, marginBottom: 16 }}>✅</div>
             <h2 style={{ color: '#fff', margin: '0 0 8px', fontSize: 20 }}>Password Updated</h2>
             <p style={{ color: '#6B7280', fontSize: 14, marginBottom: 24 }}>Your password has been changed successfully.</p>
-            <a href="/" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', padding: '12px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
+            <a href="/" style={{ display: 'inline-block', background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))', color: '#fff', padding: '12px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
               Go to Portal
             </a>
           </div>
@@ -136,7 +136,7 @@ export default function AuthCallback() {
             <div style={{ fontSize: 36, marginBottom: 16 }}>⚠️</div>
             <h2 style={{ color: '#EF4444', margin: '0 0 8px', fontSize: 20 }}>Link Invalid</h2>
             <p style={{ color: '#6B7280', fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>{message || 'This link has expired or is invalid.'}</p>
-            <a href="/" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', padding: '12px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
+            <a href="/" style={{ display: 'inline-block', background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))', color: '#fff', padding: '12px 28px', borderRadius: 10, textDecoration: 'none', fontWeight: 700, fontSize: 14 }}>
               Back to Login
             </a>
           </div>

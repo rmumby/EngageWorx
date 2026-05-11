@@ -2112,7 +2112,9 @@ function AppInner() {
   };
 
   const { theme, isDark } = useTheme();
-  const C = getThemedColors(TENANTS.serviceProvider.colors, theme);
+  const branding = useBranding();
+  const _spColors = branding.isWhiteLabel ? Object.assign({}, TENANTS.serviceProvider.colors, { primary: branding.brandPrimary, accent: branding.brandSecondary }) : TENANTS.serviceProvider.colors;
+  const C = getThemedColors(_spColors, theme);
 
 var spNavBase = [
     { id: "dashboard",        label: tSP('nav.platformOverview'),  icon: "⊞" },
@@ -2147,7 +2149,6 @@ var spNavBase = [
   }
 
   const hostname = window.location.hostname;
-  const branding = useBranding();
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1" || branding.isWhiteLabel;
 
   if (!isPortal) {
