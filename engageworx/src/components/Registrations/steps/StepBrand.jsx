@@ -5,16 +5,12 @@ var inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border:
 var selectStyle = Object.assign({}, inputStyle, { appearance: 'auto', colorScheme: 'dark' });
 var labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 };
 
-function Field({ label, required, error, children, hint }) {
+function Field({ label, required, children, hint }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={labelStyle}>
-        {label}
-        {required && <span style={{ color: error ? '#EF4444' : '#EC4899', marginLeft: 3 }}>*</span>}
-        {error && <span style={{ color: '#EF4444', marginLeft: 4, fontWeight: 600, fontSize: 10 }}>Required</span>}
-      </label>
+      <label style={labelStyle}>{label}{required && <span style={{ color: '#EC4899', marginLeft: 3 }}>*</span>}</label>
       {children}
-      {hint && !error && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{hint}</div>}
     </div>
   );
 }
@@ -55,7 +51,7 @@ export default function StepBrand({ brand, onUpdate, onNext, C }) {
   }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '24px 28px', marginBottom: 20 };
-  var hasErr = function(field) { return showErrors && errors[field]; };
+  var errBorder = function(field) { return errors[field] ? { border: '2px solid #EC4899', background: 'rgba(236,72,153,0.06)' } : {}; };
 
   return (
     <div>
@@ -75,33 +71,33 @@ export default function StepBrand({ brand, onUpdate, onNext, C }) {
 
       <div style={card}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Display Name" required error={hasErr('displayName')} hint="Your customer-facing brand name — must match what appears on your website and opt-in page">
-            <input style={Object.assign({}, inputStyle)} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="e.g. Acme Health Services" />
+          <Field label="Display Name" required hint="Your customer-facing brand name — must match what appears on your website and opt-in page">
+            <input style={Object.assign({}, inputStyle, errBorder('displayName'))} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="e.g. Acme Health Services" />
           </Field>
           <Field label="Company Name"><input style={inputStyle} value={brand.companyName || ''} onChange={function(e) { set('companyName', e.target.value); }} placeholder="Legal entity name (if different)" /></Field>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="EIN" required error={hasErr('ein')} hint="XX-XXXXXXX"><input style={Object.assign({}, inputStyle)} value={brand.ein || ''} onChange={function(e) { set('ein', e.target.value); }} placeholder="12-3456789" /></Field>
-          <Field label="Entity Type" required error={hasErr('entityType')}><select style={Object.assign({}, selectStyle)} value={brand.entityType || ''} onChange={function(e) { set('entityType', e.target.value); }}><option value="">Select...</option>{ENTITY_TYPES.map(function(t) { return <option key={t.value} value={t.value}>{t.label}</option>; })}</select></Field>
+          <Field label="EIN" required hint="XX-XXXXXXX"><input style={Object.assign({}, inputStyle, errBorder('ein'))} value={brand.ein || ''} onChange={function(e) { set('ein', e.target.value); }} placeholder="12-3456789" /></Field>
+          <Field label="Entity Type" required><select style={Object.assign({}, selectStyle, errBorder('entityType'))} value={brand.entityType || ''} onChange={function(e) { set('entityType', e.target.value); }}><option value="">Select...</option>{ENTITY_TYPES.map(function(t) { return <option key={t.value} value={t.value}>{t.label}</option>; })}</select></Field>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Vertical" required error={hasErr('vertical')}><select style={Object.assign({}, selectStyle)} value={brand.vertical || ''} onChange={function(e) { set('vertical', e.target.value); }}><option value="">Select...</option>{VERTICALS.map(function(v) { return <option key={v} value={v}>{v}</option>; })}</select></Field>
+          <Field label="Vertical" required><select style={Object.assign({}, selectStyle, errBorder('vertical'))} value={brand.vertical || ''} onChange={function(e) { set('vertical', e.target.value); }}><option value="">Select...</option>{VERTICALS.map(function(v) { return <option key={v} value={v}>{v}</option>; })}</select></Field>
           <Field label="Website"><input style={inputStyle} value={brand.website || ''} onChange={function(e) { set('website', e.target.value); }} placeholder="https://..." /></Field>
         </div>
       </div>
       <div style={card}>
         <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, marginBottom: 16 }}>Business Address</div>
-        <Field label="Street" required error={hasErr('street')}><input style={Object.assign({}, inputStyle)} value={brand.street || ''} onChange={function(e) { set('street', e.target.value); }} /></Field>
+        <Field label="Street" required><input style={Object.assign({}, inputStyle, errBorder('street'))} value={brand.street || ''} onChange={function(e) { set('street', e.target.value); }} /></Field>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0 16px' }}>
-          <Field label="City" required error={hasErr('city')}><input style={Object.assign({}, inputStyle)} value={brand.city || ''} onChange={function(e) { set('city', e.target.value); }} /></Field>
-          <Field label="State" required error={hasErr('state')}><input style={Object.assign({}, inputStyle)} value={brand.state || ''} onChange={function(e) { set('state', e.target.value); }} maxLength={2} placeholder="FL" /></Field>
-          <Field label="ZIP" required error={hasErr('postalCode')}><input style={Object.assign({}, inputStyle)} value={brand.postalCode || ''} onChange={function(e) { set('postalCode', e.target.value); }} /></Field>
+          <Field label="City" required><input style={Object.assign({}, inputStyle, errBorder('city'))} value={brand.city || ''} onChange={function(e) { set('city', e.target.value); }} /></Field>
+          <Field label="State" required><input style={Object.assign({}, inputStyle, errBorder('state'))} value={brand.state || ''} onChange={function(e) { set('state', e.target.value); }} maxLength={2} placeholder="FL" /></Field>
+          <Field label="ZIP" required><input style={Object.assign({}, inputStyle, errBorder('postalCode'))} value={brand.postalCode || ''} onChange={function(e) { set('postalCode', e.target.value); }} /></Field>
         </div>
       </div>
       <div style={card}>
         <div style={{ color: '#fff', fontWeight: 600, fontSize: 14, marginBottom: 16 }}>Contact</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Business Phone" required error={hasErr('phone')}>
+          <Field label="Business Phone" required>
             <div style={{ display: 'flex', gap: 6 }}>
               {/* Backlog: PHONE-INPUT-CONSOLIDATE to merge with Settings.js country codes. Sorted alphabetically. */}
               <select style={Object.assign({}, selectStyle, { width: 130, flex: 'none' })} value={brand.phoneCountry || '+1'} onChange={function(e) { set('phoneCountry', e.target.value); }}>
@@ -125,10 +121,10 @@ export default function StepBrand({ brand, onUpdate, onNext, C }) {
                 <option value="+44">🇬🇧 United Kingdom +44</option><option value="+1">🇺🇸 United States +1</option><option value="+58">🇻🇪 Venezuela +58</option>
                 <option value="+84">🇻🇳 Vietnam +84</option>
               </select>
-              <input style={Object.assign({}, inputStyle, { flex: 1 })} value={brand.phone || ''} onChange={function(e) { set('phone', e.target.value); }} placeholder="7869827800" />
+              <input style={Object.assign({}, inputStyle, { flex: 1 }, errBorder('phone'))} value={brand.phone || ''} onChange={function(e) { set('phone', e.target.value); }} placeholder="7869827800" />
             </div>
           </Field>
-          <Field label="Business Email" required error={hasErr('email')}><input style={Object.assign({}, inputStyle)} type="email" value={brand.email || ''} onChange={function(e) { set('email', e.target.value); }} /></Field>
+          <Field label="Business Email" required><input style={Object.assign({}, inputStyle, errBorder('email'))} type="email" value={brand.email || ''} onChange={function(e) { set('email', e.target.value); }} /></Field>
         </div>
         {brand.entityType === 'PUBLIC_PROFIT' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>

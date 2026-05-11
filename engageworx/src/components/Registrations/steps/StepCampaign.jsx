@@ -5,16 +5,12 @@ var inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border:
 var selectStyle = Object.assign({}, inputStyle, { appearance: 'auto', colorScheme: 'dark' });
 var labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 };
 
-function Field({ label, required, error, children, hint }) {
+function Field({ label, required, children, hint }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={labelStyle}>
-        {label}
-        {required && <span style={{ color: error ? '#EF4444' : '#EC4899', marginLeft: 3 }}>*</span>}
-        {error && <span style={{ color: '#EF4444', marginLeft: 4, fontWeight: 600, fontSize: 10 }}>Required</span>}
-      </label>
+      <label style={labelStyle}>{label}{required && <span style={{ color: '#EC4899', marginLeft: 3 }}>*</span>}</label>
       {children}
-      {hint && !error && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 }}>{hint}</div>}
     </div>
   );
 }
@@ -56,7 +52,7 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, C }) 
   }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '24px 28px', marginBottom: 20 };
-  var hasErr = function(field) { return showErrors && errors[field]; };
+  var errBorder = function(field) { return errors[field] ? { border: '2px solid #EC4899', background: 'rgba(236,72,153,0.06)' } : {}; };
   var selectedUC = USE_CASES.find(function(uc) { return uc.value === campaign.use_case; });
 
   return (
@@ -79,8 +75,8 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, C }) 
 
       {/* 1. Use Case */}
       <div style={card}>
-        <Field label="Use Case" required error={hasErr('use_case')}>
-          <select style={selectStyle} value={campaign.use_case || ''} onChange={function(e) { set('use_case', e.target.value); }}>
+        <Field label="Use Case" required>
+          <select style={Object.assign({}, selectStyle, errBorder('use_case'))} value={campaign.use_case || ''} onChange={function(e) { set('use_case', e.target.value); }}>
             <option value="">Select use case...</option>
             {USE_CASES.map(function(uc) { return <option key={uc.value} value={uc.value}>{uc.label}</option>; })}
           </select>
@@ -88,8 +84,8 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, C }) 
         </Field>
 
         {/* 2. Campaign Description */}
-        <Field label="Campaign Description" required error={hasErr('description')}>
-          <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 70 })} value={campaign.description || ''} onChange={function(e) { set('description', e.target.value); }} placeholder="Describe what messages will be sent and why..." />
+        <Field label="Campaign Description" required>
+          <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 70 }, errBorder('description'))} value={campaign.description || ''} onChange={function(e) { set('description', e.target.value); }} placeholder="Describe what messages will be sent and why..." />
         </Field>
       </div>
 
@@ -141,11 +137,11 @@ export default function StepCampaign({ campaign, onUpdate, onNext, onBack, C }) 
           <Field label="Opt-out Keywords" hint="STOP is always included"><input style={inputStyle} value="STOP" disabled /></Field>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="HELP Response" required error={hasErr('help_message')}>
-            <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 50 })} value={campaign.help_message || ''} onChange={function(e) { set('help_message', e.target.value); }} />
+          <Field label="HELP Response" required>
+            <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 50 }, errBorder('help_message'))} value={campaign.help_message || ''} onChange={function(e) { set('help_message', e.target.value); }} />
           </Field>
-          <Field label="STOP Response" required error={hasErr('stop_message')}>
-            <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 50 })} value={campaign.stop_message || ''} onChange={function(e) { set('stop_message', e.target.value); }} />
+          <Field label="STOP Response" required>
+            <textarea style={Object.assign({}, inputStyle, { resize: 'vertical', minHeight: 50 }, errBorder('stop_message'))} value={campaign.stop_message || ''} onChange={function(e) { set('stop_message', e.target.value); }} />
           </Field>
         </div>
       </div>
