@@ -39,11 +39,11 @@ export var ENTITY_TYPES = [
 export function sampleMessages(businessName) {
   var bn = businessName || '[Your Business]';
   return [
-    bn + ': Your account has been updated. If you did not make this change, please contact us immediately. Reply HELP for help or STOP to opt out.',
-    bn + ': Your payment of $49.99 has been processed successfully. Thank you for your continued service. Reply HELP for help or STOP to opt out.',
-    bn + ': Your verification code is 482910. This code expires in 10 minutes. Do not share it with anyone.',
-    bn + ': Hi! Just a reminder that your appointment is scheduled for tomorrow at 2:00 PM. Reply YES to confirm or HELP for assistance. Reply STOP to opt out.',
-    bn + ': Your monthly statement is ready. Log in to your account to view details. Reply HELP for help or STOP to opt out.',
+    bn + ': Your appointment is confirmed for [date] at [time]. Reply STOP to opt out. Msg & data rates may apply.',
+    bn + ': Reminder — your appointment is tomorrow at [time]. Reply HELP for help or STOP to opt out.',
+    bn + ': Order #[number] has shipped. Track at [link]. Reply STOP to opt out.',
+    bn + ': Your account statement is ready. View at [link]. Reply HELP for help or STOP to opt out.',
+    bn + ': Security alert — new login from [location] at [time]. Visit [link] if not you. Reply STOP to opt out.',
   ];
 }
 

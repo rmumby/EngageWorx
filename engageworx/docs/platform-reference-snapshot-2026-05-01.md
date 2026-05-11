@@ -581,8 +581,8 @@ Cause: AI response handler in api/helpdesk.js mapped to invalid status strings (
 
 ### TCR Registration Flow
 - **Provider:** Telnyx /v2/10dlc/campaignBuilder (PC-02 wizard). Legacy Twilio path in api/tcr.js still exists.
-- **UI:** TCR Wizard (Day 2) — brand → campaign → consent → submit. Self-service, tenant-facing.
-- **AI:** Claude Sonnet validates against Telnyx use case enum + generates sample messages. Reference: EngageWorx's own approved campaign.
+- **UI:** TCR Wizard (Day 2) — 6-step: Brand → Vetting → Campaign → Consent → Review → Status. Self-service, tenant-facing. Steps 1-3 are form-based with pre-populated templates (no AI assist). AI value reserved for Step 5 validation gate (Layer 3).
+- **AI:** Step 5 validation gate uses Claude Sonnet to validate against use case enum + check URL compliance. generate_bundle endpoint available for future Step 4 repurpose.
 - **Telnyx use case enum (15 values):** CUSTOMER_CARE, DELIVERY_NOTIFICATION, ACCOUNT_NOTIFICATION, MARKETING, 2FA, SECURITY_ALERT, POLLING_VOTING, CHARITY, POLITICAL, MIXED, LOW_VOLUME, SOLE_PROPRIETOR, EMERGENCY, AGENTS_FRANCHISES, SWEEPSTAKES
 - **MNO status tracking:** Per-carrier (tmobile, att, verizon, uscc) provisioning status in `tcr_wizard_sessions.mno_status` JSONB. Campaign status: PENDING → ACTIVE when all MNOs active.
 - **Supplier adapter:** `api/_lib/tcr-supplier.js` — mock mode (default) simulates per-carrier progression. Live mode calls Telnyx API with exponential backoff (1s/2s/4s/8s + jitter, 3 retries for 429s).

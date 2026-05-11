@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TCRTab from './TCRTab';
 
 var TABS = [
@@ -10,6 +10,10 @@ var TABS = [
 export default function RegistrationsPage({ tenantId, C }) {
   var [activeTab, setActiveTab] = useState('tcr');
   var colors = C || { primary: '#00BFFF', accent: '#A855F7', muted: '#6B7280', text: '#E8F4FD', bg: '#080d1a', surface: '#0d1425', border: '#182440' };
+
+  useEffect(function() {
+    setTimeout(function() { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; }, 50);
+  }, []);
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", padding: '20px 32px' }}>

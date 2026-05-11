@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { VERTICALS, ENTITY_TYPES } from '../../../tcrTemplates';
-import AIAssistButton from '../AIAssistButton';
 
 var inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box' };
 var selectStyle = Object.assign({}, inputStyle, { appearance: 'auto', colorScheme: 'dark' });
@@ -16,7 +15,7 @@ function Field({ label, required, children, hint }) {
   );
 }
 
-export default function StepBrand({ brand, onUpdate, onNext, onGenerateBundle, sessionId, C }) {
+export default function StepBrand({ brand, onUpdate, onNext, C }) {
   var [errors, setErrors] = useState({});
 
   function set(field, value) {
@@ -61,7 +60,7 @@ export default function StepBrand({ brand, onUpdate, onNext, onGenerateBundle, s
           <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Brand Details</h2>
           <div style={{ color: C.muted, fontSize: 13 }}>Your business identity for carrier registration</div>
         </div>
-        {onGenerateBundle && <button onClick={onGenerateBundle} title="AI generates a complete starting template based on your tenant context — you edit before submitting." style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid rgba(168,85,247,0.4)', background: 'rgba(168,85,247,0.08)', color: '#A855F7', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>✨ Create with AI</button>}
+        {/* AI assist removed from Step 1 per Phase 4.5 R5 — form-based input only */}
       </div>
       {showErrors && Object.keys(errors).length > 0 && (
         <div style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, color: '#EC4899', fontSize: 13, lineHeight: 1.5 }}>
@@ -73,10 +72,7 @@ export default function StepBrand({ brand, onUpdate, onNext, onGenerateBundle, s
       <div style={card}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
           <Field label="Display Name" required hint="Your customer-facing brand name — must match what appears on your website and opt-in page">
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input style={Object.assign({}, inputStyle, { flex: 1 }, errBorder('displayName'))} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="e.g. Acme Health Services" />
-              <AIAssistButton sessionId={sessionId} field="display_name" onResult={function(v) { set('displayName', v); }} C={C} />
-            </div>
+            <input style={Object.assign({}, inputStyle, errBorder('displayName'))} value={brand.displayName || ''} onChange={function(e) { set('displayName', e.target.value); }} placeholder="e.g. Acme Health Services" />
           </Field>
           <Field label="Company Name"><input style={inputStyle} value={brand.companyName || ''} onChange={function(e) { set('companyName', e.target.value); }} placeholder="Legal entity name (if different)" /></Field>
         </div>
