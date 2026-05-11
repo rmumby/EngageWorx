@@ -1,6 +1,8 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthProvider, useAuth } from './AuthContext';
+import { BrandingProvider, useBranding } from './BrandingContext';
+import BrandLogo from './BrandLogo';
 import PipelineDashboard from './components/PipelineDashboard';
 import { supabase } from './supabaseClient';
 import SignupPage from './SignupPage';
@@ -2145,7 +2147,8 @@ var spNavBase = [
   }
 
   const hostname = window.location.hostname;
-  const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1";
+  const branding = useBranding();
+  const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1" || branding.isWhiteLabel;
 
   if (!isPortal) {
     if (window.location.pathname === '/blog' || window.location.pathname.startsWith('/blog/')) {
@@ -2183,7 +2186,7 @@ var spNavBase = [
           <div style={{ fontSize: 56, marginBottom: 20 }}>💳</div>
           <h1 style={{ color: "#e2e8f0", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Complete Your Subscription</h1>
           <p style={{ color: "#94a3b8", fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
-            Your account has been created but your subscription is not yet active. Complete the checkout to activate your EngageWorx portal.
+            Your account has been created but your subscription is not yet active. Complete the checkout to activate your portal.
           </p>
           <button onClick={async () => {
             try {
@@ -2225,7 +2228,7 @@ var spNavBase = [
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", marginBottom: 16 }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+          <div style={{ marginBottom: 16 }}><BrandLogo size={36} /></div>
           <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
         </div>
       </div>
@@ -2318,7 +2321,7 @@ var spNavBase = [
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ width: 420 }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 28, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+            <BrandLogo size={28} />
           </div>
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: "36px 32px" }}>
             <h2 style={{ color: "#fff", margin: "0 0 8px", textAlign: "center", fontSize: 20 }}>Set New Password</h2>
@@ -2382,8 +2385,8 @@ var spNavBase = [
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ width: 480 }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#fff" }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
-            <div style={{ color: C.muted, marginTop: 6 }}>Multi-Tenant Communications Platform</div>
+            <BrandLogo size={36} />
+            {!branding.isWhiteLabel && <div style={{ color: C.muted, marginTop: 6 }}>Multi-Tenant Communications Platform</div>}
           </div>
 
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 40 }}>
@@ -2601,7 +2604,7 @@ var spNavBase = [
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>Engage<span style={{ color: C.primary }}>Worx</span></div>
+                <BrandLogo size={22} style={{ color: C.text }} />
                 <PlatformUpdatesBell userId={profile?.id} audience="sp" />
               </div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Service Provider Console</div>
@@ -2876,10 +2879,12 @@ var spNavBase = [
 // ─── WRAP WITH AUTH PROVIDER ──────────────────────────────────────────────────
 export default function App() {
   return (
+    <BrandingProvider>
     <ThemeProvider>
     <AuthProvider>
       <AppInner />
     </AuthProvider>
     </ThemeProvider>
+    </BrandingProvider>
   );
 }

@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
+import BrandLogo from './BrandLogo';
 
 var inputStyle = {
   width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
@@ -76,7 +77,7 @@ export default function AuthCallback() {
       <div style={{ width: 420, padding: '0 20px' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>
-            Engage<span style={{ color: '#00BFFF' }}>Worx</span>
+            <BrandLogo size={28} />
           </div>
         </div>
 
