@@ -63,7 +63,8 @@
   },
   "crons": [
     { "path": "/api/cron-sequences", "schedule": "0 */4 * * *" },
-    { "path": "/api/cron-signup-recovery", "schedule": "0 */6 * * *" }
+    { "path": "/api/cron-signup-recovery", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron-weekly-update", "schedule": "0 14 * * 1" }
   ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
