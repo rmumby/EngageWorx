@@ -28,6 +28,7 @@ import LeadScan from './LeadScan';
 import MobileDemo from './MobileDemo';
 import SequenceRoster from './SequenceRoster';
 import TCRQueue from './TCRQueue';
+import AuthCallback from './AuthCallback';
 const RegistrationsPage = lazy(() => import('./components/Registrations/RegistrationsPage'));
 import BrandingEditor from './BrandingEditor';
 import EmailDigest from './EmailDigest';
@@ -2154,6 +2155,11 @@ var spNavBase = [
       return <Suspense fallback={<div style={{background:'#0a0d14',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading...</div>}><ApiDocs onBack={function() { window.location.href = '/'; }} /></Suspense>;
     }
     return <LandingPage />;
+  }
+
+  // Auth callback route — processes recovery/magic-link tokens before auth gate
+  if (window.location.pathname === '/auth/callback') {
+    return <AuthCallback />;
   }
 
   // Wedding portal route — intercepts before auth gate (couple sessions won't have tenant)
