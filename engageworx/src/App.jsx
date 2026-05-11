@@ -1754,6 +1754,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     /* TCR Queue is SP-admin only (line 2137). CSP tenants use Registrations for their own TCR. */
     /* Branding moved into Settings tab — admin/superadmin gated via allowedTabs */
     { id: "registrations", label: t('nav.registrations'), icon: "📋" },
+    { id: "integrations", label: t('nav.apisIntegrations'), icon: "🔌" },
     { id: "settings", label: t('nav.settings'), icon: "⚙️" },
     customerType === 'internal' ? { id: "streaming-test", label: "Streaming Test", icon: "🧪" } : null,
   ].filter(Boolean);
