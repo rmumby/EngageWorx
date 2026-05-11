@@ -51,7 +51,7 @@ export default function StepBrand({ brand, onUpdate, onNext, C }) {
   }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '24px 28px', marginBottom: 20 };
-  var errBorder = function(field) { return errors[field] ? { border: '1px solid #EC4899' } : {}; };
+  var errBorder = function(field) { return errors[field] ? { border: '2px solid #EC4899', background: 'rgba(236,72,153,0.06)' } : {}; };
 
   return (
     <div>
