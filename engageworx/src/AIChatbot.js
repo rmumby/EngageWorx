@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
 import EscalationRulesConfig from "./EscalationRulesConfig";
 
-const PERSONALITIES = [
-  { id: "professional", name: "Professional", icon: "👔", desc: "Formal, business-appropriate tone", temp: 0.3, greeting: "Hello! Thank you for reaching out. How may I assist you today?" },
-  { id: "friendly", name: "Friendly", icon: "😊", desc: "Warm, conversational, approachable", temp: 0.6, greeting: "Hey there! 👋 Great to hear from you! What can I help with?" },
-  { id: "concise", name: "Concise", icon: "⚡", desc: "Brief, direct, efficient responses", temp: 0.2, greeting: "Hi! How can I help?" },
-  { id: "empathetic", name: "Empathetic", icon: "💙", desc: "Understanding, supportive, patient", temp: 0.5, greeting: "Hi there! I'm here to help and happy to take as much time as you need. What's on your mind?" },
-  { id: "sales", name: "Sales-Driven", icon: "🎯", desc: "Persuasive, benefit-focused, conversion-oriented", temp: 0.7, greeting: "Welcome! I'd love to help you find the perfect solution. What are you looking for today?" },
-  { id: "technical", name: "Technical", icon: "🔧", desc: "Detailed, precise, documentation-style", temp: 0.2, greeting: "Hello. I'm your technical support assistant. Please describe your issue and I'll help troubleshoot." },
+// Personality presets — shared with backend (api/_lib/personalities.js)
+// Frontend copy kept in sync via same structure. Backend is the source of truth for prompt composition.
+var PERSONALITIES = [
+  { id: 'professional', name: 'Professional', icon: '👔', desc: 'Formal, business-appropriate tone', temp: 0.3 },
+  { id: 'friendly', name: 'Friendly', icon: '😊', desc: 'Warm, conversational, approachable', temp: 0.6 },
+  { id: 'concise', name: 'Concise', icon: '⚡', desc: 'Brief, direct, efficient responses', temp: 0.2 },
+  { id: 'empathetic', name: 'Empathetic', icon: '💙', desc: 'Understanding, supportive, patient', temp: 0.5 },
+  { id: 'sales', name: 'Sales-Driven', icon: '🎯', desc: 'Persuasive, benefit-focused, conversion-oriented', temp: 0.7 },
+  { id: 'technical', name: 'Technical', icon: '🔧', desc: 'Detailed, precise, documentation-style', temp: 0.2 },
 ];
 
 const ESCALATION_RULES = [
@@ -160,12 +162,14 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         // Load from chatbot_configs first (primary source for bot name/prompt/kb)
         var cbBotName = null;
         try {
-          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', currentTenantId).maybeSingle();
+          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, temperature').eq('tenant_id', currentTenantId).maybeSingle();
           var cbKnowledgeBase = null;
           if (cbR.data) {
             if (cbR.data.bot_name) { cbBotName = cbR.data.bot_name; setBotName(cbR.data.bot_name); }
             if (cbR.data.system_prompt) setSystemPrompt(cbR.data.system_prompt);
             if (cbR.data.knowledge_base) cbKnowledgeBase = cbR.data.knowledge_base;
+            if (cbR.data.personality_preset) setSelectedPersonality(cbR.data.personality_preset);
+            if (cbR.data.temperature !== null && cbR.data.temperature !== undefined) setTemperature(cbR.data.temperature);
           }
         } catch (e) {}
         // Load channel configs for per-channel settings
@@ -218,12 +222,15 @@ if (existing.data) {
 }
       }
       // Sync to chatbot_configs so message handlers pick up business knowledge
+      var presetObj = PERSONALITIES.find(function(p) { return p.id === selectedPersonality; });
       var cbPayload = {
         tenant_id: currentTenantId,
         bot_name: aiConfig.agentName,
         system_prompt: systemPrompt,
         knowledge_base: aiConfig.businessInfo,
         channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
+        personality_preset: selectedPersonality,
+        temperature: presetObj ? presetObj.temp : temperature,
       };
       console.log('[AIChatbot] saving chatbot_configs:', JSON.stringify(cbPayload));
       await supabase.from('chatbot_configs').upsert(cbPayload, { onConflict: 'tenant_id' });
@@ -512,22 +519,20 @@ saveAIConfig(newSources);
           {/* PERSONALITY TAB */}
           {activeTab === "personality" && (
             <div>
-              {/* TODO: hidden until tone/temperature/length/toggles are read by build-system-prompt.js
-                  See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
-              {false && (
               <div style={{ ...card, marginBottom: 20 }}>
                 <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Personality Preset</h3>
+                <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Choose how your AI agent communicates. This affects tone, temperature, and response style across all channels.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                   {PERSONALITIES.map(p => (
-                    <button key={p.id} onClick={() => handleSelectPersonality(p)} style={{ background: selectedPersonality === p.id ? `${C.primary}15` : "rgba(255,255,255,0.03)", border: `2px solid ${selectedPersonality === p.id ? C.primary : "rgba(255,255,255,0.06)"}`, borderRadius: 12, padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif" }}>
+                    <button key={p.id} onClick={() => { setSelectedPersonality(p.id); setTemperature(p.temp); }} style={{ background: selectedPersonality === p.id ? `${C.primary}15` : "rgba(255,255,255,0.03)", border: `2px solid ${selectedPersonality === p.id ? C.primary : "rgba(255,255,255,0.06)"}`, borderRadius: 12, padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif" }}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>{p.icon}</div>
                       <div style={{ color: selectedPersonality === p.id ? C.primary : "#fff", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
                       <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, lineHeight: 1.3 }}>{p.desc}</div>
+                      <div style={{ color: selectedPersonality === p.id ? C.primary : "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 6 }}>Temperature: {p.temp}</div>
                     </button>
                   ))}
                 </div>
               </div>
-              )}
 
               {/* TODO: hidden until tone/temperature/length/toggles are read by build-system-prompt.js
                   See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
