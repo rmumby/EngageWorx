@@ -143,6 +143,8 @@ function useLiveData(demoMode, isSPAdmin) {
           status: t.status,
           slug: t.slug,
           tenant_type: t.customer_type || t.tenant_type || 'business',
+          customer_type: t.customer_type,
+          entity_tier: t.entity_tier || 'tenant',
           parent_tenant_id: t.parent_tenant_id,
         };
       });
