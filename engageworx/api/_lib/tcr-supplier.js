@@ -1,9 +1,10 @@
 // api/_lib/tcr-supplier.js — Tenant-aware TCR supplier dispatcher
 // Routes to telnyx or twilio adapter based on tenants.phone_supplier column.
+// Resolves mock vs live mode per-tenant via tenants.tcr_mode_override.
 //
 // Usage:
 //   var supplier = await loadSupplier(supabase, tenantId);
-//   var result = await supplier.createBrand(brandData);
+//   var result = await supplier.createBrand(brandData, ctx);
 //
 // The TCR use case enum is industry-standard and shared across all suppliers.
 
@@ -15,18 +16,12 @@ var ADAPTERS = {
   twilio: twilioAdapter,
 };
 
-// Per-request cache to avoid repeated DB lookups within a single handler call
-var _cache = {};
-
 async function loadSupplier(supabase, tenantId) {
   if (!tenantId) throw new Error('[tcr-supplier] tenantId required for supplier routing');
 
-  // Check cache (keyed by tenantId, cleared per cold start)
-  if (_cache[tenantId]) return _cache[tenantId];
-
   var { data: tenant, error } = await supabase
     .from('tenants')
-    .select('phone_supplier')
+    .select('phone_supplier, tcr_mode_override')
     .eq('id', tenantId)
     .maybeSingle();
 
@@ -37,9 +32,19 @@ async function loadSupplier(supabase, tenantId) {
   var adapter = ADAPTERS[supplierKey];
   if (!adapter) throw new Error('[tcr-supplier] Unrecognized supplier: ' + supplierKey + ' for tenant ' + tenantId);
 
-  console.log('[tcr-supplier] Loaded adapter:', supplierKey, 'for tenant:', tenantId);
-  _cache[tenantId] = adapter;
-  return adapter;
+  // Resolve mode: tenant override → env var → 'mock'
+  var mode = tenant.tcr_mode_override || process.env.TCR_SUPPLIER_MODE || 'mock';
+
+  console.log('[tcr-supplier] Loaded adapter:', supplierKey, 'mode:', mode, 'for tenant:', tenantId);
+
+  return {
+    createBrand: mode === 'live' ? adapter.liveCreateBrand : adapter.mockCreateBrand,
+    createCampaign: mode === 'live' ? adapter.liveCreateCampaign : adapter.mockCreateCampaign,
+    getBrandStatus: mode === 'live' ? adapter.liveGetBrandStatus : adapter.mockGetBrandStatus,
+    getCampaignStatus: mode === 'live' ? adapter.liveGetCampaignStatus : adapter.mockGetCampaignStatus,
+    getMode: function() { return mode; },
+    supplierName: adapter.supplierName,
+  };
 }
 
 // Re-export the standard enum (same for all suppliers)

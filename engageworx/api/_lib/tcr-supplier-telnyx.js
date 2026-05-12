@@ -243,13 +243,17 @@ async function liveGetCampaignStatus(supplierCampaignId, ctx) {
 }
 
 // ── Exports ─────────────────────────────────────────────────────────────────
+// Dispatcher selects mock vs live per-tenant at call time.
 
 module.exports = {
-  createBrand: MODE === 'live' ? liveCreateBrand : mockCreateBrand,
-  createCampaign: MODE === 'live' ? liveCreateCampaign : mockCreateCampaign,
-  getBrandStatus: MODE === 'live' ? liveGetBrandStatus : mockGetBrandStatus,
-  getCampaignStatus: MODE === 'live' ? liveGetCampaignStatus : mockGetCampaignStatus,
-  getMode: function() { return MODE; },
+  mockCreateBrand: mockCreateBrand,
+  liveCreateBrand: liveCreateBrand,
+  mockCreateCampaign: mockCreateCampaign,
+  liveCreateCampaign: liveCreateCampaign,
+  mockGetBrandStatus: mockGetBrandStatus,
+  liveGetBrandStatus: liveGetBrandStatus,
+  mockGetCampaignStatus: mockGetCampaignStatus,
+  liveGetCampaignStatus: liveGetCampaignStatus,
   mapToTelnyxCampaign: mapToTelnyxCampaign,
   USECASE_ENUM: USECASE_ENUM,
   MNO_CARRIERS: MNO_CARRIERS,
