@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn, campaignDescription as templateDescription, optInDescription as templateOptInDesc } from '../../tcrTemplates';
+import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn, campaignDescription as templateDescription, optInDescription as templateOptInDesc, defaultConsentUrls } from '../../tcrTemplates';
 import StepBrand from './steps/StepBrand';
 import StepVetting from './steps/StepVetting';
 import StepCampaign from './steps/StepCampaign';
@@ -64,9 +64,10 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
   // Pre-fill displayName from tenant name + populate templates when displayName is set
   useEffect(function() {
     if (!tenantId) return;
-    supabase.from('tenants').select('name').eq('id', tenantId).maybeSingle().then(function(r) {
+    supabase.from('tenants').select('name, slug').eq('id', tenantId).maybeSingle().then(function(r) {
       if (r.data && r.data.name) {
         var name = r.data.name;
+        var slug = r.data.slug || '';
         setBrand(function(b) { return Object.assign({}, b, { displayName: b.displayName || name }); });
         // Pre-populate sample messages and responses with templates using tenant name
         setCampaign(function(c) {
@@ -78,9 +79,14 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
             stop_message: c.stop_message || templateStop(name),
           });
         });
+        var urls = slug ? defaultConsentUrls(slug) : {};
         setConsent(function(cn) { return Object.assign({}, cn, {
           confirmation_message: cn.confirmation_message || templateOptIn(name),
           opt_in_description: cn.opt_in_description || templateOptInDesc(name),
+          opt_in_url: cn.opt_in_url || urls.opt_in_url || '',
+          privacy_url: cn.privacy_url || urls.privacy_url || '',
+          sms_terms_url: cn.sms_terms_url || urls.sms_terms_url || '',
+          terms_url: cn.terms_url || urls.terms_url || '',
         }); });
       }
     });

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import { useAuth } from '../../../AuthContext';
 import { URL_KEYWORDS } from '../../../tcrTemplates';
 
 var inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box' };
@@ -13,6 +14,8 @@ var URL_FIELDS = [
 
 export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantId, C, urlResults, onUrlResults }) {
   var setUrlResults = onUrlResults;
+  var auth = useAuth();
+  var isSPAdmin = auth && auth.profile && (auth.profile.role === 'superadmin' || auth.profile.role === 'super_admin' || auth.profile.role === 'sp_admin');
   var [verifying, setVerifying] = useState({});
   var [showErrors, setShowErrors] = useState(false);
   var [errors, setErrors] = useState({});
@@ -37,7 +40,7 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
       var data = await res.json();
       setUrlResults(function(prev) { var n = Object.assign({}, prev); n[fieldKey] = data; return n; });
     } catch (e) {
-      setUrlResults(function(prev) { var n = Object.assign({}, prev); n[fieldKey] = { ok: false, error: e.message, missing_keywords: [] }; return n; });
+      setUrlResults(function(prev) { var n = Object.assign({}, prev); n[fieldKey] = { ok: false, warn: false, error: e.message, missing_keywords: [] }; return n; });
     }
     setVerifying(function(prev) { var n = Object.assign({}, prev); n[fieldKey] = false; return n; });
   }, [tenantId]);
@@ -45,7 +48,6 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
   function handleBlur(fieldKey, url) {
     if (debounceTimers.current[fieldKey]) clearTimeout(debounceTimers.current[fieldKey]);
     debounceTimers.current[fieldKey] = setTimeout(function() {
-      // Only auto-verify if URL changed from last verified URL
       var prev = urlResults[fieldKey];
       if (!prev || prev._url !== url) {
         verifyUrl(fieldKey, url);
@@ -60,8 +62,18 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
   function validate() {
     var e = {};
     URL_FIELDS.forEach(function(f) {
-      if (!consent[f.key] || !consent[f.key].trim()) e[f.key] = 'URL required';
-      else if (!urlResults[f.key] || !urlResults[f.key].ok) e[f.key] = 'URL not verified';
+      if (!consent[f.key] || !consent[f.key].trim()) {
+        e[f.key] = 'URL required';
+      } else {
+        var result = urlResults[f.key];
+        // Hard fail: URL not reachable (no result, or result with error and not a warn)
+        if (!result) {
+          e[f.key] = 'URL not verified — click Verify';
+        } else if (!result.ok && !result.warn) {
+          e[f.key] = result.error || 'URL verification failed';
+        }
+        // Warn (missing keywords but page is live): allowed to continue
+      }
     });
     var desc = (consent.opt_in_description || '').trim();
     if (desc.length < 50) e.opt_in_description = 'Min 50 characters (' + desc.length + ' entered)';
@@ -83,7 +95,7 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
   return (
     <div>
       <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Consent Flow & URLs</h2>
-      <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Provide the URLs where users opt in and review your messaging policies. All 4 URLs must be live and contain required compliance language.</div>
+      <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Provide the URLs where users opt in and review your messaging policies. All 4 URLs must be live. Missing compliance language will be flagged as warnings.</div>
 
       {showErrors && Object.keys(errors).length > 0 && (
         <div style={{ background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, color: '#EC4899', fontSize: 13 }}>
@@ -122,8 +134,10 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
                 <div style={{ marginTop: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {result.ok ? (
                     <span style={{ color: '#10b981' }}>✓ Verified (HTTP {result.status})</span>
+                  ) : result.warn ? (
+                    <span style={{ color: '#F59E0B' }}>⚠ Page is live but missing recommended language: {(result.missing_keywords || []).join(', ')}</span>
                   ) : (
-                    <span style={{ color: '#EF4444' }}>✗ {result.error || ('Missing: ' + (result.missing_keywords || []).join(', '))}</span>
+                    <span style={{ color: '#EF4444' }}>✗ {result.error || 'Verification failed'}</span>
                   )}
                 </div>
               )}
@@ -144,7 +158,7 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
             placeholder="Describe how users opt in to your messaging..."
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Describes the opt-in flow for carrier review (maps to Telnyx messageFlow)</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>Describes the opt-in flow for carrier review</div>
             <div style={{ fontSize: 10, color: (consent.opt_in_description || '').length < 50 ? '#F59E0B' : 'rgba(255,255,255,0.2)' }}>{(consent.opt_in_description || '').length} chars (min 50)</div>
           </div>
           {showErrors && errors.opt_in_description && <div style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.opt_in_description}</div>}
@@ -165,9 +179,14 @@ export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantI
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button onClick={onBack} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Back</button>
-        <button onClick={handleNext} style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Continue →</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {isSPAdmin && (
+            <button onClick={onNext} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Skip validation (admin)</button>
+          )}
+          <button onClick={handleNext} style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Continue →</button>
+        </div>
       </div>
     </div>
   );

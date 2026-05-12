@@ -1,6 +1,9 @@
-// api/tcr-verify-url.js — Verify a URL contains required TCR compliance keywords
+// api/tcr-verify-url.js — Verify a URL is live and scan for TCR compliance keywords
 // POST { url, keywords, tenant_id }
-// Returns { ok, status, missing_keywords, error }
+// Returns { ok, status, missing_keywords, error, warn }
+// ok=true: page live AND all keywords found
+// ok=false + warn=true: page live but missing keywords (soft fail — content warning)
+// ok=false + warn=false: page unreachable or HTTP error (hard fail)
 // Tenant-scoped: rejects URLs not associated with the tenant.
 
 var { createClient } = require('@supabase/supabase-js');
@@ -91,5 +94,9 @@ module.exports = async function handler(req, res) {
 
   var ok = missing.length === 0;
   console.log('[tcr-verify-url]', url, 'status:', status, 'missing:', missing.length, 'tenant:', tenantId);
-  return res.status(200).json({ ok: ok, status: status, missing_keywords: missing, error: null });
+  // Page is live — if keywords missing, return as warn (soft fail) not hard fail
+  if (!ok) {
+    return res.status(200).json({ ok: false, warn: true, status: status, missing_keywords: missing, error: null });
+  }
+  return res.status(200).json({ ok: true, warn: false, status: status, missing_keywords: [], error: null });
 };

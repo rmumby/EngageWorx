@@ -71,6 +71,16 @@ export function stopMessage(businessName) {
   return 'You have been successfully unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.';
 }
 
+export function defaultConsentUrls(slug) {
+  var base = slug ? 'https://engwx.com/' + slug : '';
+  return {
+    opt_in_url: base ? base + '/smsconsent' : '',
+    privacy_url: base ? base + '/privacy' : '',
+    sms_terms_url: base ? base + '/sms-terms' : '',
+    terms_url: base ? base + '/terms' : '',
+  };
+}
+
 export var URL_KEYWORDS = {
   consent: ['STOP', 'HELP', 'Msg & data rates', 'opt'],
   privacy: ['privacy', 'data', 'information'],

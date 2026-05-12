@@ -69,9 +69,13 @@ function buildChecks(brand, campaign, consent, urlResults) {
       checks.push({ status: 'warn', check: label + ' not verified', message: url, fix: 'Go back to Step 4 and verify this URL.', step: 3 });
     } else if (result.ok) {
       checks.push({ status: 'pass', check: label + ' verified', message: 'HTTP ' + (result.status || '200') + ' — ' + url, step: 3 });
+    } else if (result.warn) {
+      // Page is live but missing keywords — warn, not fail
+      var kwList = (result.missing_keywords || []).join(', ');
+      checks.push({ status: 'warn', check: label + ' missing recommended language', message: 'Page is live (HTTP ' + (result.status || '200') + ') but missing: ' + kwList, fix: 'Add the missing language to your page, then re-verify.', step: 3 });
     } else {
-      var detail = result.error || ('Missing keywords: ' + (result.missing_keywords || []).join(', '));
-      checks.push({ status: 'fail', check: label + ' failed verification', message: detail, fix: 'Fix the issue and re-verify in Step 4.', step: 3 });
+      var detail = result.error || 'URL verification failed';
+      checks.push({ status: 'fail', check: label + ' unreachable', message: detail, fix: 'Ensure the URL is live and accessible.', step: 3 });
     }
   });
 
