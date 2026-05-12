@@ -448,10 +448,16 @@ module.exports = async function handler(req, res) {
         update.campaign_data = Object.assign({}, session.campaign_data || {}, data);
       }
 
+      console.log('[save_step] session_id:', sessionId, 'step:', step, 'data_keys:', Object.keys(data), 'merged_keys:', Object.keys(update.brand_data || update.campaign_data || {}));
+
       var { data: updated, error: updateErr } = await supabase.from('tcr_wizard_sessions')
         .update(update).eq('id', sessionId).select().single();
-      if (updateErr) return res.status(500).json({ error: updateErr.message });
+      if (updateErr) {
+        console.error('[save_step] UPDATE ERROR:', updateErr.message);
+        return res.status(500).json({ error: updateErr.message });
+      }
 
+      console.log('[save_step] saved OK, brand_data keys:', Object.keys((updated && updated.brand_data) || {}), 'campaign_data keys:', Object.keys((updated && updated.campaign_data) || {}));
       return res.status(200).json({ success: true, session: updated });
     }
 
@@ -462,6 +468,8 @@ module.exports = async function handler(req, res) {
 
       var { data: session } = await supabase.from('tcr_wizard_sessions').select('*').eq('id', sessionId).maybeSingle();
       if (!session) return res.status(404).json({ error: 'Session not found' });
+
+      console.log('[ai_validate] session_id:', sessionId, 'brand_data keys:', Object.keys(session.brand_data || {}), 'campaign_data keys:', Object.keys(session.campaign_data || {}), 'ein:', (session.brand_data || {}).ein, 'use_case:', (session.campaign_data || {}).use_case, 'opt_in_url:', (session.campaign_data || {}).opt_in_url);
 
       var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
       if (!userId) return res.status(403).json({ error: 'Not authorized' });
