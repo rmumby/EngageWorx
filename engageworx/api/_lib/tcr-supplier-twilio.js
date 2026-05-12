@@ -61,7 +61,7 @@ function initialMnoStatus() {
 
 // ── Mock implementations ────────────────────────────────────────────────────
 
-async function mockCreateBrand(brandData) {
+async function mockCreateBrand(brandData, ctx) {
   await delay(200);
   var id = mockId('MOCK_TWILIO_BRAND');
   mockRegistry[id] = { created: Date.now(), status: 'PENDING', type: 'brand' };
@@ -69,7 +69,7 @@ async function mockCreateBrand(brandData) {
   return { supplier_brand_id: id, status: 'PENDING' };
 }
 
-async function mockCreateCampaign(supplierBrandId, wizardData) {
+async function mockCreateCampaign(supplierBrandId, wizardData, ctx) {
   await delay(200);
   var mapped = mapToProviderCampaign(wizardData, supplierBrandId);
   var id = mockId('MOCK_TWILIO_CAMPAIGN');
@@ -81,7 +81,7 @@ async function mockCreateCampaign(supplierBrandId, wizardData) {
   return { supplier_campaign_id: id, campaign_status: 'PENDING', mno_status: initialMnoStatus() };
 }
 
-async function mockGetBrandStatus(supplierBrandId) {
+async function mockGetBrandStatus(supplierBrandId, ctx) {
   await delay(100);
   var entry = mockRegistry[supplierBrandId];
   if (!entry) return { status: 'unknown' };
@@ -90,7 +90,7 @@ async function mockGetBrandStatus(supplierBrandId) {
   return { status: 'PENDING' };
 }
 
-async function mockGetCampaignStatus(supplierCampaignId) {
+async function mockGetCampaignStatus(supplierCampaignId, ctx) {
   await delay(100);
   var entry = mockRegistry[supplierCampaignId];
   if (!entry) return { campaign_status: 'unknown', mno_status: {} };
@@ -105,16 +105,16 @@ async function mockGetCampaignStatus(supplierCampaignId) {
 
 // ── Live stubs (Twilio A2P API — not yet implemented) ───────────────────────
 
-async function liveCreateBrand() {
+async function liveCreateBrand(brandData, ctx) {
   throw new Error('Twilio TCR adapter not yet implemented — contact platform team if existing-tenant TCR is needed');
 }
-async function liveCreateCampaign() {
+async function liveCreateCampaign(supplierBrandId, wizardData, ctx) {
   throw new Error('Twilio TCR adapter not yet implemented — contact platform team if existing-tenant TCR is needed');
 }
-async function liveGetBrandStatus() {
+async function liveGetBrandStatus(supplierBrandId, ctx) {
   throw new Error('Twilio TCR adapter not yet implemented — contact platform team if existing-tenant TCR is needed');
 }
-async function liveGetCampaignStatus() {
+async function liveGetCampaignStatus(supplierCampaignId, ctx) {
   throw new Error('Twilio TCR adapter not yet implemented — contact platform team if existing-tenant TCR is needed');
 }
 

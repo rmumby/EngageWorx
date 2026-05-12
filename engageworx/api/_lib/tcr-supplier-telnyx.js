@@ -95,7 +95,7 @@ function telnyxHeaders() {
 
 // ── Mock implementations ────────────────────────────────────────────────────
 
-async function mockCreateBrand(brandData) {
+async function mockCreateBrand(brandData, ctx) {
   await delay(200);
   var id = mockId('MOCK_BRAND');
   mockRegistry[id] = { created: Date.now(), status: 'PENDING', type: 'brand' };
@@ -103,7 +103,7 @@ async function mockCreateBrand(brandData) {
   return { supplier_brand_id: id, status: 'PENDING' };
 }
 
-async function mockCreateCampaign(supplierBrandId, wizardData) {
+async function mockCreateCampaign(supplierBrandId, wizardData, ctx) {
   await delay(200);
   var mapped = mapToTelnyxCampaign(wizardData, supplierBrandId);
   var id = mockId('MOCK_CAMPAIGN');
@@ -123,7 +123,7 @@ async function mockCreateCampaign(supplierBrandId, wizardData) {
   };
 }
 
-async function mockGetBrandStatus(supplierBrandId) {
+async function mockGetBrandStatus(supplierBrandId, ctx) {
   await delay(100);
   var entry = mockRegistry[supplierBrandId];
   if (!entry) return { status: 'unknown' };
@@ -132,7 +132,7 @@ async function mockGetBrandStatus(supplierBrandId) {
   return { status: 'PENDING' };
 }
 
-async function mockGetCampaignStatus(supplierCampaignId) {
+async function mockGetCampaignStatus(supplierCampaignId, ctx) {
   await delay(100);
   var entry = mockRegistry[supplierCampaignId];
   if (!entry) return { campaign_status: 'unknown', mno_status: {} };
@@ -156,7 +156,7 @@ async function mockGetCampaignStatus(supplierCampaignId) {
 
 // ── Live implementations (Telnyx /v2/10dlc/campaignBuilder) ─────────────────
 
-async function liveCreateBrand(brandData) {
+async function liveCreateBrand(brandData, ctx) {
   var headers = telnyxHeaders();
   var res = await fetchWithRetry(TELNYX_BASE + '/v2/10dlc/brand', {
     method: 'POST',
@@ -172,7 +172,7 @@ async function liveCreateBrand(brandData) {
   return { supplier_brand_id: brand.brandId || brand.id, status: brand.identityStatus || 'PENDING' };
 }
 
-async function liveCreateCampaign(supplierBrandId, wizardData) {
+async function liveCreateCampaign(supplierBrandId, wizardData, ctx) {
   var headers = telnyxHeaders();
   var payload = mapToTelnyxCampaign(wizardData, supplierBrandId);
   var res = await fetchWithRetry(TELNYX_BASE + '/v2/10dlc/campaignBuilder', {
@@ -199,7 +199,7 @@ async function liveCreateCampaign(supplierBrandId, wizardData) {
   };
 }
 
-async function liveGetBrandStatus(supplierBrandId) {
+async function liveGetBrandStatus(supplierBrandId, ctx) {
   var headers = telnyxHeaders();
   var res = await fetchWithRetry(TELNYX_BASE + '/v2/10dlc/brand/' + supplierBrandId, {
     method: 'GET',
@@ -217,7 +217,7 @@ async function liveGetBrandStatus(supplierBrandId) {
   };
 }
 
-async function liveGetCampaignStatus(supplierCampaignId) {
+async function liveGetCampaignStatus(supplierCampaignId, ctx) {
   var headers = telnyxHeaders();
   var res = await fetchWithRetry(TELNYX_BASE + '/v2/10dlc/campaignBuilder/' + supplierCampaignId, {
     method: 'GET',

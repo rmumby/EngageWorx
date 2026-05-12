@@ -555,11 +555,12 @@ module.exports = async function handler(req, res) {
 
       // Submit to supplier (routed by tenant.phone_supplier)
       var supplier = await loadSupplier(supabase, session.tenant_id);
+      var ctx = { supabase: supabase, tenantId: session.tenant_id };
 
       // Step 1: Create brand
       var brandResult;
       try {
-        brandResult = await supplier.createBrand(session.brand_data);
+        brandResult = await supplier.createBrand(session.brand_data, ctx);
       } catch (brandErr) {
         console.error('[TCR Wizard] createBrand failed:', brandErr.message);
         await supabase.from('tcr_wizard_sessions').update({
@@ -572,7 +573,7 @@ module.exports = async function handler(req, res) {
       // Step 2: Create campaign
       var campaignResult;
       try {
-        campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session);
+        campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session, ctx);
       } catch (campErr) {
         console.error('[TCR Wizard] createCampaign failed (brand registered):', campErr.message);
         await supabase.from('tcr_wizard_sessions').update({
@@ -654,8 +655,9 @@ module.exports = async function handler(req, res) {
       if (session.status === 'submitted' && session.supplier_brand_id) {
         try {
           var supplier = await loadSupplier(supabase, session.tenant_id);
-          var brandStatus = await supplier.getBrandStatus(session.supplier_brand_id);
-          var campaignStatus = session.supplier_campaign_id ? await supplier.getCampaignStatus(session.supplier_campaign_id) : { campaign_status: 'PENDING', mno_status: {} };
+          var statusCtx = { supabase: supabase, tenantId: session.tenant_id };
+          var brandStatus = await supplier.getBrandStatus(session.supplier_brand_id, statusCtx);
+          var campaignStatus = session.supplier_campaign_id ? await supplier.getCampaignStatus(session.supplier_campaign_id, statusCtx) : { campaign_status: 'PENDING', mno_status: {} };
 
           // Persist latest MNO + campaign status
           var statusUpdate = {
