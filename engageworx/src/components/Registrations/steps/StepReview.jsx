@@ -64,6 +64,11 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
   var [validating, setValidating] = useState(false);
   var [serverChecks, setServerChecks] = useState(null);
   var [validationError, setValidationError] = useState(null);
+  var [showFeeConfirm, setShowFeeConfirm] = useState(false);
+  var [fees, setFees] = useState(null);
+  var [feesLoading, setFeesLoading] = useState(false);
+  var [acceptNonRefundable, setAcceptNonRefundable] = useState(false);
+  var [acceptAuthority, setAcceptAuthority] = useState(false);
 
   var fallbackChecks = useMemo(function() {
     return buildFallbackChecks(brand, campaign, consent, urlResults || {});
@@ -117,11 +122,41 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
   var warnCount = checks.filter(function(c, i) { return c.status === 'warn' && !overrides[i]; }).length;
   var passCount = checks.filter(function(c) { return c.status === 'pass'; }).length + checks.filter(function(c, i) { return c.status === 'warn' && overrides[i]; }).length;
 
-  async function handleSubmit() {
+  async function handleSubmitClick() {
     if (!canSubmit) return;
+    setFeesLoading(true);
+    setShowFeeConfirm(true);
+    setAcceptNonRefundable(false);
+    setAcceptAuthority(false);
+    try {
+      var session = await supabase.auth.getSession();
+      var token = session.data && session.data.session ? session.data.session.access_token : '';
+      var res = await fetch('/api/tcr-wizard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'get_fees', session_id: sessionId }),
+      });
+      var data = await res.json();
+      if (data.total !== undefined) {
+        setFees(data);
+      } else {
+        setFees({ brand_fee: 400, campaign_fee: 1500, total: 1900, currency: 'USD', source: 'fallback' });
+      }
+    } catch (e) {
+      setFees({ brand_fee: 400, campaign_fee: 1500, total: 1900, currency: 'USD', source: 'fallback' });
+    }
+    setFeesLoading(false);
+  }
+
+  function handleConfirmSubmit() {
+    setShowFeeConfirm(false);
     setSubmitting(true);
-    // Phase 5.D will wire real submission here
     onSubmit();
+  }
+
+  function handleCancelFee() {
+    setShowFeeConfirm(false);
+    setFees(null);
   }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '20px 24px', marginBottom: 16 };
@@ -244,7 +279,7 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
             </span>
           )}
           <button
-            onClick={handleSubmit}
+            onClick={handleSubmitClick}
             disabled={!canSubmit || submitting}
             style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: canSubmit ? 'linear-gradient(135deg, #00BFFF, #A855F7)' : 'rgba(255,255,255,0.06)', color: canSubmit ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 14, cursor: canSubmit ? 'pointer' : 'not-allowed', fontFamily: "'DM Sans', sans-serif", opacity: submitting ? 0.6 : 1 }}
           >
@@ -252,6 +287,64 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
           </button>
         </div>
       </div>
+
+      {/* Fee confirmation modal */}
+      {showFeeConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }} onClick={handleCancelFee}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '28px 32px', maxWidth: 460, width: '90%' }}>
+            <div style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Confirm registration submission</div>
+            <div style={{ color: C.muted, fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+              This will submit your registration to The Campaign Registry. Fees are charged on submission and are non-refundable, including if your registration is rejected.
+            </div>
+
+            {feesLoading ? (
+              <div style={{ textAlign: 'center', padding: 20, color: C.muted, fontSize: 13 }}>Loading fees...</div>
+            ) : fees ? (
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '16px 20px', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Brand Registration</span>
+                  <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{'$' + (fees.brand_fee / 100).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>Campaign Registration</span>
+                  <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{'$' + (fees.campaign_fee / 100).toFixed(2)}</span>
+                </div>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10, display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>Total</span>
+                  <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{'$' + (fees.total / 100).toFixed(2)}</span>
+                </div>
+                {fees.source === 'fallback' && (
+                  <div style={{ marginTop: 8, color: '#F59E0B', fontSize: 11 }}>Estimated fees — final amount confirmed on submission.</div>
+                )}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }} onClick={function() { setAcceptNonRefundable(!acceptNonRefundable); }}>
+                <div style={{ width: 18, height: 18, borderRadius: 4, border: '1px solid ' + (acceptNonRefundable ? '#00BFFF' : 'rgba(255,255,255,0.15)'), background: acceptNonRefundable ? '#00BFFF' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, transition: 'all 0.15s' }}>
+                  {acceptNonRefundable && <span style={{ color: '#000', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.5 }}>I understand the fees and accept they are non-refundable</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }} onClick={function() { setAcceptAuthority(!acceptAuthority); }}>
+                <div style={{ width: 18, height: 18, borderRadius: 4, border: '1px solid ' + (acceptAuthority ? '#00BFFF' : 'rgba(255,255,255,0.15)'), background: acceptAuthority ? '#00BFFF' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1, transition: 'all 0.15s' }}>
+                  {acceptAuthority && <span style={{ color: '#000', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.5 }}>I have authority to register this brand on behalf of the business</span>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={handleCancelFee} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+              <button
+                onClick={handleConfirmSubmit}
+                disabled={!acceptNonRefundable || !acceptAuthority || feesLoading}
+                style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: (acceptNonRefundable && acceptAuthority) ? 'linear-gradient(135deg, #00BFFF, #A855F7)' : 'rgba(255,255,255,0.06)', color: (acceptNonRefundable && acceptAuthority) ? '#fff' : 'rgba(255,255,255,0.3)', fontWeight: 700, cursor: (acceptNonRefundable && acceptAuthority) ? 'pointer' : 'not-allowed', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}
+              >Submit Registration</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -522,6 +522,51 @@ module.exports = async function handler(req, res) {
       return res.status(200).json(result);
     }
 
+    // ── GET_FEES ────────────────────────────────────────────────────────────
+    if (action === 'get_fees') {
+      var sessionId = req.body.session_id;
+      if (!sessionId) return res.status(400).json({ error: 'session_id required' });
+
+      var { data: session } = await supabase.from('tcr_wizard_sessions').select('brand_data, campaign_data, tenant_id').eq('id', sessionId).maybeSingle();
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+
+      var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
+      if (!userId) return res.status(403).json({ error: 'Not authorized' });
+
+      var { data: tenant } = await supabase.from('tenants').select('phone_supplier').eq('id', session.tenant_id).maybeSingle();
+      var supplier = (tenant && tenant.phone_supplier) || 'twilio';
+
+      var brandData = session.brand_data || {};
+      var campaignData = session.campaign_data || {};
+      var brandType = (brandData.entityType === 'SOLE_PROPRIETOR' || brandData.entity_type === 'sole_proprietor') ? 'sole_proprietor' : 'standard';
+      var useCase = campaignData.use_case || 'MIXED';
+
+      var { data: brandFeeRow } = await supabase.from('tcr_fee_schedule')
+        .select('amount_cents').eq('fee_type', 'brand_registration').eq('use_case', brandType).maybeSingle();
+      var { data: campaignFeeRow } = await supabase.from('tcr_fee_schedule')
+        .select('amount_cents').eq('fee_type', 'campaign_registration').eq('use_case', 'standard').maybeSingle();
+
+      var brandFeeCents = (brandFeeRow && brandFeeRow.amount_cents) || null;
+      var campaignFeeCents = (campaignFeeRow && campaignFeeRow.amount_cents) || null;
+      var source = (brandFeeCents !== null && campaignFeeCents !== null) ? 'fee_schedule' : 'fallback';
+      if (brandFeeCents === null) brandFeeCents = brandType === 'sole_proprietor' ? 200 : 400;
+      if (campaignFeeCents === null) campaignFeeCents = 1500;
+
+      var result = {
+        brand_fee: brandFeeCents,
+        campaign_fee: campaignFeeCents,
+        total: brandFeeCents + campaignFeeCents,
+        currency: 'USD',
+        supplier: supplier,
+        use_case: useCase,
+        brand_type: brandType,
+        source: source,
+      };
+      if (source === 'fallback') result.warning = 'fee_schedule_missing';
+
+      return res.status(200).json(result);
+    }
+
     // ── SUBMIT ──────────────────────────────────────────────────────────────
     if (action === 'submit') {
       var sessionId = req.body.session_id;
