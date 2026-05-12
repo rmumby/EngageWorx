@@ -555,10 +555,35 @@ module.exports = async function handler(req, res) {
 
       // Submit to supplier (routed by tenant.phone_supplier)
       var supplier = await loadSupplier(supabase, session.tenant_id);
-      var brandResult = await supplier.createBrand(session.brand_data);
-      var campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session);
 
-      // Update session
+      // Step 1: Create brand
+      var brandResult;
+      try {
+        brandResult = await supplier.createBrand(session.brand_data);
+      } catch (brandErr) {
+        console.error('[TCR Wizard] createBrand failed:', brandErr.message);
+        await supabase.from('tcr_wizard_sessions').update({
+          status: 'brand_failed',
+          outcome: { error: brandErr.message },
+        }).eq('id', sessionId);
+        return res.status(200).json({ success: false, phase: 'brand', error: brandErr.message });
+      }
+
+      // Step 2: Create campaign
+      var campaignResult;
+      try {
+        campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session);
+      } catch (campErr) {
+        console.error('[TCR Wizard] createCampaign failed (brand registered):', campErr.message);
+        await supabase.from('tcr_wizard_sessions').update({
+          status: 'campaign_failed',
+          supplier_brand_id: brandResult.supplier_brand_id,
+          outcome: { brand_id: brandResult.supplier_brand_id, campaign_error: campErr.message },
+        }).eq('id', sessionId);
+        return res.status(200).json({ success: false, phase: 'campaign', error: campErr.message, supplier_brand_id: brandResult.supplier_brand_id });
+      }
+
+      // Both succeeded — update session
       var { data: submitRows, error: submitErr } = await supabase.from('tcr_wizard_sessions').update({
         status: 'submitted',
         supplier_brand_id: brandResult.supplier_brand_id,
@@ -576,9 +601,11 @@ module.exports = async function handler(req, res) {
       console.log('[TCR Wizard] Submitted session', sessionId, 'supplier:', supplier.supplierName, 'brand:', brandResult.supplier_brand_id, 'campaign:', campaignResult.supplier_campaign_id, 'mode:', supplier.getMode());
       return res.status(200).json({
         success: true,
-        session: submitted,
+        phase: 'complete',
         supplier_brand_id: brandResult.supplier_brand_id,
         supplier_campaign_id: campaignResult.supplier_campaign_id,
+        campaign_status: campaignResult.campaign_status || 'PENDING',
+        mno_status: campaignResult.mno_status || {},
         fee_cents: totalCents,
         supplier_name: supplier.supplierName,
         supplier_mode: supplier.getMode(),
