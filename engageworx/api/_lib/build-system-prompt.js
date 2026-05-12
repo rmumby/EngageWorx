@@ -2,7 +2,7 @@
 // Composes: platform base → channel rules → bot identity → business context → contact/conversation context → escalation rules
 
 var { createClient } = require('@supabase/supabase-js');
-var { getPersonality } = require('./personalities');
+var { getPersonality, getLanguage } = require('./personalities');
 
 function getSupabase() {
   return createClient(
@@ -35,7 +35,7 @@ async function buildSystemPrompt(opts) {
   var tenant = null;
   if (tenantId) {
     try {
-      var tRes = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset').eq('tenant_id', tenantId).maybeSingle();
+      var tRes = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, language').eq('tenant_id', tenantId).maybeSingle();
       if (tRes.data) tenant = tRes.data;
     } catch (e) {}
   }
@@ -69,6 +69,14 @@ async function buildSystemPrompt(opts) {
     var personality = getPersonality(tenant.personality_preset);
     if (personality) {
       sections.push('TONE: ' + personality.tone_instruction);
+    }
+  }
+
+  // (c.6) Language instruction
+  if (tenant && tenant.language) {
+    var lang = getLanguage(tenant.language);
+    if (lang) {
+      sections.push('LANGUAGE: ' + lang.system_instruction);
     }
   }
 

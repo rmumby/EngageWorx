@@ -2,6 +2,15 @@ import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
 import EscalationRulesConfig from "./EscalationRulesConfig";
 
+var LANGUAGE_OPTIONS = [
+  { id: 'en_auto', name: 'English (auto-detect non-English)' },
+  { id: 'en', name: 'English (always)' },
+  { id: 'es', name: 'Spanish' },
+  { id: 'pt', name: 'Portuguese' },
+  { id: 'fr', name: 'French' },
+  { id: 'multi', name: 'Multilingual (match user)' },
+];
+
 // Personality presets — shared with backend (api/_lib/personalities.js)
 // Frontend copy kept in sync via same structure. Backend is the source of truth for prompt composition.
 var PERSONALITIES = [
@@ -51,6 +60,7 @@ const DEMO_CONVERSATIONS = [
 export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
   const [activeTab, setActiveTab] = useState("configure");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
+  const [selectedLanguage, setSelectedLanguage] = useState("en_auto");
   const [botName, setBotName] = useState("EngageBot");
   const [greeting, setGreeting] = useState(PERSONALITIES[1].greeting);
   const [temperature, setTemperature] = useState(0.6);
@@ -162,7 +172,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         // Load from chatbot_configs first (primary source for bot name/prompt/kb)
         var cbBotName = null;
         try {
-          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, temperature').eq('tenant_id', currentTenantId).maybeSingle();
+          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, temperature, language').eq('tenant_id', currentTenantId).maybeSingle();
           var cbKnowledgeBase = null;
           if (cbR.data) {
             if (cbR.data.bot_name) { cbBotName = cbR.data.bot_name; setBotName(cbR.data.bot_name); }
@@ -170,6 +180,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
             if (cbR.data.knowledge_base) cbKnowledgeBase = cbR.data.knowledge_base;
             if (cbR.data.personality_preset) setSelectedPersonality(cbR.data.personality_preset);
             if (cbR.data.temperature !== null && cbR.data.temperature !== undefined) setTemperature(cbR.data.temperature);
+            if (cbR.data.language) setSelectedLanguage(cbR.data.language);
           }
         } catch (e) {}
         // Load channel configs for per-channel settings
@@ -231,6 +242,7 @@ if (existing.data) {
         channels_active: Object.keys(aiConfig.channels).filter(k => aiConfig.channels[k]),
         personality_preset: selectedPersonality,
         temperature: presetObj ? presetObj.temp : temperature,
+        language: selectedLanguage,
       };
       console.log('[AIChatbot] saving chatbot_configs:', JSON.stringify(cbPayload));
       await supabase.from('chatbot_configs').upsert(cbPayload, { onConflict: 'tenant_id' });
@@ -532,6 +544,14 @@ saveAIConfig(newSources);
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div style={{ ...card, marginBottom: 20 }}>
+                <h3 style={{ color: "#fff", margin: "0 0 12px", fontSize: 16 }}>Response Language</h3>
+                <p style={{ color: C.muted, fontSize: 13, marginBottom: 14 }}>Choose which language your AI agent responds in across all channels.</p>
+                <select value={selectedLanguage} onChange={function(e) { setSelectedLanguage(e.target.value); }} style={{ ...inputStyle, maxWidth: 360 }}>
+                  {LANGUAGE_OPTIONS.map(function(l) { return <option key={l.id} value={l.id}>{l.name}</option>; })}
+                </select>
               </div>
 
               {/* TODO: hidden until tone/temperature/length/toggles are read by build-system-prompt.js
