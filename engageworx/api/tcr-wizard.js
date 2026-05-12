@@ -745,6 +745,28 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // ── DELETE ────────────────────────────────────────────────────────────
+    if (action === 'delete') {
+      var sessionId = req.body.session_id;
+      if (!sessionId) return res.status(400).json({ error: 'session_id required' });
+
+      var { data: session } = await supabase.from('tcr_wizard_sessions').select('id, tenant_id, status').eq('id', sessionId).maybeSingle();
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+
+      var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
+      if (!userId) return res.status(403).json({ error: 'Not authorized' });
+
+      if (['in_progress', 'draft'].indexOf(session.status) === -1) {
+        return res.status(400).json({ error: 'Cannot delete a ' + session.status + ' registration. Contact support to archive.' });
+      }
+
+      var { error: delErr } = await supabase.from('tcr_wizard_sessions').delete().eq('id', sessionId);
+      if (delErr) return res.status(500).json({ error: delErr.message });
+
+      console.log('[TCR Wizard] Deleted session', sessionId, 'status:', session.status);
+      return res.status(200).json({ success: true, deleted_id: sessionId });
+    }
+
     return res.status(400).json({ error: 'Unknown action: ' + action });
   } catch (err) {
     console.error('[TCR Wizard] Error:', err.message, err.stack);
