@@ -574,6 +574,8 @@ module.exports = async function handler(req, res) {
               try {
                 var agentName = (aiConfig && aiConfig.ai_agent_name) || 'Assistant';
                 var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+                var waCbConfig = null;
+                try { var waCb = await supabase.from('chatbot_configs').select('temperature').eq('tenant_id', tenantId).maybeSingle(); waCbConfig = waCb.data; } catch (_) {}
 
                 var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
@@ -585,6 +587,7 @@ module.exports = async function handler(req, res) {
                   body: JSON.stringify({
                     model: 'claude-sonnet-4-20250514',
                     max_tokens: 300,
+                    temperature: (waCbConfig && waCbConfig.temperature !== null) ? waCbConfig.temperature : 0.7,
                     system: await buildSystemPrompt({ tenantId: tenantId, channel: 'whatsapp', supabase: supabase }),
                     messages: [{ role: 'user', content: messageBody }],
                   }),

@@ -232,7 +232,7 @@ async function getAIReply(supabase, tenantId, message, channel) {
     var channelsActive = ['sms', 'whatsapp', 'email'];
     if (tenantId) {
       try {
-        var chatbotResult = await supabase.from('chatbot_configs').select('channels_active').eq('tenant_id', tenantId).maybeSingle();
+        var chatbotResult = await supabase.from('chatbot_configs').select('channels_active, temperature').eq('tenant_id', tenantId).maybeSingle();
         if (chatbotResult.data && chatbotResult.data.channels_active) channelsActive = chatbotResult.data.channels_active;
       } catch (e) {}
     }
@@ -253,6 +253,7 @@ async function getAIReply(supabase, tenantId, message, channel) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 160,
+        temperature: (chatbotResult && chatbotResult.data && chatbotResult.data.temperature !== null) ? chatbotResult.data.temperature : 0.7,
         system: systemPrompt,
         messages: [{ role: 'user', content: message }],
       }),

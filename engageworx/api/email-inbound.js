@@ -310,12 +310,15 @@ async function analyzeAndActionEmail(ctx) {
       (history ? '\n\n---- Recent interactions ----\n' + history : '') +
       '\n\nReturn JSON only.';
 
+    var emailCbTemp = null;
+    try { var emailCb = await supabase.from('chatbot_configs').select('temperature').eq('tenant_id', match.tenantId).maybeSingle(); if (emailCb.data) emailCbTemp = emailCb.data.temperature; } catch (_) {}
+
     var decision = { action: 'review', reasoning: 'Claude unavailable', summary: (ctx.body || '').substring(0, 200), reply_draft: null, new_stage: null, sequence_name: null };
     try {
       var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1000, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1000, temperature: emailCbTemp !== null ? emailCbTemp : 0.7, system: systemPrompt, messages: [{ role: 'user', content: prompt }] }),
       });
       var aiData = await aiRes.json();
       var txt = (aiData.content || []).find(function(b) { return b.type === 'text'; })?.text || '';
