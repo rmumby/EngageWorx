@@ -3,7 +3,7 @@ import { supabase } from '../../../supabaseClient';
 import MNOStatusBadges from '../MNOStatusBadges';
 
 export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
-  var [phase, setPhase] = useState('submitting_brand'); // submitting_brand | brand_complete | submitting_campaign | submitted | brand_failed | campaign_failed | polling | complete | rejected
+  var [phase, setPhase] = useState('loading');
   var [brandId, setBrandId] = useState(null);
   var [campaignId, setCampaignId] = useState(null);
   var [mnoStatus, setMnoStatus] = useState({});
@@ -11,13 +11,52 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
   var [error, setError] = useState(null);
   var [supplierMode, setSupplierMode] = useState(null);
   var pollRef = useRef(null);
-  var submitted = useRef(false);
+  var initialized = useRef(false);
 
-  // Phase 1: Submit on mount
+  // On mount: check session status before deciding what to do
   useEffect(function() {
-    if (submitted.current || !sessionId) return;
-    submitted.current = true;
-    runSubmit();
+    if (initialized.current || !sessionId) return;
+    initialized.current = true;
+
+    fetch('/api/tcr-wizard?action=status&session_id=' + sessionId)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.session) { runSubmit(); return; }
+        var s = data.session;
+        var status = s.status || 'in_progress';
+        var outcome = s.outcome || {};
+
+        if (status === 'in_progress') {
+          runSubmit();
+        } else if (status === 'submitted') {
+          setBrandId(s.supplier_brand_id || outcome.brand_id || null);
+          setCampaignId(s.supplier_campaign_id || outcome.campaign_id || null);
+          setMnoStatus(s.mno_status || {});
+          setCampaignStatus(s.campaign_status || 'PENDING');
+          setPhase('polling');
+        } else if (status === 'approved') {
+          setBrandId(s.supplier_brand_id || outcome.brand_id || null);
+          setCampaignId(s.supplier_campaign_id || outcome.campaign_id || null);
+          setMnoStatus(s.mno_status || {});
+          setPhase('complete');
+        } else if (status === 'rejected') {
+          setBrandId(s.supplier_brand_id || outcome.brand_id || null);
+          setCampaignId(s.supplier_campaign_id || outcome.campaign_id || null);
+          setMnoStatus(s.mno_status || {});
+          setError(outcome.rejection_reason || null);
+          setPhase('rejected');
+        } else if (status === 'brand_failed') {
+          setError(outcome.error || 'Brand registration failed');
+          setPhase('brand_failed');
+        } else if (status === 'campaign_failed') {
+          setBrandId(s.supplier_brand_id || outcome.brand_id || null);
+          setError(outcome.campaign_error || 'Campaign registration failed');
+          setPhase('campaign_failed');
+        } else {
+          runSubmit();
+        }
+      })
+      .catch(function() { runSubmit(); });
   }, [sessionId]);
 
   async function runSubmit() {
@@ -111,11 +150,18 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
   }, [phase]);
 
   function handleRetry() {
-    submitted.current = false;
+    initialized.current = false;
     runSubmit();
   }
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '24px 28px', marginBottom: 20 };
+
+  // Loading: fetching session status
+  if (phase === 'loading') {
+    return (
+      <div style={{ textAlign: 'center', padding: 40, color: C.muted, fontSize: 14 }}>Loading registration status...</div>
+    );
+  }
 
   // Phase 1: Submission progress
   if (phase === 'submitting_brand' || phase === 'brand_complete' || phase === 'submitting_campaign' || phase === 'submitted') {
