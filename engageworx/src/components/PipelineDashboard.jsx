@@ -700,10 +700,10 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
             <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
             <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>EngageWorx</span>
-            <span style={{ fontSize:"11px",color:"#8899aa",fontFamily:"DM Mono",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
+            <span style={{ fontSize:"11px",color:"#8899aa",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",transition:"background 0.3s" }} />
-              <span style={{ fontSize:"10px",color:"#334155",fontFamily:"DM Mono" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
+              <span style={{ fontSize:"10px",color:"#334155",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
             </div>
           </div>
           <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>
@@ -712,7 +712,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
         <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
           {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},{l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"}].map(k=>(
             <div key={k.l}>
-              <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"DM Mono",lineHeight:1 }}>{loading?"—":k.v}</div>
+              <div style={{ fontSize:"28px",fontWeight:800,color:k.c,fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace",lineHeight:1 }}>{loading?"—":k.v}</div>
               <div style={{ fontSize:"10px",color:"#8899aa",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",marginTop:"3px" }}>{k.l}</div>
             </div>
           ))}
@@ -874,7 +874,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                 <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>
                   <div style={{ width:"8px",height:"8px",borderRadius:"50%",background:stage.color }} />
                   <span style={{ fontSize:"11px",fontWeight:700,color:"#9aaabb",letterSpacing:"0.06em",textTransform:"uppercase" }}>{stage.label}</span>
-                  <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"DM Mono",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
+                  <span style={{ marginLeft:"auto",fontSize:"11px",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace",color:"#334155",background:"rgba(255,255,255,0.04)",padding:"1px 6px",borderRadius:"4px" }}>{sl.length}</span>
                 </div>
                 <div style={{ background:surface,borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid " + border }}>
                   {sl.length === 0

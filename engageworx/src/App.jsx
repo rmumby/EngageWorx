@@ -2253,11 +2253,12 @@ var spNavBase = [
     );
     var drillDownTenantData = liveTenants.find(function(t) { return t.id === drillDownTenant; });
     var inner;
-    if (drillDownTenantData && drillDownTenantData.entity_tier === 'master_agent') {
+    var dt = drillDownTenantData || {};
+    if (dt.entity_tier === 'master_agent') {
       inner = <MasterAgentPortal masterAgentTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
-    } else if (drillDownTenantData && drillDownTenantData.tenant_type === 'csp') {
+    } else if (dt.entity_tier === 'csp' || dt.tenant_type === 'csp_partner' || dt.customer_type === 'csp_partner') {
       inner = <CSPPortal cspTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
-    } else if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
+    } else if (dt.entity_tier === 'agent' || dt.tenant_type === 'agent') {
       inner = <AgentPortal agentTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
     } else {
       inner = <CustomerPortal tenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} liveTenants={liveTenants} />;
