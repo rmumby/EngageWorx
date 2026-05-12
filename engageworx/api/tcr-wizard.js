@@ -18,10 +18,10 @@ var { loadSupplier, USECASE_ENUM } = require('./_lib/tcr-supplier');
 var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
 function getSupabase() {
-  return createClient(
-    process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  var url = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL;
+  var key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) console.error('[TCR Wizard] SUPABASE_SERVICE_ROLE_KEY is not set — writes will be blocked by RLS');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
 // ── Auth: verify caller is tenant_member of the given tenant ────────────────
@@ -448,16 +448,21 @@ module.exports = async function handler(req, res) {
         update.campaign_data = Object.assign({}, session.campaign_data || {}, data);
       }
 
-      console.log('[save_step] session_id:', sessionId, 'step:', step, 'data_keys:', Object.keys(data), 'merged_keys:', Object.keys(update.brand_data || update.campaign_data || {}));
+      console.log('[save_step] session_id:', sessionId, 'step:', step, 'data_keys:', Object.keys(data), 'key_role:', supabase.supabaseKey === process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon/other');
 
-      var { data: updated, error: updateErr } = await supabase.from('tcr_wizard_sessions')
-        .update(update).eq('id', sessionId).select().single();
+      var { data: rows, error: updateErr } = await supabase.from('tcr_wizard_sessions')
+        .update(update).eq('id', sessionId).select();
       if (updateErr) {
         console.error('[save_step] UPDATE ERROR:', updateErr.message);
         return res.status(500).json({ error: updateErr.message });
       }
+      if (!rows || rows.length === 0) {
+        console.error('[save_step] UPDATE returned 0 rows — likely RLS block. session_id:', sessionId);
+        return res.status(500).json({ error: 'Save failed — update returned 0 rows. Session may be blocked by a database policy.' });
+      }
 
-      console.log('[save_step] saved OK, brand_data keys:', Object.keys((updated && updated.brand_data) || {}), 'campaign_data keys:', Object.keys((updated && updated.campaign_data) || {}));
+      var updated = rows[0];
+      console.log('[save_step] saved OK, brand_data keys:', Object.keys((updated.brand_data) || {}), 'campaign_data keys:', Object.keys((updated.campaign_data) || {}));
       return res.status(200).json({ success: true, session: updated });
     }
 
@@ -485,10 +490,11 @@ module.exports = async function handler(req, res) {
         else summary.fail++;
       });
 
-      await supabase.from('tcr_wizard_sessions').update({
+      var { error: valSaveErr } = await supabase.from('tcr_wizard_sessions').update({
         ai_validations: { items: validationItems, summary: summary, validated_at: validatedAt },
         updated_at: validatedAt,
       }).eq('id', sessionId);
+      if (valSaveErr) console.warn('[ai_validate] Failed to persist validation results:', valSaveErr.message);
 
       return res.status(200).json({
         items: validationItems,
@@ -554,7 +560,7 @@ module.exports = async function handler(req, res) {
       var campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session);
 
       // Update session
-      var { data: submitted, error: submitErr } = await supabase.from('tcr_wizard_sessions').update({
+      var { data: submitRows, error: submitErr } = await supabase.from('tcr_wizard_sessions').update({
         status: 'submitted',
         supplier_brand_id: brandResult.supplier_brand_id,
         supplier_campaign_id: campaignResult.supplier_campaign_id,
@@ -564,7 +570,8 @@ module.exports = async function handler(req, res) {
         stripe_charge_id: 'STUB_' + Date.now(),
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }).eq('id', sessionId).select().single();
+      }).eq('id', sessionId).select();
+      var submitted = submitRows && submitRows[0];
 
       if (submitErr) return res.status(500).json({ error: submitErr.message });
 
@@ -643,7 +650,8 @@ module.exports = async function handler(req, res) {
             session.status = 'rejected';
           }
 
-          await supabase.from('tcr_wizard_sessions').update(statusUpdate).eq('id', sessionId);
+          var { error: statusSaveErr } = await supabase.from('tcr_wizard_sessions').update(statusUpdate).eq('id', sessionId);
+          if (statusSaveErr) console.warn('[status] Failed to persist status update:', statusSaveErr.message);
           session.campaign_status = statusUpdate.campaign_status;
           session.mno_status = statusUpdate.mno_status;
           session._supplier_status = { brand: brandStatus, campaign: campaignStatus };
