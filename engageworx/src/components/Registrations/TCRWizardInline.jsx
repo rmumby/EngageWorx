@@ -61,16 +61,15 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
     }, 50);
   }, [step]);
 
-  // Pre-fill displayName from tenant name + populate templates when displayName is set
+  // Pre-fill templates for NEW sessions only (skip when resuming)
   useEffect(function() {
-    if (!tenantId) return;
+    if (!tenantId || resumeSessionId) return;
     supabase.from('tenants').select('name').eq('id', tenantId).maybeSingle().then(function(r) {
       if (r.data && r.data.name) {
         var name = r.data.name;
         setBrand(function(b) { return Object.assign({}, b, { displayName: b.displayName || name }); });
-        // Pre-populate sample messages and responses with templates using tenant name
         setCampaign(function(c) {
-          if (c.sample_messages.some(function(m) { return m; })) return c; // don't overwrite if already has content
+          if (c.sample_messages.some(function(m) { return m; })) return c;
           return Object.assign({}, c, {
             description: c.description || templateDescription(name),
             sample_messages: templateSamples(name),
@@ -78,28 +77,71 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
             stop_message: c.stop_message || templateStop(name),
           });
         });
-        // URL fields left blank — tenant enters their own domain URLs
         setConsent(function(cn) { return Object.assign({}, cn, {
           confirmation_message: cn.confirmation_message || templateOptIn(name),
           opt_in_description: cn.opt_in_description || templateOptInDesc(name),
         }); });
       }
     });
-  }, [tenantId]);
+  }, [tenantId, resumeSessionId]);
 
-  // Resume session if sessionId provided
+  // Resume: hydrate state from saved session data
   useEffect(function() {
     if (!resumeSessionId) return;
     fetch('/api/tcr-wizard?action=status&session_id=' + resumeSessionId).then(function(r) { return r.json(); }).then(function(data) {
-      if (data.session) {
-        var s = data.session;
-        if (s.brand_data) setBrand(function(b) { return Object.assign({}, b, s.brand_data); });
-        if (s.campaign_data) setCampaign(function(c) { return Object.assign({}, c, s.campaign_data); });
-        if (s.campaign_data && s.campaign_data.consent) setConsent(function(cn) { return Object.assign({}, cn, s.campaign_data.consent); });
-        var stepMap = { brand: 0, vetting: 1, campaign: 2, consent: 3, review: 4, status: 5, submitted: 5 };
-        setStep(stepMap[s.current_step] || 0);
+      if (!data.session) return;
+      var s = data.session;
+
+      // Hydrate brand state
+      if (s.brand_data && Object.keys(s.brand_data).length > 0) {
+        setBrand(function(b) { return Object.assign({}, b, s.brand_data); });
       }
-    }).catch(function() {});
+
+      // Hydrate campaign state (campaign fields only)
+      if (s.campaign_data) {
+        setCampaign(function(c) { return Object.assign({}, c, {
+          use_case: s.campaign_data.use_case || c.use_case,
+          description: s.campaign_data.description || c.description,
+          sample_messages: s.campaign_data.sample_messages || c.sample_messages,
+          opt_in_keywords: s.campaign_data.opt_in_keywords || c.opt_in_keywords,
+          help_message: s.campaign_data.help_message || c.help_message,
+          stop_message: s.campaign_data.stop_message || c.stop_message,
+          embeddedLink: s.campaign_data.embeddedLink !== undefined ? s.campaign_data.embeddedLink : c.embeddedLink,
+          embeddedPhone: s.campaign_data.embeddedPhone !== undefined ? s.campaign_data.embeddedPhone : c.embeddedPhone,
+          ageGated: s.campaign_data.ageGated !== undefined ? s.campaign_data.ageGated : c.ageGated,
+          directLending: s.campaign_data.directLending !== undefined ? s.campaign_data.directLending : c.directLending,
+        }); });
+
+        // Hydrate consent state (consent fields stored flat in campaign_data)
+        setConsent(function(cn) { return Object.assign({}, cn, {
+          opt_in_url: s.campaign_data.opt_in_url || cn.opt_in_url,
+          privacy_url: s.campaign_data.privacy_url || cn.privacy_url,
+          sms_terms_url: s.campaign_data.sms_terms_url || cn.sms_terms_url,
+          terms_url: s.campaign_data.terms_url || cn.terms_url,
+          opt_in_description: s.campaign_data.opt_in_description || cn.opt_in_description,
+          confirmation_message: s.campaign_data.confirmation_message || cn.confirmation_message,
+        }); });
+      }
+
+      // Route to correct step based on session status + data completeness
+      var status = s.status || 'in_progress';
+      if (status === 'submitted' || status === 'approved' || status === 'rejected' || status === 'brand_failed' || status === 'campaign_failed') {
+        setStep(5); // Status view
+      } else {
+        // in_progress: find furthest completed step
+        var bd = s.brand_data || {};
+        var cd = s.campaign_data || {};
+        if (!bd.displayName || !bd.ein || !bd.vertical || !bd.entityType) {
+          setStep(0); // Brand incomplete
+        } else if (!cd.use_case || !cd.description) {
+          setStep(2); // Campaign incomplete
+        } else if (!cd.opt_in_url || !cd.privacy_url) {
+          setStep(3); // Consent incomplete
+        } else {
+          setStep(4); // All data present — go to Review
+        }
+      }
+    }).catch(function(e) { console.warn('[TCRWizard] resume error:', e.message); });
   }, [resumeSessionId]);
 
   // Start or get session
