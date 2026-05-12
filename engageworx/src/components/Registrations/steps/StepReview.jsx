@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { supabase } from '../../../supabaseClient';
 import ValidationChecklist from '../ValidationChecklist';
 
 var URL_LABELS = {
@@ -8,10 +9,10 @@ var URL_LABELS = {
   terms_url: 'Terms & Conditions',
 };
 
-function buildChecks(brand, campaign, consent, urlResults) {
+// Fallback client-side checks when backend is unavailable
+function buildFallbackChecks(brand, campaign, consent, urlResults) {
   var checks = [];
 
-  // Brand checks
   if (brand.displayName && brand.companyName && brand.ein && brand.vertical && brand.entityType) {
     checks.push({ status: 'pass', check: 'Brand details complete', message: brand.displayName + ' (' + brand.entityType + ')', step: 0 });
   } else {
@@ -24,89 +25,35 @@ function buildChecks(brand, campaign, consent, urlResults) {
     checks.push({ status: 'fail', check: 'Brand details incomplete', message: 'Missing: ' + missing.join(', '), fix: 'Go back to Step 1 and fill in the required fields.', step: 0 });
   }
 
-  // Campaign checks
   if (campaign.use_case) {
     checks.push({ status: 'pass', check: 'Use case selected', message: campaign.use_case, step: 2 });
   } else {
-    checks.push({ status: 'fail', check: 'No use case selected', message: 'A use case is required for carrier review.', step: 2 });
+    checks.push({ status: 'fail', check: 'No use case selected', message: 'A use case is required.', step: 2 });
   }
 
   var filledSamples = (campaign.sample_messages || []).filter(function(m) { return m && m.trim(); });
   if (filledSamples.length >= 2) {
-    checks.push({ status: 'pass', check: 'Sample messages (' + filledSamples.length + ')', message: 'Carriers require at least 2 sample messages.', step: 2 });
+    checks.push({ status: 'pass', check: 'Sample messages (' + filledSamples.length + ')', message: 'Minimum 2 required.', step: 2 });
   } else {
-    checks.push({ status: 'fail', check: 'Not enough sample messages', message: filledSamples.length + ' provided, minimum 2 required.', fix: 'Add at least 2 realistic sample messages.', step: 2 });
+    checks.push({ status: 'fail', check: 'Not enough sample messages', message: filledSamples.length + ' provided, minimum 2 required.', step: 2 });
   }
 
-  var desc = (campaign.description || '').trim();
-  if (desc.length >= 40) {
-    checks.push({ status: 'pass', check: 'Campaign description', message: desc.length + ' characters', step: 2 });
-  } else {
-    checks.push({ status: 'fail', check: 'Campaign description too short', message: desc.length + ' characters (minimum 40).', fix: 'Expand your campaign description.', step: 2 });
-  }
-
-  // HELP/STOP keyword checks
-  var helpMsg = (campaign.help_message || '').trim();
-  var stopMsg = (campaign.stop_message || '').trim();
-  if (helpMsg && stopMsg) {
-    checks.push({ status: 'pass', check: 'HELP & STOP messages configured', message: 'Required for TCR compliance.', step: 2 });
-  } else {
-    var kMissing = [];
-    if (!helpMsg) kMissing.push('HELP');
-    if (!stopMsg) kMissing.push('STOP');
-    checks.push({ status: 'fail', check: 'Missing keyword responses', message: kMissing.join(' and ') + ' message not configured.', fix: 'Add responses for required keywords.', step: 2 });
-  }
-
-  // URL verification checks — read from lifted urlResults state
   var urlKeys = ['opt_in_url', 'privacy_url', 'sms_terms_url', 'terms_url'];
   urlKeys.forEach(function(key) {
     var url = consent[key];
-    var label = URL_LABELS[key];
     var result = urlResults && urlResults[key];
     if (!url || !url.trim()) {
-      checks.push({ status: 'fail', check: label + ' missing', message: 'URL not provided.', step: 3 });
+      checks.push({ status: 'fail', check: URL_LABELS[key] + ' missing', message: 'URL not provided.', step: 3 });
     } else if (!result) {
-      checks.push({ status: 'warn', check: label + ' not verified', message: url, fix: 'Go back to Step 4 and verify this URL.', step: 3 });
+      checks.push({ status: 'warn', check: URL_LABELS[key] + ' not verified', message: url, step: 3 });
     } else if (result.ok) {
-      checks.push({ status: 'pass', check: label + ' verified', message: 'HTTP ' + (result.status || '200') + ' — ' + url, step: 3 });
+      checks.push({ status: 'pass', check: URL_LABELS[key] + ' verified', message: 'HTTP ' + (result.status || '200'), step: 3 });
     } else if (result.warn) {
-      // Page is live but missing keywords — warn, not fail
-      var kwList = (result.missing_keywords || []).join(', ');
-      checks.push({ status: 'warn', check: label + ' missing recommended language', message: 'Page is live (HTTP ' + (result.status || '200') + ') but missing: ' + kwList, fix: 'Add the missing language to your page, then re-verify.', step: 3 });
+      checks.push({ status: 'warn', check: URL_LABELS[key] + ' missing language', message: 'Missing: ' + (result.missing_keywords || []).join(', '), step: 3 });
     } else {
-      var detail = result.error || 'URL verification failed';
-      checks.push({ status: 'fail', check: label + ' unreachable', message: detail, fix: 'Ensure the URL is live and accessible.', step: 3 });
+      checks.push({ status: 'fail', check: URL_LABELS[key] + ' unreachable', message: result.error || 'Verification failed', step: 3 });
     }
   });
-
-  // Opt-in description
-  var optDesc = (consent.opt_in_description || '').trim();
-  if (optDesc.length >= 50) {
-    if (optDesc.startsWith('EXAMPLE:')) {
-      checks.push({ status: 'warn', check: 'Opt-in description uses template', message: 'Replace the EXAMPLE template with your actual opt-in flow description.', step: 3 });
-    } else {
-      checks.push({ status: 'pass', check: 'Opt-in description', message: optDesc.length + ' characters', step: 3 });
-    }
-  } else {
-    checks.push({ status: 'fail', check: 'Opt-in description too short', message: optDesc.length + ' characters (minimum 50).', step: 3 });
-  }
-
-  // Confirmation message
-  var confMsg = (consent.confirmation_message || '').trim();
-  if (confMsg.length >= 30 && confMsg.length <= 158) {
-    var hasHelp = /help/i.test(confMsg);
-    var hasStop = /stop/i.test(confMsg);
-    if (hasHelp && hasStop) {
-      checks.push({ status: 'pass', check: 'Confirmation message', message: confMsg.length + ' characters, includes HELP & STOP', step: 3 });
-    } else {
-      var kw = [];
-      if (!hasHelp) kw.push('HELP');
-      if (!hasStop) kw.push('STOP');
-      checks.push({ status: 'warn', check: 'Confirmation message missing keywords', message: 'Should include ' + kw.join(' and ') + ' instructions for compliance.', step: 3 });
-    }
-  } else {
-    checks.push({ status: 'fail', check: 'Confirmation message length', message: confMsg.length + ' characters (must be 30-158).', step: 3 });
-  }
 
   return checks;
 }
@@ -114,10 +61,49 @@ function buildChecks(brand, campaign, consent, urlResults) {
 export default function StepReview({ brand, campaign, consent, sessionId, tenantId, onBack, onSubmit, C, urlResults, onGoToStep }) {
   var [overrides, setOverrides] = useState({});
   var [submitting, setSubmitting] = useState(false);
+  var [validating, setValidating] = useState(false);
+  var [serverChecks, setServerChecks] = useState(null);
+  var [validationError, setValidationError] = useState(null);
 
-  var checks = useMemo(function() {
-    return buildChecks(brand, campaign, consent, urlResults || {});
+  var fallbackChecks = useMemo(function() {
+    return buildFallbackChecks(brand, campaign, consent, urlResults || {});
   }, [brand, campaign, consent, urlResults]);
+
+  var runValidation = useCallback(async function() {
+    if (!sessionId) return;
+    setValidating(true);
+    setValidationError(null);
+    setOverrides({});
+    try {
+      var session = await supabase.auth.getSession();
+      var token = session.data && session.data.session ? session.data.session.access_token : '';
+      var res = await fetch('/api/tcr-wizard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'ai_validate', session_id: sessionId }),
+      });
+      var data = await res.json();
+      if (data.error) {
+        setValidationError(data.error);
+      } else if (data.items) {
+        setServerChecks(data.items);
+      } else {
+        setValidationError('Unexpected response from validation service.');
+      }
+    } catch (e) {
+      setValidationError('Validation service error: ' + e.message);
+    }
+    setValidating(false);
+  }, [sessionId]);
+
+  // Auto-run validation on mount
+  useEffect(function() {
+    runValidation();
+  }, [runValidation]);
+
+  // Use server checks if available, fall back to client-side
+  var checks = serverChecks || fallbackChecks;
+  var usingFallback = !serverChecks;
 
   function handleOverride(index) {
     setOverrides(function(prev) { var n = Object.assign({}, prev); n[index] = true; return n; });
@@ -125,7 +111,7 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
 
   var hasFails = checks.some(function(c) { return c.status === 'fail'; });
   var unoverriddenWarns = checks.some(function(c, i) { return c.status === 'warn' && !overrides[i]; });
-  var canSubmit = !hasFails && !unoverriddenWarns;
+  var canSubmit = !hasFails && !unoverriddenWarns && !validating;
 
   var failCount = checks.filter(function(c) { return c.status === 'fail'; }).length;
   var warnCount = checks.filter(function(c, i) { return c.status === 'warn' && !overrides[i]; }).length;
@@ -152,17 +138,38 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
       <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Review your registration details below. Fix any issues before submitting to the carrier network.</div>
 
       {/* Validation summary bar */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-        <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>✅ {passCount} passed</div>
-        {warnCount > 0 && <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#F59E0B', fontSize: 12, fontWeight: 600 }}>⚠️ {warnCount} warnings</div>}
-        {failCount > 0 && <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontSize: 12, fontWeight: 600 }}>❌ {failCount} failed</div>}
-      </div>
+      {validating ? (
+        <div style={{ padding: '16px 20px', borderRadius: 10, background: 'rgba(0,191,255,0.06)', border: '1px solid rgba(0,191,255,0.15)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16 }}>⏳</span>
+          <div>
+            <div style={{ color: '#00BFFF', fontSize: 13, fontWeight: 600 }}>Running validation checks...</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Scanning URLs, verifying compliance language, checking use case alignment</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>✅ {passCount} passed</div>
+          {warnCount > 0 && <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#F59E0B', fontSize: 12, fontWeight: 600 }}>⚠️ {warnCount} warnings</div>}
+          {failCount > 0 && <div style={{ padding: '8px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontSize: 12, fontWeight: 600 }}>❌ {failCount} failed</div>}
+          {usingFallback && <div style={{ color: C.muted, fontSize: 11 }}>(offline checks — server validation unavailable)</div>}
+          <button onClick={runValidation} style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 12px', color: C.muted, cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Re-validate</button>
+        </div>
+      )}
+
+      {/* Validation error */}
+      {validationError && (
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#EF4444', fontSize: 12 }}>
+          {validationError}
+        </div>
+      )}
 
       {/* Validation checklist */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={sectionTitle}>Validation Checks</div>
-        <ValidationChecklist checks={checks} onGoToStep={onGoToStep} overrides={overrides} onOverride={handleOverride} C={C} />
-      </div>
+      {!validating && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={sectionTitle}>Validation Checks</div>
+          <ValidationChecklist checks={checks} onGoToStep={onGoToStep} overrides={overrides} onOverride={handleOverride} C={C} />
+        </div>
+      )}
 
       {/* Brand summary */}
       <div style={card}>
@@ -231,7 +238,7 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
         <button onClick={onBack} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'none', color: '#fff', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>← Back</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {!canSubmit && (
+          {!canSubmit && !validating && (
             <span style={{ color: C.muted, fontSize: 12 }}>
               {hasFails ? 'Fix ' + failCount + ' issue' + (failCount > 1 ? 's' : '') + ' to continue' : 'Override ' + warnCount + ' warning' + (warnCount > 1 ? 's' : '') + ' to continue'}
             </span>

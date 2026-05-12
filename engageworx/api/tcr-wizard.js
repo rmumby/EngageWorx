@@ -56,89 +56,223 @@ async function loadReference(supabase) {
   return ref;
 }
 
-// ── AI validation ───────────────────────────────────────────────────────────
+// ── AI validation — 9 structured checks ────────────────────────────────────
+
+async function fetchWithTimeout(url, timeoutMs) {
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+  try {
+    var resp = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal, headers: { 'User-Agent': 'EngageWorx-TCR-Validator/1.0' } });
+    clearTimeout(timer);
+    return resp;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
 
 async function runAiValidation(session, reference) {
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
-  if (!apiKey) return [{ check: 'ai_available', status: 'fail', message: 'ANTHROPIC_API_KEY not configured' }];
-
   var brand = session.brand_data || {};
   var campaign = session.campaign_data || {};
-  var checks = [];
+  var items = [];
+  var pageTexts = {}; // cache fetched page content for reuse across checks
 
-  // URL checks — fetch opt-in, privacy, sms-terms
-  var urls = [
-    { label: 'Opt-in page', url: campaign.opt_in_url },
-    { label: 'Privacy policy', url: campaign.privacy_url },
-    { label: 'SMS terms', url: campaign.sms_terms_url },
+  // Helper: fetch page text with caching
+  async function getPageText(url, label) {
+    if (!url) return null;
+    if (pageTexts[url] !== undefined) return pageTexts[url];
+    try {
+      var resp = await fetchWithTimeout(url, 10000);
+      if (!resp.ok) { pageTexts[url] = null; return null; }
+      var text = await resp.text();
+      pageTexts[url] = text;
+      return text;
+    } catch (e) {
+      pageTexts[url] = null;
+      return null;
+    }
+  }
+
+  // ── CHECK 1: URL_LIVE_CHECK (4 URLs) ──────────────────────────────────────
+  var urlDefs = [
+    { key: 'opt_in_url', id: 'URL_LIVE_CHECK_OPTIN', title: 'Opt-in URL is live', field: 'opt_in_url' },
+    { key: 'privacy_url', id: 'URL_LIVE_CHECK_PRIVACY', title: 'Privacy Policy URL is live', field: 'privacy_url' },
+    { key: 'sms_terms_url', id: 'URL_LIVE_CHECK_SMSTERMS', title: 'SMS Terms URL is live', field: 'sms_terms_url' },
+    { key: 'terms_url', id: 'URL_LIVE_CHECK_TERMS', title: 'Terms & Conditions URL is live', field: 'terms_url' },
   ];
-  for (var i = 0; i < urls.length; i++) {
-    var u = urls[i];
-    if (!u.url) {
-      checks.push({ check: u.label, status: 'fail', message: u.label + ' URL is missing', fix: 'Add the ' + u.label + ' URL in the Campaign step' });
+  for (var i = 0; i < urlDefs.length; i++) {
+    var ud = urlDefs[i];
+    var url = campaign[ud.key];
+    if (!url) {
+      items.push({ id: ud.id, check: 'URL_LIVE_CHECK', status: 'fail', title: ud.title, message: 'URL not provided.', fix: 'Add the URL in Step 4.', step: 3, field: ud.field });
       continue;
     }
     try {
-      var resp = await fetch(u.url, { method: 'GET', redirect: 'follow' });
-      if (!resp.ok) {
-        checks.push({ check: u.label, status: 'fail', message: u.label + ' returned HTTP ' + resp.status, fix: 'Verify the URL is publicly accessible: ' + u.url });
+      var resp = await fetchWithTimeout(url, 10000);
+      if (resp.ok) {
+        // Cache text for later checks
+        try { pageTexts[url] = await resp.text(); } catch (_) { pageTexts[url] = ''; }
+        items.push({ id: ud.id, check: 'URL_LIVE_CHECK', status: 'pass', title: ud.title, message: 'HTTP ' + resp.status + ' — ' + url, step: 3, field: ud.field });
       } else {
-        checks.push({ check: u.label, status: 'pass', message: u.label + ' accessible (HTTP ' + resp.status + ')' });
+        items.push({ id: ud.id, check: 'URL_LIVE_CHECK', status: 'fail', title: ud.title, message: 'HTTP ' + resp.status + ' — ' + url, fix: 'Ensure the URL returns HTTP 200.', step: 3, field: ud.field });
       }
     } catch (e) {
-      checks.push({ check: u.label, status: 'fail', message: 'Could not reach ' + u.label + ': ' + e.message, fix: 'Verify the URL is correct and publicly accessible' });
+      var errMsg = e.name === 'AbortError' ? 'URL did not respond within 10s' : e.message;
+      items.push({ id: ud.id, check: 'URL_LIVE_CHECK', status: 'fail', title: ud.title, message: errMsg + ' — ' + url, fix: 'Ensure the URL is publicly accessible.', step: 3, field: ud.field });
     }
   }
 
-  // AI content validation via Claude — TCR use case enum applies to all suppliers
-  var sampleMessages = campaign.sample_messages || [];
-  var declaredUseCase = (campaign.use_case || 'MIXED').toUpperCase();
-  var prompt = 'You are a TCR (The Campaign Registry) compliance reviewer for A2P 10DLC SMS campaigns.\n\n' +
-    'TCR USE CASE ENUM (standard across all suppliers): ' + USECASE_ENUM.join(', ') + '\n\n' +
-    'DECLARED USE CASE: ' + declaredUseCase + '\n\n' +
-    'BRAND:\n' + JSON.stringify(brand, null, 2) + '\n\n' +
-    'CAMPAIGN:\n' + JSON.stringify(campaign, null, 2) + '\n\n' +
-    'REFERENCE (known-good approved campaign):\n' + JSON.stringify(reference, null, 2) + '\n\n' +
-    'Validate the following and return STRICT JSON array of checks:\n' +
-    '[\n' +
-    '  { "check": "use_case_valid", "status": "pass|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "samples_match_use_case", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "samples_reference_brand", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "samples_realistic_brand", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "opt_out_language", "status": "pass|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "help_stop_keywords", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "description_quality", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "opt_in_description_quality", "status": "pass|warn|fail", "message": "...", "fix": "..." },\n' +
-    '  { "check": "sample_count", "status": "pass|warn|fail", "message": "...", "fix": "..." }\n' +
-    ']\n\n' +
-    'Rules:\n' +
-    '- use_case MUST be one of the Telnyx enum values listed above\n' +
-    '- Sample messages MUST specifically match the declared use_case (e.g. DELIVERY_NOTIFICATION samples about deliveries, not marketing)\n' +
-    '- Sample messages MUST reference a realistic brand name (not "test", "example", "company")\n' +
-    '- At least one sample must include opt-out language (STOP keyword)\n' +
-    '- At least one sample must include HELP keyword\n' +
-    '- Telnyx requires minimum 2 samples, recommends 3+, max 5\n' +
-    '- Campaign description must clearly explain what messages will be sent\n' +
-    '- Opt-in description must explain how users consent\n' +
-    '- Compare against the reference campaign for quality benchmarks\n\n' +
-    'Return ONLY the JSON array. No markdown fences.';
-
-  try {
-    var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1500, messages: [{ role: 'user', content: prompt }] }),
-    });
-    var aiData = await aiRes.json();
-    var text = (aiData.content || []).find(function(b) { return b.type === 'text'; });
-    var raw = text ? text.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim() : '[]';
-    var aiChecks = JSON.parse(raw);
-    checks = checks.concat(aiChecks);
-  } catch (e) {
-    checks.push({ check: 'ai_review', status: 'warn', message: 'AI review error: ' + e.message });
+  // ── CHECK 2: OPTIN_PAGE_LANGUAGE ──────────────────────────────────────────
+  var optInText = await getPageText(campaign.opt_in_url, 'opt-in');
+  if (optInText !== null) {
+    var lower = optInText.toLowerCase();
+    var required = [
+      { label: 'STOP keyword', test: lower.indexOf('stop') !== -1 },
+      { label: 'HELP keyword', test: lower.indexOf('help') !== -1 },
+      { label: 'Msg & data rates', test: lower.indexOf('msg & data rates') !== -1 || lower.indexOf('message and data rates') !== -1 },
+      { label: 'Brand name', test: brand.displayName ? lower.indexOf(brand.displayName.toLowerCase()) !== -1 : true },
+      { label: 'Phone input or reference', test: lower.indexOf('phone') !== -1 || lower.indexOf('mobile') !== -1 || lower.indexOf('tel') !== -1 || optInText.indexOf('type="tel"') !== -1 },
+      { label: 'Checkbox / consent language', test: lower.indexOf('checkbox') !== -1 || lower.indexOf('consent') !== -1 || lower.indexOf('agree') !== -1 || lower.indexOf('opt-in') !== -1 || lower.indexOf('opt in') !== -1 },
+    ];
+    var missing = required.filter(function(r) { return !r.test; });
+    if (missing.length === 0) {
+      items.push({ id: 'OPTIN_PAGE_LANGUAGE', check: 'OPTIN_PAGE_LANGUAGE', status: 'pass', title: 'Opt-in page has required language', message: 'All required compliance elements found.', step: 3, field: 'opt_in_url' });
+    } else if (missing.length <= 3) {
+      items.push({ id: 'OPTIN_PAGE_LANGUAGE', check: 'OPTIN_PAGE_LANGUAGE', status: 'warn', title: 'Opt-in page missing some language', message: 'Missing: ' + missing.map(function(m) { return m.label; }).join(', '), fix: 'Add the missing language to your opt-in page.', step: 3, field: 'opt_in_url' });
+    } else {
+      items.push({ id: 'OPTIN_PAGE_LANGUAGE', check: 'OPTIN_PAGE_LANGUAGE', status: 'fail', title: 'Opt-in page missing required language', message: 'Missing: ' + missing.map(function(m) { return m.label; }).join(', '), fix: 'Your opt-in page needs STOP, HELP, rate disclosure, brand name, and consent language.', step: 3, field: 'opt_in_url' });
+    }
+  } else if (campaign.opt_in_url) {
+    items.push({ id: 'OPTIN_PAGE_LANGUAGE', check: 'OPTIN_PAGE_LANGUAGE', status: 'fail', title: 'Could not scan opt-in page', message: 'Page was not reachable for content scan.', fix: 'Ensure the opt-in URL is live.', step: 3, field: 'opt_in_url' });
   }
 
-  return checks;
+  // ── CHECK 3: PRIVACY_POLICY_SMS_SECTION ───────────────────────────────────
+  var privacyText = await getPageText(campaign.privacy_url, 'privacy');
+  if (privacyText !== null) {
+    var pLower = privacyText.toLowerCase();
+    var hasSmsRef = pLower.indexOf('sms') !== -1 || pLower.indexOf('text message') !== -1;
+    var hasNoShare = pLower.indexOf('not share') !== -1 || pLower.indexOf('not sell') !== -1 || pLower.indexOf('will not') !== -1 || pLower.indexOf('do not share') !== -1 || pLower.indexOf('do not sell') !== -1;
+    if (hasSmsRef && hasNoShare) {
+      items.push({ id: 'PRIVACY_POLICY_SMS_SECTION', check: 'PRIVACY_POLICY_SMS_SECTION', status: 'pass', title: 'Privacy policy references SMS', message: 'SMS/text messaging section found with data sharing disclosure.', step: 3, field: 'privacy_url' });
+    } else if (hasSmsRef || hasNoShare) {
+      items.push({ id: 'PRIVACY_POLICY_SMS_SECTION', check: 'PRIVACY_POLICY_SMS_SECTION', status: 'warn', title: 'Privacy policy partially covers SMS', message: (hasSmsRef ? 'SMS referenced' : 'No SMS reference') + '; ' + (hasNoShare ? 'data sharing disclosed' : 'no data sharing statement'), fix: 'Add SMS-specific data handling and a statement that SMS data is not shared for marketing.', step: 3, field: 'privacy_url' });
+    } else {
+      items.push({ id: 'PRIVACY_POLICY_SMS_SECTION', check: 'PRIVACY_POLICY_SMS_SECTION', status: 'fail', title: 'Privacy policy missing SMS section', message: 'No SMS/text messaging reference or data sharing disclosure found.', fix: 'Add a section covering SMS data collection, usage, and a statement that data is not shared with third parties for marketing.', step: 3, field: 'privacy_url' });
+    }
+  } else if (campaign.privacy_url) {
+    items.push({ id: 'PRIVACY_POLICY_SMS_SECTION', check: 'PRIVACY_POLICY_SMS_SECTION', status: 'fail', title: 'Could not scan privacy policy', message: 'Page was not reachable for content scan.', step: 3, field: 'privacy_url' });
+  }
+
+  // ── CHECK 4: SMS_TERMS_HELP_STOP ──────────────────────────────────────────
+  var smsTermsText = await getPageText(campaign.sms_terms_url, 'sms-terms');
+  if (smsTermsText !== null) {
+    var stLower = smsTermsText.toLowerCase();
+    var helpFound = stLower.indexOf('help') !== -1;
+    var stopFound = stLower.indexOf('stop') !== -1;
+    if (helpFound && stopFound) {
+      items.push({ id: 'SMS_TERMS_HELP_STOP', check: 'SMS_TERMS_HELP_STOP', status: 'pass', title: 'SMS Terms include HELP & STOP', message: 'Both HELP and STOP keywords found in SMS terms page.', step: 3, field: 'sms_terms_url' });
+    } else if (helpFound || stopFound) {
+      var kMissing = !helpFound ? 'HELP' : 'STOP';
+      items.push({ id: 'SMS_TERMS_HELP_STOP', check: 'SMS_TERMS_HELP_STOP', status: 'warn', title: 'SMS Terms missing ' + kMissing, message: (helpFound ? 'HELP found' : 'HELP not found') + ', ' + (stopFound ? 'STOP found' : 'STOP not found'), fix: 'Add ' + kMissing + ' keyword with explanation to your SMS terms page.', step: 3, field: 'sms_terms_url' });
+    } else {
+      items.push({ id: 'SMS_TERMS_HELP_STOP', check: 'SMS_TERMS_HELP_STOP', status: 'fail', title: 'SMS Terms missing HELP & STOP', message: 'Neither HELP nor STOP keyword found in SMS terms page.', fix: 'Add HELP and STOP keyword explanations to your SMS terms page.', step: 3, field: 'sms_terms_url' });
+    }
+  } else if (campaign.sms_terms_url) {
+    items.push({ id: 'SMS_TERMS_HELP_STOP', check: 'SMS_TERMS_HELP_STOP', status: 'fail', title: 'Could not scan SMS terms', message: 'Page was not reachable for content scan.', step: 3, field: 'sms_terms_url' });
+  }
+
+  // ── CHECK 5: SAMPLE_USECASE_MATCH (AI semantic check) ─────────────────────
+  var sampleMessages = (campaign.sample_messages || []).filter(function(m) { return m && m.trim(); });
+  var declaredUseCase = (campaign.use_case || '').toUpperCase();
+  if (declaredUseCase && sampleMessages.length > 0) {
+    var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+    if (apiKey) {
+      try {
+        var aiPrompt = 'You are a TCR compliance reviewer. The declared use_case is "' + declaredUseCase + '".\n\n' +
+          'Sample messages:\n' + sampleMessages.map(function(m, j) { return (j + 1) + '. ' + m; }).join('\n') + '\n\n' +
+          'Do these sample messages match the declared use_case? Return ONLY this JSON (no markdown):\n' +
+          '{ "match_confidence": <0.0 to 1.0>, "reasoning": "<one sentence>" }';
+        var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 300, messages: [{ role: 'user', content: aiPrompt }] }),
+        });
+        var aiData = await aiRes.json();
+        var aiText = (aiData.content || []).find(function(b) { return b.type === 'text'; });
+        var raw = aiText ? aiText.text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim() : '{}';
+        var result = JSON.parse(raw);
+        var conf = result.match_confidence || 0;
+        if (conf > 0.8) {
+          items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'pass', title: 'Samples match use case', message: 'Confidence: ' + Math.round(conf * 100) + '%. ' + (result.reasoning || ''), step: 2, field: 'sample_messages' });
+        } else if (conf >= 0.5) {
+          items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'warn', title: 'Samples partially match use case', message: 'Confidence: ' + Math.round(conf * 100) + '%. ' + (result.reasoning || ''), fix: 'Adjust sample messages to better reflect the ' + declaredUseCase + ' use case.', step: 2, field: 'sample_messages' });
+        } else {
+          items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'fail', title: 'Samples do not match use case', message: 'Confidence: ' + Math.round(conf * 100) + '%. ' + (result.reasoning || ''), fix: 'Rewrite sample messages to specifically match the ' + declaredUseCase + ' use case.', step: 2, field: 'sample_messages' });
+        }
+      } catch (e) {
+        items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'warn', title: 'Could not run AI use case check', message: 'Manual review recommended. Error: ' + e.message, step: 2, field: 'sample_messages' });
+      }
+    } else {
+      items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'warn', title: 'AI check unavailable', message: 'ANTHROPIC_API_KEY not configured. Manual review recommended.', step: 2, field: 'sample_messages' });
+    }
+  } else if (!declaredUseCase) {
+    items.push({ id: 'SAMPLE_USECASE_MATCH', check: 'SAMPLE_USECASE_MATCH', status: 'fail', title: 'No use case selected', message: 'A use case is required for carrier review.', fix: 'Select a use case in Step 3.', step: 2, field: 'use_case' });
+  }
+
+  // ── CHECK 6: SAMPLE_STOP_PRESENT ──────────────────────────────────────────
+  var hasStop = sampleMessages.some(function(m) { return /\bSTOP\b/i.test(m); });
+  if (hasStop) {
+    items.push({ id: 'SAMPLE_STOP_PRESENT', check: 'SAMPLE_STOP_PRESENT', status: 'pass', title: 'Sample includes STOP keyword', message: 'At least one sample message contains opt-out language.', step: 2, field: 'sample_messages' });
+  } else {
+    items.push({ id: 'SAMPLE_STOP_PRESENT', check: 'SAMPLE_STOP_PRESENT', status: 'fail', title: 'No STOP keyword in samples', message: 'At least one sample message must include "Reply STOP to opt out" or similar.', fix: 'Add STOP opt-out language to at least one sample message.', step: 2, field: 'sample_messages' });
+  }
+
+  // ── CHECK 7: CONFIRMATION_HELP_STOP ───────────────────────────────────────
+  var confMsg = (campaign.confirmation_message || '').toLowerCase();
+  var confHelp = confMsg.indexOf('help') !== -1;
+  var confStop = confMsg.indexOf('stop') !== -1;
+  if (confHelp && confStop) {
+    items.push({ id: 'CONFIRMATION_HELP_STOP', check: 'CONFIRMATION_HELP_STOP', status: 'pass', title: 'Confirmation includes HELP & STOP', message: 'Confirmation message contains both required keywords.', step: 3, field: 'confirmation_message' });
+  } else if (confHelp || confStop) {
+    var cmMissing = !confHelp ? 'HELP' : 'STOP';
+    items.push({ id: 'CONFIRMATION_HELP_STOP', check: 'CONFIRMATION_HELP_STOP', status: 'warn', title: 'Confirmation missing ' + cmMissing, message: 'Should include both HELP and STOP instructions.', fix: 'Add ' + cmMissing + ' keyword to the confirmation message.', step: 3, field: 'confirmation_message' });
+  } else if (confMsg) {
+    items.push({ id: 'CONFIRMATION_HELP_STOP', check: 'CONFIRMATION_HELP_STOP', status: 'fail', title: 'Confirmation missing HELP & STOP', message: 'Confirmation message must include both HELP and STOP instructions.', fix: 'Add "Reply HELP for help or STOP to opt out" to the confirmation message.', step: 3, field: 'confirmation_message' });
+  } else {
+    items.push({ id: 'CONFIRMATION_HELP_STOP', check: 'CONFIRMATION_HELP_STOP', status: 'fail', title: 'No confirmation message', message: 'A confirmation message is required.', fix: 'Add a confirmation message in Step 4.', step: 3, field: 'confirmation_message' });
+  }
+
+  // ── CHECK 8: BRAND_NAME_CONSISTENCY ───────────────────────────────────────
+  if (brand.displayName && campaign.opt_in_url) {
+    var optText = await getPageText(campaign.opt_in_url, 'opt-in');
+    if (optText !== null) {
+      var brandLower = brand.displayName.toLowerCase();
+      var pageLower = optText.toLowerCase();
+      if (pageLower.indexOf(brandLower) !== -1) {
+        items.push({ id: 'BRAND_NAME_CONSISTENCY', check: 'BRAND_NAME_CONSISTENCY', status: 'pass', title: 'Brand name found on opt-in page', message: '"' + brand.displayName + '" appears on the page.', step: 0, field: 'displayName' });
+      } else {
+        // Check for partial match (first word of brand name)
+        var firstWord = brandLower.split(/\s+/)[0];
+        if (firstWord.length >= 3 && pageLower.indexOf(firstWord) !== -1) {
+          items.push({ id: 'BRAND_NAME_CONSISTENCY', check: 'BRAND_NAME_CONSISTENCY', status: 'warn', title: 'Partial brand name match', message: '"' + firstWord + '" found but not the full brand name "' + brand.displayName + '".', fix: 'Ensure your exact brand name appears on the opt-in page.', step: 0, field: 'displayName' });
+        } else {
+          items.push({ id: 'BRAND_NAME_CONSISTENCY', check: 'BRAND_NAME_CONSISTENCY', status: 'fail', title: 'Brand name not found on opt-in page', message: '"' + brand.displayName + '" does not appear on the opt-in page.', fix: 'Add your brand name to the opt-in page so carriers can verify brand ownership.', step: 0, field: 'displayName' });
+        }
+      }
+    }
+  }
+
+  // ── CHECK 9: EIN_FORMAT ───────────────────────────────────────────────────
+  var ein = (brand.ein || '').trim();
+  if (/^\d{2}-?\d{7}$/.test(ein)) {
+    items.push({ id: 'EIN_FORMAT', check: 'EIN_FORMAT', status: 'pass', title: 'EIN format valid', message: ein.indexOf('-') !== -1 ? ein : ein.substring(0, 2) + '-' + ein.substring(2), step: 0, field: 'ein' });
+  } else if (ein) {
+    items.push({ id: 'EIN_FORMAT', check: 'EIN_FORMAT', status: 'fail', title: 'Invalid EIN format', message: '"' + ein + '" — expected format: XX-XXXXXXX (9 digits).', fix: 'Enter your EIN in the format 12-3456789.', step: 0, field: 'ein' });
+  } else {
+    items.push({ id: 'EIN_FORMAT', check: 'EIN_FORMAT', status: 'fail', title: 'EIN missing', message: 'Employer Identification Number is required for brand registration.', fix: 'Enter your EIN in Step 1.', step: 0, field: 'ein' });
+  }
+
+  return items;
 }
 
 // ── AI pre-fill ─────────────────────────────────────────────────────────────
@@ -333,14 +467,27 @@ module.exports = async function handler(req, res) {
       if (!userId) return res.status(403).json({ error: 'Not authorized' });
 
       var reference = await loadReference(supabase);
-      var checks = await runAiValidation(session, reference);
+      var validatedAt = new Date().toISOString();
+      var validationItems = await runAiValidation(session, reference);
+
+      var summary = { pass: 0, warn: 0, fail: 0 };
+      validationItems.forEach(function(item) {
+        if (item.status === 'pass') summary.pass++;
+        else if (item.status === 'warn') summary.warn++;
+        else summary.fail++;
+      });
 
       await supabase.from('tcr_wizard_sessions').update({
-        ai_validations: { checks: checks, validated_at: new Date().toISOString() },
-        updated_at: new Date().toISOString(),
+        ai_validations: { items: validationItems, summary: summary, validated_at: validatedAt },
+        updated_at: validatedAt,
       }).eq('id', sessionId);
 
-      return res.status(200).json({ checks: checks });
+      return res.status(200).json({
+        items: validationItems,
+        summary: summary,
+        canSubmit: summary.fail === 0,
+        validated_at: validatedAt,
+      });
     }
 
     // ── AI_PRE_FILL ─────────────────────────────────────────────────────────
@@ -376,7 +523,8 @@ module.exports = async function handler(req, res) {
 
       // Check AI validation — no FAIL items allowed
       var validations = session.ai_validations || {};
-      var failChecks = (validations.checks || []).filter(function(c) { return c.status === 'fail'; });
+      var valItems = validations.items || validations.checks || [];
+      var failChecks = valItems.filter(function(c) { return c.status === 'fail'; });
       if (failChecks.length > 0) {
         return res.status(400).json({
           error: 'Validation has ' + failChecks.length + ' failing check(s). Fix before submitting.',

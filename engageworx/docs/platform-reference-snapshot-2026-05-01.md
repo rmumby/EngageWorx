@@ -405,7 +405,7 @@ Backward compatibility: if `visibility` field is missing, the code heuristic der
 ### TCR / Compliance
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/tcr-wizard` | GET/POST | Self-service TCR wizard (PC-02). Actions: start, save_step, ai_validate, ai_pre_fill, submit, interpret_rejection, status. Tenant-facing, no Rob in loop. Uses tcr-supplier.js adapter (mock/live). AI validation via Claude Sonnet against EngageWorx reference campaign. |
+| `/api/tcr-wizard` | GET/POST | Self-service TCR wizard (PC-02). Actions: start, save_step, ai_validate, ai_pre_fill, submit, interpret_rejection, status. Tenant-facing, no Rob in loop. Uses tcr-supplier.js adapter (mock/live). ai_validate performs 9 structured checks: URL_LIVE_CHECK (4 URLs, 10s timeout), OPTIN_PAGE_LANGUAGE (HTML scan for STOP/HELP/rates/brand/checkbox), PRIVACY_POLICY_SMS_SECTION (SMS reference + data sharing), SMS_TERMS_HELP_STOP, SAMPLE_USECASE_MATCH (Claude semantic confidence 0-1.0), SAMPLE_STOP_PRESENT, CONFIRMATION_HELP_STOP, BRAND_NAME_CONSISTENCY (brand name on opt-in page), EIN_FORMAT (XX-XXXXXXX regex). Returns { items, summary, canSubmit, validated_at }. Submit action blocks on any FAIL item. |
 | `/api/tcr` | GET/POST | TCR registration (legacy — prefill, validate, submit) |
 | `/api/tcr-webhook` | POST | Twilio TCR status webhook |
 | `/api/csp-tcr-reminders` | POST | CSP TCR reminder cron |
