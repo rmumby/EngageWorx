@@ -36,6 +36,11 @@ export var ENTITY_TYPES = [
   { value: 'SOLE_PROPRIETOR', label: 'Sole Proprietor' },
 ];
 
+export function optInDescription(businessName) {
+  var bn = businessName || '[Your Business]';
+  return 'EXAMPLE: Visit [your-website]/sms-signup, enter your phone number, and check the box to consent to receive SMS messages from ' + bn + '. Messages will include account notifications, billing updates, and service alerts. Reply STOP to opt out at any time.';
+}
+
 export function campaignDescription(businessName) {
   var bn = businessName || '[Your Business]';
   return 'EXAMPLE: ' + bn + ' sends account notifications to opted-in customers, including billing updates, security alerts, and service maintenance notices. Messages are transactional and not promotional. Customers opt-in via our signup form at [your-website]/sms-signup and can opt out by replying STOP.';
@@ -54,7 +59,7 @@ export function sampleMessages(businessName) {
 
 export function optInConfirmation(businessName) {
   var bn = businessName || '[Your Business]';
-  return 'You have opted in to receive SMS messages from ' + bn + '. Msg frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out.';
+  return bn + ': You\'re now subscribed to notifications. Reply HELP for help or STOP to opt out. Msg & data rates may apply.';
 }
 
 export function helpMessage(businessName) {

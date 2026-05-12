@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../supabaseClient';
-import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn, campaignDescription as templateDescription } from '../../tcrTemplates';
+import { sampleMessages as templateSamples, helpMessage as templateHelp, stopMessage as templateStop, optInConfirmation as templateOptIn, campaignDescription as templateDescription, optInDescription as templateOptInDesc } from '../../tcrTemplates';
 import StepBrand from './steps/StepBrand';
 import StepVetting from './steps/StepVetting';
 import StepCampaign from './steps/StepCampaign';
@@ -36,7 +36,7 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
   });
 
   var [consent, setConsent] = useState({
-    opt_in_url: '', privacy_url: '', sms_terms_url: '',
+    opt_in_url: '', privacy_url: '', sms_terms_url: '', terms_url: '',
     opt_in_description: '', confirmation_message: '',
   });
 
@@ -77,6 +77,7 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
         });
         setConsent(function(cn) { return Object.assign({}, cn, {
           confirmation_message: cn.confirmation_message || templateOptIn(name),
+          opt_in_description: cn.opt_in_description || templateOptInDesc(name),
         }); });
       }
     });
