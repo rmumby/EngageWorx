@@ -17,6 +17,7 @@ import OnboardingWizard from './OnboardingWizard';
 import CSPSMSRegistration from './CSPSMSRegistration';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
+import { ThemeToggle } from './ThemeContext';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -498,6 +499,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
             : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
           }
+          {!sidebarCollapsed && <div style={{ flex: 1 }} />}
+          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
           {!sidebarCollapsed && (
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
@@ -518,25 +521,32 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           })}
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <span>{sidebarCollapsed ? '»' : '«'}</span>
-            {!sidebarCollapsed && <span>Collapse</span>}
-          </div>
+          {/* Light/Dark Toggle */}
+          {!sidebarCollapsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span style={{ fontSize: 12, color: C.muted }}>🌙 Dark Mode</span>
+              <ThemeToggle />
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', marginBottom: 2 }}><ThemeToggle /></div>
+          )}
+          {/* Sign Out */}
           <div onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', color: '#FF5252', fontSize: 13, background: 'rgba(255,82,82,0.06)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
             <span>⏻</span>
             {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
+          </div>
+          {/* Collapse */}
+          <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+            <span>{sidebarCollapsed ? '»' : '«'}</span>
+            {!sidebarCollapsed && <span>Collapse</span>}
           </div>
         </div>
       </div>
 
       {/* Main content */}
       <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 16, right: 20, zIndex: 100 }}>
-          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
-        </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
           {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
-          <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>⏻ Sign Out</span>
         </div>
 
         {page === 'contacts' && <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
