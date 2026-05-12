@@ -629,6 +629,8 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     else { setEditingBrand(null); window.location.reload(); }
   };
 
+  var visibleTenants = currentTenantId ? liveTenants.filter(function(t) { return t.parent_tenant_id === currentTenantId; }) : liveTenants;
+
   return (
     <div style={{ padding: "32px 40px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
@@ -905,9 +907,9 @@ setDemoCreating(false);
           <div style={{ display: "grid", gap: 12 }}>
             {tenantsLoading ? (
               <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 40 }}>Loading tenants...</div>
-            ) : liveTenants.length === 0 ? (
+            ) : visibleTenants.length === 0 ? (
               <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 40 }}>No tenants yet. Create one above to get started.</div>
-            ) : liveTenants.map(c => {
+            ) : visibleTenants.map(c => {
               const isSuspended = suspendedTenants[c.id] || c.status === 'suspended';
               const isConfiguring = configuringTenant === c.id;
               return (
@@ -1414,7 +1416,7 @@ setDemoCreating(false);
 
           {/* Tenant Brand Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {Object.values(liveTenants).map(c => (
+          {Object.values(visibleTenants).map(c => (
             <div key={c.id} style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${editingBrand === c.id ? C.primary + "66" : "rgba(255,255,255,0.07)"}`, borderRadius: 14, padding: 24, overflow: "hidden", transition: "border-color 0.2s" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                 <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${c.brand.primary}, ${c.brand.secondary})`, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{c.logo}</div>
