@@ -228,7 +228,7 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
           </div>
           <div style={{ marginBottom: 16 }}>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, fontWeight: 700 }}>Carrier Status</div>
-            <MNOStatusBadges mnoStatus={mnoStatus} />
+            <MNOStatusBadges mnoStatus={mnoStatus} mode="full" />
           </div>
           <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
             T-Mobile typically approves in 0–24 hours. AT&T and Verizon in 1–3 business days. US Cellular varies. This page updates automatically every 10 seconds.
@@ -252,7 +252,7 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
           <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
           <div style={{ color: '#10b981', fontSize: 20, fontWeight: 700, marginBottom: 8 }}>All Carriers Approved</div>
           <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Your 10DLC registration is active. You can now send SMS to US numbers.</div>
-          <MNOStatusBadges mnoStatus={mnoStatus} />
+          <MNOStatusBadges mnoStatus={mnoStatus} mode="full" />
         </div>
         <div style={{ marginTop: 20, textAlign: 'center' }}>
           <button onClick={onDone} style={{ padding: '12px 28px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Done</button>
@@ -270,7 +270,7 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
         <div style={Object.assign({}, card, { border: '1px solid rgba(239,68,68,0.2)' })}>
           <div style={{ marginBottom: 16 }}>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10, fontWeight: 700 }}>Carrier Status</div>
-            <MNOStatusBadges mnoStatus={mnoStatus} />
+            <MNOStatusBadges mnoStatus={mnoStatus} mode="full" />
           </div>
           {error && (
             <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 8, color: '#EF4444', fontSize: 12, lineHeight: 1.5, marginBottom: 16 }}>{error}</div>
