@@ -273,10 +273,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     { id: 'campaigns',    label: 'Campaigns',           icon: '🚀', always: true },
     { id: 'pipeline',     label: 'Pipeline',            icon: '📈', module: 'pipeline' },
     { id: 'sequences',    label: 'Sequences',           icon: '📧', module: 'sequences' },
-    { id: 'ai-studio',    label: agentName || 'AI Chatbot',   icon: '🤖', always: true },
+    { id: 'ai-studio',    label: 'AI Chatbot',           icon: '🤖', always: true },
     { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
     { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
-    { id: 'sms-registration', label: 'SMS Registration', icon: '📋', always: true },
+    { id: 'sms-registration', label: 'Registrations',   icon: '📋', always: true },
     { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
     { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
     { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡', always: true },
@@ -420,40 +420,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     );
   };
 
-  if (page === 'ai-studio') {
-    // Use natural document scroll (not viewport-locked) so the AIChatbot's own
-    // header isn't clipped when this view sits inside the SP drill-down breadcrumb wrapper.
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        {topBar('AI Chatbot Studio', '🤖')}
-        <div style={{ flex: '1 1 auto' }}>
-          <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />
-        </div>
-      </div>
-    );
-  }
-
-  if (page === 'sequences') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        {topBar('Sequences', '📧')}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <SequenceBuilder C={C} currentTenantId={cspTenantId} />
-        </div>
-      </div>
-    );
-  }
-
-  if (page === 'flow-builder') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        {topBar('Flow Builder', '⚡')}
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} defaultTab="flows" />
-        </div>
-      </div>
-    );
-  }
+  // ai-studio, sequences, flow-builder now render inside the main sidebar layout (below)
 
   if (page === 'inbox') {
     return (
@@ -552,6 +519,12 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         {page === 'contacts' && <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
         {page === 'pipeline' && <PipelineDashboard C={C} currentTenantId={cspTenantId} demoMode={false} />}
+
+        {page === 'ai-studio' && <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
+
+        {page === 'flow-builder' && <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} defaultTab="flows" />}
+
+        {page === 'sequences' && <SequenceBuilder C={C} currentTenantId={cspTenantId} />}
 
         {page === 'helpdesk' && (
           <div>
