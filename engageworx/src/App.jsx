@@ -556,10 +556,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           .from('tenants')
           .select('*')
           .order('created_at', { ascending: false });
+        console.log('[TenantManagement] query scoping — currentTenantId:', currentTenantId, currentTenantId ? 'SCOPED to parent_tenant_id' : 'UNSCOPED (all tenants)');
         if (currentTenantId) {
           tenantQuery = tenantQuery.eq('parent_tenant_id', currentTenantId);
         }
         const { data, error } = await tenantQuery;
+        console.log('[TenantManagement] query result — rows:', data ? data.length : 0, 'error:', error ? error.message : 'none', 'ids:', (data || []).slice(0, 5).map(function(t) { return t.name + '(' + t.id.substring(0, 8) + ')'; }));
         if (!error && data) {
           const mapped = data.map(t => ({
             id: t.id,
@@ -1702,6 +1704,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     (async () => {
       try {
         const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier, customer_type').eq('id', tenantId).maybeSingle();
+        console.log('[CustomerPortal] tenant data for', tenantId, '→ entity_tier:', data && data.entity_tier, 'customer_type:', data && data.customer_type);
         if (data && data.entity_tier) setEntityTier(data.entity_tier);
         if (data && data.customer_type) setCustomerType(data.customer_type);
         const isSuper = cpAuth && cpAuth.profile && cpAuth.profile.role === 'superadmin';
@@ -1887,7 +1890,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
-        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function(id) { setCspDrillTenant(id); if (_brand.setActiveTenantBranding) _brand.setActiveTenantBranding(id); }} currentTenantId={tenantId} />}
+        {page === "tenants" && entityTier === 'csp' && (console.log('[CustomerPortal] Rendering TenantManagement — page:', page, 'entityTier:', entityTier, 'tenantId:', tenantId), <TenantManagement C={C} demoMode={false} onDrillDown={function(id) { setCspDrillTenant(id); if (_brand.setActiveTenantBranding) _brand.setActiveTenantBranding(id); }} currentTenantId={tenantId} />)}
         {page === "platform-settings" && entityTier === 'csp' && (() => {
           function CSPPlatformSettings() {
             var [cspPc, setCspPc] = useState(null);
