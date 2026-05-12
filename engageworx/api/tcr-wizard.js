@@ -439,7 +439,7 @@ module.exports = async function handler(req, res) {
       var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
       if (!userId) return res.status(403).json({ error: 'Not authorized' });
 
-      var update = { current_step: step, updated_at: new Date().toISOString() };
+      var update = { current_step: step };
       if (step === 'brand') {
         update.brand_data = Object.assign({}, session.brand_data || {}, data);
       } else if (step === 'campaign') {
@@ -492,7 +492,6 @@ module.exports = async function handler(req, res) {
 
       var { error: valSaveErr } = await supabase.from('tcr_wizard_sessions').update({
         ai_validations: { items: validationItems, summary: summary, validated_at: validatedAt },
-        updated_at: validatedAt,
       }).eq('id', sessionId);
       if (valSaveErr) console.warn('[ai_validate] Failed to persist validation results:', valSaveErr.message);
 
@@ -569,7 +568,6 @@ module.exports = async function handler(req, res) {
         fee_amount_cents: totalCents,
         stripe_charge_id: 'STUB_' + Date.now(),
         submitted_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       }).eq('id', sessionId).select();
       var submitted = submitRows && submitRows[0];
 
@@ -612,7 +610,6 @@ module.exports = async function handler(req, res) {
       await supabase.from('tcr_wizard_sessions').update({
         rejection_history: history,
         status: 'in_progress',
-        updated_at: new Date().toISOString(),
       }).eq('id', sessionId);
 
       return res.status(200).json(interpretation);
@@ -637,7 +634,6 @@ module.exports = async function handler(req, res) {
           var statusUpdate = {
             campaign_status: campaignStatus.campaign_status || session.campaign_status,
             mno_status: campaignStatus.mno_status || session.mno_status,
-            updated_at: new Date().toISOString(),
           };
 
           if (brandStatus.status === 'APPROVED' && campaignStatus.campaign_status === 'ACTIVE') {
