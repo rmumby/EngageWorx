@@ -18,6 +18,7 @@ import CSPSMSRegistration from './CSPSMSRegistration';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
 import { ThemeToggle } from './ThemeContext';
+import FlowBuilder from './FlowBuilder';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -522,7 +523,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'ai-studio' && <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'flow-builder' && <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} defaultTab="flows" />}
+        {page === 'flow-builder' && <FlowBuilder C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
         {page === 'sequences' && <SequenceBuilder C={C} currentTenantId={cspTenantId} />}
 
