@@ -161,15 +161,17 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         var cbBotName = null;
         try {
           var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base').eq('tenant_id', currentTenantId).maybeSingle();
+          var cbKnowledgeBase = null;
           if (cbR.data) {
             if (cbR.data.bot_name) { cbBotName = cbR.data.bot_name; setBotName(cbR.data.bot_name); }
             if (cbR.data.system_prompt) setSystemPrompt(cbR.data.system_prompt);
+            if (cbR.data.knowledge_base) cbKnowledgeBase = cbR.data.knowledge_base;
           }
         } catch (e) {}
         // Load channel configs for per-channel settings
         const { data, error } = await supabase.from('channel_configs').select('channel, config_encrypted, enabled').eq('tenant_id', currentTenantId);
         if (!error && data && data.length > 0) {
-          var merged = { agentName: cbBotName || "Aria", businessInfo: "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
+          var merged = { agentName: cbBotName || "Aria", businessInfo: cbKnowledgeBase || "", kbSources: [], aiEnabled: true, channels: { sms: false, whatsapp: false, email: false, voice: false } };
           data.forEach(function(cfg) {
             var c = cfg.config_encrypted || {};
             if (c.ai_agent_name && !cbBotName) merged.agentName = c.ai_agent_name;
