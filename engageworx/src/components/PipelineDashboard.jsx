@@ -694,13 +694,11 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   var staleLeads  = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
 
   return (
-    <div style={{ minHeight:"100vh",background:bg,fontFamily:"'DM Sans','Segoe UI',sans-serif",color:text }}>
+    <div style={{ minHeight:"100vh",background:bg,fontFamily:"inherit",color:text }}>
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid " + border }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
-            <div style={{ width:"34px",height:"34px",background:"linear-gradient(135deg,#6366f1,#ec4899)",borderRadius:"9px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>⚡</div>
-            <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>EngageWorx</span>
-            <span style={{ fontSize:"11px",color:"#8899aa",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace",background:"rgba(255,255,255,0.04)",padding:"2px 8px",borderRadius:"4px",border:"1px solid rgba(255,255,255,0.06)" }}>PIPELINE</span>
+            <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>Pipeline</span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",transition:"background 0.3s" }} />
               <span style={{ fontSize:"10px",color:"#334155",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
