@@ -85,11 +85,16 @@ export function ThemeProvider({ children }) {
   var theme = mode === 'dark' ? DARK : LIGHT;
   var isDark = mode === 'dark';
 
-  // Sync body class for CSS targeting
+  // Sync body class + background for CSS targeting
   useEffect(function() {
     if (typeof document !== 'undefined') {
       document.body.classList.toggle('dark-mode', isDark);
       document.body.classList.toggle('light-mode', !isDark);
+      // Body background uses brand CSS variables set by BrandingContext
+      var brandPrimary = getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim() || '#00BFFF';
+      var brandSecondary = getComputedStyle(document.documentElement).getPropertyValue('--brand-secondary').trim() || '#A855F7';
+      document.body.style.background = isDark ? brandPrimary : brandSecondary;
+      document.body.style.color = isDark ? '#FFFFFF' : '#000000';
     }
   }, [isDark]);
 

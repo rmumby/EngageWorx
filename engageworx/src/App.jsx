@@ -1706,7 +1706,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       setOnboardingChecked(true);
     })();
   }, [tenantId, cpAuth]);
-  const [agentName, setAgentName] = useState('Aria');
+  var _brand = useBranding();
+  const [agentName, setAgentName] = useState(_brand.chatbotName || 'Aria');
 
   useEffect(() => {
     if (!tenantId) return;
@@ -1764,7 +1765,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   }
 
   if (cspDrillTenant) {
-    return <CustomerPortal tenantId={cspDrillTenant} onBack={function() { setCspDrillTenant(null); }} liveTenants={liveTenants} onLogout={onLogout} />;
+    return <CustomerPortal tenantId={cspDrillTenant} onBack={function() { setCspDrillTenant(null); if (_brand.resetToHostBranding) _brand.resetToHostBranding(); }} liveTenants={liveTenants} onLogout={onLogout} />;
   }
 
   return (
@@ -1882,7 +1883,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         )}
         {page === "import" && entityTier === 'csp' && <ImportLeads C={C} currentTenantId={tenantId} demoMode={false} />}
         {page === "lead-scan" && entityTier === 'csp' && <LeadScan C={C} demoMode={false} />}
-        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={setCspDrillTenant} currentTenantId={tenantId} />}
+        {page === "tenants" && entityTier === 'csp' && <TenantManagement C={C} demoMode={false} onDrillDown={function(id) { setCspDrillTenant(id); if (_brand.setActiveTenantBranding) _brand.setActiveTenantBranding(id); }} currentTenantId={tenantId} />}
         {page === "platform-settings" && entityTier === 'csp' && (() => {
           function CSPPlatformSettings() {
             var [cspPc, setCspPc] = useState(null);
@@ -1980,9 +1981,9 @@ function AppInner() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [drillDownStack, setDrillDownStack] = useState([]);
   const drillDownTenant = drillDownStack.length > 0 ? drillDownStack[drillDownStack.length - 1] : null;
-  const pushDrill = function(id) { setDrillDownStack(function(s) { return s.concat([id]); }); };
-  const popDrill = function() { setDrillDownStack(function(s) { return s.slice(0, -1); }); };
-  const jumpDrill = function(idx) { setDrillDownStack(function(s) { return s.slice(0, idx); }); };
+  const pushDrill = function(id) { setDrillDownStack(function(s) { return s.concat([id]); }); if (branding.setActiveTenantBranding) branding.setActiveTenantBranding(id); };
+  const popDrill = function() { setDrillDownStack(function(s) { var next = s.slice(0, -1); if (next.length > 0 && branding.setActiveTenantBranding) { branding.setActiveTenantBranding(next[next.length - 1]); } else if (branding.resetToHostBranding) { branding.resetToHostBranding(); } return next; }); };
+  const jumpDrill = function(idx) { setDrillDownStack(function(s) { var next = s.slice(0, idx); if (next.length > 0 && branding.setActiveTenantBranding) { branding.setActiveTenantBranding(next[next.length - 1]); } else if (branding.resetToHostBranding) { branding.resetToHostBranding(); } return next; }); };
   const [spPage, setSpPage] = useState("dashboard");
   const [spAgentName, setSpAgentName] = useState('Aria');
   useEffect(() => {
@@ -2259,7 +2260,7 @@ var spNavBase = [
     } else if (drillDownTenantData && drillDownTenantData.tenant_type === 'agent') {
       inner = <AgentPortal agentTenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} profile={profile} onOpenTenantPortal={pushDrill} />;
     } else {
-      inner = <CustomerPortal tenantId={drillDownTenant} onBack={popDrill} liveTenants={liveTenants} />;
+      inner = <CustomerPortal tenantId={drillDownTenant} onBack={popDrill} onLogout={handleLogout} liveTenants={liveTenants} />;
     }
     // The drilled portal uses 100vw/100% internally — the wrapper must not constrain it.
     // Also inject CSS custom properties for the drilled tenant's brand colors so any
@@ -2274,7 +2275,7 @@ var spNavBase = [
     return (
       <div style={Object.assign({ width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }, drillColors)}>
         {breadcrumb}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible', paddingLeft: 28 }}>
           {inner}
         </div>
       </div>

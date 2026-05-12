@@ -51,7 +51,7 @@ export default function SupportRequestForm({ tenantId, userEmail, userName, C, o
         setStatusMessage('✅ We found and fixed a configuration issue: ' + ((triage.fix_details && triage.fix_details.fixes) || []).join(', ') + '. Please re-test.');
       } else if (triage.classification === 'USER_ERROR') {
         setStatus('auto_fixed');
-        setStatusMessage('Aria has replied to your ticket with step-by-step guidance. Check your email and the Help Desk.');
+        setStatusMessage('Your AI assistant has replied to your ticket with step-by-step guidance. Check your email and the Help Desk.');
       } else if (triage.classification === 'CODE_BUG' || triage.classification === 'UNKNOWN') {
         setStatus('escalated');
         setStatusMessage('🎫 Ticket escalated to our team. We\'ll follow up within 24 hours.');
@@ -74,7 +74,7 @@ export default function SupportRequestForm({ tenantId, userEmail, userName, C, o
   return (
     <div style={Object.assign({}, card, { maxWidth: 640 })}>
       <h3 style={{ color: '#fff', margin: '0 0 6px', fontSize: 16 }}>🎫 Submit a Support Request</h3>
-      <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 14px' }}>Aria will read, triage, and auto-fix common issues within ~2 minutes. Complex issues get escalated to our team.</p>
+      <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 14px' }}>Your AI assistant will read, triage, and auto-fix common issues within ~2 minutes. Complex issues get escalated to our team.</p>
       <label style={{ color: colors.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4, fontWeight: 700 }}>Issue type</label>
       <select value={type} onChange={function(e) { setType(e.target.value); }} style={inputStyle}>
         {ISSUE_TYPES.map(function(t) { return <option key={t.id} value={t.id}>{t.label}</option>; })}

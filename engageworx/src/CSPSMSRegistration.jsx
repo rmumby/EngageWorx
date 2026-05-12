@@ -190,7 +190,7 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
           </div>
           <div style={card}>
             <h3 style={{ color: '#fff', margin: '0 0 6px', fontSize: 15 }}>FAQ — generate for your industry</h3>
-            <p style={{ color: colors.muted, fontSize: 12, marginBottom: 10 }}>Aria will write industry-specific guidance using approved template patterns from past tenants.</p>
+            <p style={{ color: colors.muted, fontSize: 12, marginBottom: 10 }}>AI will write industry-specific guidance using approved template patterns from past tenants.</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <input value={guide.industry} onChange={function(e) { setGuide(Object.assign({}, guide, { industry: e.target.value })); }} placeholder="e.g. dental practice, real estate brokerage, gym" style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }} />
               <button onClick={generateGuide} disabled={guide.loading} style={btnPrimary}>{guide.loading ? 'Thinking…' : 'Generate FAQ'}</button>

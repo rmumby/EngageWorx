@@ -315,7 +315,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     return (
       <div>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 6 }}>📧 Email channel</div>
-        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria sends customer replies, sequence emails, and notifications from this address. <a href="/docs/email-setup" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>Need help setting this up? →</a></p>
+        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Your AI agent sends customer replies, sequence emails, and notifications from this address. <a href="/docs/email-setup" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>Need help setting this up? →</a></p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
           <div><label style={label}>From email</label><input value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} placeholder="hello@yourdomain.com" style={inputStyle} /></div>
           <div><label style={label}>From name</label><input value={fromName} onChange={function(e) { setFromName(e.target.value); }} placeholder={displayName || 'Your Company Name'} style={inputStyle} /></div>
@@ -336,7 +336,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📧 Outbound email tracking (optional)</div>
             <span style={{ color: primaryColor, fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Power feature</span>
           </div>
-          <p style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>BCC your personal tracking address on any email you send from Gmail / Outlook / Apple Mail, and the thread shows up in Live Inbox so Aria can see the context when your contact replies. You can set this up now or later in Settings.</p>
+          <p style={{ color: '#94a3b8', fontSize: 12, margin: '0 0 12px', lineHeight: 1.6 }}>BCC your personal tracking address on any email you send from Gmail / Outlook / Apple Mail, and the thread shows up in Live Inbox so your AI agent can see the context when your contact replies. You can set this up now or later in Settings.</p>
           <EmailTrackingInstructions tenantId={tenantId} C={{ primary: primaryColor, accent: accentColor, muted: '#94a3b8' }} />
         </div>
       </div>
@@ -401,7 +401,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     return (
       <div>
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 6 }}>🤖 Your AI assistant</div>
-        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Aria reads inbound messages, answers customer questions, and routes anything she can't handle to your team.</p>
+        <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Your AI agent reads inbound messages, answers customer questions, and routes anything it can't handle to your team.</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
           <div><label style={label}>AI agent name</label><input value={agentName} onChange={function(e) { setAgentName(e.target.value); }} placeholder="Aria" style={inputStyle} /></div>
           <div>
@@ -432,7 +432,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           <input type="checkbox" checked={skipAI} onChange={function(e) { setSkipAI(e.target.checked); }} />
           Skip for now
         </label>
-        {skipAI && <div style={{ marginTop: 8, padding: 10, background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 8, color: '#d97706', fontSize: 12 }}>⚠️ AI won't be able to answer customer questions until you fill this in via Settings → Aria.</div>}
+        {skipAI && <div style={{ marginTop: 8, padding: 10, background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.3)', borderRadius: 8, color: '#d97706', fontSize: 12 }}>⚠️ AI won't be able to answer customer questions until you fill this in via Settings → AI Chatbot.</div>}
       </div>
     );
   }

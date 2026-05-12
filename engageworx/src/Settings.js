@@ -327,7 +327,7 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
         <span style={{ fontSize: 22 }}>📧</span>
         <div style={{ flex: 1 }}>
           <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Outbound Email Tracking</div>
-          <div style={{ color: C.muted, fontSize: 12 }}>BCC this address on any email you send from Gmail / Outlook / Apple Mail to log the thread in Live Inbox. Aria sees the full context when your contact replies.</div>
+          <div style={{ color: C.muted, fontSize: 12 }}>BCC this address on any email you send from Gmail / Outlook / Apple Mail to log the thread in Live Inbox. Your AI agent sees the full context when your contact replies.</div>
         </div>
       </div>
       <EmailTrackingInstructions tenantId={tenantId} C={C} />
