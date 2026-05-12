@@ -94,7 +94,7 @@ export function BrandingProvider({ children }) {
 
   var setActiveTenantBranding = useCallback(function(tenantId) {
     if (!tenantId) return;
-    setBranding(function(prev) { return Object.assign({}, prev, { loading: true }); });
+    // Do NOT set loading: true — that unmounts children and resets their state
     supabase
       .rpc('get_tenant_branding_by_id', { p_tenant_id: tenantId })
       .maybeSingle()
@@ -103,12 +103,11 @@ export function BrandingProvider({ children }) {
           var b = parseBrandingRow(result.data, hostname);
           setBranding(b);
           applyBrandingToDOM(b);
-        } else {
-          setBranding(function(prev) { return Object.assign({}, prev, { loading: false }); });
         }
+        // If no data found, keep current branding (don't change anything)
       })
       .catch(function() {
-        setBranding(function(prev) { return Object.assign({}, prev, { loading: false }); });
+        // On error, keep current branding
       });
   }, [hostname]);
 
