@@ -11,8 +11,8 @@ var URL_FIELDS = [
   { key: 'terms_url', label: 'Terms & Conditions', kwKey: 'terms' },
 ];
 
-export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantId, C }) {
-  var [urlResults, setUrlResults] = useState({});
+export default function StepConsent({ consent, onUpdate, onNext, onBack, tenantId, C, urlResults, onUrlResults }) {
+  var setUrlResults = onUrlResults;
   var [verifying, setVerifying] = useState({});
   var [showErrors, setShowErrors] = useState(false);
   var [errors, setErrors] = useState({});

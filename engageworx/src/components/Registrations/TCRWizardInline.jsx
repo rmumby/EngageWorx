@@ -40,6 +40,9 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
     opt_in_description: '', confirmation_message: '',
   });
 
+  // URL verification results — lifted from StepConsent so StepReview can read them
+  var [urlResults, setUrlResults] = useState({});
+
   // Scroll to top on mount and step transitions
   var wizardRef = useRef(null);
   useEffect(function() {
@@ -168,8 +171,8 @@ export default function TCRWizardInline({ tenantId, sessionId: resumeSessionId, 
       {step === 0 && <StepBrand brand={brand} onUpdate={setBrand} onNext={goNext} C={C} />}
       {step === 1 && <StepVetting onNext={goNext} onBack={goBack} C={C} />}
       {step === 2 && <StepCampaign campaign={campaign} onUpdate={setCampaign} onNext={goNext} onBack={goBack} C={C} />}
-      {step === 3 && <StepConsent consent={consent} onUpdate={setConsent} onNext={goNext} onBack={goBack} tenantId={tenantId} C={C} />}
-      {step === 4 && <StepReview brand={brand} campaign={campaign} consent={consent} sessionId={sessionId} tenantId={tenantId} onBack={goBack} onSubmit={function() { setStep(5); }} C={C} />}
+      {step === 3 && <StepConsent consent={consent} onUpdate={setConsent} onNext={goNext} onBack={goBack} tenantId={tenantId} C={C} urlResults={urlResults} onUrlResults={setUrlResults} />}
+      {step === 4 && <StepReview brand={brand} campaign={campaign} consent={consent} sessionId={sessionId} tenantId={tenantId} onBack={goBack} onSubmit={function() { setStep(5); }} C={C} urlResults={urlResults} onGoToStep={setStep} />}
       {step === 5 && <StepStatus sessionId={sessionId} onDone={onComplete} C={C} />}
     </div>
   );
