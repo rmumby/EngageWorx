@@ -19,6 +19,7 @@ import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
 import { ThemeToggle } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
+import { getNavItems } from './navMenu';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -266,27 +267,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   }
 
-  var allNavItems = [
-    { id: 'dashboard',    label: 'Dashboard',           icon: '⊞',  always: true },
-    { id: 'tenants',      label: 'Tenant Management',   icon: '🏢', always: true },
-    { id: 'inbox',        label: 'Live Inbox',          icon: '💬', always: true },
-    { id: 'contacts',     label: 'Contacts',            icon: '👥', always: true },
-    { id: 'campaigns',    label: 'Campaigns',           icon: '🚀', always: true },
-    { id: 'pipeline',     label: 'Pipeline',            icon: '📈', module: 'pipeline' },
-    { id: 'sequences',    label: 'Sequences',           icon: '📧', module: 'sequences' },
-    { id: 'ai-studio',    label: 'AI Chatbot',           icon: '🤖', always: true },
-    { id: 'flow-builder', label: 'Flow Builder',        icon: '⚡', always: true },
-    { id: 'helpdesk',     label: 'Help Desk',           icon: '🎫', module: 'helpdesk' },
-    { id: 'sms-registration', label: 'Registrations',   icon: '📋', always: true },
-    { id: 'analytics',    label: 'Analytics',           icon: '📊', always: true },
-    { id: 'integrations', label: 'API & Integrations',  icon: '🔌', always: true },
-    { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡', always: true },
-    { id: 'branding',     label: 'Branding',            icon: '🎨', always: true },
-    { id: 'settings',     label: 'Settings',            icon: '⚙️', always: true },
-  ];
-
-  var navItems = allNavItems.filter(function(item) {
-    return item.always || isModuleEnabled(item.module);
+  // CSP portal ID mapping: navMenu canonical IDs → CSP-specific page IDs where they differ
+  var cspIdMap = { 'chatbot': 'ai-studio', 'flows': 'flow-builder', 'support': 'helpdesk', 'registrations': 'sms-registration', 'sequenceroster': 'sequences', 'sequences': 'sequence-builder' };
+  var navItems = getNavItems('csp').map(function(item) {
+    return Object.assign({}, item, { id: cspIdMap[item.id] || item.id });
   });
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };

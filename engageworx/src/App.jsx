@@ -45,6 +45,7 @@ import OnboardingWizard from './OnboardingWizard';
 import SetupChecklist from './SetupChecklist';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
+import { getNavItems } from './navMenu';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
@@ -1738,34 +1739,8 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       } catch (e) {}
     })();
   }, [tenantId, i18n]);
-  const navItems = [
-    { id: "dashboard", label: t('nav.platformOverview'), icon: "⊞" },
-    { id: "inbox", label: t('nav.liveInbox'), icon: "💬" },
-    { id: "support", label: t('nav.helpDesk'), icon: "🎫" },
-    { id: "contacts", label: t('nav.contacts'), icon: "👥" },
-    entityTier === 'csp' ? { id: "pipeline", label: t('nav.pipeline'), icon: "📈" } : null,
-    entityTier === 'csp' ? { id: "import", label: t('nav.importLeads'), icon: "📥" } : null,
-    entityTier === 'csp' ? { id: "lead-scan", label: t('nav.leadScan'), icon: "📲" } : null,
-    { id: "campaigns", label: t('nav.campaigns'), icon: "🚀" },
-    { id: "flows", label: t('nav.flowBuilder'), icon: "⚡" },
-    { id: "sequenceroster", label: t('nav.sequenceRoster'), icon: "📋" },
-    { id: "sequences", label: t('nav.sequenceBuilder'), icon: "📝" },
-    { id: "chatbot", label: "AI Chatbot", icon: "🤖" },
-    { id: "action-board", label: "Action Board", icon: "⚡" },
-    { id: "email-digest", label: t('nav.aiDigest'), icon: "📡" },
-    entityTier === 'csp' ? { id: "tenants", label: t('nav.tenantManagement'), icon: "🏢" } : null,
-    entityTier === 'csp' ? { id: "platform-settings", label: "Platform Settings", icon: "🔧" } : null,
-    entityTier === 'csp' ? { id: "hierarchy", label: t('nav.hierarchy'), icon: "🌳" } : null,
-    entityTier === 'csp' ? { id: "analytics-global", label: t('nav.globalAnalytics'), icon: "📊" } : null,
-    entityTier !== 'csp' ? { id: "analytics", label: t('nav.analytics'), icon: "📊" } : null,
-    entityTier === 'csp' ? { id: "customer-success", label: t('nav.customerSuccess'), icon: "📈" } : null,
-    /* TCR Queue is SP-admin only (line 2137). CSP tenants use Registrations for their own TCR. */
-    /* Branding moved into Settings tab — admin/superadmin gated via allowedTabs */
-    { id: "registrations", label: t('nav.registrations'), icon: "📋" },
-    { id: "integrations", label: t('nav.apisIntegrations'), icon: "🔌" },
-    { id: "settings", label: t('nav.settings'), icon: "⚙️" },
-    customerType === 'internal' ? { id: "streaming-test", label: "Streaming Test", icon: "🧪" } : null,
-  ].filter(Boolean);
+  var portalScope = entityTier === 'csp' ? 'csp' : 'tenant';
+  const navItems = getNavItems(portalScope);
 
   if (needsOnboarding) {
     return <OnboardingWizard tenantId={tenantId} onComplete={() => setNeedsOnboarding(false)} />;
