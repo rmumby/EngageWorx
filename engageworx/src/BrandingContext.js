@@ -73,6 +73,9 @@ export function BrandingProvider({ children }) {
   useEffect(function() {
     if (isPlatform) return;
 
+    // Clear cached title immediately so white-label tenants don't flash "EngageWorx"
+    document.title = '';
+
     supabase
       .rpc('get_tenant_branding_by_domain', { p_hostname: hostname })
       .maybeSingle()
