@@ -20,6 +20,17 @@ function blendHex(a, b, t) {
   return '#' + [r, g, bl].map(function(v) { return v.toString(16).padStart(2, '0'); }).join('');
 }
 
+function relativeTime(iso) {
+  if (!iso) return '';
+  var ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60000) return 'just now';
+  var m = Math.floor(ms / 60000);
+  if (m < 60) return m + 'm ago';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
 export default function ActionBoard({ C, currentTenantId }) {
   var primary = (C && C.primary) || '#00C9FF';
   var accent = (C && C.accent) || '#E040FB';
@@ -83,7 +94,7 @@ export default function ActionBoard({ C, currentTenantId }) {
       var { data, error } = await supabase.from('action_items')
         .select('*')
         .eq('tenant_id', currentTenantId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'drafted_to_gmail'])
         .or('snooze_until.is.null,snooze_until.lt.' + now)
         .order('created_at', { ascending: false });
       if (error) console.error('[ActionBoard] load error:', error.message);
@@ -255,13 +266,15 @@ export default function ActionBoard({ C, currentTenantId }) {
     var tierInfo = TIERS.find(function(t) { return t.id === item.tier; }) || TIERS[0];
     var recipients = item.draft_recipients || [];
     var isSnoozeOpen = snoozeOpen === item.id;
+    var isDrafted = item.status === 'drafted_to_gmail';
+    var draftDeepLink = isDrafted && item.gmail_draft_id ? 'https://mail.google.com/mail/u/0/#drafts?compose=' + item.gmail_draft_id : null;
 
     return (
       <div key={item.id}
         style={{
-          background: cardBg,
-          borderTop: '3px solid ' + tierInfo.color,
-          border: '1px solid ' + cardBorder,
+          background: isDrafted ? (isDark ? 'rgba(59,130,246,0.04)' : 'rgba(59,130,246,0.03)') : cardBg,
+          borderTop: '3px solid ' + (isDrafted ? '#3B82F6' : tierInfo.color),
+          border: '1px solid ' + (isDrafted ? (isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.12)') : cardBorder),
           borderRadius: 14,
           padding: isMobile ? 16 : 22,
           marginBottom: 12,
@@ -295,6 +308,13 @@ export default function ActionBoard({ C, currentTenantId }) {
                   border: '1px solid rgba(255,214,0,0.3)',
                   borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700,
                 }}>⭐ VIP</span>
+              )}
+              {isDrafted && (
+                <span style={{
+                  background: 'rgba(59,130,246,0.12)', color: '#3B82F6',
+                  border: '1px solid rgba(59,130,246,0.3)',
+                  borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700,
+                }}>📧 Drafted in Gmail · {relativeTime(item.gmail_drafted_at)}</span>
               )}
             </div>
           </div>
@@ -375,8 +395,62 @@ export default function ActionBoard({ C, currentTenantId }) {
           </div>
         )}
 
-        {/* Action buttons */}
-        {!isEditing && (
+        {/* Drafted-to-Gmail buttons */}
+        {isDrafted && !isEditing && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+            {draftDeepLink && (
+              <a href={draftDeepLink} target="_blank" rel="noopener noreferrer"
+                style={{
+                  background: 'linear-gradient(135deg, #3B82F6, #6366f1)',
+                  border: 'none', borderRadius: 10, padding: isMobile ? '12px 0' : '10px 22px',
+                  color: '#fff', fontWeight: 700, cursor: 'pointer',
+                  fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                  flex: isMobile ? '1' : 'none', textDecoration: 'none', textAlign: 'center',
+                  display: 'inline-block', transition: 'all 0.2s',
+                }}>Open in Gmail</a>
+            )}
+            <button onClick={function() {
+              setActionLoading(item.id);
+              (async function() {
+                try {
+                  var jwt = await getJwt();
+                  await fetch('/api/action-items/cancel-gmail-draft', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+                    body: JSON.stringify({ action_item_id: item.id }),
+                  });
+                  setItems(function(prev) { return prev.map(function(i) {
+                    if (i.id !== item.id) return i;
+                    return Object.assign({}, i, { status: 'pending', gmail_draft_id: null, gmail_thread_id: null, gmail_drafted_at: null, gmail_user_id: null });
+                  }); });
+                } catch (e) { alert('Cancel error: ' + e.message); }
+                setActionLoading(null);
+              })();
+            }} disabled={isActioning}
+              style={{
+                background: subtleBg, border: '1px solid ' + subtleBorder,
+                borderRadius: 10, padding: '10px 16px', color: softText,
+                cursor: isActioning ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={function(e) { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.color = text; }}
+              onMouseLeave={function(e) { e.currentTarget.style.borderColor = subtleBorder; e.currentTarget.style.color = softText; }}
+            >Cancel Draft</button>
+            <button onClick={function() { handleDismiss(item.id); }} disabled={isActioning}
+              style={{
+                background: 'none', border: '1px solid ' + cardBorder,
+                borderRadius: 10, padding: '10px 14px', color: faintText,
+                cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={function(e) { e.currentTarget.style.borderColor = 'rgba(255,59,48,0.3)'; e.currentTarget.style.color = '#FF3B30'; }}
+              onMouseLeave={function(e) { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.color = faintText; }}
+            >Dismiss</button>
+          </div>
+        )}
+
+        {/* Pending action buttons */}
+        {!isDrafted && !isEditing && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
             <button onClick={function() { handleSend(item.id); }} disabled={isActioning || recipients.length === 0}
               style={{
