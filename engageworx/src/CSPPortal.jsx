@@ -17,7 +17,7 @@ import OnboardingWizard from './OnboardingWizard';
 import CSPSMSRegistration from './CSPSMSRegistration';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
-import { ThemeToggle } from './ThemeContext';
+import { ThemeToggle, useTheme, getThemedColors } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
 import { getNavItems } from './navMenu';
 
@@ -77,7 +77,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       } catch (e) { setAgentName(''); }
     })();
   }, [cspTenantId]);
-  var C = Object.assign({}, getCSPColors(), brandColors);
+  var { theme: _cspTheme } = useTheme();
+  var C = getThemedColors(Object.assign({}, getCSPColors(), brandColors), _cspTheme);
   var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
 
   useEffect(function() {
