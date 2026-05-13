@@ -201,6 +201,24 @@ module.exports = async function handler(req, res) {
 
       case 'checkout.session.completed': {
         var session = event.data.object;
+
+        // TCR registration payment — route separately
+        if (session.metadata && session.metadata.type === 'tcr_registration') {
+          var tcrSessionId = session.metadata.tcr_session_id;
+          var paymentIntent = session.payment_intent;
+          console.log('[Stripe] TCR checkout completed:', tcrSessionId, 'payment_intent:', paymentIntent);
+          if (tcrSessionId) {
+            // Idempotent: only update if not already paid
+            var { data: tcrRows } = await supabase.from('tcr_wizard_sessions')
+              .update({ payment_status: 'paid', stripe_charge_id: paymentIntent })
+              .eq('id', tcrSessionId)
+              .neq('payment_status', 'paid')
+              .select('id');
+            console.log('[Stripe] TCR payment_status updated:', tcrRows && tcrRows.length > 0 ? 'yes' : 'already paid or not found');
+          }
+          break;
+        }
+
         var email = session.customer_email ||
           (session.customer_details && session.customer_details.email) ||
           (session.metadata && session.metadata.email);

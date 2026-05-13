@@ -14,6 +14,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { loadSupplier, USECASE_ENUM } = require('./_lib/tcr-supplier');
+var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
 
 var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
@@ -22,6 +23,13 @@ function getSupabase() {
   var key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) console.error('[TCR Wizard] SUPABASE_SERVICE_ROLE_KEY is not set — writes will be blocked by RLS');
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
+// ── Resolve TCR mode for a tenant ───────────────────────────────────────────
+
+async function resolveTcrMode(supabase, tenantId) {
+  var { data: t } = await supabase.from('tenants').select('tcr_mode_override').eq('id', tenantId).maybeSingle();
+  return (t && t.tcr_mode_override) || process.env.TCR_SUPPLIER_MODE || 'mock';
 }
 
 // ── Auth: verify caller is tenant_member of the given tenant ────────────────
@@ -567,6 +575,74 @@ module.exports = async function handler(req, res) {
       return res.status(200).json(result);
     }
 
+    // ── CREATE_CHECKOUT ──────────────────────────────────────────────────────
+    if (action === 'create_checkout') {
+      var sessionId = req.body.session_id;
+      if (!sessionId) return res.status(400).json({ error: 'session_id required' });
+
+      var { data: session } = await supabase.from('tcr_wizard_sessions').select('*').eq('id', sessionId).maybeSingle();
+      if (!session) return res.status(404).json({ error: 'Session not found' });
+      if (session.status !== 'in_progress') return res.status(400).json({ error: 'Session is ' + session.status });
+
+      var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
+      if (!userId) return res.status(403).json({ error: 'Not authorized' });
+
+      // Mock mode: skip payment entirely
+      var mode = await resolveTcrMode(supabase, session.tenant_id);
+      if (mode === 'mock') {
+        await supabase.from('tcr_wizard_sessions').update({ payment_status: 'paid' }).eq('id', sessionId);
+        return res.status(200).json({ skip_payment: true, url: null });
+      }
+
+      // Live mode: create Stripe Checkout session
+      var brandData = session.brand_data || {};
+      var brandType = (brandData.entityType === 'SOLE_PROPRIETOR' || brandData.entity_type === 'sole_proprietor') ? 'sole_proprietor' : 'standard';
+      var { data: brandFeeRow } = await supabase.from('tcr_fee_schedule')
+        .select('amount_cents').eq('fee_type', 'brand_registration').eq('use_case', brandType).maybeSingle();
+      var { data: campaignFeeRow } = await supabase.from('tcr_fee_schedule')
+        .select('amount_cents').eq('fee_type', 'campaign_registration').eq('use_case', 'standard').maybeSingle();
+      var brandFeeCents = (brandFeeRow && brandFeeRow.amount_cents) || (brandType === 'sole_proprietor' ? 200 : 400);
+      var campaignFeeCents = (campaignFeeRow && campaignFeeRow.amount_cents) || 1500;
+      var totalCents = brandFeeCents + campaignFeeCents;
+
+      var stripeKey = process.env.STRIPE_SECRET_KEY;
+      if (!stripeKey) return res.status(500).json({ error: 'Stripe not configured' });
+
+      var portalBase = process.env.PORTAL_BASE_URL || 'https://portal.engwx.com';
+
+      try {
+        var stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + stripeKey, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            'mode': 'payment',
+            'payment_method_types[0]': 'card',
+            'line_items[0][price_data][currency]': 'usd',
+            'line_items[0][price_data][product_data][name]': 'TCR Brand + Campaign Registration',
+            'line_items[0][price_data][unit_amount]': String(totalCents),
+            'line_items[0][quantity]': '1',
+            'success_url': portalBase + '/registrations?tcr_payment=success&session_id=' + sessionId,
+            'cancel_url': portalBase + '/registrations?tcr_payment=cancelled&session_id=' + sessionId,
+            'metadata[tenant_id]': session.tenant_id,
+            'metadata[tcr_session_id]': sessionId,
+            'metadata[type]': 'tcr_registration',
+          }).toString(),
+        });
+        var stripeData = await stripeRes.json();
+        if (!stripeRes.ok) {
+          return res.status(500).json({ error: (stripeData.error && stripeData.error.message) || 'Stripe checkout creation failed' });
+        }
+        await supabase.from('tcr_wizard_sessions').update({
+          payment_status: 'pending',
+          stripe_checkout_id: stripeData.id,
+        }).eq('id', sessionId);
+        console.log('[TCR Wizard] Stripe checkout created:', stripeData.id, 'session:', sessionId, 'amount:', totalCents);
+        return res.status(200).json({ skip_payment: false, url: stripeData.url });
+      } catch (e) {
+        return res.status(500).json({ error: 'Stripe error: ' + e.message });
+      }
+    }
+
     // ── SUBMIT ──────────────────────────────────────────────────────────────
     if (action === 'submit') {
       var sessionId = req.body.session_id;
@@ -578,6 +654,12 @@ module.exports = async function handler(req, res) {
 
       var userId = await verifyTenantMember(supabase, jwt, session.tenant_id);
       if (!userId) return res.status(403).json({ error: 'Not authorized' });
+
+      // Payment gate — live mode requires paid status
+      var submitMode = await resolveTcrMode(supabase, session.tenant_id);
+      if (submitMode === 'live' && session.payment_status !== 'paid') {
+        return res.status(402).json({ error: 'Payment required before submission. Complete checkout first.' });
+      }
 
       // Check AI validation — no FAIL items allowed
       var validations = session.ai_validations || {};
@@ -602,17 +684,27 @@ module.exports = async function handler(req, res) {
       var supplier = await loadSupplier(supabase, session.tenant_id);
       var ctx = { supabase: supabase, tenantId: session.tenant_id };
 
+      var isPaidSubmission = session.payment_status === 'paid';
+
       // Step 1: Create brand
       var brandResult;
       try {
         brandResult = await supplier.createBrand(session.brand_data, ctx);
       } catch (brandErr) {
         console.error('[TCR Wizard] createBrand failed:', brandErr.message);
-        await supabase.from('tcr_wizard_sessions').update({
-          status: 'brand_failed',
-          outcome: { error: brandErr.message },
-        }).eq('id', sessionId);
-        return res.status(200).json({ success: false, phase: 'brand', error: brandErr.message });
+        var brandFailStatus = isPaidSubmission ? 'submit_failed_post_payment' : 'brand_failed';
+        var brandFailOutcome = { error: brandErr.message };
+        if (isPaidSubmission) { brandFailOutcome.requires_manual_recovery = true; brandFailOutcome.stripe_charge_id = session.stripe_charge_id; }
+        await supabase.from('tcr_wizard_sessions').update({ status: brandFailStatus, outcome: brandFailOutcome }).eq('id', sessionId);
+        if (isPaidSubmission) {
+          try {
+            await notifyTenantAdmins(supabase, SP_TENANT_ID, 'tcr_status', { session_id: sessionId, error: brandErr.message }, {
+              subject: '[ACTION REQUIRED] TCR submission failed after payment — session ' + sessionId,
+              html: '<p>TCR brand registration failed after payment was collected.</p><p><b>Session:</b> ' + sessionId + '</p><p><b>Tenant:</b> ' + session.tenant_id + '</p><p><b>Error:</b> ' + brandErr.message + '</p><p><b>Payment Intent:</b> ' + (session.stripe_charge_id || 'N/A') + '</p><p>Review in Stripe dashboard. Either refund or retry submission manually.</p>',
+            });
+          } catch (_) {}
+        }
+        return res.status(200).json({ success: false, phase: 'brand', error: brandErr.message, post_payment: isPaidSubmission });
       }
 
       // Step 2: Create campaign
@@ -621,12 +713,19 @@ module.exports = async function handler(req, res) {
         campaignResult = await supplier.createCampaign(brandResult.supplier_brand_id, session, ctx);
       } catch (campErr) {
         console.error('[TCR Wizard] createCampaign failed (brand registered):', campErr.message);
-        await supabase.from('tcr_wizard_sessions').update({
-          status: 'campaign_failed',
-          supplier_brand_id: brandResult.supplier_brand_id,
-          outcome: { brand_id: brandResult.supplier_brand_id, campaign_error: campErr.message },
-        }).eq('id', sessionId);
-        return res.status(200).json({ success: false, phase: 'campaign', error: campErr.message, supplier_brand_id: brandResult.supplier_brand_id });
+        var campFailStatus = isPaidSubmission ? 'submit_failed_post_payment' : 'campaign_failed';
+        var campFailOutcome = { brand_id: brandResult.supplier_brand_id, campaign_error: campErr.message };
+        if (isPaidSubmission) { campFailOutcome.requires_manual_recovery = true; campFailOutcome.stripe_charge_id = session.stripe_charge_id; }
+        await supabase.from('tcr_wizard_sessions').update({ status: campFailStatus, supplier_brand_id: brandResult.supplier_brand_id, outcome: campFailOutcome }).eq('id', sessionId);
+        if (isPaidSubmission) {
+          try {
+            await notifyTenantAdmins(supabase, SP_TENANT_ID, 'tcr_status', { session_id: sessionId, error: campErr.message }, {
+              subject: '[ACTION REQUIRED] TCR campaign failed after payment — session ' + sessionId,
+              html: '<p>TCR campaign registration failed after payment. Brand was registered successfully.</p><p><b>Session:</b> ' + sessionId + '</p><p><b>Tenant:</b> ' + session.tenant_id + '</p><p><b>Brand ID:</b> ' + brandResult.supplier_brand_id + '</p><p><b>Error:</b> ' + campErr.message + '</p><p><b>Payment Intent:</b> ' + (session.stripe_charge_id || 'N/A') + '</p><p>Review in Stripe dashboard. Either refund or retry campaign submission manually.</p>',
+            });
+          } catch (_) {}
+        }
+        return res.status(200).json({ success: false, phase: 'campaign', error: campErr.message, supplier_brand_id: brandResult.supplier_brand_id, post_payment: isPaidSubmission });
       }
 
       // Both succeeded — update session
@@ -637,7 +736,7 @@ module.exports = async function handler(req, res) {
         campaign_status: campaignResult.campaign_status || 'PENDING',
         mno_status: campaignResult.mno_status || {},
         fee_amount_cents: totalCents,
-        stripe_charge_id: 'STUB_' + Date.now(),
+        stripe_charge_id: session.stripe_charge_id || ('STUB_' + Date.now()),
         submitted_at: new Date().toISOString(),
       }).eq('id', sessionId).select();
       var submitted = submitRows && submitRows[0];
