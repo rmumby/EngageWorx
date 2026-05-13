@@ -417,11 +417,13 @@ function fallbackDraft(event, enriched, tier) {
 
 async function insertOrUpdate(supabase, row) {
   try {
-    var { data, error } = await supabase.from('action_items').insert(row).select().single();
+    // Use .select() (not .single()) to avoid PGRST116 on 0-row edge cases
+    var { data: rows, error } = await supabase.from('action_items').insert(row).select();
     if (error) {
       // Check for unique violation (dedup index)
       if (error.code === '23505') {
-        var { data: updated, error: updateErr } = await supabase.from('action_items')
+        // Existing row — update only if still pending (sent/dismissed rows are left alone)
+        var { data: updatedRows, error: updateErr } = await supabase.from('action_items')
           .update({
             updated_at: new Date().toISOString(),
             title: row.title,
@@ -429,21 +431,28 @@ async function insertOrUpdate(supabase, row) {
             suggested_action: row.suggested_action,
             draft_subject: row.draft_subject,
             draft_body_html: row.draft_body_html,
+            draft_recipients: row.draft_recipients,
+            predicted_stage_id: row.predicted_stage_id,
+            stage_advance_type: row.stage_advance_type,
           })
           .eq('tenant_id', row.tenant_id)
           .eq('user_id', row.user_id)
           .eq('source', row.source)
           .eq('status', 'pending')
-          .select()
-          .single();
-        if (updateErr) return { success: false, error: updateErr.message };
-        return { success: true, action_item: updated, updated_existing: true };
+          .select();
+        if (updateErr) return { success: false, error: updateErr.message, lead_id: row.lead_id };
+        if (!updatedRows || updatedRows.length === 0) {
+          // Existing row is no longer pending (already sent/dismissed) — skip silently
+          console.log('[action-item-generator] Dedup: existing row not pending, skipping. lead_id:', row.lead_id, 'source:', row.source);
+          return { success: true, action_item: null, skipped: true, reason: 'existing_not_pending' };
+        }
+        return { success: true, action_item: updatedRows[0], updated_existing: true };
       }
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, lead_id: row.lead_id };
     }
-    return { success: true, action_item: data, updated_existing: false };
+    return { success: true, action_item: (rows && rows[0]) || null, updated_existing: false };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, error: err.message, lead_id: row.lead_id };
   }
 }
 
