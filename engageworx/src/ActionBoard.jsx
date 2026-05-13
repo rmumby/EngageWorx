@@ -132,10 +132,25 @@ export default function ActionBoard({ C, currentTenantId }) {
     setActionLoading(null);
   }
 
+  // If item is drafted_to_gmail, cancel the Gmail draft first (best effort — swallow errors)
+  async function cleanupGmailDraft(itemId, jwt) {
+    var item = items.find(function(i) { return i.id === itemId; });
+    if (item && item.status === 'drafted_to_gmail' && item.gmail_draft_id) {
+      try {
+        await fetch('/api/action-items/cancel-gmail-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+          body: JSON.stringify({ action_item_id: itemId }),
+        });
+      } catch (e) { console.warn('[ActionBoard] Gmail draft cleanup error:', e.message); }
+    }
+  }
+
   async function handleDismiss(itemId) {
     setActionLoading(itemId);
     try {
       var jwt = await getJwt();
+      await cleanupGmailDraft(itemId, jwt);
       await fetch('/api/action-items/dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
@@ -151,6 +166,8 @@ export default function ActionBoard({ C, currentTenantId }) {
     setSnoozeOpen(null);
     try {
       var jwt = await getJwt();
+      // Defensive: if a future caller fires snooze on a drafted card, clean up the draft first
+      await cleanupGmailDraft(itemId, jwt);
       await fetch('/api/action-items/snooze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
