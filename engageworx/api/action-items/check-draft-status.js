@@ -1,7 +1,7 @@
 // api/action-items/check-draft-status.js — Single-row draft status check
 // POST { action_item_id }
 // Used by client-side polling + foreground checks.
-// Returns { status, draft_exists, was_sent, gmail_message_id }
+// Returns { status, draft_exists, was_sent, gmail_message_id, diagnostics }
 
 var { createClient } = require('@supabase/supabase-js');
 var { getGmailClient } = require('../_lib/gmail-client');
@@ -46,69 +46,89 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ status: item.status, draft_exists: null, was_sent: false, error: e.message });
   }
 
-  // Check if draft still exists
-  try {
-    var draftRes = await gmail.fetch('/drafts/' + item.gmail_draft_id);
+  var diagnostics = { draft_get_status: null, sent_messages_found: 0, sent_match_id: null, thread_messages_total: 0 };
 
-    if (draftRes.ok) {
-      // Draft still exists — not sent yet
-      return res.status(200).json({ status: 'drafted_to_gmail', draft_exists: true, was_sent: false });
+  try {
+    // 1. Check draft existence
+    var draftRes = await gmail.fetch('/drafts/' + item.gmail_draft_id);
+    diagnostics.draft_get_status = draftRes.status;
+    var draftExists = draftRes.ok;
+
+    // 2. ALWAYS check thread for sent messages — regardless of draft status
+    // Gmail can report draft as still existing even after the user hits Send
+    var sentMsg = null;
+    if (item.gmail_thread_id) {
+      try {
+        var threadRes = await gmail.fetch('/threads/' + item.gmail_thread_id + '?format=full');
+        if (threadRes.ok) {
+          var threadData = await threadRes.json();
+          var messages = threadData.messages || [];
+          diagnostics.thread_messages_total = messages.length;
+          var draftedAtMs = item.gmail_drafted_at ? new Date(item.gmail_drafted_at).getTime() : 0;
+
+          // Find all SENT messages after the draft was created
+          var sentMessages = messages.filter(function(m) {
+            var isSent = (m.labelIds || []).indexOf('SENT') !== -1;
+            var afterDraft = parseInt(m.internalDate || '0') > draftedAtMs;
+            return isSent && afterDraft;
+          });
+          diagnostics.sent_messages_found = sentMessages.length;
+
+          if (sentMessages.length > 0) {
+            sentMsg = sentMessages[0];
+            diagnostics.sent_match_id = sentMsg.id;
+          }
+        }
+      } catch (threadErr) {
+        console.warn('[check-draft-status] Thread check error:', threadErr.message);
+      }
     }
 
-    if (draftRes.status === 404) {
-      // Draft gone — check if it was sent via the thread
-      if (item.gmail_thread_id) {
-        try {
-          var threadRes = await gmail.fetch('/threads/' + item.gmail_thread_id + '?format=metadata&metadataHeaders=From');
-          if (threadRes.ok) {
-            var threadData = await threadRes.json();
-            var messages = threadData.messages || [];
-            var draftedAtMs = item.gmail_drafted_at ? new Date(item.gmail_drafted_at).getTime() : 0;
-
-            // Look for a SENT message after the draft was created
-            var sentMsg = messages.find(function(m) {
-              var isSent = (m.labelIds || []).indexOf('SENT') !== -1;
-              var afterDraft = parseInt(m.internalDate || '0') > draftedAtMs;
-              return isSent && afterDraft;
-            });
-
-            if (sentMsg) {
-              // Draft was sent from Gmail
-              await supabase.from('action_items').update({
-                status: 'sent',
-                gmail_message_id: sentMsg.id,
-                sent_at: new Date(parseInt(sentMsg.internalDate)).toISOString(),
-              }).eq('id', itemId).eq('status', 'drafted_to_gmail');
-
-              console.log('[check-draft-status] Draft sent from Gmail:', itemId, 'message:', sentMsg.id);
-              return res.status(200).json({ status: 'sent', draft_exists: false, was_sent: true, gmail_message_id: sentMsg.id });
-            }
-          }
-        } catch (threadErr) {
-          console.warn('[check-draft-status] Thread check error:', threadErr.message);
+    // 3. If a sent message was found in the thread — mark as sent
+    if (sentMsg) {
+      // Extract body HTML from the sent message
+      var finalHtml = null;
+      try {
+        var parts = sentMsg.payload && sentMsg.payload.parts ? sentMsg.payload.parts : [sentMsg.payload];
+        var htmlPart = (parts || []).find(function(p) { return p && p.mimeType === 'text/html'; });
+        if (htmlPart && htmlPart.body && htmlPart.body.data) {
+          finalHtml = Buffer.from(htmlPart.body.data, 'base64url').toString('utf-8');
         }
-      }
+      } catch (bodyErr) { console.warn('[check-draft-status] Body extract error:', bodyErr.message); }
 
-      // Draft deleted without sending — revert to pending
       await supabase.from('action_items').update({
-        status: 'pending',
-        gmail_draft_id: null,
-        gmail_thread_id: null,
-        gmail_drafted_at: null,
-        gmail_user_id: null,
-        gmail_message_id: null,
-        has_new_activity_since_draft: false,
+        status: 'sent',
+        gmail_message_id: sentMsg.id,
+        sent_at: new Date(parseInt(sentMsg.internalDate)).toISOString(),
+        final_sent_html: finalHtml,
       }).eq('id', itemId).eq('status', 'drafted_to_gmail');
 
-      console.log('[check-draft-status] Draft deleted without send, reverted to pending:', itemId);
-      return res.status(200).json({ status: 'pending', draft_exists: false, was_sent: false, reverted: true });
+      console.log('[check-draft-status] Draft sent from Gmail:', itemId, 'message:', sentMsg.id, 'draft_still_existed:', draftExists);
+      return res.status(200).json({ status: 'sent', draft_exists: draftExists, was_sent: true, gmail_message_id: sentMsg.id, diagnostics: diagnostics });
     }
 
-    // Unexpected status
-    return res.status(200).json({ status: item.status, draft_exists: null, was_sent: false, gmail_status: draftRes.status });
+    // 4. No sent message found
+    if (draftExists) {
+      // Draft still in Gmail, not yet sent
+      return res.status(200).json({ status: 'drafted_to_gmail', draft_exists: true, was_sent: false, diagnostics: diagnostics });
+    }
+
+    // 5. Draft gone AND no sent message → deleted without sending → revert
+    await supabase.from('action_items').update({
+      status: 'pending',
+      gmail_draft_id: null,
+      gmail_thread_id: null,
+      gmail_drafted_at: null,
+      gmail_user_id: null,
+      gmail_message_id: null,
+      has_new_activity_since_draft: false,
+    }).eq('id', itemId).eq('status', 'drafted_to_gmail');
+
+    console.log('[check-draft-status] Draft deleted without send, reverted to pending:', itemId);
+    return res.status(200).json({ status: 'pending', draft_exists: false, was_sent: false, reverted: true, diagnostics: diagnostics });
 
   } catch (e) {
     console.error('[check-draft-status] Error:', e.message);
-    return res.status(200).json({ status: item.status, draft_exists: null, was_sent: false, error: e.message });
+    return res.status(200).json({ status: item.status, draft_exists: null, was_sent: false, error: e.message, diagnostics: diagnostics });
   }
 };
