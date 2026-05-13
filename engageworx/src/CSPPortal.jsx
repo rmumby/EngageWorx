@@ -19,7 +19,7 @@ import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
 import { ThemeToggle, useTheme, getThemedColors } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
-import { getEnabledModules } from './lib/modules';
+import { getNavItems } from './navMenu';
 
 function getCSPColors() {
   return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -128,12 +128,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       var cspResult = await supabase.from('tenants').select('*').eq('id', cspTenantId).maybeSingle();
       if (cspResult.data) {
         setCspInfo(cspResult.data);
+        if (cspResult.data.metadata && cspResult.data.metadata.enabled_modules) {
+          setEnabledModules(cspResult.data.metadata.enabled_modules);
+        }
       }
-      // Load enabled modules from sp_settings via RPC
-      try {
-        var modRes = await supabase.rpc('get_tenant_enabled_modules', { p_tenant_id: cspTenantId });
-        if (!modRes.error && modRes.data) setEnabledModules(modRes.data);
-      } catch (modErr) { console.error('[CSPPortal] module fetch error', modErr); }
       var tenantsResult = await supabase.from('tenants').select('*').eq('parent_tenant_id', cspTenantId).order('name');
       if (tenantsResult.data) setTenants(tenantsResult.data);
       try {
@@ -271,13 +269,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   }
 
-  // Module registry → CSPPortal page routing
-  // Registry route IDs → CSPPortal internal page IDs where they differ
-  var routeToPage = { 'chatbot': 'ai-studio', 'flows': 'flow-builder', 'support': 'helpdesk', 'registrations': 'sms-registration', 'sequence_builder': 'sequences', 'sequence_roster': 'sequence-roster', 'import_leads': 'import', 'lead_scan': 'lead-scan', 'ai_digest': 'email-digest', 'action_board': 'action-board' };
-  var visibleModules = getEnabledModules('csp', enabledModules);
-  var navItems = visibleModules.map(function(mod) {
-    var pageId = routeToPage[mod.route] || mod.route;
-    return { id: pageId, label: mod.label, icon: mod.icon };
+  // CSP portal ID mapping: navMenu canonical IDs → CSP-specific page IDs where they differ
+  var cspIdMap = { 'chatbot': 'ai-studio', 'flows': 'flow-builder', 'support': 'helpdesk', 'registrations': 'sms-registration', 'sequenceroster': 'sequences', 'sequences': 'sequence-builder' };
+  var navItems = getNavItems('csp').map(function(item) {
+    return Object.assign({}, item, { id: cspIdMap[item.id] || item.id });
   });
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
