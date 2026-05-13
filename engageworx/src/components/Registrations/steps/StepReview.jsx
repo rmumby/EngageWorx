@@ -68,6 +68,7 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
   var [fees, setFees] = useState(null);
   var [feesLoading, setFeesLoading] = useState(false);
   var [acceptNonRefundable, setAcceptNonRefundable] = useState(false);
+  var [checkoutError, setCheckoutError] = useState(null);
   var [acceptAuthority, setAcceptAuthority] = useState(false);
 
   var fallbackChecks = useMemo(function() {
@@ -148,10 +149,44 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
     setFeesLoading(false);
   }
 
-  function handleConfirmSubmit() {
-    setShowFeeConfirm(false);
+  async function handleConfirmSubmit() {
+    setCheckoutError(null);
     setSubmitting(true);
-    onSubmit();
+    try {
+      var session = await supabase.auth.getSession();
+      var token = session.data && session.data.session ? session.data.session.access_token : '';
+      var res = await fetch('/api/tcr-wizard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ action: 'create_checkout', session_id: sessionId }),
+      });
+      var data = await res.json();
+      if (data.error) {
+        setShowFeeConfirm(false);
+        setSubmitting(false);
+        setCheckoutError(data.error);
+        return;
+      }
+      if (data.skip_payment) {
+        // Mock mode — advance directly
+        setShowFeeConfirm(false);
+        onSubmit();
+        return;
+      }
+      if (data.url) {
+        // Live mode — redirect to Stripe Checkout
+        window.location.href = data.url;
+        return;
+      }
+      // Unexpected response
+      setShowFeeConfirm(false);
+      setSubmitting(false);
+      setCheckoutError('Unexpected response from checkout service.');
+    } catch (e) {
+      setShowFeeConfirm(false);
+      setSubmitting(false);
+      setCheckoutError('Checkout error: ' + e.message);
+    }
   }
 
   function handleCancelFee() {
@@ -171,6 +206,10 @@ export default function StepReview({ brand, campaign, consent, sessionId, tenant
     <div>
       <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Review & Submit</h2>
       <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Review your registration details below. Fix any issues before submitting to the carrier network.</div>
+
+      {checkoutError && (
+        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#EF4444', fontSize: 12 }}>{checkoutError}</div>
+      )}
 
       {/* Validation summary bar */}
       {validating ? (

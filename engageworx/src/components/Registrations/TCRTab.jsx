@@ -35,10 +35,29 @@ export default function TCRTab({ tenantId, C }) {
   var [deleteTarget, setDeleteTarget] = useState(null);
   var [deleting, setDeleting] = useState(false);
 
+  var [paymentBanner, setPaymentBanner] = useState(null);
+
   useEffect(function() {
     if (!tenantId) return;
     loadTenant();
     loadSessions();
+
+    // Detect Stripe return URL params
+    var params = new URLSearchParams(window.location.search);
+    var tcrPayment = params.get('tcr_payment');
+    var returnSessionId = params.get('session_id');
+    if (tcrPayment && returnSessionId) {
+      // Clear URL params
+      window.history.replaceState({}, '', window.location.pathname);
+      if (tcrPayment === 'success') {
+        setActiveSessionId(returnSessionId);
+        setView('wizard');
+      } else if (tcrPayment === 'cancelled') {
+        setActiveSessionId(returnSessionId);
+        setView('wizard');
+        setPaymentBanner('Payment cancelled. Click Submit again to retry.');
+      }
+    }
   }, [tenantId]);
 
   async function loadTenant() {
@@ -94,7 +113,17 @@ export default function TCRTab({ tenantId, C }) {
   }
 
   if (view === 'wizard') {
-    return <TCRWizardInline tenantId={tenantId} sessionId={activeSessionId} C={C} onCancel={handleWizardClose} onComplete={handleWizardClose} />;
+    return (
+      <div>
+        {paymentBanner && (
+          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, color: '#F59E0B', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>⚠️</span> {paymentBanner}
+            <button onClick={function() { setPaymentBanner(null); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#F59E0B', cursor: 'pointer', fontSize: 14 }}>×</button>
+          </div>
+        )}
+        <TCRWizardInline tenantId={tenantId} sessionId={activeSessionId} C={C} onCancel={handleWizardClose} onComplete={handleWizardClose} />
+      </div>
+    );
   }
 
   var isTwilio = tenant && tenant.phone_supplier === 'twilio';

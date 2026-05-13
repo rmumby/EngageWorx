@@ -13,7 +13,9 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
   var pollRef = useRef(null);
   var initialized = useRef(false);
 
-  // On mount: check session status before deciding what to do
+  var [feeDisplay, setFeeDisplay] = useState(null);
+
+  // On mount: check session status + payment before deciding what to do
   useEffect(function() {
     if (initialized.current || !sessionId) return;
     initialized.current = true;
@@ -25,6 +27,37 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
         var s = data.session;
         var status = s.status || 'in_progress';
         var outcome = s.outcome || {};
+        if (s.fee_amount_cents) setFeeDisplay('$' + (s.fee_amount_cents / 100).toFixed(2));
+
+        // Post-payment submission failure — manual recovery needed
+        if (status === 'submit_failed_post_payment') {
+          setError((outcome.error || 'Submission failed') + (outcome.requires_manual_recovery ? ' Our team has been notified.' : ''));
+          setPhase('post_payment_failed');
+          return;
+        }
+
+        // Payment pending — poll for webhook confirmation
+        if (status === 'in_progress' && s.payment_status === 'pending') {
+          setPhase('confirming_payment');
+          var attempts = 0;
+          var paymentPoll = setInterval(function() {
+            attempts++;
+            fetch('/api/tcr-wizard?action=status&session_id=' + sessionId)
+              .then(function(r2) { return r2.json(); })
+              .then(function(d2) {
+                if (d2.session && d2.session.payment_status === 'paid') {
+                  clearInterval(paymentPoll);
+                  runSubmit();
+                } else if (attempts >= 15) {
+                  clearInterval(paymentPoll);
+                  setError('Payment confirmation timed out. Please refresh to check status.');
+                  setPhase('brand_failed');
+                }
+              })
+              .catch(function() {});
+          }, 2000);
+          return;
+        }
 
         if (status === 'in_progress') {
           runSubmit();
@@ -160,6 +193,49 @@ export default function StepStatus({ sessionId, tenantId, onDone, onBack, C }) {
   if (phase === 'loading') {
     return (
       <div style={{ textAlign: 'center', padding: 40, color: C.muted, fontSize: 14 }}>Loading registration status...</div>
+    );
+  }
+
+  // Payment confirmation in progress (webhook race handling)
+  if (phase === 'confirming_payment') {
+    return (
+      <div>
+        <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Confirming Payment</h2>
+        <div style={{ color: C.muted, fontSize: 13, marginBottom: 24 }}>Your payment is being verified. This usually takes a few seconds.</div>
+        <div style={card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 18 }}>⏳</span>
+            <div>
+              <div style={{ color: '#00BFFF', fontSize: 14, fontWeight: 600 }}>Confirming payment...</div>
+              <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Waiting for payment confirmation from Stripe. Do not close this page.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Post-payment submission failure — manual recovery
+  if (phase === 'post_payment_failed') {
+    return (
+      <div>
+        <h2 style={{ color: '#fff', fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>Submission Issue</h2>
+        <div style={{ color: C.muted, fontSize: 13, marginBottom: 24 }}>Your payment was received but the carrier submission encountered an error.</div>
+        <div style={Object.assign({}, card, { border: '1px solid rgba(245,158,11,0.25)' })}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <span style={{ fontSize: 24 }}>⚠️</span>
+            <div>
+              <div style={{ color: '#F59E0B', fontSize: 16, fontWeight: 700 }}>Payment received{feeDisplay ? ' (' + feeDisplay + ')' : ''}</div>
+              <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Submission encountered an error. Our team has been notified and will resolve within 24 hours.</div>
+            </div>
+          </div>
+          {error && (
+            <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 8, color: '#EF4444', fontSize: 12, marginBottom: 16 }}>{error}</div>
+          )}
+          <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Reference: {sessionId}</div>
+          <button onClick={onDone} style={{ padding: '10px 20px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'none', color: '#fff', fontSize: 13, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>← Back to Registrations</button>
+        </div>
+      </div>
     );
   }
 
