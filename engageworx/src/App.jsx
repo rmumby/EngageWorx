@@ -2602,11 +2602,11 @@ var spNavBase = [
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
               justifyContent: sidebarCollapsed ? "center" : "flex-start",
               padding: sidebarCollapsed ? "11px 0" : "11px 12px", borderRadius: 9, border: "none",
-              background: spPage === item.id ? `${C.primary}22` : "transparent",
-              color: spPage === item.id ? C.primary : C.muted,
+              background: spPage === item.id ? (isDark ? 'rgba(255,255,255,0.1)' : `${C.primary}22`) : "transparent",
+              color: spPage === item.id ? (isDark ? '#ffffff' : C.primary) : (isDark ? 'rgba(255,255,255,0.7)' : C.muted),
               cursor: "pointer", fontSize: sidebarCollapsed ? 20 : 14, fontWeight: spPage === item.id ? 700 : 400,
               marginBottom: 4, textAlign: sidebarCollapsed ? "center" : "left",
-              borderLeft: spPage === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
+              borderLeft: spPage === item.id ? (isDark ? '3px solid rgba(255,255,255,0.4)' : `3px solid ${C.primary}`) : "3px solid transparent",
               transition: "all 0.2s",
             }}>
               <span style={{ fontSize: sidebarCollapsed ? 20 : 17 }}>{item.icon}</span>
