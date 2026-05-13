@@ -2,16 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 import { DEMO_LEADS } from '../demoFixtures';
 
-const STAGES = [
-  { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥" },
-  { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬" },
-  { id: "sandbox_shared",    label: "Sandbox Shared",    color: "#a855f7", icon: "🧪" },
-  { id: "opportunity",       label: "Opportunity",       color: "#ec4899", icon: "🔥" },
-  { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦" },
-  { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀" },
-  { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅" },
-  { id: "dormant",           label: "Dormant",           color: "#334155", icon: "😴" },
+// Fallback stages used before DB stages load (or if fetch fails)
+var FALLBACK_STAGES = [
+  { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥", stage_key: "lead" },
+  { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬", stage_key: "active_demo_scheduled" },
+  { id: "sandbox_shared",    label: "Sandbox Shared",    color: "#a855f7", icon: "🧪", stage_key: "active_demo_scheduled" },
+  { id: "opportunity",       label: "Opportunity",       color: "#ec4899", icon: "🔥", stage_key: "active_qualified" },
+  { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦", stage_key: "active_negotiating" },
+  { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀", stage_key: "closed_won" },
+  { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅", stage_key: "closed_won" },
+  { id: "dormant",           label: "Dormant",           color: "#334155", icon: "😴", stage_key: "closed_lost" },
 ];
+
+// Color palette for dynamic stages (assigned by display_order)
+var STAGE_COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f59e0b', '#3b82f6', '#10b981', '#334155', '#7c3aed', '#06b6d4'];
+var STAGE_ICONS = { lead: '📥', active: '🔥', closed_won: '✅', closed_lost: '😴' };
 
 const TYPE_OPTIONS    = ["Direct Business", "White-Label / Reseller", "Agency", "Unknown"];
 const PACKAGE_OPTIONS = ["Starter $99", "Growth $249", "Pro $499", "Enterprise"];
@@ -57,12 +62,21 @@ function T() {
     inputText: light ? '#111827' : '#f1f5f9',
   };
 }
+// Resolve a lead's stage key — prefer pipeline_stage_id, fall back to legacy stage
+function resolveStageKey(lead, stages) {
+  if (lead.pipeline_stage_id) {
+    var match = stages.find(function(s) { return s.stage_id === lead.pipeline_stage_id; });
+    if (match) return match.id;
+  }
+  return lead.stage || 'lead';
+}
+
 function labelStyle() { var t = T(); return { fontSize: "11px", fontWeight: 700, color: t.muted, letterSpacing: "0.06em", textTransform: "uppercase" }; }
 function inputStyleFn() { var t = T(); return { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: t.inputBg, border: "1px solid " + t.inputBorder, color: t.inputText, fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" }; }
 
 function LeadCard({ lead, onSelect, onUrgencyChange }) {
   var t = T();
-  const stage = STAGES.find((s) => s.id === lead.stage) || STAGES[0];
+  const stage = STAGES.find((s) => s.id === resolveStageKey(lead, STAGES)) || STAGES[0];
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
   const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#9aaabb" }[lead.urgency] || "#9aaabb";
@@ -610,6 +624,22 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   const [validateOpen, setValidateOpen] = useState(false);
   const [validateBusy, setValidateBusy] = useState(null);
   const [qualSeqStep, setQualSeqStep] = useState({}); // lead_id → current_step
+  const [STAGES, setSTAGES] = useState(FALLBACK_STAGES);
+
+  // Load pipeline_stages from DB for this tenant
+  useEffect(function() {
+    if (demoMode || !tenantId) return;
+    supabase.from('pipeline_stages').select('id, stage_key, display_name, stage_type, display_order, auto_advance')
+      .eq('tenant_id', tenantId).order('display_order', { ascending: true })
+      .then(function(result) {
+        if (result.data && result.data.length > 0) {
+          var mapped = result.data.map(function(s, i) {
+            return { id: s.stage_key, label: s.display_name, color: STAGE_COLORS[i % STAGE_COLORS.length], icon: STAGE_ICONS[s.stage_type] || '•', stage_id: s.id, stage_type: s.stage_type, auto_advance: s.auto_advance };
+          });
+          setSTAGES(mapped);
+        }
+      });
+  }, [tenantId, demoMode]);
 
   const fetchLeads = async () => {
     if (demoMode) { setLeads(DEMO_LEADS); setLastSync(new Date()); setLoading(false); return; }
@@ -672,7 +702,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
       if (l.archived) return false;
       if (l.qualified === false) return false;
     }
-    if (hideDormant && l.stage === "dormant") return false;
+    if (hideDormant && resolveStageKey(l, STAGES) === 'closed_lost') return false;
     if (filterType !== "All" && l.type !== filterType) return false;
     if (search) {
       var q = search.toLowerCase();
@@ -681,17 +711,17 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
     return true;
   });
 
-  var pipeline  = leads.filter(l => l.stage !== "customer" && l.stage !== "dormant").length;
-  var customers = leads.filter(l => l.stage === "customer").length;
+  var pipeline  = leads.filter(function(l) { var sk = resolveStageKey(l, STAGES); return sk !== 'closed_won' && sk !== 'closed_lost'; }).length;
+  var customers = leads.filter(function(l) { return resolveStageKey(l, STAGES) === 'closed_won'; }).length;
   var hot       = leads.filter(l => l.urgency === "Hot").length;
-  var stale     = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant").length;
+  var stale     = leads.filter(function(l) { return daysSince(l.last_action_at) >= STALE_DAYS && resolveStageKey(l, STAGES) !== 'closed_lost'; }).length;
   var overdue   = leads.filter(l => l.next_action_date && new Date(l.next_action_date) < new Date()).length;
 
   var today = new Date().toISOString().split("T")[0];
   var todayActions = leads.filter(l => l.next_action_date && l.next_action_date <= today);
   var thisWeekEnd = new Date(); thisWeekEnd.setDate(thisWeekEnd.getDate() + 7);
   var weekActions = leads.filter(l => l.next_action_date && l.next_action_date > today && new Date(l.next_action_date) <= thisWeekEnd);
-  var staleLeads  = leads.filter(l => daysSince(l.last_action_at) >= STALE_DAYS && l.stage !== "dormant" && l.stage !== "customer");
+  var staleLeads  = leads.filter(function(l) { var sk = resolveStageKey(l, STAGES); return daysSince(l.last_action_at) >= STALE_DAYS && sk !== 'closed_lost' && sk !== 'closed_won'; });
 
   return (
     <div style={{ minHeight:"100vh",background:bg,fontFamily:"inherit",color:text }}>
@@ -799,7 +829,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
-                      <div style={{ fontSize:10,color:"#9aaabb" }}>{(STAGES.find(s=>s.id===l.stage)||{}).label||l.stage}</div>
+                      <div style={{ fontSize:10,color:"#9aaabb" }}>{(STAGES.find(function(s){return s.id===resolveStageKey(l,STAGES);})||{}).label||l.stage}</div>
                     </div>
                     <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{daysSince(l.last_action_at)}d</div>
                   </div>
@@ -866,7 +896,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
       ) : (
         <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 300px)",background:bg }}>
           {STAGES.map(stage => {
-            var sl = filtered.filter(l => l.stage === stage.id);
+            var sl = filtered.filter(function(l) { return resolveStageKey(l, STAGES) === stage.id; });
             return (
               <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
                 <div style={{ display:"flex",alignItems:"center",gap:"7px",marginBottom:"12px",padding:"0 4px" }}>

@@ -197,25 +197,61 @@ async function resolveSignature(supabase, event, isFirstTouch) {
 }
 
 // ── Resolve pipeline transition ─────────────────────────────────────
+// Looks up pipeline_stages for the tenant, finds the current stage,
+// determines the next stage by display_order, and sets advance type
+// based on auto_advance flag.
 
-function resolvePipelineTransition(source, contextData) {
-  // Only pipeline_stale with auto-advance is mechanical
-  if (source === 'pipeline_stale' && contextData && contextData.auto_advance) {
-    return {
-      predicted_stage_id: contextData.next_stage_id || null,
-      stage_advance_type: 'mechanical',
-    };
+async function resolvePipelineTransition(supabase, lead) {
+  if (!lead || !lead.pipeline_stage_id || !lead.tenant_id) {
+    return { predicted_stage_id: null, stage_advance_type: 'none' };
   }
 
-  // Judgment calls
-  if (contextData && contextData.stage_advance_type === 'judgment') {
-    return {
-      predicted_stage_id: contextData.next_stage_id || null,
-      stage_advance_type: 'judgment',
-    };
-  }
+  try {
+    // Load all stages for this tenant ordered by display_order
+    var { data: stages } = await supabase.from('pipeline_stages')
+      .select('id, stage_key, stage_type, display_order, auto_advance')
+      .eq('tenant_id', lead.tenant_id)
+      .order('display_order', { ascending: true });
 
-  return { predicted_stage_id: null, stage_advance_type: 'none' };
+    if (!stages || stages.length === 0) {
+      return { predicted_stage_id: null, stage_advance_type: 'none' };
+    }
+
+    // Find current stage
+    var currentIdx = stages.findIndex(function(s) { return s.id === lead.pipeline_stage_id; });
+    if (currentIdx === -1) {
+      return { predicted_stage_id: null, stage_advance_type: 'none' };
+    }
+
+    var current = stages[currentIdx];
+
+    // Closed stages don't advance
+    if (current.stage_type === 'closed_won' || current.stage_type === 'closed_lost') {
+      return { predicted_stage_id: null, stage_advance_type: 'none' };
+    }
+
+    // Find next stage by display_order (next in the ordered array)
+    var nextStage = currentIdx < stages.length - 1 ? stages[currentIdx + 1] : null;
+    if (!nextStage) {
+      return { predicted_stage_id: null, stage_advance_type: 'none' };
+    }
+
+    // auto_advance on the DESTINATION stage: advancing INTO that stage is mechanical
+    // (e.g., sending pricing → lead moves into "Pricing Sent" which has auto_advance=true)
+    if (nextStage.auto_advance) {
+      return { predicted_stage_id: nextStage.id, stage_advance_type: 'mechanical' };
+    }
+
+    // Non-auto destination: judgment call (user decides whether to advance)
+    if (current.stage_type === 'active' || current.stage_type === 'lead') {
+      return { predicted_stage_id: nextStage.id, stage_advance_type: 'judgment' };
+    }
+
+    return { predicted_stage_id: null, stage_advance_type: 'none' };
+  } catch (e) {
+    console.warn('[action-item-generator] Pipeline transition lookup error:', e.message);
+    return { predicted_stage_id: null, stage_advance_type: 'none' };
+  }
 }
 
 // ── Template string interpolation ───────────────────────────────────
@@ -446,8 +482,8 @@ async function generateActionItem(supabase, event) {
     bodyWithSig = draft.draft_body_html + '\n' + sig.html;
   }
 
-  // 5. Pipeline transition
-  var transition = resolvePipelineTransition(event.source, event.context_data || {});
+  // 5. Pipeline transition (reads pipeline_stages from DB)
+  var transition = await resolvePipelineTransition(supabase, enriched.lead);
 
   // 6. Build recipients
   var recipientEmail = (enriched.contact && enriched.contact.email) || (enriched.lead && enriched.lead.email) || null;
