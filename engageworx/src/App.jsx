@@ -2115,6 +2115,7 @@ var spNavBase = [
     { id: "analytics",        label: tSP('nav.globalAnalytics'),   icon: "📊" },
     { id: "customer-success", label: tSP('nav.customerSuccess'),   icon: "📊", superadminOnly: true },
     { id: "platform-updates", label: tSP('nav.platformUpdates'),   icon: "📢", superadminOnly: true },
+    { id: "registrations",    label: "Registrations",              icon: "📋" },
     { id: "tcr-queue",        label: tSP('nav.tcrQueue'),          icon: "📋", superadminOnly: true },
     { id: "demo",             label: tSP('nav.demoMode'),          icon: "🎯" },
     { id: "blog",             label: tSP('nav.blogManager'),       icon: "📝", superadminOnly: true },
@@ -2700,6 +2701,7 @@ var spNavBase = [
         {spPage === "customer-success" && isSuperAdmin && <CustomerSuccessDashboard C={C} onDrillDown={pushDrill} />}
         {spPage === "platform-updates" && isSuperAdmin && <PlatformUpdates C={C} />}
         {spPage === "api" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
+        {spPage === "registrations" && <Suspense fallback={<div style={{color:C.muted,padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387"} C={C} /></Suspense>}
         {spPage === "tcr-queue" && isSuperAdmin && <TCRQueue C={C} />}
         {spPage === "action-board" && <ActionBoard C={C} currentTenantId={process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387"} />}
         {spPage === "email-digest" && isSuperAdmin && <EmailDigest C={C} />}
