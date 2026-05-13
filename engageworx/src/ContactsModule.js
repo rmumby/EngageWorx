@@ -1026,7 +1026,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             {onNavigate && <button onClick={function() {
               var vipContact = { id: c.id, first_name: c.firstName, last_name: c.lastName, email: c.email, phone: c.phone, company: c.company, title: c.title || '', notes: c.notes || '' };
               try { localStorage.setItem('engwx_vip_queue', JSON.stringify(vipContact)); } catch (e) {}
-              onNavigate('email-digest');
+              onNavigate('action-board');
             }} style={{ background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.35)", borderRadius: 8, padding: "8px 16px", color: "#FFD600", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>⭐ VIP Outreach</button>}
               {!c.pipeline_lead_id && !convertResult && (
                 <button type="button" onMouseDown={function() { convertToLead(c); }} disabled={convertingLead} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: convertingLead ? 0.5 : 1 }}>{convertingLead ? '⏳…' : '📈 Convert to Lead'}</button>

@@ -2125,8 +2125,8 @@ var spNavBase = [
   var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
   if (isSuperAdmin) {
     var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
-    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'action-board', label: 'Action Board', icon: '⚡' }, { id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' });
-    else { spNavItems.push({ id: 'action-board', label: 'Action Board', icon: '⚡' }); spNavItems.push({ id: 'email-digest', label: tSP('nav.aiDigest'), icon: '📡' }); }
+    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'action-board', label: 'Action Board', icon: '⚡' });
+    else { spNavItems.push({ id: 'action-board', label: 'Action Board', icon: '⚡' }); }
   }
 
   const hostname = window.location.hostname;

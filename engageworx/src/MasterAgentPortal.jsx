@@ -148,7 +148,6 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
     { id: 'agents', label: 'Agents', icon: '🤝' },
     { id: 'commissions', label: 'Commissions', icon: '💰' },
     { id: 'helpdesk', label: 'Help Desk', icon: '🎫' },
-    { id: 'email-digest', label: 'AI Omnichannel Digest', icon: '📡' },
     { id: 'branding', label: 'Branding', icon: '🎨' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
