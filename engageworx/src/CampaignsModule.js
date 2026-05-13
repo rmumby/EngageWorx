@@ -352,9 +352,9 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
   // ─── STYLES ───────────────────────────────────────────────────────────────
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 };
-  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
+  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
+  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
   const badge = (color) => ({ background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -374,7 +374,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <button onClick={() => { setView("list"); setCreateStep(1); setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] }); setAiSuggestions([]); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>← Back</button>
-          <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", margin: 0 }}>Create Campaign</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: C.text, margin: 0 }}>Create Campaign</h1>
         </div>
 
         {/* Step Indicator */}
@@ -397,7 +397,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Step 1: Basics */}
         {createStep === 1 && (
           <div style={card}>
-            <h2 style={{ color: "#fff", margin: "0 0 24px", fontSize: 18 }}>Campaign Basics</h2>
+            <h2 style={{ color: C.text, margin: "0 0 24px", fontSize: 18 }}>Campaign Basics</h2>
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Campaign Name</label>
               <input value={newCampaign.name} onChange={e => setNewCampaign({ ...newCampaign, name: e.target.value })} placeholder="e.g. Spring Flash Sale" style={inputStyle} />
@@ -483,7 +483,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                         const updated = [...newCampaign.fallbacks];
                         updated[i].channel = e.target.value;
                         setNewCampaign({ ...newCampaign, fallbacks: updated });
-                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
                         {CHANNELS.filter(ch => ch !== newCampaign.channel && !newCampaign.fallbacks.some((f, fi) => fi !== i && f.channel === ch)).map(ch => (
                           <option key={ch} value={ch}>{CHANNEL_ICONS[ch]} {ch}</option>
                         ))}
@@ -492,7 +492,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                         const updated = [...newCampaign.fallbacks];
                         updated[i].waitMinutes = parseInt(e.target.value);
                         setNewCampaign({ ...newCampaign, fallbacks: updated });
-                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
+                      }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>
                         {[5, 10, 15, 30, 60, 120, 240, 1440].map(m => (
                           <option key={m} value={m}>{m < 60 ? `${m} min` : m < 1440 ? `${m / 60} hr` : "24 hr"}</option>
                         ))}
@@ -539,13 +539,13 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Step 2: Content */}
         {createStep === 2 && (
           <div style={card}>
-            <h2 style={{ color: "#fff", margin: "0 0 24px", fontSize: 18 }}>Campaign Content</h2>
+            <h2 style={{ color: C.text, margin: "0 0 24px", fontSize: 18 }}>Campaign Content</h2>
 
             {/* AI Toggle */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, padding: "16px 20px", background: `${C.accent}11`, border: `1px solid ${C.accent}33`, borderRadius: 12 }}>
               <span style={{ fontSize: 24 }}>🤖</span>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>AI Copy Assistant</div>
+                <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>AI Copy Assistant</div>
                 <div style={{ color: C.muted, fontSize: 12 }}>Let AI generate message copy based on your goals</div>
               </div>
               <button onClick={() => setNewCampaign({ ...newCampaign, useAI: !newCampaign.useAI })} style={{
@@ -613,7 +613,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                           padding: "16px 18px", borderRadius: 10, cursor: "pointer", textAlign: "left",
                           background: newCampaign.body === s.text ? `${C.primary}15` : "rgba(255,255,255,0.02)",
                           border: `1px solid ${newCampaign.body === s.text ? C.primary : "rgba(255,255,255,0.06)"}`,
-                          color: "#fff", transition: "all 0.2s",
+                          color: C.text, transition: "all 0.2s",
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                             <span style={badge(C.primary)}>{s.tone}</span>
@@ -688,7 +688,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             {newCampaign.campaignType === 'broadcast' && (<>
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, marginBottom: newCampaign.abTest ? 16 : 0 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>A/B Testing</div>
+                <div style={{ color: C.text, fontWeight: 600, fontSize: 14 }}>A/B Testing</div>
                 <div style={{ color: C.muted, fontSize: 12 }}>Test two variants and let the winner reach the rest</div>
               </div>
               <button onClick={() => setNewCampaign({ ...newCampaign, abTest: !newCampaign.abTest })} style={{
@@ -717,7 +717,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Step 3: Audience */}
         {createStep === 3 && (
           <div style={card}>
-            <h2 style={{ color: "#fff", margin: "0 0 24px", fontSize: 18 }}>Select Audience</h2>
+            <h2 style={{ color: C.text, margin: "0 0 24px", fontSize: 18 }}>Select Audience</h2>
             <div style={{ display: "grid", gap: 12 }}>
               {[
                 { name: "All Contacts", size: 12400, desc: "Every contact in your database", icon: "👥" },
@@ -737,11 +737,11 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 }}>
                   <span style={{ fontSize: 24 }}>{seg.icon}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{seg.name}</div>
+                    <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{seg.name}</div>
                     <div style={{ color: C.muted, fontSize: 12 }}>{seg.desc}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{seg.size.toLocaleString()}</div>
+                    <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{seg.size.toLocaleString()}</div>
                     <div style={{ color: C.muted, fontSize: 11 }}>contacts</div>
                   </div>
                   {newCampaign.audience === seg.name && <span style={{ color: C.primary, fontSize: 18, marginLeft: 4 }}>✓</span>}
@@ -758,7 +758,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Step 4: Schedule */}
         {createStep === 4 && (
           <div style={card}>
-            <h2 style={{ color: "#fff", margin: "0 0 24px", fontSize: 18 }}>Schedule Delivery</h2>
+            <h2 style={{ color: C.text, margin: "0 0 24px", fontSize: 18 }}>Schedule Delivery</h2>
             <div style={{ display: "grid", gap: 14 }}>
               <button onClick={() => setNewCampaign({ ...newCampaign, sendNow: true })} style={{
                 display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderRadius: 12, cursor: "pointer", textAlign: "left",
@@ -767,7 +767,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               }}>
                 <span style={{ fontSize: 28 }}>🚀</span>
                 <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Send Now</div>
+                  <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>Send Now</div>
                   <div style={{ color: C.muted, fontSize: 13 }}>Send immediately to {newCampaign.audienceSize.toLocaleString()} contacts</div>
                 </div>
                 {newCampaign.sendNow && <span style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</span>}
@@ -779,7 +779,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               }}>
                 <span style={{ fontSize: 28 }}>⏰</span>
                 <div>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>Schedule for Later</div>
+                  <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>Schedule for Later</div>
                   <div style={{ color: C.muted, fontSize: 13 }}>Pick a specific date and time</div>
                 </div>
                 {!newCampaign.sendNow && <span style={{ marginLeft: "auto", color: C.primary, fontSize: 20 }}>✓</span>}
@@ -815,7 +815,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", padding: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                       <button onClick={prevMonth} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: "4px 10px" }}>‹</button>
-                      <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{monthNames[calMonth]} {calYear}</span>
+                      <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{monthNames[calMonth]} {calYear}</span>
                       <button onClick={nextMonth} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: "4px 10px" }}>›</button>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
@@ -882,7 +882,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Step 5: Review */}
         {createStep === 5 && (
           <div style={card}>
-            <h2 style={{ color: "#fff", margin: "0 0 24px", fontSize: 18 }}>Review Campaign</h2>
+            <h2 style={{ color: C.text, margin: "0 0 24px", fontSize: 18 }}>Review Campaign</h2>
             <div style={{ display: "grid", gap: 16 }}>
               {[
                 { label: "Campaign Name", value: newCampaign.name, icon: "📋" },
@@ -897,7 +897,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
                   <span style={{ fontSize: 18 }}>{item.icon}</span>
                   <span style={{ color: C.muted, fontSize: 13, width: 140 }}>{item.label}</span>
-                  <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{item.value}</span>
+                  <span style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>{item.value}</span>
                 </div>
               ))}
             </div>
@@ -906,7 +906,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             <div style={{ marginTop: 24 }}>
               <label style={{ display: "block", color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Message Preview</label>
               <div style={{ padding: "16px 20px", background: "rgba(0,0,0,0.3)", borderRadius: 12, border: "1px solid rgba(255,255,255,0.06)" }}>
-                {newCampaign.subject && <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{newCampaign.subject}</div>}
+                {newCampaign.subject && <div style={{ color: C.text, fontWeight: 700, fontSize: 15, marginBottom: 8 }}>{newCampaign.subject}</div>}
                 <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{newCampaign.body || "(no content)"}</div>
               </div>
             </div>
@@ -923,7 +923,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                     {complianceStatus.sms && (
                       <div style={{ padding: "14px 16px", background: complianceStatus.sms.cleared ? "rgba(0,230,118,0.06)" : "rgba(255,59,48,0.06)", borderRadius: 10, border: `1px solid ${complianceStatus.sms.cleared ? "rgba(0,230,118,0.15)" : "rgba(255,59,48,0.15)"}` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>💬 SMS / MMS (A2P 10DLC)</span>
+                          <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>💬 SMS / MMS (A2P 10DLC)</span>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: complianceStatus.sms.cleared ? "rgba(0,230,118,0.15)" : complianceStatus.sms.campaignPending ? "rgba(255,214,0,0.15)" : "rgba(255,59,48,0.15)", color: complianceStatus.sms.cleared ? "#00E676" : complianceStatus.sms.campaignPending ? "#FFD600" : "#FF3B30" }}>
                             {complianceStatus.sms.cleared ? "✓ CLEARED" : complianceStatus.sms.campaignPending ? "⏳ PENDING" : "✗ NOT APPROVED"}
                           </span>
@@ -971,7 +971,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                     {complianceStatus.rcs && (
                       <div style={{ padding: "14px 16px", background: complianceStatus.rcs.cleared ? "rgba(0,230,118,0.06)" : "rgba(255,59,48,0.06)", borderRadius: 10, border: `1px solid ${complianceStatus.rcs.cleared ? "rgba(0,230,118,0.15)" : "rgba(255,59,48,0.15)"}` }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>✨ RCS Business Messaging</span>
+                          <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>✨ RCS Business Messaging</span>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: complianceStatus.rcs.cleared ? "rgba(0,230,118,0.15)" : complianceStatus.rcs.agentStatus === 'review' ? "rgba(255,214,0,0.15)" : "rgba(255,59,48,0.15)", color: complianceStatus.rcs.cleared ? "#00E676" : complianceStatus.rcs.agentStatus === 'review' ? "#FFD600" : "#FF3B30" }}>
                             {complianceStatus.rcs.cleared ? "✓ LAUNCHED" : complianceStatus.rcs.agentStatus === 'review' ? "⏳ IN REVIEW" : "✗ NOT LAUNCHED"}
                           </span>
@@ -1154,7 +1154,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: 0 }}>{c.name}</h1>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: 0 }}>{c.name}</h1>
               <span style={badge(STATUS_COLORS[c.status])}>{STATUS_ICONS[c.status]} {c.status.charAt(0).toUpperCase() + c.status.slice(1)}</span>
               <span style={badge(CHANNEL_COLORS[c.channel])}>{CHANNEL_ICONS[c.channel]} {c.channel}</span>
               {c.fallbacks && c.fallbacks.length > 0 && (
@@ -1189,7 +1189,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           ].map((kpi, i) => (
             <div key={i} style={{ background: "rgba(255,255,255,0.04)", borderTop: `3px solid ${kpi.color}`, borderRadius: 10, padding: "16px 14px", textAlign: "center" }}>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{kpi.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{kpi.value}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{kpi.value}</div>
             </div>
           ))}
         </div>
@@ -1197,7 +1197,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Survey Results Dashboard */}
         {c.campaignType === 'survey' && c.surveyOptions && c.surveyOptions.length > 0 && (
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>📊 Survey Results</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>📊 Survey Results</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {c.surveyOptions.map(function(opt, idx) {
                 var totalReplied = c.replied || 1;
@@ -1208,7 +1208,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(224,64,251,0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#E040FB", fontSize: 14, fontWeight: 800, flexShrink: 0 }}>{opt.key}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                        <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{opt.label || "Option " + opt.key}</span>
+                        <span style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{opt.label || "Option " + opt.key}</span>
                         <span style={{ color: C.muted, fontSize: 12 }}>{optCount} ({pct}%)</span>
                       </div>
                       <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
@@ -1231,7 +1231,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {/* Conversation Starter Metrics */}
         {c.campaignType === 'conversation' && (
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>💬 Reply Rate — Primary Metric</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>💬 Reply Rate — Primary Metric</h3>
             <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 36, fontWeight: 900, color: "#25D366" }}>{c.sent > 0 ? ((c.replied / c.sent) * 100).toFixed(1) : 0}%</div>
@@ -1246,7 +1246,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
         {/* Engagement Funnel */}
         <div style={{ ...card, marginBottom: 20 }}>
-          <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>Engagement Funnel</h3>
+          <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 16 }}>Engagement Funnel</h3>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             {[
               { label: "Sent", value: c.sent, color: C.primary },
@@ -1262,7 +1262,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   <div style={{ height: 120, display: "flex", alignItems: "flex-end", justifyContent: "center", marginBottom: 8 }}>
                     <div style={{ width: "70%", height: `${Math.max(pct, 3)}%`, background: `linear-gradient(180deg, ${step.color}, ${step.color}66)`, borderRadius: "6px 6px 0 0", transition: "height 0.5s" }} />
                   </div>
-                  <div style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>{step.value.toLocaleString()}</div>
+                  <div style={{ color: C.text, fontSize: 15, fontWeight: 700 }}>{step.value.toLocaleString()}</div>
                   <div style={{ color: C.muted, fontSize: 11 }}>{step.label}</div>
                   <div style={{ color: step.color, fontSize: 11, fontWeight: 600 }}>{pct.toFixed(1)}%</div>
                 </div>
@@ -1275,7 +1275,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           {/* A/B Test Results */}
           {c.abTest && c.abVariants && (
             <div style={card}>
-              <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 16 }}>🧪 A/B Test Results</h3>
+              <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 16 }}>🧪 A/B Test Results</h3>
               <div style={{ display: "grid", gap: 12 }}>
                 {c.abVariants.map((v, i) => {
                   const isWinner = c.status === "completed" && v.ctr >= Math.max(...c.abVariants.map(x => x.ctr));
@@ -1287,8 +1287,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                       </div>
                       <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, marginBottom: 10 }}>"{v.subject}"</div>
                       <div style={{ display: "flex", gap: 20 }}>
-                        <div><span style={{ color: C.muted, fontSize: 11 }}>Open Rate</span><div style={{ color: "#fff", fontWeight: 700 }}>{v.openRate}%</div></div>
-                        <div><span style={{ color: C.muted, fontSize: 11 }}>Click Rate</span><div style={{ color: "#fff", fontWeight: 700 }}>{v.ctr}%</div></div>
+                        <div><span style={{ color: C.muted, fontSize: 11 }}>Open Rate</span><div style={{ color: C.text, fontWeight: 700 }}>{v.openRate}%</div></div>
+                        <div><span style={{ color: C.muted, fontSize: 11 }}>Click Rate</span><div style={{ color: C.text, fontWeight: 700 }}>{v.ctr}%</div></div>
                       </div>
                     </div>
                   );
@@ -1299,7 +1299,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
           {/* Message Preview */}
           <div style={card}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Message Preview</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Message Preview</h3>
             <div style={{ padding: "20px", background: "rgba(0,0,0,0.3)", borderRadius: 12, border: `1px solid ${CHANNEL_COLORS[c.channel]}33` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: 16 }}>{CHANNEL_ICONS[c.channel]}</span>
@@ -1312,7 +1312,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
           {/* Delivery Breakdown */}
           <div style={card}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Delivery Breakdown</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Delivery Breakdown</h3>
             {[
               { label: "Delivered", value: c.delivered, pct: deliveryRate, color: "#00E676" },
               { label: "Failed", value: c.failed, pct: c.sent > 0 ? ((c.failed / c.sent) * 100).toFixed(1) : "0.0", color: "#FF3B30" },
@@ -1342,7 +1342,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Campaigns</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Campaigns</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Create, manage, and track your messaging campaigns</p>
         </div>
         <button onClick={() => setView("create")} style={btnPrimary}>+ New Campaign</button>
@@ -1350,7 +1350,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
       {/* Quick Start Templates */}
       <div style={{ marginBottom: 24 }}>
-        <button onClick={() => setShowTemplates(!showTemplates)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 20px', color: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+        <button onClick={() => setShowTemplates(!showTemplates)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 20px', color: C.text, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
           📝 Quick Start Templates <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>{showTemplates ? '▲ Hide' : '▼ Show ' + TEMPLATES.length + ' templates'}</span>
         </button>
         {showTemplates && (
@@ -1358,7 +1358,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             {TEMPLATES.map(t => (
               <div key={t.id} onClick={() => { setNewCampaign(prev => ({ ...prev, name: t.name, channel: t.channel, body: t.body, tags: t.tags, aiTemplate: t.id })); setView('create'); setCreateStep(2); }} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 18px', cursor: 'pointer' }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>{t.icon}</div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t.name}</div>
+                <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t.name}</div>
                 <div style={{ color: C.muted, fontSize: 12, marginBottom: 8 }}>{t.desc}</div>
                 <span style={{ background: (CHANNEL_COLORS[t.channel] || C.primary) + '18', color: CHANNEL_COLORS[t.channel] || C.primary, border: '1px solid ' + (CHANNEL_COLORS[t.channel] || C.primary) + '44', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>{t.channel}</span>
               </div>
@@ -1381,7 +1381,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
               <span style={{ fontSize: 16 }}>{kpi.icon}</span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{kpi.value}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{kpi.value}</div>
           </div>
         ))}
       </div>
@@ -1447,7 +1447,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               </div>
               {/* Name */}
               <div>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}{c.status === 'deleted' && <span style={{ color: '#d97706', fontSize: 10, marginLeft: 8 }}>archived</span>}</div>
+                <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{c.name}{c.status === 'deleted' && <span style={{ color: '#d97706', fontSize: 10, marginLeft: 8 }}>archived</span>}</div>
                 <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                   {c.campaignType && c.campaignType !== 'broadcast' && <span style={{ ...badge({ conversation: "#25D366", survey: "#E040FB", drip: "#FFD600" }[c.campaignType] || C.muted), padding: "1px 6px", fontSize: 9 }}>{{ conversation: "💬 Conv", survey: "📊 Survey", drip: "🔄 Drip" }[c.campaignType]}</span>}
                   {c.aiGenerated && <span style={{ ...badge(C.accent), padding: "1px 6px", fontSize: 9 }}>AI</span>}
@@ -1466,7 +1466,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <div style={{ color: C.muted, fontSize: 13 }}>{c.audienceSize.toLocaleString()}</div>
 
               {/* Sent */}
-              <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{c.sent > 0 ? c.sent.toLocaleString() : "—"}</div>
+              <div style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>{c.sent > 0 ? c.sent.toLocaleString() : "—"}</div>
 
               {/* Opened */}
               <div style={{ color: openPct !== "—" ? "#00E676" : C.muted, fontSize: 14, fontWeight: 600 }}>{openPct}{openPct !== "—" ? "%" : ""}</div>
@@ -1491,7 +1491,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {filteredCampaigns.length === 0 && (
           <div style={{ textAlign: "center", padding: "60px 20px", color: C.muted }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#fff", marginBottom: 4 }}>No campaigns found</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: C.text, marginBottom: 4 }}>No campaigns found</div>
             <div style={{ fontSize: 14 }}>Try adjusting your filters or create a new campaign</div>
           </div>
         )}

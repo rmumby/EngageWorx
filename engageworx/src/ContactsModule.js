@@ -217,7 +217,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
         <div style={Object.assign({}, card, { marginBottom: 16, borderLeft: `4px solid ${C.primary}` })}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <div>
-              <div style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>🏢 {selected.name}</div>
+              <div style={{ color: C.text, fontSize: 22, fontWeight: 800 }}>🏢 {selected.name}</div>
               <div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{selected.domain}{selected.website_url ? ' · ' : ''}{selected.website_url && <a href={selected.website_url} target="_blank" rel="noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{selected.website_url}</a>}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -232,7 +232,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
           <div style={card}>
             <div style={{ color: C.primary, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>👥 Contacts ({detail.contacts.length})</div>
             {detail.contacts.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No contacts linked.</div> : detail.contacts.map(c => (
-              <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>
+              <div key={c.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: C.text, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>{[c.first_name, c.last_name].filter(Boolean).join(' ') || '(no name)'}</div>
                 <div style={{ color: C.muted, fontSize: 11 }}>{c.email || c.phone || '—'}</div>
               </div>
@@ -241,7 +241,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
           <div style={card}>
             <div style={{ color: C.accent || '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>📈 Pipeline leads ({detail.leads.length})</div>
             {detail.leads.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No leads yet.</div> : detail.leads.map(l => (
-              <div key={l.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>
+              <div key={l.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: C.text, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>{l.name}</div>
                 <div style={{ color: C.muted, fontSize: 11 }}>{l.stage || '—'} · {l.urgency || '—'}</div>
               </div>
@@ -256,7 +256,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
       {companies.map(c => (
         <div key={c.id} onClick={() => setSelected(c)} style={Object.assign({}, card, { cursor: 'pointer', transition: 'all 0.15s' })} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>🏢 {c.name}</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>🏢 {c.name}</div>
           <div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>{c.domain}</div>
           <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
             <div><div style={{ color: C.primary, fontWeight: 700, fontSize: 16 }}>{c.contacts}</div><div style={{ color: C.muted, fontSize: 10, textTransform: 'uppercase' }}>Contacts</div></div>
@@ -994,9 +994,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const avgOpenRate = totalContacts > 0 ? (contacts.reduce((s, c) => s + c.openRate, 0) / totalContacts).toFixed(1) : "0.0";
   const totalLTV = contacts.reduce((s, c) => s + c.ltv, 0);
 
-  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
+  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("desc"); } };
@@ -1052,7 +1052,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, textAlign: "center", marginBottom: 16 }}>
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", margin: "0 auto 14px" }}>{c.firstName[0]}{c.lastName[0]}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <h2 style={{ color: "#fff", margin: "0", fontSize: 20 }}>{c.firstName} {c.lastName}</h2>
+                <h2 style={{ color: C.text, margin: "0", fontSize: 20 }}>{c.firstName} {c.lastName}</h2>
                 <button onClick={function() { toggleVip(c); }} title={c.is_vip ? "Remove VIP" : "Mark as VIP"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, color: c.is_vip ? "#FFD600" : "rgba(255,255,255,0.15)", transition: "color 0.2s" }}>{c.is_vip ? "⭐" : "☆"}</button>
               </div>
               {c.title && <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2, marginBottom: 4 }}>{c.title}</div>}
@@ -1066,14 +1066,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               </div>
             </div>
             <div style={{ ...card, marginBottom: 16 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
+              <h3 style={{ color: C.text, margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
               {editingContact ? (
                 <div style={{ display: "grid", gap: 10 }}>
                   {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }].map(f => (
                     <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
                       <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                     </div>
                   ))}
                   {[{ key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }, { key: "whatsapp_number", label: "WhatsApp", icon: "📲" }].map(function(f) {
@@ -1082,10 +1082,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
                         <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                        <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 6px", color: "#fff", fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 90 }}>
+                        <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 6px", color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 90 }}>
                           {COUNTRY_CODES.map(function(cc) { return <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>; })}
                         </select>
-                        <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Phone number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                        <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Phone number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                       </div>
                     );
                   })}
@@ -1093,18 +1093,18 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
                       <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                     </div>
                   ))}
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <span style={{ fontSize: 14, width: 20, paddingTop: 6 }}>📝</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80, paddingTop: 6 }}>Notes</span>
-                    <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={3} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical" }} />
+                    <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={3} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical" }} />
                   </div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <span style={{ fontSize: 14, width: 20 }}>📋</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Status</span>
-                    <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                    <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
@@ -1125,7 +1125,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                     <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
                     <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
-                    <span style={{ color: "#fff", fontSize: 13, flex: 1, wordBreak: "break-all" }}>
+                    <span style={{ color: C.text, fontSize: 13, flex: 1, wordBreak: "break-all" }}>
                       {item.isLink && item.value ? <a href={item.value} target="_blank" rel="noopener noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{item.value}</a> : (item.value || '')}
                     </span>
                   </div>
@@ -1134,12 +1134,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             </div>
             {c.notes && !editingContact && (
               <div style={{ ...card, marginBottom: 16 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 8px", fontSize: 14 }}>📝 Notes</h3>
+                <h3 style={{ color: C.text, margin: "0 0 8px", fontSize: 14 }}>📝 Notes</h3>
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{c.notes}</div>
               </div>
             )}
             <div style={{ ...card, marginBottom: 16 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 8px", fontSize: 14 }}>Channels <span style={{ color: C.muted, fontSize: 11, fontWeight: 400 }}>· click to set preferred</span></h3>
+              <h3 style={{ color: C.text, margin: "0 0 8px", fontSize: 14 }}>Channels <span style={{ color: C.muted, fontSize: 11, fontWeight: 400 }}>· click to set preferred</span></h3>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[
                   c.email ? { id: "email", label: "Email", icon: "📧" } : null,
@@ -1160,7 +1160,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               </div>
             </div>
             <div style={{ ...card, marginBottom: 16 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 14px", fontSize: 14 }}>Engagement Stats</h3>
+              <h3 style={{ color: C.text, margin: "0 0 14px", fontSize: 14 }}>Engagement Stats</h3>
               {[{ label: "Messages Sent", value: c.messagesSent, color: C.primary }, { label: "Open Rate", value: `${c.openRate}%`, color: "#00C9FF" }, { label: "Click Rate", value: `${c.clickRate}%`, color: "#E040FB" }, { label: "Lifetime Value", value: `$${c.ltv.toLocaleString()}`, color: "#FFD600" }].map(s => (
                 <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <span style={{ color: C.muted, fontSize: 13 }}>{s.label}</span>
@@ -1172,7 +1172,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           <div>
             <div style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Activity Timeline</h3>
+                <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Activity Timeline</h3>
                 <span style={{ color: C.muted, fontSize: 12 }}>{activities.length} events</span>
               </div>
               {demoMode !== true &&!detailStats && (
@@ -1188,7 +1188,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${a.color}22`, border: `2px solid ${a.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, zIndex: 1 }}>{a.icon}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{a.label}</span>
+                        <span style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{a.label}</span>
                         <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>{a.date.toLocaleDateString()} {a.date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
                       {a.details && <div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{a.details}</div>}
@@ -1199,7 +1199,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             </div>
             {c.notes && (
               <div style={{ ...card, marginTop: 16 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 10px", fontSize: 14 }}>Notes</h3>
+                <h3 style={{ color: C.text, margin: "0 0 10px", fontSize: 14 }}>Notes</h3>
                 <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, lineHeight: 1.6, padding: "12px 16px", background: "rgba(0,0,0,0.2)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.05)" }}>{c.notes}</div>
               </div>
             )}
@@ -1213,12 +1213,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Contacts</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Contacts</h1>
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage contacts, segments, and CRM integrations</p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {viewLevel === 'sp' && !demoMode && (
-            <select value={spTenantFilter} onChange={e => setSpTenantFilter(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", minWidth: 220, cursor: 'pointer' }}>
+            <select value={spTenantFilter} onChange={e => setSpTenantFilter(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 14px', color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", minWidth: 220, cursor: 'pointer' }}>
               <option value="all">🏢 All Tenants ({spTenantList.length})</option>
               {spTenantList.map(function(t) { return <option key={t.id} value={t.id}>{t.name}</option>; })}
             </select>
@@ -1243,7 +1243,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
               <span style={{ fontSize: 16 }}>{kpi.icon}</span>
             </div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{kpi.value}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{kpi.value}</div>
             {kpi.sub && <div style={{ fontSize: 12, color: kpi.color, marginTop: 2 }}>{kpi.sub} of total</div>}
           </div>
         ))}
@@ -1266,7 +1266,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             return (
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Import Contacts from CSV</h3>
+                <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Import Contacts from CSV</h3>
                 <button onClick={handleCloseImport} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
 
@@ -1275,7 +1275,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div>
                   <label style={{ display: "block", padding: 40, textAlign: "center", border: "2px dashed rgba(255,255,255,0.15)", borderRadius: 12, marginBottom: 12, cursor: "pointer" }}>
                     <div style={{ fontSize: 40, marginBottom: 8 }}>📁</div>
-                    <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Choose a CSV file</div>
+                    <div style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>Choose a CSV file</div>
                     <div style={{ color: C.muted, fontSize: 13 }}>Expected columns: first_name, last_name, email, phone, company, tags</div>
                     <input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={function(e) { handleFileSelected(e.target.files[0]); }} />
                   </label>
@@ -1287,13 +1287,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               {importRows && !importing && !importResult && (
                 <div>
                   <div style={{ display: "flex", gap: 16, marginBottom: 16, padding: "12px 16px", background: "rgba(0,201,255,0.05)", borderRadius: 10, border: "1px solid rgba(0,201,255,0.2)" }}>
-                    <div><div style={{ color: C.muted, fontSize: 11 }}>TOTAL ROWS</div><div style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>{importRows.length}</div></div>
+                    <div><div style={{ color: C.muted, fontSize: 11 }}>TOTAL ROWS</div><div style={{ color: C.text, fontSize: 20, fontWeight: 800 }}>{importRows.length}</div></div>
                     <div><div style={{ color: C.muted, fontSize: 11 }}>NEW</div><div style={{ color: "#00E676", fontSize: 20, fontWeight: 800 }}>{newCount}</div></div>
                     <div><div style={{ color: C.muted, fontSize: 11 }}>DUPLICATES</div><div style={{ color: "#FFD600", fontSize: 20, fontWeight: 800 }}>{dupeCount}</div></div>
                     <div style={{ flex: 1 }} />
                     <div>
                       <div style={{ color: C.muted, fontSize: 11, marginBottom: 4 }}>DUPLICATE ACTION</div>
-                      <select value={importDedupAction} onChange={function(e) { setImportDedupAction(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12 }}>
+                      <select value={importDedupAction} onChange={function(e) { setImportDedupAction(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: C.text, fontSize: 12 }}>
                         <option value="skip">Skip duplicates</option>
                         <option value="allow">Allow duplicates</option>
                       </select>
@@ -1315,7 +1315,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                           var isDupe = em && existingEmailSet.has(em);
                           return (
                             <tr key={idx} style={{ background: isDupe ? "rgba(255,214,0,0.06)" : "transparent" }}>
-                              {["first_name","last_name","email","phone","company","tags"].map(function(h) { return <td key={h} style={{ padding: "6px 10px", color: "#fff", border: "1px solid rgba(255,255,255,0.06)" }}>{r[h] || '—'}{h === 'email' && isDupe ? <span style={{ color: '#FFD600', marginLeft: 6, fontSize: 10 }}>⚠ exists</span> : null}</td>; })}
+                              {["first_name","last_name","email","phone","company","tags"].map(function(h) { return <td key={h} style={{ padding: "6px 10px", color: C.text, border: "1px solid rgba(255,255,255,0.06)" }}>{r[h] || '—'}{h === 'email' && isDupe ? <span style={{ color: '#FFD600', marginLeft: 6, fontSize: 10 }}>⚠ exists</span> : null}</td>; })}
                             </tr>
                           );
                         })}
@@ -1325,7 +1325,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
                   {/* Assignment panel */}
                   <div style={{ padding: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, marginBottom: 16 }}>
-                    <div style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Optional: Tag & Assign</div>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Optional: Tag & Assign</div>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                       <div>
                         <label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Add Tags (comma separated)</label>
@@ -1359,7 +1359,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               {/* Step 3: Progress */}
               {importing && (
                 <div style={{ padding: 24, textAlign: "center" }}>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Importing… {importProgress.current} / {importProgress.total}</div>
+                  <div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Importing… {importProgress.current} / {importProgress.total}</div>
                   <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 6, height: 8, overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ width: (importProgress.total > 0 ? (100 * importProgress.current / importProgress.total) : 0) + '%', height: "100%", background: `linear-gradient(90deg, ${C.primary}, #00E676)`, transition: "width 0.2s" }} />
                   </div>
@@ -1407,7 +1407,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           {showAddContact && (
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 16 }}>Add Contact</h3>
+                <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Add Contact</h3>
                 <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
@@ -1514,7 +1514,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           {demoMode !== true &&contacts.length === 0 && !liveLoading && (
             <div style={{ ...card, textAlign: "center", padding: 48, marginBottom: 20 }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No contacts yet</div>
+              <div style={{ color: C.text, fontWeight: 700, fontSize: 18, marginBottom: 8 }}>No contacts yet</div>
               <div style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>Add your first contact to get started.</div>
               <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
             </div>
@@ -1568,7 +1568,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={() => !merging && setShowMerge(false)}>
                 <div onClick={e => e.stopPropagation()} style={{ background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 14, padding: 24, maxWidth: 900, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-                    <h3 style={{ color: '#fff', margin: 0, fontSize: 18 }}>🔀 Merge {chosen.length} contacts</h3>
+                    <h3 style={{ color: C.text, margin: 0, fontSize: 18 }}>🔀 Merge {chosen.length} contacts</h3>
                     <button onClick={() => setShowMerge(false)} disabled={merging} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
                   </div>
                   <div style={{ marginBottom: 14 }}>
@@ -1592,7 +1592,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                               <label key={c.id} style={{ display: 'flex', gap: 8, padding: 8, borderRadius: 8, cursor: 'pointer', background: isPicked ? 'rgba(224,64,251,0.12)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (isPicked ? 'rgba(224,64,251,0.45)' : 'rgba(255,255,255,0.06)') }}>
                                 <input type="radio" name={'merge-' + f.key} checked={isPicked} onChange={() => setMergeChoices(prev => Object.assign({}, prev, { [f.key]: c.id }))} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                  <div style={{ color: '#fff', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }}>{display || <span style={{ color: C.muted, fontStyle: 'italic' }}>(empty)</span>}</div>
+                                  <div style={{ color: C.text, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis' }}>{display || <span style={{ color: C.muted, fontStyle: 'italic' }}>(empty)</span>}</div>
                                   <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>{[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.phone}</div>
                                 </div>
                               </label>
@@ -1604,7 +1604,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   </div>
                   <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 10, padding: 14, marginBottom: 16 }}>
                     <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Preview — merged result</div>
-                    <div style={{ color: '#fff', fontSize: 13, lineHeight: 1.7 }}>
+                    <div style={{ color: C.text, fontSize: 13, lineHeight: 1.7 }}>
                       <div><strong>{[merged.firstName, merged.lastName].filter(Boolean).join(' ') || '(no name)'}</strong></div>
                       <div style={{ color: C.muted }}>{merged.email || '—'} · {merged.phone || '—'} · {merged.company || '—'}</div>
                       <div style={{ color: C.muted, fontSize: 11 }}>Channels: {(merged.channels || []).join(', ') || '—'} · Tags: {(merged.tags || []).join(', ') || '—'}</div>
@@ -1615,7 +1615,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   </div>
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                     <button onClick={() => setShowMerge(false)} disabled={merging} style={btnSecondary}>Cancel</button>
-                    <button onClick={handleMergeConfirm} disabled={merging} style={Object.assign({}, btnPrimary, { background: 'linear-gradient(135deg,#E040FB,#A855F7)', color: '#fff' })}>{merging ? 'Merging…' : 'Confirm Merge'}</button>
+                    <button onClick={handleMergeConfirm} disabled={merging} style={Object.assign({}, btnPrimary, { background: 'linear-gradient(135deg,#E040FB,#A855F7)', color: C.text })}>{merging ? 'Merging…' : 'Confirm Merge'}</button>
                   </div>
                 </div>
               </div>
@@ -1627,10 +1627,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }} onClick={function() { if (!seqEnrolling) setShowSeqPicker(false); }}>
               <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid ' + C.primary + '44', borderRadius: 14, padding: 24, maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <h3 style={{ color: '#fff', margin: 0, fontSize: 16 }}>Add {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} to a sequence</h3>
+                  <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Add {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} to a sequence</h3>
                   <button onClick={function() { setShowSeqPicker(false); }} disabled={seqEnrolling} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
                 </div>
-                <input value={seqSearch} onChange={function(e) { setSeqSearch(e.target.value); }} placeholder="Search sequences..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none', marginBottom: 12 }} />
+                <input value={seqSearch} onChange={function(e) { setSeqSearch(e.target.value); }} placeholder="Search sequences..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none', marginBottom: 12 }} />
                 {seqLoading ? (
                   <div style={{ color: C.muted, textAlign: 'center', padding: 20 }}>Loading sequences...</div>
                 ) : seqList.length === 0 ? (
@@ -1723,7 +1723,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedContacts.includes(c.id)} onChange={() => toggleSelect(c.id)} style={{ cursor: "pointer" }} /></div>
                 <div onClick={() => { setSelectedContact(c); setView("detail"); }} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{c.firstName[0]}{c.lastName[0]}</div>
-                  <div><div style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{c.is_vip && <span style={{ color: "#FFD600", marginRight: 4 }}>⭐</span>}{c.firstName} {c.lastName}</div><div style={{ color: C.muted, fontSize: 11 }}>{c.company}</div></div>
+                  <div><div style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{c.is_vip && <span style={{ color: "#FFD600", marginRight: 4 }}>⭐</span>}{c.firstName} {c.lastName}</div><div style={{ color: C.muted, fontSize: 11 }}>{c.company}</div></div>
                 </div>
                 <div onClick={() => { setSelectedContact(c); setView("detail"); }} style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{c.email}</div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontFamily: "monospace" }}>{c.phone.slice(0, 6)}...{c.phone.slice(-4)}</div>
@@ -1740,7 +1740,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             {paged.length === 0 && (
               <div style={{ textAlign: "center", padding: "48px 20px", color: C.muted }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>🔍</div>
-                <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>No contacts found</div>
+                <div style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>No contacts found</div>
                 <div style={{ fontSize: 13 }}>Try adjusting your filters</div>
               </div>
             )}
@@ -1762,7 +1762,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       {activeTab === "segments" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Segments & Smart Lists</h2>
+            <h2 style={{ color: C.text, fontSize: 18, fontWeight: 700, margin: 0 }}>Segments & Smart Lists</h2>
             <button style={btnPrimary}>+ Create Segment</button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
@@ -1774,8 +1774,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
                   onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}>
                   <div style={{ fontSize: 28, width: 44, textAlign: "center" }}>{s.icon}</div>
-                  <div style={{ flex: 1 }}><div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{s.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{s.desc}</div></div>
-                  <div style={{ textAlign: "right" }}><div style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>{count.toLocaleString()}</div><div style={{ color: C.primary, fontSize: 11, fontWeight: 600 }}>{pct}% of total</div></div>
+                  <div style={{ flex: 1 }}><div style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{s.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{s.desc}</div></div>
+                  <div style={{ textAlign: "right" }}><div style={{ color: C.text, fontSize: 20, fontWeight: 800 }}>{count.toLocaleString()}</div><div style={{ color: C.primary, fontSize: 11, fontWeight: 600 }}>{pct}% of total</div></div>
                 </div>
               );
             })}
@@ -1786,15 +1786,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       {activeTab === "crm" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>CRM Integrations</h2>
+            <h2 style={{ color: C.text, fontSize: 18, fontWeight: 700, margin: 0 }}>CRM Integrations</h2>
             <button disabled style={Object.assign({}, btnPrimary, { opacity: 0.4, cursor: 'not-allowed' })} title="CRM integrations coming soon">+ Connect CRM</button>
           </div>
           <div style={{ display: "grid", gap: 14 }}>
             {CRM_INTEGRATIONS.map(crm => (
               <div key={crm.id} style={{ ...card, display: "grid", gridTemplateColumns: "60px 1fr 140px 140px 120px 120px", alignItems: "center", gap: 16, borderLeft: `4px solid ${crm.status === "connected" ? "#00E676" : crm.status === "error" ? "#FF3B30" : "rgba(255,255,255,0.1)"}` }}>
                 <div style={{ width: 48, height: 48, borderRadius: 12, background: `${crm.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{crm.icon}</div>
-                <div><div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{crm.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{crm.status === "connected" ? `Last sync: ${Math.round((Date.now() - crm.lastSync) / 60000)} min ago` : crm.status === "error" ? `Last attempt: ${Math.round((Date.now() - crm.lastSync) / 3600000)}h ago` : "Not configured"}</div></div>
-                <div style={{ textAlign: "center" }}><div style={{ color: "#fff", fontSize: 16, fontWeight: 700 }}>{crm.contacts > 0 ? crm.contacts.toLocaleString() : "—"}</div><div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>Contacts</div></div>
+                <div><div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{crm.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{crm.status === "connected" ? `Last sync: ${Math.round((Date.now() - crm.lastSync) / 60000)} min ago` : crm.status === "error" ? `Last attempt: ${Math.round((Date.now() - crm.lastSync) / 3600000)}h ago` : "Not configured"}</div></div>
+                <div style={{ textAlign: "center" }}><div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>{crm.contacts > 0 ? crm.contacts.toLocaleString() : "—"}</div><div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>Contacts</div></div>
                 <div style={{ textAlign: "center" }}><div style={{ color: crm.synced > 0 ? "#00E676" : C.muted, fontSize: 16, fontWeight: 700 }}>{crm.synced > 0 ? crm.synced.toLocaleString() : "—"}</div><div style={{ color: C.muted, fontSize: 10, textTransform: "uppercase" }}>Synced</div></div>
                 <div style={{ textAlign: "center" }}><span style={badge(crm.status === "connected" ? "#00E676" : crm.status === "error" ? "#FF3B30" : "#6B8BAE")}>{crm.status === "connected" ? "● Connected" : crm.status === "error" ? "● Error" : "○ Disconnected"}</span>{crm.errors > 0 && <div style={{ color: "#FF6B35", fontSize: 11, marginTop: 4 }}>{crm.errors} errors</div>}</div>
                 <div style={{ textAlign: "right" }}>

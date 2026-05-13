@@ -185,7 +185,7 @@ function DateRangePicker({ startDate, endDate, onChangeStart, onChangeEnd, onPre
     { label: "Today", days: 0 }, { label: "7D", days: 7 }, { label: "30D", days: 30 },
     { label: "90D", days: 90 }, { label: "120D", days: 120 },
   ];
-  const inputStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" };
+  const inputStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -367,18 +367,18 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
     { id: "revenue", label: "Revenue", icon: "💰" },
   ];
 
-  const selectStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", appearance: "auto", cursor: "pointer" };
+  const selectStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 12px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", appearance: "auto", cursor: "pointer" };
 
   // Drill-down into specific tenant
   if (drillTenant) {
     const t = DEMO_TENANTS.find(x => x.id === drillTenant);
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
-        <button onClick={() => setDrillTenant(null)} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>← Back to All Tenants</button>
+        <button onClick={() => setDrillTenant(null)} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "8px 16px", color: C.text, cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>← Back to All Tenants</button>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
           <div style={{ width: 48, height: 48, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 18 }}>{t.logo}</div>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>{t.name}</h1>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>{t.name}</h1>
             <p style={{ color: t.color, margin: 0, fontSize: 14 }}>{t.brand} Analytics</p>
           </div>
         </div>
@@ -393,7 +393,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
       {viewLevel === "sp" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>Global Analytics</h1>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Global Analytics</h1>
             <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Platform-wide performance metrics across all tenants</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -403,7 +403,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               <span style={{ fontSize: 12, color: demoMode ? "#FF6B35" : "#00E676", fontWeight: 600 }}>{demoMode ? "Demo Data" : "Live Data"}</span>
             </div>
             {/* Export */}
-            <button onClick={() => exportToCSV(data.daily.map(d => ({ date: d.label, sent: d.sent, delivered: d.delivered, failed: d.failed, opened: d.opened, clicked: d.clicked, replied: d.replied, optOut: d.optOut, revenue: d.revenue })), `analytics-${startDate.toISOString().split("T")[0]}-${endDate.toISOString().split("T")[0]}.csv`)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
+            <button onClick={() => exportToCSV(data.daily.map(d => ({ date: d.label, sent: d.sent, delivered: d.delivered, failed: d.failed, opened: d.opened, clicked: d.clicked, replied: d.replied, optOut: d.optOut, revenue: d.revenue })), `analytics-${startDate.toISOString().split("T")[0]}-${endDate.toISOString().split("T")[0]}.csv`)} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 16px", color: C.text, cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
               📥 Export CSV
             </button>
           </div>
@@ -457,7 +457,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
                   <span style={{ fontSize: 16 }}>{kpi.icon}</span>
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{kpi.fmt ? kpi.fmt(kpi.value) : kpi.value.toLocaleString()}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{kpi.fmt ? kpi.fmt(kpi.value) : kpi.value.toLocaleString()}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                   <span style={{ fontSize: 11, color: kpi.pos ? "#00E676" : "#FF3B30", fontWeight: 600 }}>{kpi.pos ? "↑" : "↓"} {kpi.change}</span>
                   {kpi.spark && <div style={{ marginLeft: "auto" }}><Sparkline data={kpi.spark} color={kpi.color} valueKey={kpi.sparkKey || "sent"} /></div>}
@@ -470,7 +470,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>Message Volume Over Time</h3>
+                <h3 style={{ color: C.text, margin: 0, fontSize: 15 }}>Message Volume Over Time</h3>
                 <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", padding: 3, borderRadius: 7 }}>
                   {[{ id: "sent", label: "Sent" }, { id: "delivered", label: "Delivered" }, { id: "revenue", label: "Revenue" }].map(m => (
                     <button key={m.id} onClick={() => setChartMetric(m.id)} style={{ background: chartMetric === m.id ? "rgba(255,255,255,0.1)" : "transparent", border: "none", borderRadius: 5, padding: "4px 10px", color: chartMetric === m.id ? "#fff" : "rgba(255,255,255,0.35)", cursor: "pointer", fontSize: 11, fontWeight: chartMetric === m.id ? 600 : 400 }}>{m.label}</button>
@@ -479,13 +479,13 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               </div>
               <BarChart data={data.daily} color={chartMetric === "revenue" ? "#00E676" : C.primary} height={200} valueKey={chartMetric} format={chartMetric === "revenue" ? v => `$${v.toLocaleString()}` : undefined} />
               <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Total: <strong style={{ color: "#fff" }}>{chartMetric === "revenue" ? `$${data.totals[chartMetric].toLocaleString()}` : data.totals[chartMetric].toLocaleString()}</strong></span>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Daily Avg: <strong style={{ color: "#fff" }}>{chartMetric === "revenue" ? `$${Math.round(data.totals[chartMetric] / data.days).toLocaleString()}` : Math.round(data.totals[chartMetric] / data.days).toLocaleString()}</strong></span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Total: <strong style={{ color: C.text }}>{chartMetric === "revenue" ? `$${data.totals[chartMetric].toLocaleString()}` : data.totals[chartMetric].toLocaleString()}</strong></span>
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Daily Avg: <strong style={{ color: C.text }}>{chartMetric === "revenue" ? `$${Math.round(data.totals[chartMetric] / data.days).toLocaleString()}` : Math.round(data.totals[chartMetric] / data.days).toLocaleString()}</strong></span>
               </div>
             </div>
 
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Channel Mix</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Channel Mix</h3>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
                 <DonutChart segments={data.channelBreakdown} label="messages" />
               </div>
@@ -503,13 +503,13 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           {/* Hourly + Funnel */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 4px", fontSize: 15 }}>Hourly Distribution</h3>
+              <h3 style={{ color: C.text, margin: "0 0 4px", fontSize: 15 }}>Hourly Distribution</h3>
               <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 14 }}>Peak hours highlighted · All times EST</p>
               <BarChart data={data.hourly} color={(d) => d.value > 1200 ? C.accent : `${C.primary}88`} height={130} />
             </div>
 
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Engagement Funnel</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Engagement Funnel</h3>
               {[
                 { label: "Sent", value: data.totals.sent, color: C.primary },
                 { label: "Delivered", value: data.totals.delivered, color: "#00E676" },
@@ -546,14 +546,14 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
             ].map((kpi, i) => (
               <div key={i} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderLeft: `4px solid ${kpi.color}`, borderRadius: 12, padding: "18px 20px" }}>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{kpi.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: "#fff" }}>{kpi.value}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: C.text }}>{kpi.value}</div>
               </div>
             ))}
           </div>
 
           {/* Delivery status over time */}
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Delivery Status Over Time</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Delivery Status Over Time</h3>
             <BarChart data={data.daily} color={(d) => {
               const rate = d.delivered / d.sent;
               return rate > 0.97 ? "#00E676" : rate > 0.94 ? "#FFD600" : "#FF3B30";
@@ -563,7 +563,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           {/* Error codes + Latency */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Error Codes</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Top Error Codes</h3>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -575,9 +575,9 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                 <tbody>
                   {data.errorCodes.map((err, i) => (
                     <tr key={i}>
-                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "#fff", fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{err.code}</td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 13, fontFamily: "monospace" }}>{err.code}</td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{err.desc}</td>
-                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: "#fff", fontSize: 13, fontWeight: 600 }}>{err.count.toLocaleString()}</td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)", color: C.text, fontSize: 13, fontWeight: 600 }}>{err.count.toLocaleString()}</td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                         <span style={{ background: err.severity === "error" ? "rgba(255,59,48,0.1)" : err.severity === "warning" ? "rgba(255,214,0,0.1)" : "rgba(0,201,255,0.1)", color: err.severity === "error" ? "#FF3B30" : err.severity === "warning" ? "#FFD600" : "#00C9FF", borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{err.severity}</span>
                       </td>
@@ -588,7 +588,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
             </div>
 
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Latency Distribution</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Latency Distribution</h3>
               {data.latency.map((l, i) => (
                 <div key={i} style={{ marginBottom: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -612,7 +612,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Response Types</h3>
+              <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 15 }}>Response Types</h3>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
                 <DonutChart segments={data.responseTypes.map(r => ({ value: r.count, color: r.color }))} label="responses" />
               </div>
@@ -626,7 +626,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
             </div>
 
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 20px", fontSize: 15 }}>Opt-Out Monitoring</h3>
+              <h3 style={{ color: C.text, margin: "0 0 20px", fontSize: 15 }}>Opt-Out Monitoring</h3>
               <div style={{ textAlign: "center", marginBottom: 20 }}>
                 <div style={{ fontSize: 48, fontWeight: 900, color: data.totals.optOut / data.totals.delivered < 0.005 ? "#00E676" : "#FF6B35" }}>{((data.totals.optOut / data.totals.delivered) * 100).toFixed(2)}%</div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>Opt-out rate</div>
@@ -642,7 +642,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               ].map(s => (
                 <div key={s.label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>{s.label}</span>
-                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{s.value}</span>
+                  <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{s.value}</span>
                 </div>
               ))}
             </div>
@@ -657,10 +657,10 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
             {data.channelBreakdown.map(ch => (
               <div key={ch.name} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderTop: `3px solid ${ch.color}`, borderRadius: 12, padding: "20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{ch.name}</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{ch.name}</span>
                   <span style={{ background: `${ch.color}22`, color: ch.color, borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700 }}>{ch.pct}%</span>
                 </div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 8 }}>{ch.value.toLocaleString()}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: C.text, marginBottom: 8 }}>{ch.value.toLocaleString()}</div>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>messages in period</div>
                 <ProgressBar value={ch.pct} color={ch.color} height={4} />
               </div>
@@ -673,7 +673,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
       {activeTab === "tenants" && viewLevel === "sp" && (
         <>
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Tenant Performance</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Tenant Performance</h3>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -688,15 +688,15 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                     <td style={{ padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <div style={{ width: 36, height: 36, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 13 }}>{t.logo}</div>
-                        <div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
+                        <div><div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
                       </div>
                     </td>
-                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff", fontWeight: 700 }}>{t.messages.toLocaleString()}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: C.text, fontWeight: 700 }}>{t.messages.toLocaleString()}</td>
                     <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#00E676", fontWeight: 700 }}>${t.revenue.toLocaleString()}</td>
-                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.campaigns}</td>
-                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.contacts.toLocaleString()}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: C.text }}>{t.campaigns}</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: C.text }}>{t.contacts.toLocaleString()}</td>
                     <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: t.deliveryRate > 96 ? "#00E676" : "#FFD600", fontWeight: 600 }}>{t.deliveryRate.toFixed(1)}%</td>
-                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: "#fff" }}>{t.openRate.toFixed(1)}%</td>
+                    <td style={{ textAlign: "center", padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)", color: C.text }}>{t.openRate.toFixed(1)}%</td>
                     <td style={{ padding: "14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                       <button onClick={() => setDrillTenant(t.id)} style={{ background: `${t.color}22`, border: `1px solid ${t.color}55`, borderRadius: 6, padding: "6px 12px", color: t.color, fontWeight: 700, cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Drill Down →</button>
                     </td>
@@ -712,7 +712,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               <div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderLeft: `4px solid ${t.color}`, borderRadius: 14, padding: 22 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 32, height: 32, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 12 }}>{t.logo}</div>
-                  <div><div style={{ color: "#fff", fontWeight: 700 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
+                  <div><div style={{ color: C.text, fontWeight: 700 }}>{t.name}</div><div style={{ color: t.color, fontSize: 11 }}>{t.brand}</div></div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   {[
@@ -723,7 +723,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                   ].map(s => (
                     <div key={s.label}>
                       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{s.value}</div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{s.value}</div>
                     </div>
                   ))}
                 </div>
@@ -737,7 +737,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
       {activeTab === "campaigns" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Campaign Summary</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Campaign Summary</h3>
             {[
               { label: "Total Campaigns", value: data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0), icon: "🚀", color: "#FF6B35" },
               { label: "Active Now", value: Math.round(data.tenantBreakdown.reduce((s, t) => s + t.campaigns, 0) * 0.37), icon: "🟢", color: "#00E676" },
@@ -749,13 +749,13 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: i < 5 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: `${item.color}15`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{item.icon}</div>
                 <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, flex: 1 }}>{item.label}</span>
-                <span style={{ color: "#fff", fontSize: 15, fontWeight: 700 }}>{typeof item.value === "number" ? item.value.toLocaleString() : item.value}</span>
+                <span style={{ color: C.text, fontSize: 15, fontWeight: 700 }}>{typeof item.value === "number" ? item.value.toLocaleString() : item.value}</span>
               </div>
             ))}
           </div>
 
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Top Performing Campaigns</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Top Performing Campaigns</h3>
             {/* Demo fixtures — only render when demoMode is explicitly true.
                 See AI Chatbot audit (May 2026) sanity sweep results. */}
             {demoMode ? [
@@ -768,13 +768,13 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
               <div key={i} style={{ padding: "14px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                   <div>
-                    <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{c.name}</span>
+                    <span style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{c.name}</span>
                     <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginLeft: 8 }}>{c.tenant}</span>
                   </div>
                   <span style={{ background: `${CHANNEL_COLORS[c.channel]}22`, color: CHANNEL_COLORS[c.channel], borderRadius: 4, padding: "2px 8px", fontSize: 10, fontWeight: 700 }}>{c.channel}</span>
                 </div>
                 <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Sent: <strong style={{ color: "#fff" }}>{c.sent.toLocaleString()}</strong></span>
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>Sent: <strong style={{ color: C.text }}>{c.sent.toLocaleString()}</strong></span>
                   <span style={{ color: "rgba(255,255,255,0.4)" }}>Open: <strong style={{ color: "#00E676" }}>{c.openRate}%</strong></span>
                   <span style={{ color: "rgba(255,255,255,0.4)" }}>Click: <strong style={{ color: C.accent }}>{c.clickRate}%</strong></span>
                 </div>
@@ -792,7 +792,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0,191,255,0.07), rgba(168,85,247,0.07))', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </div>
-          <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>AI performance metrics coming soon</h3>
+          <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: C.text, margin: '0 0 8px' }}>AI performance metrics coming soon</h3>
           <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.4)', maxWidth: '420px', margin: '0 0 1.5rem' }}>Once your AI chatbot handles conversations, resolution rates, response times, intent classification, and satisfaction metrics will appear here.</p>
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: C.primary, cursor: 'pointer' }}>Configure AI chatbot →</span>
         </div>
@@ -813,19 +813,19 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                   <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 1 }}>{kpi.label}</span>
                   <span style={{ fontSize: 16 }}>{kpi.icon}</span>
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", marginTop: 6 }}>{kpi.value}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: C.text, marginTop: 6 }}>{kpi.value}</div>
               </div>
             ))}
           </div>
 
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22, marginBottom: 16 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Revenue Over Time</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Revenue Over Time</h3>
             <BarChart data={data.daily} color="#00E676" height={200} valueKey="revenue" format={v => `$${v.toLocaleString()}`} />
           </div>
 
           {viewLevel === "sp" && (
             <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 22 }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Revenue by Tenant</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Revenue by Tenant</h3>
               {data.tenantBreakdown.map(t => {
                 const maxRev = Math.max(...data.tenantBreakdown.map(x => x.revenue));
                 return (
@@ -833,7 +833,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ width: 24, height: 24, background: `linear-gradient(135deg, ${t.color}, ${t.color}88)`, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#000", fontSize: 9 }}>{t.logo}</div>
-                        <span style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{t.name}</span>
+                        <span style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>{t.name}</span>
                       </div>
                       <span style={{ color: t.color, fontSize: 14, fontWeight: 700 }}>${t.revenue.toLocaleString()}</span>
                     </div>

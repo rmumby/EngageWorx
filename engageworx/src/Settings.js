@@ -214,12 +214,12 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
     setSaving(null);
   }
 
-  var inputSt = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+  var inputSt = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ color: '#fff', fontSize: 18, margin: 0 }}>Team Members</h2>
+        <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Team Members</h2>
         {canEdit(selectedTenantId) && <button onClick={function() { setShowInvite(!showInvite); }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '9px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>}
       </div>
       {isOwner && allTenants.length > 0 && (
@@ -233,7 +233,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       )}
       {showInvite && canEdit(selectedTenantId) && (
         <div style={{ background: `${C.primary}08`, border: `1px solid ${C.primary}33`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 15 }}>Add Team Member</h3>
+          <h3 style={{ color: C.text, margin: '0 0 16px', fontSize: 15 }}>Add Team Member</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>First Name</label><input value={inviteFirstName} onChange={function(e) { setInviteFirstName(e.target.value); }} placeholder="Jane" style={inputSt} /></div>
             <div><label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>Last Name</label><input value={inviteLastName} onChange={function(e) { setInviteLastName(e.target.value); }} placeholder="Smith" style={inputSt} /></div>
@@ -249,7 +249,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       {loading ? <div style={{ textAlign: 'center', padding: 40, color: C.muted }}>Loading team...</div> : members.length === 0 ? (
         <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 40, textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>👥</div>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No team members yet</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
@@ -261,7 +261,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>
+                    <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>
                       {m.full_name}
                       {m.role === 'notification_only' && <span style={{ marginLeft: 8, background: 'rgba(255,165,0,0.15)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, color: '#FFA500' }}>NOTIFY ONLY</span>}
                     </div>
@@ -270,7 +270,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {editable && <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ Edit</button>}
                     {editable ? (
-                      <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: '#fff', fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                      <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
                         <option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option><option value="notification_only">Notification Only</option>
                       </select>
                     ) : <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>}
@@ -327,7 +327,7 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
         <span style={{ fontSize: 22 }}>📧</span>
         <div style={{ flex: 1 }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Outbound Email Tracking</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>Outbound Email Tracking</div>
           <div style={{ color: C.muted, fontSize: 12 }}>BCC this address on any email you send from Gmail / Outlook / Apple Mail to log the thread in Live Inbox. Your AI agent sees the full context when your contact replies.</div>
         </div>
       </div>
@@ -336,7 +336,7 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
         <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 14, cursor: 'pointer', padding: '10px 12px', background: 'rgba(0,0,0,0.2)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)' }}>
           <input type="checkbox" checked={remind} onChange={toggle} />
           <div>
-            <div style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Remind me to BCC on emails</div>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>Remind me to BCC on emails</div>
             <div style={{ color: C.muted, fontSize: 11 }}>Shows a banner in the AI Digest when a contact replies but no outbound email was tracked.</div>
           </div>
         </label>
@@ -735,9 +735,9 @@ if (!tenantId) {
   const currentPlanInfo = PLANS.find(p => p.id === currentPlanId.toLowerCase()) || PLANS[0];
   const planStatus = stripeStatus === "trialing" ? "Trial" : stripeStatus === "active" ? "Active" : stripePlan ? "Active" : "Active";
 
-  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
+  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  const btnSec = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnSec = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const btnAI = { background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "5px 12px", color: "#a5b4fc", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 6 };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
@@ -987,7 +987,7 @@ return (<div>
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1200, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>{pageTitle}</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>{pageTitle}</h1>
         <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{pageSubtitle}</p>
       </div>
 
@@ -1012,9 +1012,9 @@ return (<div>
 
       {activeTab === "portal" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 16px" }}>{t('settings.portal')}</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 16px" }}>{t('settings.portal')}</h2>
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", fontSize: 15, margin: "0 0 8px" }}>🌐 {t('settings.language')}</h3>
+            <h3 style={{ color: C.text, fontSize: 15, margin: "0 0 8px" }}>🌐 {t('settings.language')}</h3>
             <p style={{ color: C.muted, fontSize: 13, margin: "0 0 12px" }}>{t('settings.languageDesc')}</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {[
@@ -1046,7 +1046,7 @@ return (<div>
             </div>
           </div>
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", fontSize: 15, margin: "0 0 8px" }}>⏰ VIP Follow-up Timing</h3>
+            <h3 style={{ color: C.text, fontSize: 15, margin: "0 0 8px" }}>⏰ VIP Follow-up Timing</h3>
             <p style={{ color: C.muted, fontSize: 13, margin: "0 0 12px" }}>Default number of days before a VIP follow-up reminder appears. Can be overridden per contact.</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {[3, 5, 7].map(function(d) {
@@ -1074,7 +1074,7 @@ return (<div>
       {activeTab === "integrations" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div><h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Integrations</h2><div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Connect any service. Define what happens. AI handles the rest.</div></div>
+            <div><h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Integrations</h2><div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Connect any service. Define what happens. AI handles the rest.</div></div>
             <button onClick={() => setShowNewIntegration(!showNewIntegration)} style={btnPrimary}>+ Add Integration</button>
           </div>
           <div style={{ marginBottom: 20 }}>
@@ -1086,7 +1086,7 @@ return (<div>
           </div>
           {showNewIntegration && (
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>New Integration</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>New Integration</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                 <div><label style={label}>Integration Name</label><input value={newIntegration.name} onChange={e => setNewIntegration({...newIntegration, name: e.target.value})} placeholder="e.g. Calendly Demo Bookings" style={inputStyle} /></div>
                 <div><label style={label}>Service</label><select value={newIntegration.service} onChange={e => { var svc = SERVICES.find(s => s.id === e.target.value); setNewIntegration({...newIntegration, service: e.target.value, field_mapping: svc?.defaultMapping || {}}); }} style={inputStyle}>{SERVICES.map(s => <option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}</select><div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{SERVICES.find(s => s.id === newIntegration.service)?.hint}</div></div>
@@ -1117,7 +1117,7 @@ return (<div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <span style={{ fontSize: 28 }}>📅</span>
         <div style={{ flex: 1 }}>
-          <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Calendly</div>
+          <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>Calendly</div>
           <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Auto-create Pipeline leads when meetings are booked</div>
         </div>
         <span style={{ fontSize: 11, fontWeight: 700, color: isConnected ? '#00E676' : 'rgba(255,255,255,0.3)', background: isConnected ? '#00E67618' : 'rgba(255,255,255,0.06)', padding: '4px 12px', borderRadius: 6, border: `1px solid ${isConnected ? '#00E67644' : 'rgba(255,255,255,0.08)'}` }}>
@@ -1159,7 +1159,7 @@ return (<div>
           {integrationsLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading integrations...</div> : integrations.length === 0 ? (
             <div style={{ ...card, textAlign: "center", padding: 48 }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🔌</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 17, marginBottom: 8 }}>No integrations yet</div>
+              <div style={{ color: C.text, fontWeight: 700, fontSize: 17, marginBottom: 8 }}>No integrations yet</div>
               <div style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Connect Calendly, Typeform, HubSpot, Zapier, or any service that sends webhooks.</div>
               <button onClick={() => setShowNewIntegration(true)} style={btnPrimary}>+ Add Your First Integration</button>
             </div>
@@ -1172,7 +1172,7 @@ return (<div>
                   <div key={intg.id} style={{ ...card, borderLeft: `4px solid ${intg.status === 'active' ? '#00E676' : '#64748b'}` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                       <span style={{ fontSize: 24 }}>{svc.icon}</span>
-                      <div style={{ flex: 1 }}><div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{intg.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{svc.label} · {intg.action.replace(/_/g, ' ')} · {intg.trigger_count || 0} triggers</div></div>
+                      <div style={{ flex: 1 }}><div style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{intg.name}</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>{svc.label} · {intg.action.replace(/_/g, ' ')} · {intg.trigger_count || 0} triggers</div></div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: intg.status === 'active' ? '#00E676' : '#64748b', background: (intg.status === 'active' ? '#00E676' : '#64748b') + '18', padding: '3px 10px', borderRadius: 6 }}>{intg.status === 'active' ? '● Active' : '○ Paused'}</span>
                         <button onClick={() => toggleIntegration(intg.id, intg.status)} style={{ ...btnSec, padding: "6px 12px", fontSize: 11 }}>{intg.status === 'active' ? 'Pause' : 'Activate'}</button>
@@ -1195,14 +1195,14 @@ return (<div>
       {activeTab === "api" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>API Keys</h2>
+            <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>API Keys</h2>
             <button onClick={() => { setShowNewKey(!showNewKey); setGeneratedKey(null); }} style={btnPrimary}>+ Generate Key</button>
           </div>
           {generatedKey && (<div style={{ ...card, marginBottom: 16, border: "1px solid #00E67644", background: "#00E67608" }}><div style={{ color: "#00E676", fontWeight: 700, fontSize: 13, marginBottom: 8 }}>✓ API Key Generated — Copy it now!</div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><code style={{ flex: 1, background: "rgba(0,0,0,0.4)", padding: "10px 14px", borderRadius: 8, color: C.primary, fontSize: 13, fontFamily: "monospace", wordBreak: "break-all" }}>{generatedKey}</code><button onClick={() => { navigator.clipboard.writeText(generatedKey); }} style={{ ...btnPrimary, padding: "10px 16px", whiteSpace: "nowrap" }}>Copy</button></div><button onClick={() => setGeneratedKey(null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginTop: 8 }}>Dismiss</button></div>)}
-          {showNewKey && (<div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}><h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Generate New API Key</h3><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}><div><label style={label}>Key Name</label><input value={newKeyData.name} onChange={e => setNewKeyData({ ...newKeyData, name: e.target.value })} placeholder="e.g. Production API Key" style={inputStyle} /></div><div><label style={label}>Environment</label><select value={newKeyData.environment} onChange={e => setNewKeyData({ ...newKeyData, environment: e.target.value })} style={inputStyle}><option value="production">Production</option><option value="staging">Staging</option><option value="development">Development</option></select></div></div><div style={{ marginBottom: 16 }}><label style={label}>Permissions</label><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{ALL_PERMISSIONS.map(p => (<label key={p} onClick={() => { const perms = newKeyData.permissions.includes(p) ? newKeyData.permissions.filter(x => x !== p) : [...newKeyData.permissions, p]; setNewKeyData({ ...newKeyData, permissions: perms }); }} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11, background: newKeyData.permissions.includes(p) ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.08)"}`, color: newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.5)" }}>{newKeyData.permissions.includes(p) ? "✓" : "○"} {p}</label>))}</div></div><div style={{ display: "flex", gap: 10 }}><button onClick={generateApiKey} style={btnPrimary}>Generate Key</button><button onClick={() => setShowNewKey(false)} style={btnSec}>Cancel</button></div></div>)}
+          {showNewKey && (<div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}><h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Generate New API Key</h3><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}><div><label style={label}>Key Name</label><input value={newKeyData.name} onChange={e => setNewKeyData({ ...newKeyData, name: e.target.value })} placeholder="e.g. Production API Key" style={inputStyle} /></div><div><label style={label}>Environment</label><select value={newKeyData.environment} onChange={e => setNewKeyData({ ...newKeyData, environment: e.target.value })} style={inputStyle}><option value="production">Production</option><option value="staging">Staging</option><option value="development">Development</option></select></div></div><div style={{ marginBottom: 16 }}><label style={label}>Permissions</label><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{ALL_PERMISSIONS.map(p => (<label key={p} onClick={() => { const perms = newKeyData.permissions.includes(p) ? newKeyData.permissions.filter(x => x !== p) : [...newKeyData.permissions, p]; setNewKeyData({ ...newKeyData, permissions: perms }); }} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "6px 10px", cursor: "pointer", fontSize: 11, background: newKeyData.permissions.includes(p) ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.08)"}`, color: newKeyData.permissions.includes(p) ? C.primary : "rgba(255,255,255,0.5)" }}>{newKeyData.permissions.includes(p) ? "✓" : "○"} {p}</label>))}</div></div><div style={{ display: "flex", gap: 10 }}><button onClick={generateApiKey} style={btnPrimary}>Generate Key</button><button onClick={() => setShowNewKey(false)} style={btnSec}>Cancel</button></div></div>)}
           <div style={{ ...card, marginBottom: 16 }}><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}><div><label style={label}>Base URL</label><div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", fontFamily: "monospace", fontSize: 13, color: C.primary, display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>https://api.engwx.com/v1</span><button onClick={() => navigator.clipboard.writeText("https://api.engwx.com/v1")} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 11 }}>Copy</button></div></div><div><label style={label}>API Version</label><div style={{ ...inputStyle, background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.5)" }}>v1 (Latest)</div></div></div></div>
-          {apiKeysLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading API keys...</div> : liveApiKeys.length === 0 ? (<div style={{ ...card, textAlign: "center", padding: 40 }}><div style={{ fontSize: 40, marginBottom: 12 }}>🔑</div><div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No API keys yet</div><button onClick={() => setShowNewKey(true)} style={btnPrimary}>Generate Key</button></div>) : (
-            <div style={{ display: "grid", gap: 10 }}>{liveApiKeys.map(key => (<div key={key.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px auto", alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1, borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}` }}><div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{key.name}</div><div style={{ fontFamily: "monospace", color: C.primary, fontSize: 12, marginTop: 2 }}>{key.key_prefix}...••••••</div><div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>{key.environment} · Created {new Date(key.created_at).toLocaleDateString()}</div></div><div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(key.permissions || []).map(p => (<span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>))}</div><div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Used: {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}</div><div><span style={badge(key.status === "active" ? "#00E676" : "#FF3B30")}>{key.status === "active" ? "● Active" : "● Revoked"}</span></div><div style={{ display: "flex", gap: 6 }}>{key.status === "active" && <button onClick={() => revokeApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Revoke</button>}{key.status === "revoked" && <button onClick={() => deleteApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Delete</button>}</div></div>))}</div>
+          {apiKeysLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading API keys...</div> : liveApiKeys.length === 0 ? (<div style={{ ...card, textAlign: "center", padding: 40 }}><div style={{ fontSize: 40, marginBottom: 12 }}>🔑</div><div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No API keys yet</div><button onClick={() => setShowNewKey(true)} style={btnPrimary}>Generate Key</button></div>) : (
+            <div style={{ display: "grid", gap: 10 }}>{liveApiKeys.map(key => (<div key={key.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 160px 140px 100px auto", alignItems: "center", gap: 14, opacity: key.status === "revoked" ? 0.5 : 1, borderLeft: `4px solid ${key.status === "active" ? "#00E676" : "#FF3B30"}` }}><div><div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{key.name}</div><div style={{ fontFamily: "monospace", color: C.primary, fontSize: 12, marginTop: 2 }}>{key.key_prefix}...••••••</div><div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>{key.environment} · Created {new Date(key.created_at).toLocaleDateString()}</div></div><div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{(key.permissions || []).map(p => (<span key={p} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4, padding: "1px 6px", fontSize: 9, color: "rgba(255,255,255,0.4)" }}>{p}</span>))}</div><div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>Used: {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}</div><div><span style={badge(key.status === "active" ? "#00E676" : "#FF3B30")}>{key.status === "active" ? "● Active" : "● Revoked"}</span></div><div style={{ display: "flex", gap: 6 }}>{key.status === "active" && <button onClick={() => revokeApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Revoke</button>}{key.status === "revoked" && <button onClick={() => deleteApiKey(key.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>Delete</button>}</div></div>))}</div>
           )}
         </div>
       )}
@@ -1210,7 +1210,7 @@ return (<div>
       {activeTab === "webhooks" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Webhooks</h2>
+            <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Webhooks</h2>
             <button onClick={() => { setShowNewWebhook(!showNewWebhook); setEditingWebhook(null); }} style={btnPrimary}>+ Add Webhook</button>
           </div>
           {(showNewWebhook || editingWebhook) && (() => {
@@ -1220,7 +1220,7 @@ return (<div>
             const toggleEvent = (ev) => { const events = data.events.includes(ev) ? data.events.filter(e => e !== ev) : [...data.events, ev]; setData({ events }); };
             return (
               <div style={{ ...card, marginBottom: 16, border: `1px solid ${C.primary}44` }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>{isEdit ? "Edit Webhook" : "New Webhook Endpoint"}</h3>
+                <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>{isEdit ? "Edit Webhook" : "New Webhook Endpoint"}</h3>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}><div><label style={label}>Name</label><input value={data.name} onChange={e => setData({ name: e.target.value })} placeholder="e.g. CRM Sync" style={inputStyle} /></div><div><label style={label}>URL (HTTPS required)</label><input value={data.url} onChange={e => setData({ url: e.target.value })} placeholder="https://your-domain.com/webhook" style={inputStyle} /></div></div>
                 <div style={{ marginBottom: 16 }}><label style={label}>Events</label><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{ALL_EVENTS.map(ev => (<label key={ev} onClick={() => toggleEvent(ev)} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontFamily: "monospace", background: data.events.includes(ev) ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.08)"}`, color: data.events.includes(ev) ? C.primary : "rgba(255,255,255,0.5)" }}>{data.events.includes(ev) ? "✓" : "○"} {ev}</label>))}</div><div style={{ display: "flex", gap: 8, marginTop: 8 }}><button onClick={() => setData({ events: [...ALL_EVENTS] })} style={{ background: "none", border: "none", color: C.primary, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>Select All</button><button onClick={() => setData({ events: [] })} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>Clear</button></div></div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}><div><label style={label}>Signing Secret</label><div style={{ display: "flex", gap: 8 }}><input value={data.secret || ""} onChange={e => setData({ secret: e.target.value })} placeholder="Auto-generated on create" style={{ ...inputStyle, fontFamily: "monospace", fontSize: 12 }} />{!isEdit && <button onClick={() => setData({ secret: generateSecret() })} style={{ ...btnSec, padding: "8px 12px", fontSize: 11, whiteSpace: "nowrap" }}>Generate</button>}</div></div><div><label style={label}>Retry Policy</label><select value={data.retry_policy || "3_exponential"} onChange={e => setData({ retry_policy: e.target.value })} style={inputStyle}><option value="3_exponential">3 retries with exponential backoff</option><option value="5_linear">5 retries with linear backoff</option><option value="none">No retries</option></select></div></div>
@@ -1228,15 +1228,15 @@ return (<div>
               </div>
             );
           })()}
-          {webhooksLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading webhooks...</div> : liveWebhooks.length === 0 ? (<div style={{ ...card, textAlign: "center", padding: 40 }}><div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div><div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No webhooks configured</div><button onClick={() => setShowNewWebhook(true)} style={btnPrimary}>Create Your First Webhook</button></div>) : (
-            <div style={{ display: "grid", gap: 10 }}>{liveWebhooks.map(wh => { const successRate = wh.total_deliveries > 0 ? Math.round((wh.successful_deliveries / wh.total_deliveries) * 1000) / 10 : null; const lastTriggered = wh.last_triggered_at ? new Date(wh.last_triggered_at).toLocaleString() : "Never"; const testStatus = webhookTestResult[wh.id]; return (<div key={wh.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 120px 140px 80px auto", alignItems: "center", gap: 14, borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"}` }}><div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{wh.name}</div><div style={{ fontFamily: "monospace", color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wh.url}</div><div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{(wh.events || []).map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}</div></div><div>{successRate !== null ? (<><div style={{ color: successRate >= 99 ? "#00E676" : successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{successRate}%</div><div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{wh.total_deliveries} deliveries</div></>) : <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>No data yet</div>}</div><div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>{lastTriggered}</div><div><button onClick={() => toggleWebhookStatus(wh)} style={{ ...badge(wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"), cursor: "pointer", border: "none", background: (wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600") + "18" }}>{wh.status}</button></div><div style={{ display: "flex", gap: 6 }}><button onClick={() => testWebhook(wh)} disabled={testStatus === "testing"} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: testStatus === "success" ? "#00E676" : testStatus && testStatus.startsWith("failed") ? "#FF3B30" : "#fff" }}>{testStatus === "testing" ? "..." : testStatus === "success" ? "✓ OK" : testStatus ? "✗ Fail" : "Test"}</button><button onClick={() => { setEditingWebhook({ ...wh }); setShowNewWebhook(false); }} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button><button onClick={() => deleteWebhook(wh.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>✕</button></div></div>); })}</div>
+          {webhooksLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading webhooks...</div> : liveWebhooks.length === 0 ? (<div style={{ ...card, textAlign: "center", padding: 40 }}><div style={{ fontSize: 40, marginBottom: 12 }}>🔗</div><div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No webhooks configured</div><button onClick={() => setShowNewWebhook(true)} style={btnPrimary}>Create Your First Webhook</button></div>) : (
+            <div style={{ display: "grid", gap: 10 }}>{liveWebhooks.map(wh => { const successRate = wh.total_deliveries > 0 ? Math.round((wh.successful_deliveries / wh.total_deliveries) * 1000) / 10 : null; const lastTriggered = wh.last_triggered_at ? new Date(wh.last_triggered_at).toLocaleString() : "Never"; const testStatus = webhookTestResult[wh.id]; return (<div key={wh.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 120px 140px 80px auto", alignItems: "center", gap: 14, borderLeft: `4px solid ${wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"}` }}><div><div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{wh.name}</div><div style={{ fontFamily: "monospace", color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wh.url}</div><div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{(wh.events || []).map(ev => <span key={ev} style={{ background: `${C.primary}12`, color: C.primary, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontFamily: "monospace" }}>{ev}</span>)}</div></div><div>{successRate !== null ? (<><div style={{ color: successRate >= 99 ? "#00E676" : successRate >= 95 ? "#FFD600" : "#FF3B30", fontSize: 16, fontWeight: 700 }}>{successRate}%</div><div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{wh.total_deliveries} deliveries</div></>) : <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11 }}>No data yet</div>}</div><div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11 }}>{lastTriggered}</div><div><button onClick={() => toggleWebhookStatus(wh)} style={{ ...badge(wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600"), cursor: "pointer", border: "none", background: (wh.status === "active" ? "#00E676" : wh.status === "failed" ? "#FF3B30" : "#FFD600") + "18" }}>{wh.status}</button></div><div style={{ display: "flex", gap: 6 }}><button onClick={() => testWebhook(wh)} disabled={testStatus === "testing"} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: testStatus === "success" ? "#00E676" : testStatus && testStatus.startsWith("failed") ? "#FF3B30" : "#fff" }}>{testStatus === "testing" ? "..." : testStatus === "success" ? "✓ OK" : testStatus ? "✗ Fail" : "Test"}</button><button onClick={() => { setEditingWebhook({ ...wh }); setShowNewWebhook(false); }} style={{ ...btnSec, padding: "6px 10px", fontSize: 11 }}>Edit</button><button onClick={() => deleteWebhook(wh.id)} style={{ ...btnSec, padding: "6px 10px", fontSize: 11, color: "#FF3B30" }}>✕</button></div></div>); })}</div>
           )}
         </div>
       )}
 
       {activeTab === "channels" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Channel Configuration</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Channel Configuration</h2>
           {channelsLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading channels...</div> : (
             <div style={{ display: "grid", gap: 16 }}>
               {CHANNEL_DEFS.map(ch => {
@@ -1248,7 +1248,7 @@ return (<div>
                 return (
                   <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.15)"}`, opacity: isEnabled ? 1 : 0.7 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div></div></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div></div></div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
   <span style={{ fontSize: 12, color: isEnabled ? ch.color : "rgba(255,255,255,0.3)", fontWeight: 600 }}>{isEnabled ? "ON" : "OFF"}</span>
   <button onClick={() => saveChannelConfig(ch.id, undefined, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: `2px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.2)"}`, cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.08)", transition: "all 0.2s" }}>
@@ -1273,7 +1273,7 @@ return (<div>
                                 <div>
                                   <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>Resend domain verified</div>
                                   <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}>
-                                    Sending from <strong style={{ color: '#fff' }}>{configData.from_name || '—'}</strong> &lt;{configData.from_email || '—'}&gt; via <strong style={{ color: '#fff' }}>{configData.domain}</strong>
+                                    Sending from <strong style={{ color: C.text }}>{configData.from_name || '—'}</strong> &lt;{configData.from_email || '—'}&gt; via <strong style={{ color: C.text }}>{configData.domain}</strong>
                                   </div>
                                 </div>
                                 <button onClick={() => setShowEmailWizard(true)} style={{ ...btnSec, padding: '6px 14px', fontSize: 11 }}>Reconfigure</button>
@@ -1387,7 +1387,7 @@ return (<div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                   <span style={{ fontSize: 22 }}>🛡️</span>
                   <div>
-                    <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Email Filtering</div>
+                    <div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>Email Filtering</div>
                     <div style={{ color: C.muted, fontSize: 11 }}>Automatically mark inbound email from these domains or with these subject keywords as spam.</div>
                   </div>
                   {emailFilterSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700, marginLeft: 'auto' }}>✓ Saved</span>}
@@ -1437,7 +1437,7 @@ return (<div>
 
       {activeTab === "billing" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
           {(planStatus === "Trial" || stripeStatus === "trialing" || !stripePlan) && (
             <div style={{ background: "linear-gradient(135deg, rgba(0,201,255,0.08), rgba(224,64,251,0.08))", border: "1px solid rgba(0,201,255,0.25)", borderRadius: 14, padding: "24px 28px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
               <div><div style={{ color: "#00C9FF", fontWeight: 800, fontSize: 18, marginBottom: 4 }}>Welcome to Your Trial</div><div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>You have full access to all {currentPlanInfo.name} plan features. No credit card required during your trial.</div></div>
@@ -1447,7 +1447,7 @@ return (<div>
           <div style={{ ...card, marginBottom: 20, borderLeft: `4px solid ${C.primary}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ color: C.primary, fontSize: 22, fontWeight: 800 }}>{currentPlanInfo.name} Plan</span><span style={badge(stripeStatus === "trialing" ? "#FFD600" : "#00E676")}>● {planStatus}</span></div><div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>{currentPlanInfo.price}/month · Billed monthly</div></div>
-              <div style={{ textAlign: "right" }}><div style={{ color: "#fff", fontSize: 28, fontWeight: 800 }}>{currentPlanInfo.price}<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div><button onClick={() => setShowUpgradeModal(true)} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button><button onClick={handleManageBilling} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6, marginLeft: 6 }}>Manage Billing</button></div>
+              <div style={{ textAlign: "right" }}><div style={{ color: C.text, fontSize: 28, fontWeight: 800 }}>{currentPlanInfo.price}<span style={{ color: C.muted, fontSize: 14, fontWeight: 400 }}>/mo</span></div><button onClick={() => setShowUpgradeModal(true)} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6 }}>Upgrade Plan</button><button onClick={handleManageBilling} style={{ ...btnSec, padding: "6px 14px", fontSize: 11, marginTop: 6, marginLeft: 6 }}>Manage Billing</button></div>
             </div>
           </div>
           {tenantUsage && (() => {
@@ -1469,7 +1469,7 @@ return (<div>
             return (
               <div style={{ ...card, marginBottom: 20, borderLeft: '4px solid #00C9FF' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <h3 style={{ color: '#fff', margin: 0, fontSize: 15 }}>Usage This Period</h3>
+                  <h3 style={{ color: C.text, margin: 0, fontSize: 15 }}>Usage This Period</h3>
                   {tenantUsage.soft_capped && <span style={{ background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.35)', borderRadius: 6, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>⚠️ Soft cap in effect</span>}
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
@@ -1479,7 +1479,7 @@ return (<div>
                     return (
                       <div key={r.label}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>{r.icon} {r.label}</span>
+                          <span style={{ color: C.text, fontSize: 12, fontWeight: 600 }}>{r.icon} {r.label}</span>
                           <span style={{ color: col, fontSize: 12, fontWeight: 700 }}>{r.used.toLocaleString()} / {r.cap >= 999999 ? '∞' : r.cap.toLocaleString()} ({pct}%)</span>
                         </div>
                         <div style={{ height: 8, background: 'rgba(255,255,255,0.06)', borderRadius: 4, overflow: 'hidden' }}>
@@ -1493,21 +1493,21 @@ return (<div>
             );
           })()}
           <div style={{ ...card, marginBottom: 20, borderLeft: "4px solid #FFD600" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><div><h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div></div><span style={{ fontSize: 24 }}>📲</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><div><h3 style={{ color: C.text, margin: 0, fontSize: 15 }}>SMS Top-Up Credits</h3><div style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Purchase additional SMS credits when you need more</div></div><span style={{ fontSize: 24 }}>📲</span></div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-              {SMS_TOPUPS.map(t => (<div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "20px 16px", textAlign: "center", position: "relative" }}>{t.savings && <div style={{ position: "absolute", top: -8, right: 12, background: "linear-gradient(135deg, #FFD600, #FF6B35)", color: "#000", padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 800 }}>{t.savings}</div>}<div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.name}</div><div style={{ color: C.primary, fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t.price}</div><div style={{ color: C.muted, fontSize: 11, marginBottom: 12 }}>{t.perSms}/SMS</div><button onClick={() => handleTopup(t)} disabled={topupLoading === t.id} style={{ width: "100%", background: topupLoading === t.id ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "10px", color: topupLoading === t.id ? C.muted : "#000", fontWeight: 700, cursor: topupLoading === t.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{topupLoading === t.id ? "Loading..." : "Buy Now"}</button></div>))}
+              {SMS_TOPUPS.map(t => (<div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, padding: "20px 16px", textAlign: "center", position: "relative" }}>{t.savings && <div style={{ position: "absolute", top: -8, right: 12, background: "linear-gradient(135deg, #FFD600, #FF6B35)", color: "#000", padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 800 }}>{t.savings}</div>}<div style={{ color: C.text, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{t.name}</div><div style={{ color: C.primary, fontSize: 24, fontWeight: 900, marginBottom: 4 }}>{t.price}</div><div style={{ color: C.muted, fontSize: 11, marginBottom: 12 }}>{t.perSms}/SMS</div><button onClick={() => handleTopup(t)} disabled={topupLoading === t.id} style={{ width: "100%", background: topupLoading === t.id ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00C9FF, #E040FB)", border: "none", borderRadius: 8, padding: "10px", color: topupLoading === t.id ? C.muted : "#000", fontWeight: 700, cursor: topupLoading === t.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{topupLoading === t.id ? "Loading..." : "Buy Now"}</button></div>))}
             </div>
           </div>
           <div style={{ ...card, marginBottom: 20 }}>
-            <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Payment Method</h3>
+            <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Payment Method</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}><div style={{ fontSize: 28 }}>💳</div><div><div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Managed by Stripe</div><div style={{ color: C.muted, fontSize: 12 }}>View and update your payment details securely</div></div></div>
+              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}><div style={{ fontSize: 28 }}>💳</div><div><div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>Managed by Stripe</div><div style={{ color: C.muted, fontSize: 12 }}>View and update your payment details securely</div></div></div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}><button onClick={handleManageBilling} style={btnSec}>Update Payment Method</button><button onClick={handleManageBilling} style={btnSec}>View Invoices</button></div>
             </div>
           </div>
           {viewLevel === "sp" && (
             <div style={{ ...card }}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Stripe Integration (Service Provider)</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Stripe Integration (Service Provider)</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div><label style={label}>Stripe Publishable Key</label><input defaultValue="pk_live_••••••••••••••••" style={inputStyle} type="password" /></div>
                 <div><label style={label}>Stripe Secret Key</label><input defaultValue="sk_live_••••••••••••••••" style={inputStyle} type="password" /></div>
@@ -1524,7 +1524,7 @@ return (<div>
 
       {activeTab === "channels" && !demoMode && (
         <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid #00C9FF' })}>
-          <h3 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Send Test Email</h3>
+          <h3 style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Send Test Email</h3>
           <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>Send a sample email with your full HTML signature to verify delivery and rendering.</p>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={async function() {
@@ -1570,7 +1570,7 @@ return (<div>
           <div style={Object.assign({}, card, { borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>🚀 Restart Onboarding</div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700, marginBottom: 2 }}>🚀 Restart Onboarding</div>
                 <div style={{ color: C.muted, fontSize: 12 }}>Re-run the 6-step setup wizard from the start.</div>
               </div>
               <button
@@ -1588,7 +1588,7 @@ return (<div>
           <div style={Object.assign({}, card, { borderLeft: '4px solid ' + C.primary })}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div>
-                <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 2 }}>✉️ Resend Welcome Email</div>
+                <div style={{ color: C.text, fontSize: 14, fontWeight: 700, marginBottom: 2 }}>✉️ Resend Welcome Email</div>
                 <div style={{ color: C.muted, fontSize: 12 }}>Re-send the welcome email to this tenant's admin. Does not reset their password.</div>
               </div>
               <button
@@ -1620,12 +1620,12 @@ return (<div>
       {showUpgradeModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setShowUpgradeModal(false)}>
           <div style={{ background: "#1A1D2E", borderRadius: 16, padding: 32, maxWidth: 720, width: "90%", maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}><h2 style={{ color: "#fff", margin: 0, fontSize: 20 }}>Choose Your Plan</h2><button onClick={() => setShowUpgradeModal(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>✕</button></div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}><h2 style={{ color: C.text, margin: 0, fontSize: 20 }}>Choose Your Plan</h2><button onClick={() => setShowUpgradeModal(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 24, cursor: "pointer" }}>✕</button></div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-              {PLANS.map(plan => (<div key={plan.id} style={{ background: "rgba(255,255,255,0.04)", border: plan.popular ? `2px solid ${C.primary}` : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 20, position: "relative" }}>{plan.popular && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: C.primary, color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 10 }}>POPULAR</div>}<div style={{ color: "#fff", fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{plan.name}</div><div style={{ color: C.primary, fontSize: 28, fontWeight: 800, marginBottom: 12 }}>{plan.price}<span style={{ color: C.muted, fontSize: 13, fontWeight: 400 }}>/mo</span></div><div style={{ marginBottom: 16 }}>{plan.features.map((f, i) => (<div key={i} style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: "#00E676" }}>✓</span> {f}</div>))}</div><button onClick={() => handleUpgrade(plan)} disabled={upgradeLoading === plan.id} style={{ width: "100%", background: upgradeLoading === plan.id ? "rgba(255,255,255,0.1)" : plan.popular ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "10px", color: plan.popular ? "#000" : "#fff", fontWeight: 700, cursor: upgradeLoading === plan.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{upgradeLoading === plan.id ? "Redirecting..." : "Select Plan"}</button></div>))}
+              {PLANS.map(plan => (<div key={plan.id} style={{ background: "rgba(255,255,255,0.04)", border: plan.popular ? `2px solid ${C.primary}` : "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 20, position: "relative" }}>{plan.popular && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: C.primary, color: "#000", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 10 }}>POPULAR</div>}<div style={{ color: C.text, fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{plan.name}</div><div style={{ color: C.primary, fontSize: 28, fontWeight: 800, marginBottom: 12 }}>{plan.price}<span style={{ color: C.muted, fontSize: 13, fontWeight: 400 }}>/mo</span></div><div style={{ marginBottom: 16 }}>{plan.features.map((f, i) => (<div key={i} style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, padding: "4px 0", display: "flex", alignItems: "center", gap: 6 }}><span style={{ color: "#00E676" }}>✓</span> {f}</div>))}</div><button onClick={() => handleUpgrade(plan)} disabled={upgradeLoading === plan.id} style={{ width: "100%", background: upgradeLoading === plan.id ? "rgba(255,255,255,0.1)" : plan.popular ? "linear-gradient(135deg, #00C9FF, #E040FB)" : "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "10px", color: plan.popular ? "#000" : "#fff", fontWeight: 700, cursor: upgradeLoading === plan.id ? "wait" : "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{upgradeLoading === plan.id ? "Redirecting..." : "Select Plan"}</button></div>))}
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 24, textAlign: 'center', marginTop: 16 }}>
-              <div style={{ color: '#fff', fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Need higher volume or custom features?</div>
+              <div style={{ color: C.text, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Need higher volume or custom features?</div>
               <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginBottom: 16 }}>Enterprise plans available — talk to our team.</div>
               <a href={'mailto:hello@engwx.com?subject=' + encodeURIComponent('Enterprise plan inquiry')} style={{ display: 'inline-block', background: 'linear-gradient(135deg, #00BFFF, #A855F7)', color: '#000', fontWeight: 700, fontSize: 13, padding: '10px 24px', borderRadius: 8, textDecoration: 'none', fontFamily: "'DM Sans', sans-serif" }}>Contact Sales</a>
             </div>
@@ -1636,7 +1636,7 @@ return (<div>
 
       {activeTab === "notifications" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Notification Preferences</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Notification Preferences</h2>
 
           {/* Per-tenant AI digest recipient */}
           <div style={Object.assign({}, card, { marginBottom: 20 })}>
@@ -1797,7 +1797,7 @@ return (<div>
           </div>
 
           <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-            <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 6px" }}>✉️ Welcome Email</h2>
+            <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 6px" }}>✉️ Welcome Email</h2>
             <p style={{ color: C.muted, fontSize: 13, margin: "0 0 16px" }}>AI-personalised welcome email sent to new tenants on signup.</p>
             <WelcomeEmailSettings C={C} tenantId={resolvedTenantId} />
           </div>
@@ -1806,21 +1806,21 @@ return (<div>
 
       {activeTab === "security" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Security Settings</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Security Settings</h2>
           <div style={{ display: "grid", gap: 16 }}>
             <div style={card}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Authentication</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Authentication</h3>
               <div style={{ display: "grid", gap: 14 }}>
                 {[{ label: "Two-Factor Authentication (2FA)", desc: "Require 2FA for all team members", enabled: true }, { label: "SSO (Single Sign-On)", desc: "SAML 2.0 / OpenID Connect integration", enabled: false }, { label: "IP Allowlist", desc: "Restrict API access to specific IP addresses", enabled: false }, { label: "Session Timeout", desc: "Auto-logout after 30 minutes of inactivity", enabled: true }].map((s, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                    <div><div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>{s.label}</div><div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 2 }}>{s.desc}</div></div>
+                    <div><div style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>{s.label}</div><div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 2 }}>{s.desc}</div></div>
                     <Toggle enabled={s.enabled} />
                   </div>
                 ))}
               </div>
             </div>
             <div style={card}>
-              <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Recent Security Events</h3>
+              <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Recent Security Events</h3>
               {auditLoading ? <div style={{ color: C.muted, fontSize: 13, padding: "12px 0" }}>Loading audit log...</div> : auditLog.length === 0 ? <div style={{ color: C.muted, fontSize: 13, padding: "12px 0" }}>No security events recorded yet.</div> : (
                 auditLog.map((ev, i) => {
                   const icon = AUDIT_ICONS[ev.action] || AUDIT_ICONS.default;
@@ -1835,7 +1835,7 @@ return (<div>
 
 {activeTab === "alerts" && (
         <div>
-          <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>SP Alert Notifications</h2>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>SP Alert Notifications</h2>
           <div style={{ ...card, maxWidth: 560 }}>
             {alertsLoading ? <div style={{ color: C.muted }}>Loading...</div> : (
               <div style={{ display: "grid", gap: 20 }}>
@@ -1854,7 +1854,7 @@ return (<div>
                       { key: 'notify_on_csp_payment', label: '💳 CSP payment received' },
                     ].map(item => (
                       <div key={item.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10 }}>
-                        <span style={{ color: "#fff", fontSize: 14 }}>{item.label}</span>
+                        <span style={{ color: C.text, fontSize: 14 }}>{item.label}</span>
                         <div onClick={() => setAlertConfig({ ...alertConfig, [item.key]: !alertConfig[item.key] })} style={{ width: 44, height: 24, borderRadius: 12, cursor: "pointer", position: "relative", background: alertConfig[item.key] ? C.primary : "rgba(255,255,255,0.15)", transition: "all 0.2s", flexShrink: 0 }}>
                           <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: alertConfig[item.key] ? 23 : 3, transition: "all 0.2s" }} />
                         </div>
@@ -1871,7 +1871,7 @@ return (<div>
 
           {/* Stale Lead Outreach mode */}
           <div style={{ ...card, maxWidth: 560, marginTop: 20 }}>
-            <h3 style={{ color: '#fff', fontSize: 15, margin: '0 0 4px' }}>🔄 Stale Lead Outreach</h3>
+            <h3 style={{ color: C.text, fontSize: 15, margin: '0 0 4px' }}>🔄 Stale Lead Outreach</h3>
             <p style={{ color: C.muted, fontSize: 12, margin: '0 0 14px' }}>How Claude handles the daily stale-lead re-engagement pass (leads with no activity in 7+ days).</p>
             <div style={{ display: 'flex', gap: 8 }}>
               {[
@@ -1896,7 +1896,7 @@ return (<div>
 
       {activeTab === "modules" && (
   <div>
-    <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
+    <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
     <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool like Salesforce, Zendesk, or HubSpot.</p>
     {!enabledModules ? (
       <div style={{ ...card, padding: 40, textAlign: "center" }}>
@@ -1916,7 +1916,7 @@ return (<div>
               <div key={mod.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: enabled ? "rgba(0,201,255,0.04)" : "rgba(255,255,255,0.02)", border: "1px solid " + (enabled ? C.primary + "33" : "rgba(255,255,255,0.06)"), borderRadius: 12 }}>
                 <span style={{ fontSize: 24 }}>{mod.icon}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
+                  <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
                   <div style={{ color: C.muted, fontSize: 12 }}>{mod.desc}</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

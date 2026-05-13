@@ -334,9 +334,9 @@ saveAIConfig(newSources);
   }
 
   const personality = PERSONALITIES.find(p => p.id === selectedPersonality);
-  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
+  const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
@@ -382,7 +382,7 @@ saveAIConfig(newSources);
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", margin: 0 }}>🤖 {aiConfig.agentName || botName || 'Aria'} <span style={{ color: C.muted, fontSize: 14, fontWeight: 500 }}>· AI assistant</span></h1>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>🤖 {aiConfig.agentName || botName || 'Aria'} <span style={{ color: C.muted, fontSize: 14, fontWeight: 500 }}>· AI assistant</span></h1>
               <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Configure personality, knowledge, and escalation rules</p>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -420,7 +420,7 @@ saveAIConfig(newSources);
               ) : (
                 <div style={{ display: "grid", gap: 20 }}>
                   <div style={card}>
-                    <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Agent Name & Status</h3>
+                    <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Agent Name & Status</h3>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, fontWeight: 700 }}>Agent Name</div>
@@ -440,7 +440,7 @@ saveAIConfig(newSources);
                   </div>
 
                   <div style={card}>
-                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>Active Channels</h3>
+                    <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>Active Channels</h3>
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Toggle which channels the AI agent responds on</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
                       {[
@@ -462,7 +462,7 @@ saveAIConfig(newSources);
                   </div>
 
                   <div style={card}>
-                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>Business Knowledge</h3>
+                    <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>Business Knowledge</h3>
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Provide information your AI agent needs to answer customer questions accurately. Include products/services, pricing, hours, policies, FAQ — anything a customer might ask.</div>
                     <textarea value={aiConfig.businessInfo} onChange={function(e) { setAiConfig(Object.assign({}, aiConfig, { businessInfo: e.target.value })); }} placeholder={"Example:\nWe are ABC Dental, a family dentistry practice.\nHours: Mon-Fri 8am-5pm, Sat 9am-1pm\nServices: cleanings, fillings, crowns, whitening, implants\nNew patient appointments: call or book online at abcdental.com"} rows={12} style={Object.assign({}, inputStyle, { resize: "vertical", lineHeight: 1.6 })} />
                     <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
@@ -472,7 +472,7 @@ saveAIConfig(newSources);
                   </div>
 
                   <div style={card}>
-                    <h3 style={{ color: "#fff", margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
+                    <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Used in every outbound email. <strong>First</strong> signature is used for new outreach / sequence step 1. <strong>Reply</strong> signature is used for replies and sequence steps 2+. Claude adds a contextual closing line (e.g. "Looking forward to connecting!") above the signature HTML automatically.</div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -532,7 +532,7 @@ saveAIConfig(newSources);
           {activeTab === "personality" && (
             <div>
               <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Personality Preset</h3>
+                <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Personality Preset</h3>
                 <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Choose how your AI agent communicates. This affects tone, temperature, and response style across all channels.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                   {PERSONALITIES.map(p => (
@@ -547,7 +547,7 @@ saveAIConfig(newSources);
               </div>
 
               <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 12px", fontSize: 16 }}>Response Language</h3>
+                <h3 style={{ color: C.text, margin: "0 0 12px", fontSize: 16 }}>Response Language</h3>
                 <p style={{ color: C.muted, fontSize: 13, marginBottom: 14 }}>Choose which language your AI agent responds in across all channels.</p>
                 <select value={selectedLanguage} onChange={function(e) { setSelectedLanguage(e.target.value); }} style={{ ...inputStyle, maxWidth: 360 }}>
                   {LANGUAGE_OPTIONS.map(function(l) { return <option key={l.id} value={l.id}>{l.name}</option>; })}
@@ -558,7 +558,7 @@ saveAIConfig(newSources);
                   See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
               {false && (
               <div style={{ ...card, marginBottom: 20 }}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Fine-Tuning</h3>
+                <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Fine-Tuning</h3>
                 <div style={{ display: "grid", gap: 20 }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -602,7 +602,7 @@ saveAIConfig(newSources);
               )}
 
               <div style={card}>
-                <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 16 }}>Bot Identity & Instructions</h3>
+                <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 16 }}>Bot Identity & Instructions</h3>
                 {/* TODO: hidden until fallback message is read by build-system-prompt.js
                     See AI Chatbot audit (May 2026). Re-enable after config table consolidation. */}
                 {false && (
@@ -623,7 +623,7 @@ saveAIConfig(newSources);
           {activeTab === "knowledge" && (
             <div>
               <div style={{ marginBottom: 20 }}>
-                <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Knowledge Base</h2>
+                <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Knowledge Base</h2>
                 <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Upload documents or connect your website to build your AI knowledge base</p>
               </div>
 
@@ -635,7 +635,7 @@ saveAIConfig(newSources);
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < kbSources.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                         <span style={{ fontSize: 16 }}>{src.type === "file" ? "📄" : "🔗"}</span>
                         <div style={{ flex: 1 }}>
-                          <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{src.name}</div>
+                          <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{src.name}</div>
                           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{src.type === "file" ? "File upload" : src.url} · {src.addedAt}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -655,7 +655,7 @@ saveAIConfig(newSources);
               <div style={{ ...card, border: "2px dashed rgba(255,255,255,0.1)", padding: 28 }}>
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
-                  <div style={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
+                  <div style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
                   <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Upload a document or connect your website to auto-fill your AI's knowledge base</div>
                 </div>
 
@@ -672,7 +672,7 @@ saveAIConfig(newSources);
                   <div style={{ marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: 16 }}>
                     <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Website URL</div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <input value={kbUrlInput} onChange={function(e) { setKbUrlInput(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") handleKbUrlFetch(); }} placeholder="https://yourwebsite.com" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                      <input value={kbUrlInput} onChange={function(e) { setKbUrlInput(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") handleKbUrlFetch(); }} placeholder="https://yourwebsite.com" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                       <button onClick={handleKbUrlFetch} disabled={!kbUrlInput.trim() || kbUploadState === "fetching"} style={{ background: kbUrlInput.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "10px 16px", color: kbUrlInput.trim() ? "#000" : "rgba(255,255,255,0.2)", fontWeight: 700, cursor: kbUrlInput.trim() ? "pointer" : "not-allowed", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{kbUploadState === "fetching" ? "..." : "Fetch"}</button>
                       <button onClick={function() { setShowKbUrl(false); setKbUrlInput(""); setKbUploadState("idle"); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 12px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
                     </div>
@@ -735,11 +735,11 @@ saveAIConfig(newSources);
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div>
-                  <h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Escalation Rules</h2>
+                  <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Escalation Rules</h2>
                   <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the bot should hand off to a human agent</p>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={function() { setShowAIEscBuilder(true); }} style={{ background: 'linear-gradient(135deg, #7C4DFF, #E040FB)', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>⚙️ Configure with AI</button>
+                  <button onClick={function() { setShowAIEscBuilder(true); }} style={{ background: 'linear-gradient(135deg, #7C4DFF, #E040FB)', border: 'none', borderRadius: 10, padding: '10px 20px', color: C.text, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>⚙️ Configure with AI</button>
                   <button onClick={function() { setEscModal({ rule_name: '', description: '', trigger_type: 'keyword', trigger_config: { keywords: [] }, action_type: 'notify_admin', action_config: {}, priority: 10, active: true, _isNew: true }); }} style={btnPrimary}>+ Add Rule</button>
                 </div>
               </div>
@@ -754,7 +754,7 @@ saveAIConfig(newSources);
                   return (
                   <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 180px 80px 60px 60px", alignItems: "center", gap: 14, opacity: rule.active ? 1 : 0.5, borderLeft: '4px solid ' + pColor }}>
                     <div>
-                      <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{rule.rule_name}</div>
+                      <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{rule.rule_name}</div>
                       {rule.description && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{rule.description}</div>}
                       <div style={{ color: C.muted, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{triggerLabel}</div>
                     </div>
@@ -793,7 +793,7 @@ saveAIConfig(newSources);
               {escModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setEscModal(null); }}>
                   <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto' }}>
-                    <h3 style={{ color: '#fff', margin: '0 0 16px', fontSize: 16 }}>{escModal._isNew ? 'Add Escalation Rule' : 'Edit Rule'}</h3>
+                    <h3 style={{ color: C.text, margin: '0 0 16px', fontSize: 16 }}>{escModal._isNew ? 'Add Escalation Rule' : 'Edit Rule'}</h3>
                     <div style={{ display: 'grid', gap: 12 }}>
                       <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Rule Name *</label><input value={escModal.rule_name} onChange={function(e) { setEscModal(Object.assign({}, escModal, { rule_name: e.target.value })); }} style={inputStyle} /></div>
                       <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Description</label><input value={escModal.description || ''} onChange={function(e) { setEscModal(Object.assign({}, escModal, { description: e.target.value })); }} style={inputStyle} /></div>
@@ -823,7 +823,7 @@ saveAIConfig(newSources);
                             })}
                           </div>
                         </div>
-                        <div style={{ marginTop: 8 }}><label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                        <div style={{ marginTop: 8 }}><label style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.text, fontSize: 12, cursor: 'pointer' }}>
                           <input type="checkbox" checked={(escModal.action_config && escModal.action_config.include_conversation_link) !== false} onChange={function() { var ac = Object.assign({}, escModal.action_config || {}); ac.include_conversation_link = !(ac.include_conversation_link !== false); setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={{ accentColor: C.primary }} />Include conversation link in notification</label>
                         </div>
                       </div>
@@ -859,7 +859,7 @@ saveAIConfig(newSources);
               <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0,191,255,0.07), rgba(168,85,247,0.07))', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               </div>
-              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: '#fff', margin: '0 0 8px' }}>Analytics will appear here soon</h3>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '18px', fontWeight: 600, color: C.text, margin: '0 0 8px' }}>Analytics will appear here soon</h3>
               <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', lineHeight: 1.6, color: 'rgba(255,255,255,0.4)', maxWidth: '420px', margin: '0 0 1.5rem' }}>Once your bot starts handling conversations across SMS, WhatsApp, and email, you'll see volume, resolution time, satisfaction, and escalation metrics here.</p>
               <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: C.primary, cursor: 'pointer' }} onClick={function() { window.location.hash = ''; }}>View live inbox →</span>
             </div>
@@ -868,10 +868,10 @@ saveAIConfig(newSources);
           {/* ADVANCED TAB */}
           {activeTab === "advanced" && (
             <div>
-              <h2 style={{ color: "#fff", fontSize: 18, margin: "0 0 20px" }}>Advanced Configuration</h2>
+              <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Advanced Configuration</h2>
               <div style={{ display: "grid", gap: 16 }}>
                 <div style={card}>
-                  <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Model Settings</h3>
+                  <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Model Settings</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <div>
                       <label style={label}>AI Model</label>
@@ -903,7 +903,7 @@ saveAIConfig(newSources);
                   </div>
                 </div>
                 <div style={card}>
-                  <h3 style={{ color: "#fff", margin: "0 0 16px", fontSize: 15 }}>Safety & Limits</h3>
+                  <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Safety & Limits</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
                     <div><label style={label}>Max Messages/Conversation</label><input type="number" defaultValue="50" style={inputStyle} /></div>
                     <div><label style={label}>Session Timeout (min)</label><input type="number" defaultValue="30" style={inputStyle} /></div>
@@ -928,7 +928,7 @@ saveAIConfig(newSources);
       <div style={{ width: 380, borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <h3 style={{ color: "#fff", margin: 0, fontSize: 15 }}>💬 Live Preview</h3>
+            <h3 style={{ color: C.text, margin: 0, fontSize: 15 }}>💬 Live Preview</h3>
             <button onClick={() => { setPreviewMessages([]); setSelectedDemo(null); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 10px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Clear</button>
           </div>
           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 10 }}>Test your bot configuration in real-time</div>
@@ -950,7 +950,7 @@ saveAIConfig(newSources);
           emptyState={
             <div style={{ textAlign: "center", padding: "40px 16px" }}>
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}33, ${C.accent || C.primary}33)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 14px" }}>🤖</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{botName}</div>
+              <div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{botName}</div>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginBottom: 16 }}>{personality?.name} mode · {temperature} temp</div>
               <div style={{ background: `${C.primary}15`, border: `1px solid ${C.primary}33`, borderRadius: "14px 14px 14px 4px", padding: "12px 16px", color: "rgba(255,255,255,0.7)", fontSize: 13, textAlign: "left", maxWidth: 280, margin: "0 auto" }}>{greeting}</div>
               <div style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, marginTop: 12 }}>Type a message or try a demo scenario</div>
