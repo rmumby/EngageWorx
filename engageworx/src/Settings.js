@@ -48,7 +48,7 @@ const CHANNEL_DEFS = [
     { key: "welcome_email_from_name", label: "Welcome Email From Name", placeholder: "Jane at Acme Corp" },
     { key: "welcome_email_onboarding_link", label: "Onboarding Call Link", placeholder: "https://calendly.com/yourname/30min" },
     { key: "welcome_email_ai_prompt", label: "AI Welcome Email Tone", type: "ai_tone", placeholder: "e.g. You are Jane, founder of Acme. Write a warm, personal 2-3 sentence welcome.", rows: 6 },
-    { key: "ai_omni_bcc", label: "BCC for AI Omni Emails", placeholder: "admin@yourcompany.com", hint: "All AI-drafted outbound emails from AI Omni Digest (stale actions, follow-ups, digest replies) will be BCC'd to this address. Leave blank to disable." },
+    { key: "ai_omni_bcc", label: "BCC for AI Emails", placeholder: "admin@yourcompany.com", hint: "All AI-drafted outbound emails (Action Board sends, sequence emails, follow-ups) will be BCC'd to this address. Leave blank to disable." },
     { key: "api_key", label: "Email API Key", type: "password", hint: "Provided by your email service. Create a key with Full Access or Mail Send permissions." },
     { key: "domain", label: "Sending Domain", placeholder: "mail.yourdomain.com", hint: "Your sending domain (e.g. yourbrand.com). Must be verified in your email provider before emails will deliver reliably." },
   ]},

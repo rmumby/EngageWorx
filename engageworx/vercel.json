@@ -27,14 +27,8 @@
     "api/cron-archive-leads.js": {
       "maxDuration": 60
     },
-    "api/cron-email-digest.js": {
-      "maxDuration": 60
-    },
     "api/cron-stale-leads.js": {
       "maxDuration": 120
-    },
-    "api/cron-digest-scheduled.js": {
-      "maxDuration": 60
     },
     "api/cron-usage-alerts.js": {
       "maxDuration": 60
