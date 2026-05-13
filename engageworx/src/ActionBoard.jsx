@@ -52,11 +52,27 @@ export default function ActionBoard({ C, currentTenantId }) {
   var [actionLoading, setActionLoading] = useState(null);
   var [snoozeOpen, setSnoozeOpen] = useState(null);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  var [gmailConnected, setGmailConnected] = useState(null); // null=loading, true/false
 
   useEffect(function() {
     function handleResize() { setIsMobile(window.innerWidth < 768); }
     window.addEventListener('resize', handleResize);
     return function() { window.removeEventListener('resize', handleResize); };
+  }, []);
+
+  // Gmail pre-flight: check if current user has Gmail connected
+  useEffect(function() {
+    (async function() {
+      try {
+        var { data: userData } = await supabase.auth.getUser();
+        if (!userData || !userData.user) { setGmailConnected(false); return; }
+        var { data } = await supabase.from('user_gmail_tokens')
+          .select('email_address, refresh_token')
+          .eq('user_id', userData.user.id)
+          .maybeSingle();
+        setGmailConnected(!!(data && data.refresh_token && data.refresh_token !== '__pending_oauth__'));
+      } catch (_) { setGmailConnected(false); }
+    })();
   }, []);
 
   var loadItems = useCallback(async function() {
@@ -130,6 +146,33 @@ export default function ActionBoard({ C, currentTenantId }) {
         body: JSON.stringify({ action_item_id: itemId, duration: duration }),
       });
       setItems(function(prev) { return prev.filter(function(i) { return i.id !== itemId; }); });
+    } catch (e) { alert('Error: ' + e.message); }
+    setActionLoading(null);
+  }
+
+  async function handleSendToGmail(itemId) {
+    setActionLoading(itemId);
+    try {
+      var jwt = await getJwt();
+      var r = await fetch('/api/action-items/send-to-gmail-drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify({ action_item_id: itemId }),
+      });
+      var d = await r.json();
+      if (d.ok) {
+        // Update local state: mark item as drafted_to_gmail
+        setItems(function(prev) { return prev.map(function(i) {
+          if (i.id !== itemId) return i;
+          return Object.assign({}, i, { status: 'drafted_to_gmail', gmail_draft_id: d.gmail_draft_id, gmail_thread_id: d.gmail_thread_id, gmail_drafted_at: new Date().toISOString() });
+        }); });
+        // Open Gmail in new tab
+        if (d.deep_link) window.open(d.deep_link, '_blank');
+      } else if (d.needs_gmail_connect) {
+        alert('Gmail not connected. Go to Settings → Integrations to connect your Gmail account.');
+      } else {
+        alert('Gmail draft failed: ' + (d.error || 'Unknown error'));
+      }
     } catch (e) { alert('Error: ' + e.message); }
     setActionLoading(null);
   }
@@ -357,6 +400,29 @@ export default function ActionBoard({ C, currentTenantId }) {
               onMouseEnter={function(e) { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.color = text; }}
               onMouseLeave={function(e) { e.currentTarget.style.borderColor = subtleBorder; e.currentTarget.style.color = softText; }}
             >✏️ Edit</button>
+
+            {/* Send to Gmail Drafts */}
+            {gmailConnected === false ? (
+              <button onClick={function() { alert('Gmail not connected. Go to Settings → Integrations to connect your Gmail account.'); }}
+                style={{
+                  background: subtleBg, border: '1px solid ' + subtleBorder,
+                  borderRadius: 10, padding: '10px 16px', color: faintText,
+                  cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                  transition: 'all 0.2s', opacity: 0.5,
+                }}
+              >📧 Gmail Draft</button>
+            ) : gmailConnected ? (
+              <button onClick={function() { handleSendToGmail(item.id); }} disabled={isActioning}
+                style={{
+                  background: subtleBg, border: '1px solid ' + subtleBorder,
+                  borderRadius: 10, padding: '10px 16px', color: softText,
+                  cursor: isActioning ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={function(e) { if (!isActioning) { e.currentTarget.style.borderColor = hoverBorder; e.currentTarget.style.color = text; } }}
+                onMouseLeave={function(e) { e.currentTarget.style.borderColor = subtleBorder; e.currentTarget.style.color = softText; }}
+              >{isActioning ? '📧 Drafting...' : '📧 Gmail Draft'}</button>
+            ) : null}
 
             {/* Styled snooze dropdown */}
             <div style={{ position: 'relative' }}>
