@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './supabaseClient';
 
 var TIER_META = [
@@ -84,6 +84,88 @@ export default function ActionBoard({ C, currentTenantId }) {
         setGmailConnected(!!(data && data.refresh_token && data.refresh_token !== '__pending_oauth__'));
       } catch (_) { setGmailConnected(false); }
     })();
+  }, []);
+
+  // Polling: check drafted_to_gmail items for send detection
+  var pollRef = useRef(null);
+  var foregroundTimers = useRef([]);
+
+  useEffect(function() {
+    var draftedItems = items.filter(function(i) { return i.status === 'drafted_to_gmail'; });
+    // Clear any existing poll
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+
+    if (draftedItems.length === 0) return;
+
+    async function pollDrafts() {
+      // Pause when tab is hidden
+      if (document.visibilityState === 'hidden') return;
+      var jwt;
+      try { var s = await supabase.auth.getSession(); jwt = s.data.session ? s.data.session.access_token : null; } catch (_) { return; }
+      if (!jwt) return;
+
+      for (var i = 0; i < draftedItems.length; i++) {
+        var item = draftedItems[i];
+        try {
+          var r = await fetch('/api/action-items/check-draft-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+            body: JSON.stringify({ action_item_id: item.id }),
+          });
+          var d = await r.json();
+          if (d.status === 'sent') {
+            setItems(function(prev) { return prev.filter(function(x) { return x.id !== item.id; }); });
+          } else if (d.reverted) {
+            setItems(function(prev) { return prev.map(function(x) {
+              if (x.id !== item.id) return x;
+              return Object.assign({}, x, { status: 'pending', gmail_draft_id: null, gmail_thread_id: null, gmail_drafted_at: null });
+            }); });
+          }
+        } catch (_) {}
+      }
+    }
+
+    // Poll every 30s
+    pollRef.current = setInterval(pollDrafts, 30000);
+
+    return function() {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+  }, [items]);
+
+  // Foreground checks: after sending to Gmail, check at 60s, 3min, 10min
+  function scheduleForegroundChecks(itemId) {
+    var delays = [60000, 180000, 600000]; // 60s, 3min, 10min
+    delays.forEach(function(ms) {
+      var timer = setTimeout(async function() {
+        if (document.visibilityState === 'hidden') return;
+        var jwt;
+        try { var s = await supabase.auth.getSession(); jwt = s.data.session ? s.data.session.access_token : null; } catch (_) { return; }
+        if (!jwt) return;
+        try {
+          var r = await fetch('/api/action-items/check-draft-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+            body: JSON.stringify({ action_item_id: itemId }),
+          });
+          var d = await r.json();
+          if (d.status === 'sent') {
+            setItems(function(prev) { return prev.filter(function(x) { return x.id !== itemId; }); });
+          } else if (d.reverted) {
+            setItems(function(prev) { return prev.map(function(x) {
+              if (x.id !== itemId) return x;
+              return Object.assign({}, x, { status: 'pending', gmail_draft_id: null, gmail_thread_id: null, gmail_drafted_at: null });
+            }); });
+          }
+        } catch (_) {}
+      }, ms);
+      foregroundTimers.current.push(timer);
+    });
+  }
+
+  // Cleanup foreground timers on unmount
+  useEffect(function() {
+    return function() { foregroundTimers.current.forEach(clearTimeout); };
   }, []);
 
   var loadItems = useCallback(async function() {
@@ -194,6 +276,8 @@ export default function ActionBoard({ C, currentTenantId }) {
           if (i.id !== itemId) return i;
           return Object.assign({}, i, { status: 'drafted_to_gmail', gmail_draft_id: d.gmail_draft_id, gmail_thread_id: d.gmail_thread_id, gmail_drafted_at: new Date().toISOString() });
         }); });
+        // Schedule foreground checks at 60s, 3min, 10min for fast Gmail-mobile sends
+        scheduleForegroundChecks(itemId);
         // Open Gmail in new tab
         if (d.deep_link) window.open(d.deep_link, '_blank');
       } else if (d.needs_gmail_connect) {
