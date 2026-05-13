@@ -8,6 +8,7 @@ import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
 import TenantBranding from './TenantBranding';
+import GmailConnect from './GmailConnect';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -1075,6 +1076,9 @@ return (<div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div><h2 style={{ color: "#fff", fontSize: 18, margin: 0 }}>Integrations</h2><div style={{ color: C.muted, fontSize: 13, marginTop: 4 }}>Connect any service. Define what happens. AI handles the rest.</div></div>
             <button onClick={() => setShowNewIntegration(!showNewIntegration)} style={btnPrimary}>+ Add Integration</button>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <GmailConnect C={C} />
           </div>
           <div style={{ ...card, marginBottom: 20, borderLeft: `4px solid ${C.primary}`, background: `${C.primary}08` }}>
             <div style={{ color: C.primary, fontWeight: 700, fontSize: 13, marginBottom: 8 }}>🔌 How it works</div>
