@@ -2261,7 +2261,7 @@ var spNavBase = [
     return (
       <div style={Object.assign({ width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }, drillColors)}>
         {breadcrumb}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible', paddingLeft: 28 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible' }}>
           {inner}
         </div>
       </div>
