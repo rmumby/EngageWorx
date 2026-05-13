@@ -77,8 +77,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       } catch (e) { setAgentName(''); }
     })();
   }, [cspTenantId]);
-  var { theme: _cspTheme } = useTheme();
+  var { theme: _cspTheme, isDark: _cspIsDark } = useTheme();
   var C = getThemedColors(Object.assign({}, getCSPColors(), brandColors), _cspTheme);
+  var sidebarBg = _cspIsDark ? (brandColors.primary || C.surface) : (brandColors.accent || C.surface);
   var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
 
   useEffect(function() {
@@ -312,7 +313,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-        <div style={{ width: 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden' }}>
+        <div style={{ width: 240, background: sidebarBg, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden' }}>
           <div onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
             <span>←</span><span>Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
           </div>
@@ -440,7 +441,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
 
       {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, background: C.surface, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, background: sidebarBg, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
         {onBack && (
           <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
             <span>←</span>
@@ -504,7 +505,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'contacts' && <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'pipeline' && <PipelineDashboard C={C} currentTenantId={cspTenantId} demoMode={false} />}
+        {page === 'pipeline' && <PipelineDashboard C={C} tenantId={cspTenantId} demoMode={false} />}
 
         {page === 'ai-studio' && <AIChatbot C={C} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
