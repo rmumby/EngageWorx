@@ -1,6 +1,7 @@
 // api/gmail-oauth-start.js — Initiate Google OAuth for Gmail Drafts integration
 // POST { } (JWT required)
 // Returns { url } — redirect user to this URL to start OAuth
+// State is HMAC-signed (no DB write needed for CSRF protection)
 
 var { createClient } = require('@supabase/supabase-js');
 var crypto = require('crypto');
@@ -10,6 +11,12 @@ function getSupabase() {
     process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+function signState(payload, secret) {
+  var data = JSON.stringify(payload);
+  var sig = crypto.createHmac('sha256', secret).update(data).digest('base64url');
+  return Buffer.from(data).toString('base64url') + '.' + sig;
 }
 
 module.exports = async function handler(req, res) {
@@ -31,18 +38,9 @@ module.exports = async function handler(req, res) {
   var redirectUri = process.env.GOOGLE_REDIRECT_URI || (process.env.PORTAL_BASE_URL || 'https://portal.engwx.com') + '/api/gmail-oauth-callback';
   if (!clientId) return res.status(500).json({ error: 'GOOGLE_CLIENT_ID not configured' });
 
-  // CSRF state token: ties callback to this user's session
-  var statePayload = JSON.stringify({ userId: userId, nonce: crypto.randomBytes(16).toString('hex'), ts: Date.now() });
-  var stateToken = Buffer.from(statePayload).toString('base64url');
-
-  // Store state temporarily for callback verification (5 min TTL)
-  await supabase.from('user_gmail_tokens').upsert({
-    user_id: userId,
-    refresh_token: '__pending_oauth__',
-    access_token: stateToken,
-    email_address: '__pending__',
-    token_expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-  }, { onConflict: 'user_id' });
+  // HMAC-signed state: userId + timestamp, verified in callback without DB lookup
+  var hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-secret';
+  var stateToken = signState({ userId: userId, ts: Date.now() }, hmacSecret);
 
   var scope = 'https://www.googleapis.com/auth/gmail.modify';
   var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({

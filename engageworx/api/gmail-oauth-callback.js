@@ -1,14 +1,25 @@
 // api/gmail-oauth-callback.js — Handle Google OAuth callback for Gmail Drafts
 // GET ?code=...&state=... (redirected from Google)
-// Exchanges code for tokens, stores in user_gmail_tokens, redirects to portal
+// Verifies HMAC-signed state, exchanges code for tokens, stores in user_gmail_tokens
 
 var { createClient } = require('@supabase/supabase-js');
+var crypto = require('crypto');
 
 function getSupabase() {
   return createClient(
     process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+function verifyState(stateToken, secret) {
+  var parts = stateToken.split('.');
+  if (parts.length !== 2) return null;
+  var data = parts[0];
+  var sig = parts[1];
+  var expectedSig = crypto.createHmac('sha256', secret).update(Buffer.from(data, 'base64url').toString()).digest('base64url');
+  if (sig !== expectedSig) return null;
+  try { return JSON.parse(Buffer.from(data, 'base64url').toString()); } catch (e) { return null; }
 }
 
 module.exports = async function handler(req, res) {
@@ -28,34 +39,20 @@ module.exports = async function handler(req, res) {
     return res.redirect(portalBase + '/?gmail_connect=error&reason=missing_params');
   }
 
-  // Verify state token — find the pending row
-  var supabase = getSupabase();
-  var statePayload;
-  try {
-    statePayload = JSON.parse(Buffer.from(state, 'base64url').toString());
-  } catch (e) {
+  // Verify HMAC-signed state
+  var hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-secret';
+  var statePayload = verifyState(state, hmacSecret);
+  if (!statePayload || !statePayload.userId) {
     return res.redirect(portalBase + '/?gmail_connect=error&reason=invalid_state');
   }
 
-  var userId = statePayload.userId;
-  if (!userId) return res.redirect(portalBase + '/?gmail_connect=error&reason=invalid_state');
-
-  // Verify state matches what we stored
-  var { data: pending } = await supabase.from('user_gmail_tokens')
-    .select('access_token, token_expires_at')
-    .eq('user_id', userId)
-    .eq('refresh_token', '__pending_oauth__')
-    .maybeSingle();
-
-  if (!pending || pending.access_token !== state) {
-    return res.redirect(portalBase + '/?gmail_connect=error&reason=state_mismatch');
-  }
-
   // Check TTL (5 min)
-  if (pending.token_expires_at && new Date(pending.token_expires_at) < new Date()) {
-    await supabase.from('user_gmail_tokens').delete().eq('user_id', userId);
+  if (Date.now() - statePayload.ts > 5 * 60 * 1000) {
     return res.redirect(portalBase + '/?gmail_connect=error&reason=expired');
   }
+
+  var userId = statePayload.userId;
+  var supabase = getSupabase();
 
   // Exchange code for tokens
   var clientId = process.env.GOOGLE_CLIENT_ID;
@@ -81,7 +78,7 @@ module.exports = async function handler(req, res) {
       return res.redirect(portalBase + '/?gmail_connect=error&reason=token_exchange_failed');
     }
 
-    // Get user's email address from Google userinfo
+    // Get user's email address
     var emailAddress = '';
     try {
       var profileRes = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
