@@ -2,6 +2,13 @@
 // POST { action_item_id }
 // Used by client-side polling + foreground checks.
 // Returns { status, draft_exists, was_sent, gmail_message_id, diagnostics }
+//
+// TODO: Activity detection — has_new_activity_since_draft is never written today.
+// To enable the "New activity since draft" warning badge on the Action Board,
+// this endpoint (or the hourly reconciler) needs to compare gmail_drafted_at
+// against new conversation_messages on the related lead/contact. If any
+// message.created_at > gmail_drafted_at exists, set has_new_activity_since_draft=true
+// on the action_item row. Separate workstream — do not implement here.
 
 var { createClient } = require('@supabase/supabase-js');
 var { getGmailClient } = require('../_lib/gmail-client');

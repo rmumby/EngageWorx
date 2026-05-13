@@ -417,6 +417,13 @@ export default function ActionBoard({ C, currentTenantId }) {
                   borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700,
                 }}>📧 Drafted in Gmail · {relativeTime(item.gmail_drafted_at)}</span>
               )}
+              {isDrafted && item.has_new_activity_since_draft && (
+                <span style={{
+                  background: 'rgba(245,158,11,0.12)', color: '#F59E0B',
+                  border: '1px solid rgba(245,158,11,0.3)',
+                  borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700,
+                }}>⚠️ New activity since draft</span>
+              )}
             </div>
           </div>
           {item.stage_advance_type === 'mechanical' && (
