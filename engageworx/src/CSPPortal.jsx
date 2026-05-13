@@ -13,6 +13,8 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
+import ImportLeads from './ImportLeads';
+import LeadScan from './LeadScan';
 import OnboardingWizard from './OnboardingWizard';
 import CSPSMSRegistration from './CSPSMSRegistration';
 import AutoDetectBrandBar from './AutoDetectBrandBar';
@@ -552,6 +554,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'sms-registration' && <CSPSMSRegistration cspTenantId={cspTenantId} C={C} />}
         {page === 'integrations' && <Settings C={C} currentTenantId={cspTenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
+
+        {page === 'import' && <ImportLeads C={C} demoMode={false} />}
+        {page === 'lead-scan' && <LeadScan C={C} demoMode={false} />}
 
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={cspTenantId} />}
 
