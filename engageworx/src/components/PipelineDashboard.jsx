@@ -74,9 +74,9 @@ function resolveStageKey(lead, stages) {
 function labelStyle() { var t = T(); return { fontSize: "11px", fontWeight: 700, color: t.muted, letterSpacing: "0.06em", textTransform: "uppercase" }; }
 function inputStyleFn() { var t = T(); return { width: "100%", marginTop: "5px", padding: "9px 11px", borderRadius: "7px", background: t.inputBg, border: "1px solid " + t.inputBorder, color: t.inputText, fontSize: "13px", outline: "none", boxSizing: "border-box", fontFamily: "inherit" }; }
 
-function LeadCard({ lead, onSelect, onUrgencyChange }) {
+function LeadCard({ lead, onSelect, onUrgencyChange, stages }) {
   var t = T();
-  const stage = STAGES.find((s) => s.id === resolveStageKey(lead, STAGES)) || STAGES[0];
+  const stage = stages.find((s) => s.id === resolveStageKey(lead, stages)) || stages[0];
   const days  = daysSince(lead.last_action_at);
   const stale = days !== null && days >= STALE_DAYS;
   const urgencyColor = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#9aaabb" }[lead.urgency] || "#9aaabb";
@@ -226,7 +226,7 @@ function ContactsPanel({ leadId, leadCompany }) {
   );
 }
 
-function Modal({ lead, onClose, onSave, tenantId }) {
+function Modal({ lead, onClose, onSave, tenantId, stages }) {
   var t = T();
   const split = splitName(lead.name);
   const [firstName, setFirstName] = useState(split.first);
@@ -256,7 +256,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
       }).catch(function(){});
     }
   }, [lead.id]);
-  const stage = STAGES.find((s) => s.id === form.stage) || STAGES[0];
+  const stage = stages.find((s) => s.id === form.stage) || stages[0];
   const isNew = !lead.id || String(lead.id).startsWith("new_");
 
   const handleAI = async () => {
@@ -370,7 +370,7 @@ function Modal({ lead, onClose, onSave, tenantId }) {
         <div style={{ marginBottom: "18px" }}>
           <label style={labelStyle()}>Stage</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
-            {STAGES.map((s) => (
+            {stages.map((s) => (
               <button key={s.id} onClick={() => setForm({ ...form, stage: s.id, last_action_at: new Date().toISOString().split("T")[0] })}
                 style={{ padding: "6px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, cursor: "pointer", background: form.stage === s.id ? s.color : "rgba(255,255,255,0.05)", color: form.stage === s.id ? "#fff" : "#b0bec5", border: "1px solid " + (form.stage === s.id ? s.color : "rgba(255,255,255,0.08)"), transition: "all 0.15s" }}>
                 {s.icon} {s.label}
@@ -874,7 +874,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                       })}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                      {rows.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />; })}
+                      {rows.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} stages={STAGES} />; })}
                     </div>
                   </div>
                 );
@@ -886,7 +886,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                     <span style={{ fontSize: 11, color: '#64748b', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', borderRadius: 4 }}>{solo.length}</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-                    {solo.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />; })}
+                    {solo.map(function(lead) { return <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} stages={STAGES} />; })}
                   </div>
                 </div>
               )}
@@ -907,7 +907,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                 <div style={{ background:surface,borderRadius:"10px",padding:"10px",minHeight:"80px",border:"1px solid " + border }}>
                   {sl.length === 0
                     ? <div style={{ textAlign:"center",padding:"16px 0",fontSize:"11px",color:"#1e293b" }}>Empty</div>
-                    : sl.map(lead => <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} />)}
+                    : sl.map(lead => <LeadCard key={lead.id} lead={lead} onSelect={setSelected} onUrgencyChange={handleUrgencyChange} stages={STAGES} />)}
                 </div>
               </div>
             );
@@ -915,7 +915,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
         </div>
       )}
 
-      {selected && <Modal lead={selected} tenantId={tenantId} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} />}
+      {selected && <Modal lead={selected} tenantId={tenantId} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} stages={STAGES} />}
 
       {validateOpen && <ValidateExistingModal
         leads={leads.filter(function(l) { return !l.archived && l.qualified === false; })}
