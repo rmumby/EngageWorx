@@ -422,8 +422,23 @@ async function insertOrUpdate(supabase, row) {
     if (error) {
       // Check for unique violation (dedup index)
       if (error.code === '23505') {
-        // Existing row — update only if still pending (sent/dismissed rows are left alone)
-        var { data: updatedRows, error: updateErr } = await supabase.from('action_items')
+        // Existing row — update only if still pending (sent/dismissed rows are left alone).
+        // CRITICAL: filter must mirror the unique index COALESCE(contact_id, lead_id,
+        // conversation_id, ticket_id, related_tenant_id) so we only update the ONE
+        // row that collided — not every pending row for this tenant/user/source.
+        var targetFk = row.contact_id ? 'contact_id'
+          : row.lead_id ? 'lead_id'
+          : row.conversation_id ? 'conversation_id'
+          : row.ticket_id ? 'ticket_id'
+          : row.related_tenant_id ? 'related_tenant_id'
+          : null;
+
+        if (!targetFk) {
+          console.error('[action-item-generator] Dedup 23505 but no FK populated — aborting UPDATE to prevent cross-row contamination.', { tenant_id: row.tenant_id, source: row.source, lead_id: row.lead_id });
+          return { success: false, error: 'dedup_no_fk: 23505 with no target FK', lead_id: row.lead_id };
+        }
+
+        var dedupQuery = supabase.from('action_items')
           .update({
             updated_at: new Date().toISOString(),
             title: row.title,
@@ -438,8 +453,10 @@ async function insertOrUpdate(supabase, row) {
           .eq('tenant_id', row.tenant_id)
           .eq('user_id', row.user_id)
           .eq('source', row.source)
+          .eq(targetFk, row[targetFk])
           .eq('status', 'pending')
           .select();
+        var { data: updatedRows, error: updateErr } = await dedupQuery;
         if (updateErr) return { success: false, error: updateErr.message, lead_id: row.lead_id };
         if (!updatedRows || updatedRows.length === 0) {
           // Existing row is no longer pending (already sent/dismissed) — skip silently
