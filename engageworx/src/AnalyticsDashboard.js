@@ -180,7 +180,7 @@ function ProgressBar({ value, max = 100, color, height = 6 }) {
 }
 
 // ─── DATE RANGE PICKER ─────────────────────────────────────────────────────────
-function DateRangePicker({ startDate, endDate, onChangeStart, onChangeEnd, onPreset }) {
+function DateRangePicker({ C, startDate, endDate, onChangeStart, onChangeEnd, onPreset }) {
   const presets = [
     { label: "Today", days: 0 }, { label: "7D", days: 7 }, { label: "30D", days: 30 },
     { label: "90D", days: 90 }, { label: "120D", days: 120 },
@@ -412,7 +412,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
 
       {/* Filters Bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20, padding: "14px 20px", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12 }}>
-        <DateRangePicker startDate={startDate} endDate={endDate} onChangeStart={setStartDate} onChangeEnd={setEndDate} onPreset={handlePreset} />
+        <DateRangePicker C={C} startDate={startDate} endDate={endDate} onChangeStart={setStartDate} onChangeEnd={setEndDate} onPreset={handlePreset} />
         <div style={{ display: "flex", gap: 10 }}>
           {viewLevel === "sp" && (
             <select value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)} style={selectStyle}>

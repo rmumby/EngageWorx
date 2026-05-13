@@ -382,7 +382,7 @@ saveAIConfig(newSources);
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>🤖 {aiConfig.agentName || botName || 'Aria'} <span style={{ color: C.muted, fontSize: 14, fontWeight: 500 }}>· AI assistant</span></h1>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>🤖 AI Chatbot</h1>
               <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Configure personality, knowledge, and escalation rules</p>
             </div>
             <div style={{ display: "flex", gap: 10 }}>

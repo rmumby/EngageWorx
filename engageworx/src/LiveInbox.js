@@ -616,13 +616,17 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
   // Errors shown inline in the conversation list
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif", height: "calc(100vh - 32px)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ padding: '20px 24px 0 24px', flexShrink: 0 }}>
+        <h1 style={{ margin: 0, color: C?.text || '#111', fontSize: 24, fontWeight: 700 }}>Live Inbox</h1>
+      </div>
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
       <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>Live Inbox</h2>
+            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>Conversations</h2>
             <div style={{ display: "flex", gap: 6 }}>
               {totalUnread > 0 && <span style={{ background: "#FF3B30", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
@@ -1081,6 +1085,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           30% { opacity: 1; transform: translateY(-4px); }
         }
       `}</style>
+      </div>
     </div>
   );
 }
