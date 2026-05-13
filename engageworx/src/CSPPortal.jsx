@@ -335,7 +335,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               var active = tenantPage === item.id;
               return (
                 <div key={item.id} onClick={function() { setTenantPage(item.id); }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? tC.primary + '15' : 'transparent', color: active ? tC.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s' }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? (_cspIsDark ? 'rgba(255,255,255,0.1)' : tC.primary + '15') : 'transparent', color: active ? (_cspIsDark ? '#ffffff' : tC.primary) : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s' }}>
                   <span style={{ fontSize: 18 }}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
@@ -471,7 +471,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             var active = page === item.id;
             return (
               <div key={item.id} onClick={function() { setPage(item.id); setDrillDown(null); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? C.primary + '15' : 'transparent', color: active ? C.primary : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? (_cspIsDark ? 'rgba(255,255,255,0.1)' : C.primary + '15') : 'transparent', color: active ? (_cspIsDark ? '#ffffff' : C.primary) : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
                 <span style={{ fontSize: 18 }}>{item.icon}</span>
                 {!sidebarCollapsed && <span>{item.label}</span>}
               </div>
