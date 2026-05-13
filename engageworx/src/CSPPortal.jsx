@@ -275,9 +275,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   });
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
-  var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: '#fff', fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
+  var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
   var btnPrimary = { background: 'linear-gradient(135deg, ' + (brandColors.primary || '#00C9FF') + ', ' + (brandColors.accent || '#E040FB') + ')', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  var btnSec = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  var btnSec = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: C.text, fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   var labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
 
   var totalMessages = 0; var totalSms = 0; var totalWhatsapp = 0; var totalEmail = 0;
@@ -321,7 +321,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               {(drillDownTenant.brand_name || drillDownTenant.name || 'T').charAt(0).toUpperCase()}
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{drillDownTenant.name}</div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: C.text, letterSpacing: -0.5 }}>{drillDownTenant.name}</div>
               <div style={{ fontSize: 10, color: tC.primary, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{drillDownTenant.plan} · {drillDownTenant.status}</div>
             </div>
           </div>
@@ -339,7 +339,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
           <div style={{ marginTop: 'auto' }}>
             <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', fontSize: 11, color: C.muted }}>
-              <div style={{ color: '#fff', fontWeight: 600, marginBottom: 2 }}>Managing as</div>
+              <div style={{ color: C.text, fontWeight: 600, marginBottom: 2 }}>Managing as</div>
               <div>{cspInfo ? cspInfo.name : 'Partner'}</div>
             </div>
           </div>
@@ -348,7 +348,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           {tenantPage === 'tenant_inbox' && (
             <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
+                <h2 style={{ color: C.text, margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
               </div>
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <LiveInbox C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
@@ -377,7 +377,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           {(tenantPage === 'tenant_campaigns' || tenantPage === 'tenant_analytics') && (
             <div style={{ padding: '32px 40px' }}>
-              <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
+              <h1 style={{ color: C.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
                 {tenantPage === 'tenant_campaigns' ? '🚀 Campaigns' : '📊 Analytics'} — {drillDownTenant.name}
               </h1>
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
@@ -397,7 +397,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {logoEl}
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
           <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
           <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>{icon} {label}</span>
         </div>
@@ -414,7 +414,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {logoEl}
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#fff' }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
             <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>💬 Live Inbox</span>
           </div>
@@ -456,7 +456,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
           {!sidebarCollapsed && (
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#fff', letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: C.text, letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
               <div style={{ fontSize: 10, color: C.primary, fontWeight: 600, letterSpacing: 0.5 }}>PARTNER PORTAL</div>
             </div>
           )}
@@ -523,7 +523,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'blog' && (
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📝 Blog Manager</h1>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>📝 Blog Manager</h1>
             <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>📝</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Blog Manager coming to CSP portal in next update.</div>
@@ -533,7 +533,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'registration' && (
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>📋 Registration</h1>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>📋 Registration</h1>
             <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>📋</div>
               <div style={{ color: C.muted, fontSize: 14 }}>Registration module coming to CSP portal in next update.</div>
@@ -552,13 +552,13 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'branding' && (
           <div style={{ padding: '32px 36px', maxWidth: 900 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🎨 Your Branding</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>🎨 Your Branding</h1>
             <p style={{ color: C.muted, fontSize: 14, marginBottom: 16 }}>Your portal brand colors, logo, and identity.</p>
             <AutoDetectBrandBar tenantId={cspTenantId} C={C} onDetected={function() { setBrandingKey(function(k) { return k + 1; }); }} />
             <BrandingEditor key={'brand-' + brandingKey} entityId={cspTenantId} actor={{ tenantId: cspTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
 
             <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>🏢 Tenant Branding</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: '0 0 6px' }}>🏢 Tenant Branding</h2>
               <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Manage branding for each tenant under your account. Click a tenant to expand their branding editor and auto-detect.</p>
               <TenantBrandingManager parentTenantId={cspTenantId} C={C} />
             </div>
@@ -582,7 +582,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
               <div>
-                <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>{cspInfo ? cspInfo.name : 'Partner'} Dashboard</h1>
+                <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>{cspInfo ? cspInfo.name : 'Partner'} Dashboard</h1>
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage your tenants and monitor usage</p>
               </div>
             </div>
@@ -604,7 +604,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
+                <h2 style={{ color: C.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
                   <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
@@ -616,7 +616,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               ) : tenants.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 40 }}>
                   <div style={{ fontSize: 40, marginBottom: 12 }}>🏢</div>
-                  <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No tenants yet</div>
+                  <div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No tenants yet</div>
                   <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
                 </div>
               ) : (
@@ -629,11 +629,11 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     return (
                       <div key={tenant.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 150px 120px', alignItems: 'center', gap: 12, padding: '14px 18px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
                         <div>
-                          <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{tenant.display_alias || tenant.name}</div>
+                          <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{tenant.display_alias || tenant.name}</div>
                           <div style={{ color: C.muted, fontSize: 11 }}>{tenant.parent_product_label ? tenant.parent_product_label + ' · ' : ''}{tenant.plan} · {tenant.status}</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{msgs.toLocaleString()}</div>
+                          <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{msgs.toLocaleString()}</div>
                           <div style={{ color: C.muted, fontSize: 10 }}>messages</div>
                         </div>
                         <div>
@@ -661,7 +661,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
               <div>
-                <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>Tenant Management</h1>
+                <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Tenant Management</h1>
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} under {cspInfo ? cspInfo.name : 'your account'}</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -673,7 +673,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             {tenants.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
-                <div style={{ color: '#fff', fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No tenants yet</div>
+                <div style={{ color: C.text, fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No tenants yet</div>
                 <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
               </div>
             ) : (
@@ -683,7 +683,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                   return (
                     <div key={tenant.id} style={Object.assign({}, card, { display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px 120px', alignItems: 'center', gap: 16, borderLeft: '4px solid ' + (tenant.status === 'active' ? '#00E676' : '#FFD600') })}>
                       <div>
-                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{tenant.name}</div>
+                        <div style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{tenant.name}</div>
                         <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Created {new Date(tenant.created_at).toLocaleDateString()}</div>
                       </div>
                       <div style={{ textAlign: 'center' }}>
@@ -696,7 +696,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                       </div>
                       <div style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Messages</div>
-                        <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{msgs.toLocaleString()}</div>
+                        <div style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{msgs.toLocaleString()}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <button onClick={function() { setDrillDownTenant(tenant); setTenantPage('tenant_inbox'); }} style={Object.assign({}, btnPrimary, { padding: '8px 16px', fontSize: 12 })}>Manage →</button>
@@ -714,15 +714,15 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowCreate(false); }}>
             <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 500, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>Add New Tenant</h2>
+                <h2 style={{ color: C.text, margin: 0, fontSize: 20, fontWeight: 700 }}>Add New Tenant</h2>
                 <span onClick={function() { setShowCreate(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
               </div>
               {createResult && createResult.success ? (
                 <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
                   <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Tenant Created</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
-                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{createResult.tenant_name}</span>
-                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{createResult.email}</span>
+                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: C.text, fontWeight: 600 }}>{createResult.tenant_name}</span>
+                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: C.text }}>{createResult.email}</span>
                     <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{createForm.password}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                     <span style={{ color: C.muted }}>Welcome email:</span><span style={{ color: createResult.welcome_email_sent === false ? '#FF6B35' : '#00E676', fontWeight: 600 }}>{createResult.welcome_email_sent === false ? 'Failed — ' + (createResult.welcome_email_error || 'unknown') : '✓ Sent'}</span>
@@ -788,7 +788,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowSandbox(false); }}>
             <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 480, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>🧪 Create Sandbox</h2>
+                <h2 style={{ color: C.text, margin: 0, fontSize: 20, fontWeight: 700 }}>🧪 Create Sandbox</h2>
                 <span onClick={function() { setShowSandbox(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
               </div>
               <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Create a sandbox account for a prospect to explore the platform with full access and no commitment.</p>
@@ -796,8 +796,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
                   <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Sandbox Created</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
-                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{sandboxResult.tenant_name}</span>
-                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{sandboxResult.email}</span>
+                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: C.text, fontWeight: 600 }}>{sandboxResult.tenant_name}</span>
+                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: C.text }}>{sandboxResult.email}</span>
                     <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{sandboxResult.password}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
@@ -837,7 +837,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setShowDemoForm(false); }}>
             <div style={{ background: C.surface, border: '1px solid ' + C.border, borderRadius: 16, padding: 32, width: 480, maxHeight: '80vh', overflowY: 'auto' }} onClick={function(e) { e.stopPropagation(); }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 700 }}>🎮 Create Demo Account</h2>
+                <h2 style={{ color: C.text, margin: 0, fontSize: 20, fontWeight: 700 }}>🎮 Create Demo Account</h2>
                 <span onClick={function() { setShowDemoForm(false); }} style={{ color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</span>
               </div>
               <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Create a pre-configured demo account to showcase the platform to a prospect in a live setting.</p>
@@ -845,8 +845,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <div style={{ background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.3)', borderRadius: 10, padding: 20 }}>
                   <div style={{ color: '#00E676', fontWeight: 700, fontSize: 15, marginBottom: 12 }}>✓ Demo Account Created</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
-                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{demoResult.tenant_name}</span>
-                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{demoResult.email}</span>
+                    <span style={{ color: C.muted }}>Company:</span><span style={{ color: C.text, fontWeight: 600 }}>{demoResult.tenant_name}</span>
+                    <span style={{ color: C.muted }}>Email:</span><span style={{ color: C.text }}>{demoResult.email}</span>
                     <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{demoResult.password}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
@@ -873,7 +873,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
                       🎮 Demo accounts come pre-loaded and are great for live prospect walkthroughs.
                     </div>
-                    <button onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ background: 'linear-gradient(135deg, ' + C.accent + ', #7C4DFF)', border: 'none', borderRadius: 10, padding: '14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: (demoLoading || !demoForm.email || !demoForm.companyName) ? 0.6 : 1 }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</button>
+                    <button onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ background: 'linear-gradient(135deg, ' + C.accent + ', #7C4DFF)', border: 'none', borderRadius: 10, padding: '14px', color: C.text, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: (demoLoading || !demoForm.email || !demoForm.companyName) ? 0.6 : 1 }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</button>
                   </div>
                 </div>
               )}
