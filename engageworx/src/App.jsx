@@ -2116,7 +2116,6 @@ var spNavBase = [
     { id: "customer-success", label: tSP('nav.customerSuccess'),   icon: "📊", superadminOnly: true },
     { id: "platform-updates", label: tSP('nav.platformUpdates'),   icon: "📢", superadminOnly: true },
     { id: "registrations",    label: "Registrations",              icon: "📋" },
-    { id: "tcr-queue",        label: tSP('nav.tcrQueue'),          icon: "📋", superadminOnly: true },
     { id: "demo",             label: tSP('nav.demoMode'),          icon: "🎯" },
     { id: "blog",             label: tSP('nav.blogManager'),       icon: "📝", superadminOnly: true },
     { id: "api",              label: tSP('nav.apisIntegrations'),  icon: "🔌" },
