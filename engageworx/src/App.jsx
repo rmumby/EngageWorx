@@ -45,6 +45,7 @@ import OnboardingWizard from './OnboardingWizard';
 import SetupChecklist from './SetupChecklist';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
+import { getEnabledModules } from './lib/modules';
 import { getNavItems } from './navMenu';
 import LandingPage from './components/LandingPage';
 import { lazy, Suspense } from 'react';
@@ -1971,13 +1972,20 @@ function AppInner() {
   const jumpDrill = function(idx) { setDrillDownStack(function(s) { var next = s.slice(0, idx); if (next.length > 0 && branding.setActiveTenantBranding) { branding.setActiveTenantBranding(next[next.length - 1]); } else if (branding.resetToHostBranding) { branding.resetToHostBranding(); } return next; }); };
   const [spPage, setSpPage] = useState("dashboard");
   const [spAgentName, setSpAgentName] = useState('Aria');
+  const [spEnabledModules, setSpEnabledModules] = useState({});
   useEffect(() => {
+    var spTid = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
     (async () => {
       try {
-        const { data } = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')).limit(1).maybeSingle();
+        const { data } = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', spTid).limit(1).maybeSingle();
         const n = data && data.bot_name ? String(data.bot_name).trim() : '';
         if (n) setSpAgentName(n);
       } catch (e) {}
+      // Load enabled modules for SA tenant
+      try {
+        var modRes = await supabase.rpc('get_tenant_enabled_modules', { p_tenant_id: spTid });
+        if (!modRes.error && modRes.data) setSpEnabledModules(modRes.data);
+      } catch (e) { console.error('[SA Portal] module fetch error', e); }
     })();
   }, []);
   const { liveTenants, liveStats, liveLoading, refreshLiveData } = useLiveData(demoMode, isSuperAdmin);
@@ -2097,37 +2105,24 @@ function AppInner() {
   const _spColors = branding.isWhiteLabel ? Object.assign({}, TENANTS.serviceProvider.colors, { primary: branding.brandPrimary, accent: branding.brandSecondary }) : TENANTS.serviceProvider.colors;
   const C = getThemedColors(_spColors, theme);
 
-var spNavBase = [
-    { id: "dashboard",        label: tSP('nav.platformOverview'),  icon: "⊞" },
-    { id: "tenants",          label: tSP('nav.tenantManagement'),  icon: "🏢" },
-    { id: "hierarchy",        label: tSP('nav.hierarchy'),         icon: "🌳" },
-    { id: "pipeline",         label: tSP('nav.pipeline'),          icon: "📈" },
-    { id: "import",           label: tSP('nav.importLeads'),       icon: "📥" },
-    { id: "lead-scan",        label: tSP('nav.leadScan'),          icon: "📲" },
-    { id: "sequences",        label: tSP('nav.sequenceRoster'),    icon: "📋" },
-    { id: "sequence-builder", label: tSP('nav.sequenceBuilder'),   icon: "📝" },
-    { id: "campaigns",        label: tSP('nav.campaigns'),         icon: "🚀" },
-    { id: "contacts",         label: tSP('nav.contacts'),          icon: "👥" },
-    { id: "inbox",            label: tSP('nav.liveInbox'),         icon: "💬" },
-    { id: "helpdesk",         label: tSP('nav.helpDesk'),          icon: "🎫" },
-    { id: "chatbot",          label: "AI Chatbot",                      icon: "🤖" },
-    { id: "flows",            label: tSP('nav.flowBuilder'),       icon: "⚡" },
-    { id: "analytics",        label: tSP('nav.globalAnalytics'),   icon: "📊" },
-    { id: "customer-success", label: tSP('nav.customerSuccess'),   icon: "📊", superadminOnly: true },
-    { id: "platform-updates", label: tSP('nav.platformUpdates'),   icon: "📢", superadminOnly: true },
-    { id: "tcr-queue",        label: tSP('nav.tcrQueue'),          icon: "📋", superadminOnly: true },
-    { id: "demo",             label: tSP('nav.demoMode'),          icon: "🎯" },
-    { id: "blog",             label: tSP('nav.blogManager'),       icon: "📝", superadminOnly: true },
-    { id: "api",              label: tSP('nav.apisIntegrations'),  icon: "🔌" },
-    { id: "platform-settings", label: "Platform Settings",         icon: "🔧", superadminOnly: true },
-    { id: "settings",         label: tSP('nav.settings'),          icon: "⚙️" },
-  ];
-  var spNavItems = spNavBase.filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
-  if (isSuperAdmin) {
-    var settingsIdx = spNavItems.findIndex(function(n) { return n.id === 'settings'; });
-    if (settingsIdx > -1) spNavItems.splice(settingsIdx, 0, { id: 'action-board', label: 'Action Board', icon: '⚡' });
-    else { spNavItems.push({ id: 'action-board', label: 'Action Board', icon: '⚡' }); }
-  }
+  // Module registry → SA portal page routing
+  var saRouteToPage = { 'chatbot': 'chatbot', 'flows': 'flows', 'help_desk': 'helpdesk', 'registrations': 'registrations', 'sequence_builder': 'sequence-builder', 'sequence_roster': 'sequences', 'import_leads': 'import', 'lead_scan': 'lead-scan', 'ai_digest': 'email-digest', 'action_board': 'action-board', 'api_integrations': 'api' };
+  var registryModules = getEnabledModules('sa', spEnabledModules).map(function(mod) {
+    var pageId = saRouteToPage[mod.route] || mod.route;
+    return { id: pageId, label: mod.label, icon: mod.icon };
+  });
+  // SA-only items not in the module registry (platform admin tools)
+  var saOnlyItems = [
+    { id: 'customer-success', label: tSP('nav.customerSuccess'), icon: '📊', superadminOnly: true },
+    { id: 'platform-updates', label: tSP('nav.platformUpdates'), icon: '📢', superadminOnly: true },
+    { id: 'tcr-queue', label: tSP('nav.tcrQueue'), icon: '📋', superadminOnly: true },
+    { id: 'blog', label: tSP('nav.blogManager'), icon: '📝', superadminOnly: true },
+    { id: 'platform-settings', label: 'Platform Settings', icon: '🔧', superadminOnly: true },
+  ].filter(function(i) { return isSuperAdmin || !i.superadminOnly; });
+  // Insert SA-only items before Settings
+  var settingsItem = registryModules.pop(); // Settings is always last in registry
+  var spNavItems = registryModules.concat(saOnlyItems);
+  if (settingsItem) spNavItems.push(settingsItem);
 
   const hostname = window.location.hostname;
   const isPortal = hostname.startsWith("portal.") || hostname === "localhost" || hostname === "127.0.0.1" || branding.isWhiteLabel;
