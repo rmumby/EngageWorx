@@ -1267,13 +1267,13 @@ return (<div>
                 const status = config.status || "disconnected";
                 const isSaving = channelSaving === ch.id;
                 return (
-                  <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.15)"}`, opacity: isEnabled ? 1 : 0.7 }}>
+                  <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : (C.mode === "light" ? "#d1d5db" : "rgba(255,255,255,0.15)")}`, opacity: isEnabled ? 1 : 0.7 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div></div></div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-  <span style={{ fontSize: 12, color: isEnabled ? ch.color : "rgba(255,255,255,0.3)", fontWeight: 600 }}>{isEnabled ? "ON" : "OFF"}</span>
-  <button onClick={() => saveChannelConfig(ch.id, undefined, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: `2px solid ${isEnabled ? ch.color : "rgba(255,255,255,0.2)"}`, cursor: "pointer", position: "relative", background: isEnabled ? ch.color : "rgba(255,255,255,0.08)", transition: "all 0.2s" }}>
-    <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: isEnabled ? 22 : 2, transition: "left 0.2s" }} />
+  <span style={{ fontSize: 12, color: isEnabled ? ch.color : (C.mode === "light" ? "#6b7280" : "rgba(255,255,255,0.3)"), fontWeight: 600 }}>{isEnabled ? "ON" : "OFF"}</span>
+  <button onClick={() => saveChannelConfig(ch.id, undefined, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: isEnabled ? `2px solid ${ch.color}` : (C.mode === "light" ? "1px solid #9ca3af" : `2px solid rgba(255,255,255,0.2)`), cursor: "pointer", position: "relative", background: isEnabled ? ch.color : (C.mode === "light" ? "#d1d5db" : "rgba(255,255,255,0.08)"), transition: "all 0.2s" }}>
+    <div style={{ width: 16, height: 16, borderRadius: "50%", background: "#fff", position: "absolute", top: isEnabled ? 2 : 3, left: isEnabled ? 22 : (C.mode === "light" ? 3 : 2), transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
   </button>
 </div>
                     </div>

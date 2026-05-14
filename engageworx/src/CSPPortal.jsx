@@ -379,7 +379,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           </div>
         </div>
-        <div style={{ marginLeft: 240, flex: 1, overflow: 'hidden' }}>
+        <div style={{ marginLeft: 240, flex: 1, overflow: 'hidden', minWidth: 0 }}>
           {tenantPage === 'tenant_dashboard' && (
             <div style={{ padding: '32px 40px' }}>
               <h1 style={{ color: tC.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Dashboard</h1>

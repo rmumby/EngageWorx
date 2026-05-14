@@ -616,7 +616,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
   // Errors shown inline in the conversation list
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ fontFamily: "'DM Sans', sans-serif", height: "100%", width: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: '20px 24px 0 24px', flexShrink: 0 }}>
         <h1 style={{ margin: 0, color: C?.text || '#111', fontSize: 24, fontWeight: 700 }}>Live Inbox</h1>
       </div>
