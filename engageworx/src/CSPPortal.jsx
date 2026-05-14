@@ -111,6 +111,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [createLoading, setCreateLoading] = useState(false);
   var [createResult, setCreateResult] = useState(null);
   var [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  var [drillSidebarHidden, setDrillSidebarHidden] = useState(false);
   var [showSandbox, setShowSandbox] = useState(false);
   var [showDemoForm, setShowDemoForm] = useState(false);
   var [enabledModules, setEnabledModules] = useState({});
@@ -345,7 +346,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-        <div style={{ width: 240, background: sidebarBg, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden' }}>
+        <div style={{ width: drillSidebarHidden ? 0 : 240, background: sidebarBg, borderRight: drillSidebarHidden ? 'none' : ('1px solid ' + C.border), display: 'flex', flexDirection: 'column', padding: drillSidebarHidden ? 0 : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden', transition: 'width 0.25s ease, padding 0.25s ease' }}>
           <div onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
             <span>←</span><span>Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
           </div>
@@ -379,7 +380,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           </div>
         </div>
-        <div style={{ marginLeft: 240, flex: 1, overflow: 'hidden', minWidth: 0 }}>
+        <div style={{ marginLeft: drillSidebarHidden ? 0 : 240, flex: 1, overflow: 'hidden', minWidth: 0, transition: 'margin-left 0.25s ease' }}>
           {tenantPage === 'tenant_dashboard' && (
             <div style={{ padding: '32px 40px' }}>
               <h1 style={{ color: tC.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Dashboard</h1>
@@ -392,7 +393,10 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           {tenantPage === 'tenant_inbox' && (
             <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', overflow: 'hidden' }}>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface }}>
-                <h2 style={{ color: C.text, margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span onClick={function() { setDrillSidebarHidden(!drillSidebarHidden); }} style={{ cursor: 'pointer', fontSize: 16, color: C.muted, padding: '2px 6px', borderRadius: 4, border: '1px solid ' + C.border, lineHeight: 1 }} title={drillSidebarHidden ? 'Show sidebar' : 'Hide sidebar'}>{drillSidebarHidden ? '»' : '«'}</span>
+                  <h2 style={{ color: C.text, margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
+                </div>
               </div>
               <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <LiveInbox C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} supabase={supabase} />
@@ -499,30 +503,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     );
   };
 
-  // ai-studio, sequences, flow-builder now render inside the main sidebar layout (below)
-
-  if (page === 'inbox') {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', height: 'auto', background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', height: 48, background: C.surface, borderBottom: '1px solid ' + C.border, flexShrink: 0, zIndex: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {logoEl}
-            <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{cspInfo ? cspInfo.name : 'Partner Portal'}</div>
-            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-            <span style={{ color: C.primary, fontSize: 12, fontWeight: 600 }}>💬 Live Inbox</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span onClick={function() { setPage('dashboard'); }} style={{ background: C.primary + '20', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '5px 12px', color: C.primary, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>← Back to Portal</span>
-            <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.15)' }} />
-            <span onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ color: '#FF5252', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>⏻ Sign Out</span>
-          </div>
-        </div>
-        <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} supabase={supabase} />
-        </div>
-      </div>
-    );
-  }
+  // ai-studio, sequences, flow-builder, inbox all render inside the main sidebar layout (below)
 
   if (needsOnboarding) {
     return <OnboardingWizard tenantId={cspTenantId} onComplete={function() { setNeedsOnboarding(false); }} />;
@@ -590,10 +571,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
-          {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
-        </div>
+      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative', overflowY: page === 'inbox' ? 'hidden' : undefined, height: page === 'inbox' ? '100vh' : undefined }}>
+        {page !== 'inbox' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
+            {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
+          </div>
+        )}
+
+        {page === 'inbox' && <LiveInbox C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} supabase={supabase} />}
 
         {page === 'contacts' && <ContactsModule C={C} tenants={[]} viewLevel="tenant" currentTenantId={cspTenantId} demoMode={false} />}
 
