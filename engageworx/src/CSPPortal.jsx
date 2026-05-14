@@ -12,7 +12,6 @@ import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import CampaignsModule from './CampaignsModule';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
-import SupportRequestForm from './SupportRequestForm';
 import ImportLeads from './ImportLeads';
 import LeadScan from './LeadScan';
 import OnboardingWizard from './OnboardingWizard';
@@ -462,7 +461,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           {tenantPage === 'tenant_help_desk' && (
             <div style={{ padding: '32px 40px' }}>
-              <HelpDeskModule C={tC} currentTenantId={drillDownTenant.id} />
+              <HelpDeskModule C={tC} tenantId={drillDownTenant.id} />
             </div>
           )}
           {tenantPage === 'tenant_branding' && (
@@ -607,12 +606,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         {page === 'sequences' && <SequenceBuilder C={C} currentTenantId={cspTenantId} />}
 
         {page === 'helpdesk' && (
-          <div>
-            <div style={{ marginBottom: 16 }}>
-              <SupportRequestForm tenantId={cspTenantId} userEmail={profile ? profile.email : null} userName={profile ? profile.full_name : null} C={C} />
-            </div>
-            <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} demoMode={false} />
-          </div>
+          <HelpDeskModule tenantId={cspTenantId} userRole="tenant" C={C} demoMode={false} />
         )}
 
         {page === 'blog' && (
