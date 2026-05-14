@@ -416,7 +416,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           )}
           {tenantPage === 'tenant_sequences' && (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '24px 32px', height: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
               <SequenceBuilder C={tC} currentTenantId={drillDownTenant.id} />
             </div>
           )}
@@ -436,12 +436,12 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           )}
           {tenantPage === 'tenant_ai' && (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '24px 32px', height: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
               <AIChatbot C={tC} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
             </div>
           )}
           {tenantPage === 'tenant_flows' && (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '24px 32px', height: '100vh', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
               <FlowBuilder C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
             </div>
           )}
@@ -467,7 +467,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           {tenantPage === 'tenant_branding' && (
             <div style={{ padding: '32px 40px' }}>
-              <BrandingEditor C={tC} currentTenantId={drillDownTenant.id} />
+              <BrandingEditor entityId={drillDownTenant.id} actor={{ tenantId: drillDownTenant.id, entityTier: 'tenant', isSuperAdmin: false, mspEnabled: false, loaOnFile: false }} C={tC} />
             </div>
           )}
           {tenantPage === 'tenant_integrations' && (

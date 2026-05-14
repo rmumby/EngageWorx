@@ -622,7 +622,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
       </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
-      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
+      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)" }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -942,7 +942,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
 
       {/* ═══════════ RIGHT: Contact Info Sidebar ═══════════ */}
       {selectedConv && showContactInfo && (
-        <div style={{ width: 280, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.1)", flexShrink: 0 }}>
+        <div style={{ width: 280, minWidth: 200, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.1)" }}>
           <div style={{ padding: "20px 16px" }}>
             {/* Contact Card */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>

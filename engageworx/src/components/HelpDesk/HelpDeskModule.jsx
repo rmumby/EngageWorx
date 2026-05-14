@@ -503,7 +503,7 @@ function AutoTriagePanel({ colors, onBack }) {
 // ── Main Module ────────────────────────────────────────────────────────────
 export default function HelpDeskModule({ tenantId, userRole, userId, userName, userEmail, C, isSPAdmin, isCSP, isAgent, demoMode = false }) {
   var { theme } = useTheme();
-  var isDark = C ? C.bg === '#080d1a' || C.bg?.includes('0d') || C.text === '#E8F4FD' : theme === 'dark';
+  var isDark = C ? C.mode !== 'light' : theme === 'dark';
   var colors = getColors(isDark ? 'dark' : 'light');
 
   var [view, setView] = useState('list');
