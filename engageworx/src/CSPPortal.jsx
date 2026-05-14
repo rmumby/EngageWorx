@@ -21,6 +21,8 @@ import AutoDetectBrandBar from './AutoDetectBrandBar';
 import TenantBrandingManager from './TenantBrandingManager';
 import { ThemeToggle, useTheme, getThemedColors } from './ThemeContext';
 import FlowBuilder from './FlowBuilder';
+import SequenceRoster from './SequenceRoster';
+import ActionBoard from './ActionBoard';
 import { getEnabledModules } from './lib/modules';
 
 function getCSPColors() {
@@ -113,6 +115,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [showSandbox, setShowSandbox] = useState(false);
   var [showDemoForm, setShowDemoForm] = useState(false);
   var [enabledModules, setEnabledModules] = useState({});
+  var [subTenantEnabledModules, setSubTenantEnabledModules] = useState({});
   // Sandbox state
   var [sandboxForm, setSandboxForm] = useState({ fullName: '', email: '', companyName: '', password: '' });
   var [sandboxLoading, setSandboxLoading] = useState(false);
@@ -123,6 +126,18 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   var [demoResult, setDemoResult] = useState(null);
 
   useEffect(() => { if (cspTenantId) loadCSPData(); }, [cspTenantId]);
+
+  useEffect(function() {
+    if (!drillDownTenant || !drillDownTenant.id) {
+      setSubTenantEnabledModules({});
+      return;
+    }
+    supabase.rpc('get_tenant_enabled_modules', { p_tenant_id: drillDownTenant.id })
+      .then(function(res) {
+        if (res.error) { console.error('[CSPPortal sub-tenant] module fetch error', res.error); return; }
+        setSubTenantEnabledModules(res.data || {});
+      });
+  }, [drillDownTenant && drillDownTenant.id]);
 
   async function loadCSPData() {
     setLoading(true);
@@ -303,15 +318,27 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   // ── Tenant drill-down portal ──────────────────────────────────────────────
   if (drillDownTenant) {
-    var tenantNavItems = [
-      { id: 'tenant_inbox', label: 'Live Inbox', icon: '💬' },
-      { id: 'tenant_contacts', label: 'Contacts', icon: '👥' },
-      { id: 'tenant_campaigns', label: 'Campaigns', icon: '🚀' },
-      { id: 'tenant_ai', label: agentName || 'AI Chatbot', icon: '🤖' },
-      { id: 'tenant_sequences', label: 'Sequences', icon: '📧' },
-      { id: 'tenant_analytics', label: 'Analytics', icon: '📊' },
-      { id: 'tenant_settings', label: 'Settings', icon: '⚙️' },
-    ];
+    var subRouteToPage = {
+      'dashboard':        'tenant_dashboard',
+      'contacts':         'tenant_contacts',
+      'inbox':            'tenant_inbox',
+      'integrations':     'tenant_integrations',
+      'branding':         'tenant_branding',
+      'settings':         'tenant_settings',
+      'pipeline':         'tenant_pipeline',
+      'sequence_roster':  'tenant_sequence_roster',
+      'sequence_builder': 'tenant_sequences',
+      'campaigns':        'tenant_campaigns',
+      'import_leads':     'tenant_import_leads',
+      'lead_scan':        'tenant_lead_scan',
+      'chatbot':          'tenant_ai',
+      'flows':            'tenant_flows',
+      'action_board':     'tenant_action_board',
+      'registrations':    'tenant_registrations',
+      'analytics':        'tenant_analytics',
+      'help_desk':        'tenant_help_desk',
+    };
+    var visibleSubModules = getEnabledModules('tenant', subTenantEnabledModules);
     var tC = Object.assign({}, C, {
       primary: drillDownTenant.brand_primary || C.primary,
       accent: drillDownTenant.brand_secondary || C.accent,
@@ -332,14 +359,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               <div style={{ fontSize: 10, color: tC.primary, fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase' }}>{drillDownTenant.plan} · {drillDownTenant.status}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-            {tenantNavItems.map(function(item) {
-              var active = tenantPage === item.id;
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto' }}>
+            {visibleSubModules.filter(function(mod) { return mod.id !== 'ai_omni_digest'; }).map(function(mod) {
+              var pageId = subRouteToPage[mod.route];
+              if (!pageId) return null;
+              var active = tenantPage === pageId;
               return (
-                <div key={item.id} onClick={function() { setTenantPage(item.id); }}
+                <div key={mod.id} onClick={function() { setTenantPage(pageId); }}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? (_cspIsDark ? 'rgba(255,255,255,0.1)' : tC.primary + '15') : 'transparent', color: active ? (_cspIsDark ? '#ffffff' : tC.primary) : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s' }}>
-                  <span style={{ fontSize: 18 }}>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span style={{ fontSize: 18 }}>{mod.icon}</span>
+                  <span>{mod.label}</span>
                 </div>
               );
             })}
@@ -352,6 +381,15 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           </div>
         </div>
         <div style={{ marginLeft: 240, flex: 1, overflow: 'hidden' }}>
+          {tenantPage === 'tenant_dashboard' && (
+            <div style={{ padding: '32px 40px' }}>
+              <h1 style={{ color: tC.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Dashboard</h1>
+              <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+                <div style={{ color: C.muted, fontSize: 14 }}>Coming soon — tenant overview and metrics.</div>
+              </div>
+            </div>
+          )}
           {tenantPage === 'tenant_inbox' && (
             <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface }}>
@@ -367,9 +405,14 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               <ContactsModule C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
             </div>
           )}
-          {tenantPage === 'tenant_ai' && (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-              <AIChatbot C={tC} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+          {tenantPage === 'tenant_pipeline' && (
+            <div style={{ padding: '32px 40px' }}>
+              <PipelineDashboard C={tC} tenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_sequence_roster' && (
+            <div style={{ padding: '32px 40px' }}>
+              <SequenceRoster C={tC} currentTenantId={drillDownTenant.id} demoMode={false} />
             </div>
           )}
           {tenantPage === 'tenant_sequences' && (
@@ -377,20 +420,64 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               <SequenceBuilder C={tC} currentTenantId={drillDownTenant.id} />
             </div>
           )}
+          {tenantPage === 'tenant_campaigns' && (
+            <div style={{ padding: '32px 40px' }}>
+              <CampaignsModule C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_import_leads' && (
+            <div style={{ padding: '32px 40px' }}>
+              <ImportLeads C={tC} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_lead_scan' && (
+            <div style={{ padding: '32px 40px' }}>
+              <LeadScan C={tC} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_ai' && (
+            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+              <AIChatbot C={tC} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_flows' && (
+            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+              <FlowBuilder C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_action_board' && (
+            <div style={{ padding: '32px 40px' }}>
+              <ActionBoard C={tC} currentTenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_registrations' && (
+            <div style={{ padding: '32px 40px' }}>
+              <CSPSMSRegistration C={tC} currentTenantId={drillDownTenant.id} />
+            </div>
+          )}
+          {tenantPage === 'tenant_analytics' && (
+            <div style={{ padding: '32px 40px' }}>
+              <AnalyticsDashboard C={tC} tenants={[]} viewLevel="tenant" currentTenantId={drillDownTenant.id} demoMode={false} />
+            </div>
+          )}
+          {tenantPage === 'tenant_help_desk' && (
+            <div style={{ padding: '32px 40px' }}>
+              <HelpDeskModule C={tC} currentTenantId={drillDownTenant.id} />
+            </div>
+          )}
+          {tenantPage === 'tenant_branding' && (
+            <div style={{ padding: '32px 40px' }}>
+              <BrandingEditor C={tC} currentTenantId={drillDownTenant.id} />
+            </div>
+          )}
+          {tenantPage === 'tenant_integrations' && (
+            <div style={{ padding: '32px 40px' }}>
+              <Settings C={tC} currentTenantId={drillDownTenant.id} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />
+            </div>
+          )}
           {tenantPage === 'tenant_settings' && (
             <div style={{ padding: '32px 40px' }}>
               <Settings C={tC} currentTenantId={drillDownTenant.id} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security", "modules"]} />
-            </div>
-          )}
-          {(tenantPage === 'tenant_campaigns' || tenantPage === 'tenant_analytics') && (
-            <div style={{ padding: '32px 40px' }}>
-              <h1 style={{ color: C.text, fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
-                {tenantPage === 'tenant_campaigns' ? '🚀 Campaigns' : '📊 Analytics'} — {drillDownTenant.name}
-              </h1>
-              <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>{tenantPage === 'tenant_campaigns' ? '🚀' : '📊'}</div>
-                <div style={{ color: C.muted, fontSize: 14 }}>Coming in next update for tenant management view.</div>
-              </div>
             </div>
           )}
         </div>
@@ -557,6 +644,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
         {page === 'import' && <ImportLeads C={C} demoMode={false} />}
         {page === 'lead-scan' && <LeadScan C={C} demoMode={false} />}
+        {page === 'sequence-roster' && <SequenceRoster C={C} currentTenantId={cspTenantId} demoMode={false} />}
+        {page === 'action-board' && <ActionBoard C={C} currentTenantId={cspTenantId} demoMode={false} />}
 
         {page === 'email-digest' && <EmailDigest C={C} currentTenantId={cspTenantId} />}
 
