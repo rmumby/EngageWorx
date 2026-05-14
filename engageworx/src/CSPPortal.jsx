@@ -379,7 +379,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           {tenantPage === 'tenant_settings' && (
             <div style={{ padding: '32px 40px' }}>
-              <Settings C={tC} currentTenantId={drillDownTenant.id} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security"]} />
+              <Settings C={tC} currentTenantId={drillDownTenant.id} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "team", "notifications", "security", "modules"]} />
             </div>
           )}
           {(tenantPage === 'tenant_campaigns' || tenantPage === 'tenant_analytics') && (
