@@ -391,7 +391,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           )}
           {tenantPage === 'tenant_inbox' && (
-            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', width: '100%', overflow: 'hidden' }}>
               <div style={{ padding: '16px 24px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.surface }}>
                 <h2 style={{ color: C.text, margin: 0, fontSize: 16, fontWeight: 700 }}>💬 Live Inbox — {drillDownTenant.name}</h2>
               </div>

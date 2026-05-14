@@ -67,13 +67,14 @@ export default function SupportRequestForm({ tenantId, userEmail, userName, C, o
     setSubmitting(false);
   }
 
-  var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 18 };
-  var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' };
+  var isLight = colors.mode === 'light';
+  var card = { background: isLight ? (colors.surface || '#ffffff') : 'rgba(255,255,255,0.03)', border: '1px solid ' + (colors.border || 'rgba(255,255,255,0.08)'), borderRadius: 12, padding: 18 };
+  var inputStyle = { width: '100%', background: isLight ? (colors.inputBg || '#ffffff') : 'rgba(0,0,0,0.3)', border: '1px solid ' + (isLight ? (colors.inputBorder || colors.border || '#d1d5db') : 'rgba(255,255,255,0.1)'), borderRadius: 8, padding: '10px 14px', color: colors.text || '#fff', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' };
   var btnPrimary = { background: 'linear-gradient(135deg,#00C9FF,#E040FB)', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 };
 
   return (
     <div style={Object.assign({}, card, { maxWidth: 640 })}>
-      <h3 style={{ color: '#fff', margin: '0 0 6px', fontSize: 16 }}>🎫 Submit a Support Request</h3>
+      <h3 style={{ color: colors.text || '#fff', margin: '0 0 6px', fontSize: 16 }}>🎫 Submit a Support Request</h3>
       <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 14px' }}>Your AI assistant will read, triage, and auto-fix common issues within ~2 minutes. Complex issues get escalated to our team.</p>
       <label style={{ color: colors.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4, fontWeight: 700 }}>Issue type</label>
       <select value={type} onChange={function(e) { setType(e.target.value); }} style={inputStyle}>

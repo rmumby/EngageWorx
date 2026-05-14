@@ -1950,7 +1950,7 @@ return (<div>
                             <div onClick={function() {
                               setModuleToggles(Object.assign({}, moduleToggles, { [mod.id]: !enabled }));
                               setModuleSaveMsg('');
-                            }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : (C.mode === "light" ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.12)"), position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+                            }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : (C.mode === "light" ? "#d1d5db" : "rgba(255,255,255,0.12)"), border: enabled ? 'none' : (C.mode === "light" ? "1px solid #9ca3af" : "none"), position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
                               <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: enabled ? 23 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
                             </div>
                           </div>
