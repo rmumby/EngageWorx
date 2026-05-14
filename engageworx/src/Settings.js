@@ -389,6 +389,7 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [channelSavedConfig, setChannelSavedConfig] = useState(null);
   const [showSavedConfig, setShowSavedConfig] = useState(false);
   const [channelWarnings, setChannelWarnings] = useState({});
+  const [expandedChannel, setExpandedChannel] = useState(null);
   const [waVerifying, setWaVerifying] = useState(false);
   const [waVerifyResult, setWaVerifyResult] = useState(null);
   const [aiTonePreviews, setAiTonePreviews] = useState({});
@@ -699,7 +700,7 @@ if (!tenantId) {
     })(channelId, mergedConfig);
 
     if (valResult.errors.length > 0 && newEnabled) {
-      alert('Cannot save — validation errors:\n\n• ' + valResult.errors.join('\n• '));
+      setExpandedChannel(channelId);
       setChannelSaving(null);
       return;
     }
@@ -1268,8 +1269,8 @@ return (<div>
                 const isSaving = channelSaving === ch.id;
                 return (
                   <div key={ch.id} style={{ ...card, borderLeft: `4px solid ${isEnabled ? ch.color : (C.mode === "light" ? "#d1d5db" : "rgba(255,255,255,0.15)")}`, opacity: isEnabled ? 1 : 0.7 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}</div></div></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: (isEnabled || expandedChannel === ch.id) ? 16 : 0 }}>
+                      <div onClick={() => setExpandedChannel(expandedChannel === ch.id ? null : ch.id)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1 }}><span style={{ fontSize: 24 }}>{ch.icon}</span><div><div style={{ color: C.text, fontWeight: 700, fontSize: 16 }}>{ch.label}</div><div style={{ color: status === "connected" ? "#00E676" : status === "error" ? "#FF3B30" : status === "pending" ? "#FFD600" : C.muted, fontSize: 11 }}>{status === "connected" ? "● Connected" : status === "error" ? "● Error" : status === "pending" ? "◉ Pending" : "○ Not configured"}{!isEnabled && expandedChannel !== ch.id ? " · Click to configure" : ""}</div></div></div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
   <span style={{ fontSize: 12, color: isEnabled ? ch.color : (C.mode === "light" ? "#6b7280" : "rgba(255,255,255,0.3)"), fontWeight: 600 }}>{isEnabled ? "ON" : "OFF"}</span>
   <button onClick={() => saveChannelConfig(ch.id, undefined, !isEnabled)} style={{ width: 44, height: 24, borderRadius: 12, border: isEnabled ? `2px solid ${ch.color}` : (C.mode === "light" ? "1px solid #9ca3af" : `2px solid rgba(255,255,255,0.2)`), cursor: "pointer", position: "relative", background: isEnabled ? ch.color : (C.mode === "light" ? "#d1d5db" : "rgba(255,255,255,0.08)"), transition: "all 0.2s" }}>
@@ -1277,8 +1278,13 @@ return (<div>
   </button>
 </div>
                     </div>
-                    {isEnabled && (
+                    {(isEnabled || expandedChannel === ch.id) && (
                       <>
+                        {!isEnabled && (
+                          <div style={{ padding: "10px 14px", marginBottom: 14, borderRadius: 8, background: C.mode === "light" ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)", border: "1px solid " + (C.border || "rgba(255,255,255,0.08)"), fontSize: 12, color: C.muted }}>
+                            Enter your credentials below and save, then enable the toggle.
+                          </div>
+                        )}
                         {ch.id === 'email' && (() => {
                           var hasResendDomain = configData.domain && config.status === 'connected';
                           var isGmail = emailSendMethod === 'gmail';
@@ -1387,7 +1393,6 @@ return (<div>
                         {channelWarnings[ch.id].map(function(w, i) { return <div key={i} style={{ color: '#eab308', fontSize: 11 }}>⚠️ {w}</div>; })}
                       </div>
                     )}
-                    {!isEnabled && <div style={{ color: C.muted, fontSize: 12, padding: "8px 0" }}>Enable this channel to configure your {ch.label} integration.</div>}
                   </div>
                 );
               })}
