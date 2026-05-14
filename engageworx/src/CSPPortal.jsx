@@ -535,7 +535,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
           {navItems.map(function(item) {
             var active = page === item.id;
             return (
@@ -547,7 +547,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
             );
           })}
         </div>
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
           {/* Light/Dark Toggle */}
           {!sidebarCollapsed ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
