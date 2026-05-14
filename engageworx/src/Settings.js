@@ -9,6 +9,7 @@ import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
 import TenantBranding from './TenantBranding';
 import GmailConnect from './GmailConnect';
+import { getToggleableModules, MODULE_CATEGORIES } from './lib/modules';
 
 const NOTIFICATION_PREFS = [
   { id: "np_1", label: "Campaign completed", email: true, push: true, sms: false },
@@ -434,6 +435,10 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
 const [calendlyConnecting, setCalendlyConnecting] = useState(false);
 const [calendlyStatus, setCalendlyStatus] = useState(null);
 const [calendlyMessage, setCalendlyMessage] = useState('');
+  const [moduleToggles, setModuleToggles] = useState({});
+  const [originalToggles, setOriginalToggles] = useState({});
+  const [savingModules, setSavingModules] = useState(false);
+  const [moduleSaveMsg, setModuleSaveMsg] = useState('');
   // ── Resolved tenant ID (works for any logged-in user) ──────────────────
   // Always trust the explicit prop when it's present (covers SP drill-down switching tenants).
   // Only fall back to user_profiles.tenant_id when no prop is passed (standalone tenant load).
@@ -457,6 +462,22 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
       } catch(e) { console.error('tenant resolve error:', e); }
     })();
   }, [currentTenantId]);
+
+  var moduleTier = viewLevel === 'sp' ? 'sa' : 'tenant';
+  useEffect(function() {
+    if (!resolvedTenantId || demoMode) return;
+    supabase.rpc('get_tenant_enabled_modules', { p_tenant_id: resolvedTenantId })
+      .then(function(res) {
+        if (res.error) { console.error('[Settings/Modules] load error', res.error); return; }
+        var data = res.data || {};
+        var initial = {};
+        getToggleableModules(moduleTier).forEach(function(mod) {
+          initial[mod.id] = data[mod.id] !== undefined ? data[mod.id] : mod.defaultEnabled;
+        });
+        setModuleToggles(initial);
+        setOriginalToggles(JSON.parse(JSON.stringify(initial)));
+      });
+  }, [resolvedTenantId, demoMode, moduleTier]);
 
   var SP_TENANT_ID_SETTINGS = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
   var emailTenantId = resolvedTenantId || SP_TENANT_ID_SETTINGS;
@@ -1894,52 +1915,71 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "modules" && (
-  <div>
-    <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
-    <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool like Salesforce, Zendesk, or HubSpot.</p>
-    {!enabledModules ? (
-      <div style={{ ...card, padding: 40, textAlign: "center" }}>
-        <div style={{ color: C.muted, fontSize: 14 }}>Module settings are not available in this context.</div>
-      </div>
-    ) : (
-      <div>
-        <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
-          {[
-            { id: "pipeline", label: "Pipeline & Import Leads", desc: "Built-in CRM pipeline. Disable if you use Salesforce, HubSpot, or another CRM.", icon: "📈" },
-            { id: "helpdesk", label: "Help Desk", desc: "Built-in ticketing system. Disable if you use Zendesk, Freshdesk, or another platform.", icon: "🎫" },
-            { id: "sequences", label: "Sequences & Sequence Builder", desc: "Built-in drip sequences. Disable if you use Mailchimp, HubSpot, or another tool.", icon: "📧" },
-            { id: "blog", label: "Blog Manager", desc: "Built-in blog publishing. Disable if you manage content elsewhere.", icon: "📝" },
-          ].map(function(mod) {
-            var enabled = enabledModules.includes(mod.id);
-            return (
-              <div key={mod.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: enabled ? "rgba(0,201,255,0.04)" : "rgba(255,255,255,0.02)", border: "1px solid " + (enabled ? C.primary + "33" : "rgba(255,255,255,0.06)"), borderRadius: 12 }}>
-                <span style={{ fontSize: 24 }}>{mod.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
-                  <div style={{ color: C.muted, fontSize: 12 }}>{mod.desc}</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 12, color: enabled ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600 }}>{enabled ? "ON" : "OFF"}</span>
-                  <div onClick={function() {
-                    if (!onSaveModules) return;
-                    var next = enabled
-                      ? enabledModules.filter(function(m) { return m !== mod.id; })
-                      : enabledModules.concat([mod.id]);
-                    onSaveModules(next);
-                  }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : "rgba(255,255,255,0.12)", position: "relative", cursor: onSaveModules ? "pointer" : "default", transition: "background 0.2s", flexShrink: 0 }}>
-                    <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: enabled ? 23 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+      {activeTab === "modules" && (() => {
+        var toggleable = getToggleableModules(moduleTier);
+        var grouped = {};
+        toggleable.forEach(function(mod) {
+          if (!grouped[mod.category]) grouped[mod.category] = [];
+          grouped[mod.category].push(mod);
+        });
+        var sortedCats = Object.keys(grouped).sort(function(a, b) {
+          return (MODULE_CATEGORIES[a] ? MODULE_CATEGORIES[a].order : 99) - (MODULE_CATEGORIES[b] ? MODULE_CATEGORIES[b].order : 99);
+        });
+        var hasChanges = JSON.stringify(moduleToggles) !== JSON.stringify(originalToggles);
+        return (
+          <div>
+            <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 6px" }}>🧩 Optional Modules</h2>
+            <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Enable or disable modules for your portal. Disable modules you manage through an external tool like Salesforce, Zendesk, or HubSpot.</p>
+            {sortedCats.map(function(cat) {
+              var catMeta = MODULE_CATEGORIES[cat] || { label: cat };
+              return (
+                <div key={cat} style={{ marginBottom: 24 }}>
+                  <h3 style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{catMeta.label}</h3>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {grouped[cat].map(function(mod) {
+                      var enabled = moduleToggles[mod.id] !== undefined ? moduleToggles[mod.id] : mod.defaultEnabled;
+                      return (
+                        <div key={mod.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: enabled ? C.primary + "08" : (C.mode === "light" ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.02)"), border: "1px solid " + (enabled ? C.primary + "33" : C.border || "rgba(255,255,255,0.06)"), borderRadius: 12 }}>
+                          <span style={{ fontSize: 24 }}>{mod.icon}</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ color: C.text, fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{mod.label}</div>
+                            <div style={{ color: C.muted, fontSize: 12 }}>{mod.description}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 12, color: enabled ? C.primary : C.muted, fontWeight: 600 }}>{enabled ? "ON" : "OFF"}</span>
+                            <div onClick={function() {
+                              setModuleToggles(Object.assign({}, moduleToggles, { [mod.id]: !enabled }));
+                              setModuleSaveMsg('');
+                            }} style={{ width: 44, height: 24, borderRadius: 12, background: enabled ? C.primary : (C.mode === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"), position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+                              <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: enabled ? 23 : 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-        <p style={{ color: C.muted, fontSize: 12 }}>Changes take effect immediately in the sidebar. Toggle again to re-enable.</p>
-      </div>
-    )}
-  </div>
-)}
+              );
+            })}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 8 }}>
+              <button disabled={!hasChanges || savingModules} onClick={async function() {
+                setSavingModules(true);
+                setModuleSaveMsg('');
+                try {
+                  var { error } = await supabase.rpc('set_tenant_modules_bulk', { p_tenant_id: resolvedTenantId, p_modules: moduleToggles });
+                  if (error) { setModuleSaveMsg('Error: ' + error.message); }
+                  else { setOriginalToggles(JSON.parse(JSON.stringify(moduleToggles))); setModuleSaveMsg('Saved'); setTimeout(function() { setModuleSaveMsg(''); }, 3000); }
+                } catch (e) { setModuleSaveMsg('Error: ' + e.message); }
+                setSavingModules(false);
+              }} style={{ background: hasChanges ? ("linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")") : (C.mode === "light" ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)"), border: "none", borderRadius: 10, padding: "10px 24px", color: hasChanges ? "#000" : C.muted, fontWeight: 700, cursor: hasChanges && !savingModules ? "pointer" : "default", fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: savingModules ? 0.6 : 1 }}>
+                {savingModules ? "Saving..." : "Save Changes"}
+              </button>
+              {moduleSaveMsg && <span style={{ fontSize: 13, fontWeight: 600, color: moduleSaveMsg === 'Saved' ? "#00E676" : "#FF3B30" }}>{moduleSaveMsg}</span>}
+            </div>
+            <p style={{ color: C.muted, fontSize: 12, marginTop: 12 }}>Changes take effect in the sidebar after save. Toggle again to re-enable.</p>
+          </div>
+        );
+      })()}
 
       {activeTab === "branding" && (
         <TenantBranding tenantId={resolvedTenantId || currentTenantId} userRole={userRole} />
