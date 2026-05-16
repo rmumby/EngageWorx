@@ -5,6 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { buildSystemPrompt } = require('./_lib/build-system-prompt');
+const { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 
 function getSupabase() {
   return createClient(
@@ -541,8 +542,11 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         if (tenantId === (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')) {
           var leadCheck = await supabase.from('leads').select('id').or('name.eq.' + From + ',notes.ilike.%' + From + '%').limit(1);
           if (!leadCheck.data || leadCheck.data.length === 0) {
+            var smsStageId = await getPipelineStageId(supabase, tenantId, STAGE_KEYS.LEAD);
             await supabase.from('leads').insert({
+              tenant_id: tenantId,
               name: null, company: null, type: 'Unknown', urgency: 'Warm', stage: 'inquiry',
+              pipeline_stage_id: smsStageId,
               source: 'inbound_sms',
               notes: 'Auto-created from inbound SMS from ' + From + '. Message: ' + (Body || '').substring(0, 200),
               last_action_at: new Date().toISOString().split('T')[0],

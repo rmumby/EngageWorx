@@ -3,6 +3,7 @@
 // POST /api/webhook-inbound?tenant_id=xxx&integration_id=xxx
 
 const { createClient } = require('@supabase/supabase-js');
+const { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 
 function getSupabase() {
   return createClient(
@@ -93,6 +94,7 @@ module.exports = async function handler(req, res) {
 
         var leadId = existingLead;
         if (!existingLead) {
+          var leadStageId = await getPipelineStageId(supabase, tenant_id, STAGE_KEYS.LEAD);
           var leadRes = await supabase.from('leads').insert({
             tenant_id: tenant_id,
             name: name || null,
@@ -102,6 +104,7 @@ module.exports = async function handler(req, res) {
             type: config.type || 'Direct Business',
             urgency: config.urgency || 'Hot',
             stage: config.stage || 'inquiry',
+            pipeline_stage_id: leadStageId,
             source: integration.name || integration.service || 'webhook',
             notes: notes || ('Auto-created from ' + integration.name + ' webhook'),
             last_action_at: new Date().toISOString().split('T')[0],

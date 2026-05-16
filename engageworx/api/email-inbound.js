@@ -6,6 +6,7 @@ var { buildSystemPrompt } = require('./_lib/build-system-prompt');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
+var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 
 // Disable Vercel's default body parser — SendGrid sends multipart/form-data
 module.exports.config = { api: { bodyParser: false } };
@@ -1032,12 +1033,14 @@ module.exports = async function handler(req, res) {
       if (!existingLeadResult.data || existingLeadResult.data.length === 0) {
         var company = senderEmail.split('@')[1] ? senderEmail.split('@')[1].split('.')[0] : '';
         company = company.charAt(0).toUpperCase() + company.slice(1);
+        var emailStageId = await getPipelineStageId(supabase, EW_TENANT_ID, STAGE_KEYS.LEAD);
         await supabase.from('leads').insert({
           name: senderName || null,
           email: senderEmail,
           company: company,
           source: 'inbound_email',
           stage: 'inquiry',
+          pipeline_stage_id: emailStageId,
           urgency: 'Warm',
           notes: 'Auto-created from inbound email. Subject: ' + subject,
           last_action_at: new Date().toISOString().split('T')[0],
