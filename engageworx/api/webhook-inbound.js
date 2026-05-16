@@ -103,7 +103,6 @@ module.exports = async function handler(req, res) {
             phone: phone,
             type: config.type || 'Direct Business',
             urgency: config.urgency || 'Hot',
-            stage: config.stage || 'inquiry',
             pipeline_stage_id: leadStageId,
             source: integration.name || integration.service || 'webhook',
             notes: notes || ('Auto-created from ' + integration.name + ' webhook'),

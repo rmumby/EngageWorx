@@ -142,7 +142,6 @@ JSON structure:
         ai_summary: classification.summary,
         ai_next_action: classification.next_action,
         package: classification.package !== "Unknown" ? classification.package : null,
-        stage: "inquiry",
         pipeline_stage_id: _intakeStageId,
         notes: `→ ${classification.next_action}`,
       }),

@@ -7,7 +7,6 @@ var { createClient } = require('@supabase/supabase-js');
 var { generateActionItem } = require('../_lib/action-item-generator');
 
 var STALE_DAYS = 7;
-var FROZEN_STAGES = ['customer', 'closed_won', 'closed_lost'];
 
 function getSupabase() {
   return createClient(
@@ -47,14 +46,20 @@ module.exports = async function handler(req, res) {
   var cutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
 
   // Find stale leads for this tenant
-  var { data: leads } = await supabase.from('leads')
-    .select('id, name, company, email, stage, pipeline_stage_id, pipeline_stages(display_name), last_activity_at, created_at, source')
+  var frozenRes = await supabase.from('pipeline_stages').select('id').in('stage_type', ['closed_won', 'closed_lost']);
+  var frozenStageIds = (frozenRes.data || []).map(function(s) { return s.id; });
+
+  var staleQuery = supabase.from('leads')
+    .select('id, name, company, email, pipeline_stage_id, pipeline_stages(display_name), last_activity_at, created_at, source')
     .eq('tenant_id', tenantId)
     .eq('qualified', true)
     .eq('archived', false)
-    .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
     .lt('last_activity_at', cutoff)
     .limit(5);
+  if (frozenStageIds.length > 0) {
+    staleQuery = staleQuery.not('pipeline_stage_id', 'in', '(' + frozenStageIds.join(',') + ')');
+  }
+  var { data: leads } = await staleQuery;
 
   var staleLeads = leads || [];
   var generated = 0;
@@ -73,7 +78,7 @@ module.exports = async function handler(req, res) {
         lead_id: lead.id,
         context_data: {
           days_stale: daysStale,
-          stage_name: (lead.pipeline_stages && lead.pipeline_stages.display_name) || lead.stage || '',
+          stage_name: (lead.pipeline_stages && lead.pipeline_stages.display_name) || '',
           last_activity_date: lead.last_activity_at || lead.created_at,
           last_activity_summary: lead.name + ' at ' + (lead.company || 'unknown') + ' — ' + daysStale + ' days stale',
         },

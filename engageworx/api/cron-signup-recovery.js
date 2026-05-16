@@ -86,7 +86,6 @@ module.exports = async function handler(req, res) {
               email: user.email,
               type: 'Direct Business',
               urgency: 'Hot',
-              stage: 'inquiry',
               pipeline_stage_id: await getPipelineStageId(supabase, SP_TENANT_ID, STAGE_KEYS.LEAD),
               billing_status: 'abandoned',
               source: 'abandoned_checkout',

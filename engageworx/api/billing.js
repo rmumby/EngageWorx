@@ -522,7 +522,6 @@ if (!priceId) {
                 email: email,
                 type: 'Direct Business',
                 urgency: 'Hot',
-                stage: 'customer',
                 pipeline_stage_id: billingStageId,
                 source: 'Signup',
                 notes: 'Auto-created from signup. Plan: ' + plan,

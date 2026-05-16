@@ -69,7 +69,7 @@ function resolveStageKey(lead, stages) {
     var match = stages.find(function(s) { return s.stage_id === lead.pipeline_stage_id; });
     if (match) return match.id;
   }
-  return lead.stage || 'lead';
+  return 'lead';
 }
 
 function labelStyle() { var t = T(); return { fontSize: "11px", fontWeight: 700, color: t.muted, letterSpacing: "0.06em", textTransform: "uppercase" }; }
@@ -288,7 +288,6 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
       else {
         if (!tenantId) { setSaveError("No tenant context — cannot create lead."); setSaving(false); return; }
         payload.pipeline_stage_id = form.stage;
-        payload.stage = stage.stage_key || form.stage;
         const { error } = await supabase.from("leads").insert({ ...payload, tenant_id: tenantId });
         if (error) throw error;
       }
@@ -331,7 +330,6 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
 
       var sandboxStage = stages.find(function(s) { return s.id === 'active_sandbox_shared'; });
       await supabase.from("leads").update({
-        stage: "sandbox_shared",
         pipeline_stage_id: sandboxStage ? sandboxStage.stage_id : null,
         last_action_at: new Date().toISOString().split("T")[0],
         last_activity_at: new Date().toISOString(),
@@ -684,7 +682,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
     return () => supabase.removeChannel(channel);
   }, [tenantId, demoMode]);
 
-  const newLead = { id: "new_" + Date.now(), name: "", company: "", email: "", phone: "", type: "Unknown", urgency: "Warm", stage: STAGES[0] ? STAGES[0].id : "lead", package: "", go_live_date: "", notes: "", source: "Website", last_action_at: new Date().toISOString().split("T")[0], next_action: "", next_action_date: "" };
+  const newLead = { id: "new_" + Date.now(), name: "", company: "", email: "", phone: "", type: "Unknown", urgency: "Warm", package: "", go_live_date: "", notes: "", source: "Website", last_action_at: new Date().toISOString().split("T")[0], next_action: "", next_action_date: "" };
 
   const sortedLeads = [...leads].sort((a, b) => {
     var av = a[sortBy] || "", bv = b[sortBy] || "";
@@ -834,7 +832,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                   <div key={l.id} onClick={()=>setSelected(l)} style={{ padding:"8px 10px",background:"rgba(0,0,0,0.2)",borderRadius:7,marginBottom:6,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                     <div>
                       <div style={{ fontSize:12,fontWeight:700,color:"#f1f5f9",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160 }}>{l.company||l.name}</div>
-                      <div style={{ fontSize:10,color:"#9aaabb" }}>{(STAGES.find(function(s){return s.id===resolveStageKey(l,STAGES);})||{}).label||l.stage}</div>
+                      <div style={{ fontSize:10,color:"#9aaabb" }}>{(STAGES.find(function(s){return s.id===resolveStageKey(l,STAGES);})||{}).label||''}</div>
                     </div>
                     <div style={{ fontSize:10,color:"#ef4444",fontWeight:700,flexShrink:0,marginLeft:6 }}>{daysSince(l.last_action_at)}d</div>
                   </div>
@@ -941,7 +939,7 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
     setBusy('real_' + lead.id);
     try {
       var realStage = stages.find(function(s) { return s.id === 'lead'; });
-      await supabase.from('leads').update({ qualified: true, prospect_stage: null, stage: 'inquiry', pipeline_stage_id: realStage ? realStage.stage_id : null }).eq('id', lead.id);
+      await supabase.from('leads').update({ qualified: true, prospect_stage: null, pipeline_stage_id: realStage ? realStage.stage_id : null }).eq('id', lead.id);
       await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', lead.id).eq('status', 'active');
       onRefresh();
     } catch(e) { alert('Error: ' + e.message); }

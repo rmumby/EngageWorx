@@ -835,7 +835,6 @@ try {
       email: demoForm.email,
       type: 'Direct Business',
       urgency: 'Warm',
-      stage: 'demo_shared',
       pipeline_stage_id: demoStageId,
       source: 'Direct',
       notes: 'Demo account created. Plan: ' + demoForm.plan + '. Tenant ID: ' + demoTenantId,

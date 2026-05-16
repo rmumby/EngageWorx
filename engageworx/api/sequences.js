@@ -605,7 +605,6 @@ module.exports = async function handler(req, res) {
             phone: bulkLead.phone || null,
             type: 'Unknown',
             urgency: 'Warm',
-            stage: 'inquiry',
             pipeline_stage_id: bulkStageId,
             source: bulkLead.source || 'CSV Import',
             notes: bulkLead.notes || '',

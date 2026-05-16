@@ -229,21 +229,21 @@ async function analyzeAndActionEmail(ctx) {
     } catch(e) {}
     try {
       if (!match.leadId) {
-        var l = await supabase.from('leads').select('id, tenant_id, stage, pipeline_stage_id').ilike('email', sender).limit(1).maybeSingle();
+        var l = await supabase.from('leads').select('id, tenant_id, pipeline_stage_id').ilike('email', sender).limit(1).maybeSingle();
         if (l.data) {
           match.leadId = l.data.id; match.tenantId = match.tenantId || l.data.tenant_id;
           if (l.data.pipeline_stage_id) {
             var _lps = await supabase.from('pipeline_stages').select('stage_key').eq('id', l.data.pipeline_stage_id).maybeSingle();
-            match.leadStage = (_lps.data && _lps.data.stage_key) || l.data.stage;
-          } else { match.leadStage = l.data.stage; }
+            match.leadStage = (_lps.data && _lps.data.stage_key) || null;
+          }
         }
       } else {
-        var lr = await supabase.from('leads').select('stage, pipeline_stage_id').eq('id', match.leadId).maybeSingle();
+        var lr = await supabase.from('leads').select('pipeline_stage_id').eq('id', match.leadId).maybeSingle();
         if (lr.data) {
           if (lr.data.pipeline_stage_id) {
             var _lps2 = await supabase.from('pipeline_stages').select('stage_key').eq('id', lr.data.pipeline_stage_id).maybeSingle();
-            match.leadStage = (_lps2.data && _lps2.data.stage_key) || lr.data.stage;
-          } else { match.leadStage = lr.data.stage; }
+            match.leadStage = (_lps2.data && _lps2.data.stage_key) || null;
+          }
         }
       }
     } catch(e) {}
@@ -428,7 +428,7 @@ async function analyzeAndActionEmail(ctx) {
       try {
         var advanceStageMap = { 'inquiry': STAGE_KEYS.LEAD, 'lead': STAGE_KEYS.LEAD, 'qualified': STAGE_KEYS.QUALIFIED, 'opportunity': STAGE_KEYS.QUALIFIED, 'demo_shared': STAGE_KEYS.DEMO_SHARED, 'demo_scheduled': STAGE_KEYS.DEMO_SCHEDULED, 'sandbox_shared': STAGE_KEYS.SANDBOX_SHARED, 'pricing_sent': STAGE_KEYS.PRICING_SENT, 'negotiating': STAGE_KEYS.NEGOTIATING, 'customer': STAGE_KEYS.WON, 'closed_won': STAGE_KEYS.WON, 'dormant': STAGE_KEYS.LOST, 'closed_lost': STAGE_KEYS.LOST };
         var advanceKey = advanceStageMap[decision.new_stage] || null;
-        var advanceUpdate = { stage: decision.new_stage, last_activity_at: new Date().toISOString() };
+        var advanceUpdate = { last_activity_at: new Date().toISOString() };
         if (advanceKey && match.tenantId) {
           try { advanceUpdate.pipeline_stage_id = await getPipelineStageId(supabase, match.tenantId, advanceKey); } catch (e) { console.warn('[EmailAI] pipeline_stage_id resolve failed:', e.message); }
         }
@@ -519,7 +519,7 @@ async function tryQualifyProspect(email, replyBody, channel) {
     var now = new Date().toISOString();
     for (var l of matches) {
       var emailQualStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
-      var upd = { qualified: true, stage: 'inquiry', pipeline_stage_id: emailQualStageId, urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
+      var upd = { qualified: true, pipeline_stage_id: emailQualStageId, urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
       if (extracted.name && (!l.name || l.name === 'Unknown')) upd.name = extracted.name;
       if (extracted.phone && !l.phone) upd.phone = extracted.phone;
       await supabase.from('leads').update(upd).eq('id', l.id);
@@ -555,7 +555,7 @@ async function reactivateArchivedLeadsForContact(email) {
       if (!recentlyReactivated) notifyEligible.push(l);
       var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound email received]';
       var emailReactStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
-      await supabase.from('leads').update({ archived: false, stage: 'inquiry', pipeline_stage_id: emailReactStageId, urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
+      await supabase.from('leads').update({ archived: false, pipeline_stage_id: emailReactStageId, urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
       try {
         var seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%general outreach%').limit(1);
         if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%general outreach%').limit(1);
@@ -1058,7 +1058,6 @@ module.exports = async function handler(req, res) {
           email: senderEmail,
           company: company,
           source: 'inbound_email',
-          stage: 'inquiry',
           pipeline_stage_id: emailStageId,
           urgency: 'Warm',
           notes: 'Auto-created from inbound email. Subject: ' + subject,

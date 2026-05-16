@@ -104,7 +104,6 @@ export default async function handler(req, res) {
           source: "Portal Signup",
           type: "Unknown",
           urgency: "Hot",
-          stage: "inquiry",
           pipeline_stage_id: _pipelineStageId,
           package: plan,
           notes: `→ New portal signup — reach out personally within 24hrs\n→ Confirm what they need and which channels\n→ Check if they completed Stripe checkout`,

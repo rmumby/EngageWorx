@@ -159,7 +159,6 @@ export default function LeadScan({ C, demoMode = false }) {
         phone: form.phone || null,
         type: 'Unknown',
         urgency: form.urgency,
-        stage: form.stage,
         pipeline_stage_id: scanStageId,
         source: selectedLocation || 'Direct',
         notes: form.notes || (form.title ? 'Title: ' + form.title : ''),

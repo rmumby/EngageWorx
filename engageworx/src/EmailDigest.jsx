@@ -679,7 +679,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       if (a.claude_action === 'advance_stage' && a.lead_id && a.action_payload?.new_stage) {
         var _digestStageMap = { 'inquiry': STAGE_KEYS.LEAD, 'lead': STAGE_KEYS.LEAD, 'qualified': STAGE_KEYS.QUALIFIED, 'opportunity': STAGE_KEYS.QUALIFIED, 'demo_shared': STAGE_KEYS.DEMO_SHARED, 'demo_scheduled': STAGE_KEYS.DEMO_SCHEDULED, 'sandbox_shared': STAGE_KEYS.SANDBOX_SHARED, 'pricing_sent': STAGE_KEYS.PRICING_SENT, 'negotiating': STAGE_KEYS.NEGOTIATING, 'customer': STAGE_KEYS.WON, 'closed_won': STAGE_KEYS.WON, 'dormant': STAGE_KEYS.LOST, 'closed_lost': STAGE_KEYS.LOST };
         var _digestKey = _digestStageMap[a.action_payload.new_stage] || null;
-        var _digestUpdate = { stage: a.action_payload.new_stage, last_activity_at: new Date().toISOString() };
+        var _digestUpdate = { last_activity_at: new Date().toISOString() };
         if (_digestKey && a.tenant_id) { try { _digestUpdate.pipeline_stage_id = await getPipelineStageId(supabase, a.tenant_id, _digestKey); } catch(e) {} }
         await supabase.from('leads').update(_digestUpdate).eq('id', a.lead_id);
         await markActioned(a.id);

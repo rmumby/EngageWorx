@@ -22,26 +22,26 @@ async function matchContactAndTenant(supabase, senderEmail, senderPhone) {
     }
   } catch (e) {}
   try {
-    var lq = supabase.from('leads').select('id, tenant_id, stage, pipeline_stage_id');
+    var lq = supabase.from('leads').select('id, tenant_id, pipeline_stage_id');
     var lRes = null;
     if (!match.leadId && email) lRes = await lq.ilike('email', email).limit(1).maybeSingle();
     if ((!lRes || !lRes.data) && !match.leadId && phone) {
-      lRes = await supabase.from('leads').select('id, tenant_id, stage, pipeline_stage_id').eq('phone', phone).limit(1).maybeSingle();
+      lRes = await supabase.from('leads').select('id, tenant_id, pipeline_stage_id').eq('phone', phone).limit(1).maybeSingle();
     }
     if (lRes && lRes.data) {
       match.leadId = match.leadId || lRes.data.id;
       match.tenantId = match.tenantId || lRes.data.tenant_id;
       if (lRes.data.pipeline_stage_id) {
         var _ps = await supabase.from('pipeline_stages').select('stage_key').eq('id', lRes.data.pipeline_stage_id).maybeSingle();
-        match.leadStage = (_ps.data && _ps.data.stage_key) || lRes.data.stage;
-      } else { match.leadStage = lRes.data.stage; }
+        match.leadStage = (_ps.data && _ps.data.stage_key) || null;
+      }
     } else if (match.leadId) {
-      var lr = await supabase.from('leads').select('stage, pipeline_stage_id').eq('id', match.leadId).maybeSingle();
+      var lr = await supabase.from('leads').select('pipeline_stage_id').eq('id', match.leadId).maybeSingle();
       if (lr.data) {
         if (lr.data.pipeline_stage_id) {
           var _ps2 = await supabase.from('pipeline_stages').select('stage_key').eq('id', lr.data.pipeline_stage_id).maybeSingle();
-          match.leadStage = (_ps2.data && _ps2.data.stage_key) || lr.data.stage;
-        } else { match.leadStage = lr.data.stage; }
+          match.leadStage = (_ps2.data && _ps2.data.stage_key) || null;
+        }
       }
     }
   } catch (e) {}

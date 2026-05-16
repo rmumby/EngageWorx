@@ -311,7 +311,6 @@ module.exports = async function handler(req, res) {
                 email: email,
                 type: 'Direct Business',
                 urgency: 'Warm',
-                stage: 'customer',
                 pipeline_stage_id: signupStageId,
                 source: 'Website',
                 notes: 'Auto-created from Stripe signup. Plan: ' + plan,
@@ -389,7 +388,6 @@ module.exports = async function handler(req, res) {
         company: expiredName || '',
         email: expiredEmail,
         source: 'abandoned_checkout',
-        stage: 'inquiry',
         pipeline_stage_id: abandonStageId,
         type: 'Direct Business',
         urgency: 'Hot',
@@ -506,7 +504,7 @@ module.exports = async function handler(req, res) {
                 var churnStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.LOST);
                 var newLead = await supabase.from('leads').insert({
                   name: cancelTenant.name, company: cancelTenant.name, email: ownerEmail,
-                  source: 'churn', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  source: 'churn', type: 'Direct Business', urgency: 'Hot',
                   pipeline_stage_id: churnStageId,
                   billing_status: cancelEventName, tenant_id: EW_SP_TENANT_ID,
                   notes: 'Subscription ' + cancelEventName + '. Plan was: ' + (cancelTenant.plan || 'unknown'),
@@ -580,7 +578,7 @@ module.exports = async function handler(req, res) {
                 var failStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.LOST);
                 var newFailLead = await supabase.from('leads').insert({
                   name: failedTenant.name, company: failedTenant.name, email: failOwnerEmail,
-                  source: 'payment_failed', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  source: 'payment_failed', type: 'Direct Business', urgency: 'Hot',
                   pipeline_stage_id: failStageId,
                   billing_status: 'payment_failed', tenant_id: EW_SP_TENANT_ID,
                   notes: 'Payment failed after all retries. Plan was: ' + (failedTenant.plan || 'unknown'),
