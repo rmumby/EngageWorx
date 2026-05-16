@@ -70,7 +70,8 @@ async function tryQualifyProspect(supabase, phone, email, replyBody, channel) {
 
     var now = new Date().toISOString();
     for (var l of unique) {
-      var upd = { qualified: true, stage: 'inquiry', urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
+      var smsQualStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
+      var upd = { qualified: true, stage: 'inquiry', pipeline_stage_id: smsQualStageId, urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
       if (extracted.name && (!l.name || l.name === 'Unknown' || l.name === '')) upd.name = extracted.name;
       if (extracted.phone && !l.phone) upd.phone = extracted.phone;
       await supabase.from('leads').update(upd).eq('id', l.id);
@@ -125,8 +126,9 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
       if (!recentlyReactivated) notifyEligible.push(l);
 
       var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound message received]';
+      var smsReactStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
       await supabase.from('leads').update({
-        archived: false, stage: 'inquiry', urgency: 'Hot', reactivated_at: now,
+        archived: false, stage: 'inquiry', pipeline_stage_id: smsReactStageId, urgency: 'Hot', reactivated_at: now,
         last_activity_at: now, last_action_at: today, notes: reactNote,
       }).eq('id', l.id);
 

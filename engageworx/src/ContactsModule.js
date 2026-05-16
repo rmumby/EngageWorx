@@ -198,7 +198,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
     (async () => {
       try {
         const { data: cs } = await supabase.from('contacts').select('id, first_name, last_name, email, phone').eq('company_id', selected.id);
-        const { data: ls } = await supabase.from('leads').select('id, name, stage, urgency, last_activity_at, value, estimated_value, deal_value').eq('company_id', selected.id);
+        const { data: ls } = await supabase.from('leads').select('id, name, stage, pipeline_stage_id, pipeline_stages(display_name), urgency, last_activity_at, value, estimated_value, deal_value').eq('company_id', selected.id);
         const ltv = (ls || []).reduce((s, l) => s + Number(l.estimated_value || l.deal_value || l.value || 0), 0);
         let lastActivity = null;
         (ls || []).forEach(l => { if (l.last_activity_at && (!lastActivity || l.last_activity_at > lastActivity)) lastActivity = l.last_activity_at; });
@@ -244,7 +244,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
             {detail.leads.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No leads yet.</div> : detail.leads.map(l => (
               <div key={l.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', color: C.text, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>{l.name}</div>
-                <div style={{ color: C.muted, fontSize: 11 }}>{l.stage || '—'} · {l.urgency || '—'}</div>
+                <div style={{ color: C.muted, fontSize: 11 }}>{(l.pipeline_stages && l.pipeline_stages.display_name) || l.stage || '—'} · {l.urgency || '—'}</div>
               </div>
             ))}
           </div>
@@ -836,9 +836,9 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     setConvertingLead(true); setConvertResult(null);
     try {
       if (contact.company) {
-        var existing = await supabase.from('leads').select('id, name, stage').ilike('company', contact.company).eq('tenant_id', resolvedTenantId).limit(1).maybeSingle();
+        var existing = await supabase.from('leads').select('id, name, stage, pipeline_stages(display_name)').ilike('company', contact.company).eq('tenant_id', resolvedTenantId).limit(1).maybeSingle();
         if (existing.data) {
-          setConvertResult({ exists: true, leadId: existing.data.id, stage: existing.data.stage });
+          setConvertResult({ exists: true, leadId: existing.data.id, stage: (existing.data.pipeline_stages && existing.data.pipeline_stages.display_name) || existing.data.stage });
           setConvertingLead(false);
           return;
         }

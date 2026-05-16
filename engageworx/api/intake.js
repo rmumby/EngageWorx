@@ -114,6 +114,15 @@ JSON structure:
     }
 
     // ── Step 2: Insert into Supabase ────────────────────────────────────────
+    const _spTenantId = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+    let _intakeStageId = null;
+    try {
+      const _stRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/pipeline_stages?tenant_id=eq.${_spTenantId}&stage_key=eq.lead&select=id`, {
+        headers: { "apikey": process.env.SUPABASE_SERVICE_KEY, "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
+      });
+      const _stData = await _stRes.json();
+      _intakeStageId = Array.isArray(_stData) && _stData[0] ? _stData[0].id : null;
+    } catch(e) { /* non-fatal */ }
     const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/leads`, {
       method: "POST",
       headers: {
@@ -134,6 +143,7 @@ JSON structure:
         ai_next_action: classification.next_action,
         package: classification.package !== "Unknown" ? classification.package : null,
         stage: "inquiry",
+        pipeline_stage_id: _intakeStageId,
         notes: `→ ${classification.next_action}`,
       }),
     });

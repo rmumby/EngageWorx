@@ -76,8 +76,9 @@ async function analyseLead(lead) {
     '\nauto_reply is a personal check-in email from Rob; keep it under 80 words, end with a light CTA.' +
     '\nenroll_sequence for leads that need systematic nurture (4+ touches over weeks).' +
     '\nno_action only for leads that look already lost.';
+  var stageLabel = (lead.pipeline_stages && lead.pipeline_stages.display_name) || lead.stage || '?';
   var prompt = 'Lead: ' + (lead.name || '?') + ' at ' + (lead.company || '?') +
-    '\nStage: ' + (lead.stage || '?') +
+    '\nStage: ' + stageLabel +
     '\nUrgency: ' + (lead.urgency || '?') +
     '\nDays since last activity: ' + stale +
     '\nEmail: ' + (lead.email || 'none') +
@@ -175,7 +176,7 @@ module.exports = async function handler(req, res) {
     }
 
     var leadsQuery = supabase.from('leads')
-      .select('id, name, company, email, phone, stage, pipeline_stage_id, urgency, notes, tenant_id, last_activity_at, created_at, source')
+      .select('id, name, company, email, phone, stage, pipeline_stage_id, pipeline_stages(display_name), urgency, notes, tenant_id, last_activity_at, created_at, source')
       .eq('qualified', true)
       .eq('archived', false)
       .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
@@ -219,7 +220,7 @@ module.exports = async function handler(req, res) {
       var row = {
         contact_id: null, lead_id: lead.id, tenant_id: lead.tenant_id,
         email_from: lead.email || '(no email)',
-        email_subject: '[Stale ' + daysStale + 'd] ' + (lead.name || 'Lead') + ' · ' + (lead.stage || ''),
+        email_subject: '[Stale ' + daysStale + 'd] ' + (lead.name || 'Lead') + ' · ' + ((lead.pipeline_stages && lead.pipeline_stages.display_name) || lead.stage || ''),
         email_body_summary: (lead.notes || '').substring(0, 300),
         claude_action: decision.action,
         claude_reasoning: decision.reasoning || null,
@@ -267,7 +268,7 @@ module.exports = async function handler(req, res) {
               lead_id: lead.id,
               context_data: {
                 days_stale: daysStale,
-                stage_name: lead.stage || '',
+                stage_name: (lead.pipeline_stages && lead.pipeline_stages.display_name) || lead.stage || '',
                 last_activity_date: lead.last_activity_at || lead.created_at,
                 last_activity_summary: (decision.reasoning || '').substring(0, 200),
               },
@@ -309,7 +310,7 @@ module.exports = async function handler(req, res) {
           var actionLabel = x.decision.action === 'auto_reply' ? '✉️ Personal email' : x.decision.action === 'enroll_sequence' ? '📤 Enrol in "' + (x.decision.sequence_name || '?') + '"' : '—';
           var statusLabel = x.status === 'actioned' ? '<span style="color:#059669;font-weight:700;">✓ Sent</span>' : '<span style="color:#d97706;font-weight:700;">⏳ Pending your approval</span>';
           return '<tr>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;"><div style="font-weight:700;color:#1e293b;">' + (x.lead.name || '(no name)') + '</div><div style="color:#64748b;font-size:11px;margin-top:2px;">' + (x.lead.company || '') + ' · ' + (x.lead.stage || '') + ' · ' + x.daysStale + ' days stale</div></td>' +
+            '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;"><div style="font-weight:700;color:#1e293b;">' + (x.lead.name || '(no name)') + '</div><div style="color:#64748b;font-size:11px;margin-top:2px;">' + (x.lead.company || '') + ' · ' + ((x.lead.pipeline_stages && x.lead.pipeline_stages.display_name) || x.lead.stage || '') + ' · ' + x.daysStale + ' days stale</div></td>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#475569;">' + actionLabel + '<br>' + statusLabel + '</td>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;font-style:italic;">' + (x.decision.reasoning || '') + '</td>' +
           '</tr>';

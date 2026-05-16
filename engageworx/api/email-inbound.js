@@ -518,7 +518,8 @@ async function tryQualifyProspect(email, replyBody, channel) {
 
     var now = new Date().toISOString();
     for (var l of matches) {
-      var upd = { qualified: true, stage: 'inquiry', urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
+      var emailQualStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
+      var upd = { qualified: true, stage: 'inquiry', pipeline_stage_id: emailQualStageId, urgency: 'Hot', prospect_stage: null, last_activity_at: now, last_action_at: new Date().toISOString().split('T')[0] };
       if (extracted.name && (!l.name || l.name === 'Unknown')) upd.name = extracted.name;
       if (extracted.phone && !l.phone) upd.phone = extracted.phone;
       await supabase.from('leads').update(upd).eq('id', l.id);

@@ -329,15 +329,17 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
         }
       }
 
+      var sandboxStage = stages.find(function(s) { return s.id === 'active_sandbox_shared'; });
       await supabase.from("leads").update({
         stage: "sandbox_shared",
+        pipeline_stage_id: sandboxStage ? sandboxStage.stage_id : null,
         last_action_at: new Date().toISOString().split("T")[0],
         last_activity_at: new Date().toISOString(),
         notes: (form.notes ? form.notes + "\n" : "") + "Sandbox created, tenant ID: " + tenant.id
       }).eq("id", lead.id);
 
       setConvertDone(true);
-      setForm({ ...form, stage: "sandbox_shared" });
+      setForm({ ...form, stage: sandboxStage ? sandboxStage.id : "active_sandbox_shared" });
     } catch (err) { setSaveError("Conversion failed: " + err.message); }
     setConverting(false);
   };
@@ -682,7 +684,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
     return () => supabase.removeChannel(channel);
   }, [tenantId, demoMode]);
 
-  const newLead = { id: "new_" + Date.now(), name: "", company: "", email: "", phone: "", type: "Unknown", urgency: "Warm", stage: "inquiry", package: "", go_live_date: "", notes: "", source: "Website", last_action_at: new Date().toISOString().split("T")[0], next_action: "", next_action_date: "" };
+  const newLead = { id: "new_" + Date.now(), name: "", company: "", email: "", phone: "", type: "Unknown", urgency: "Warm", stage: STAGES[0] ? STAGES[0].id : "lead", package: "", go_live_date: "", notes: "", source: "Website", last_action_at: new Date().toISOString().split("T")[0], next_action: "", next_action_date: "" };
 
   const sortedLeads = [...leads].sort((a, b) => {
     var av = a[sortBy] || "", bv = b[sortBy] || "";
@@ -938,7 +940,8 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
   async function markAsReal(lead) {
     setBusy('real_' + lead.id);
     try {
-      await supabase.from('leads').update({ qualified: true, prospect_stage: null, stage: 'inquiry' }).eq('id', lead.id);
+      var realStage = stages.find(function(s) { return s.id === 'lead'; });
+      await supabase.from('leads').update({ qualified: true, prospect_stage: null, stage: 'inquiry', pipeline_stage_id: realStage ? realStage.stage_id : null }).eq('id', lead.id);
       await supabase.from('lead_sequences').update({ status: 'cancelled' }).eq('lead_id', lead.id).eq('status', 'active');
       onRefresh();
     } catch(e) { alert('Error: ' + e.message); }

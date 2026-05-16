@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
 
   // Find stale leads for this tenant
   var { data: leads } = await supabase.from('leads')
-    .select('id, name, company, email, stage, pipeline_stage_id, last_activity_at, created_at, source')
+    .select('id, name, company, email, stage, pipeline_stage_id, pipeline_stages(display_name), last_activity_at, created_at, source')
     .eq('tenant_id', tenantId)
     .eq('qualified', true)
     .eq('archived', false)
@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
         lead_id: lead.id,
         context_data: {
           days_stale: daysStale,
-          stage_name: lead.stage || '',
+          stage_name: (lead.pipeline_stages && lead.pipeline_stages.display_name) || lead.stage || '',
           last_activity_date: lead.last_activity_at || lead.created_at,
           last_activity_summary: lead.name + ' at ' + (lead.company || 'unknown') + ' — ' + daysStale + ' days stale',
         },

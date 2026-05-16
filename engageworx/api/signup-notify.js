@@ -79,6 +79,15 @@ export default async function handler(req, res) {
 
     // ── Step 1: Write to Supabase pipeline ─────────────────────────────────
     let leadId = null;
+    const _spTid = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+    let _pipelineStageId = null;
+    try {
+      const _stageRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/pipeline_stages?tenant_id=eq.${_spTid}&stage_key=eq.lead&select=id`, {
+        headers: { "apikey": process.env.SUPABASE_SERVICE_KEY, "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_KEY}` }
+      });
+      const _stageData = await _stageRes.json();
+      _pipelineStageId = Array.isArray(_stageData) && _stageData[0] ? _stageData[0].id : null;
+    } catch(e) { /* non-fatal */ }
     try {
       const sbRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/leads`, {
         method: "POST",
@@ -96,6 +105,7 @@ export default async function handler(req, res) {
           type: "Unknown",
           urgency: "Hot",
           stage: "inquiry",
+          pipeline_stage_id: _pipelineStageId,
           package: plan,
           notes: `→ New portal signup — reach out personally within 24hrs\n→ Confirm what they need and which channels\n→ Check if they completed Stripe checkout`,
           ai_summary: `New signup from ${displayName} — hasn't completed onboarding yet. High priority.`,

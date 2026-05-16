@@ -6,6 +6,7 @@
 // recovery_email_sent_at is set after successful enrollment to prevent re-processing.
 
 const { createClient } = require('@supabase/supabase-js');
+const { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 
 const SP_TENANT_ID = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
@@ -86,6 +87,7 @@ module.exports = async function handler(req, res) {
               type: 'Direct Business',
               urgency: 'Hot',
               stage: 'inquiry',
+              pipeline_stage_id: await getPipelineStageId(supabase, SP_TENANT_ID, STAGE_KEYS.LEAD),
               billing_status: 'abandoned',
               source: 'abandoned_checkout',
               notes: 'Signed up ' + new Date(user.created_at).toLocaleDateString() + ' — no payment completed. Auto-detected by hourly cron.',
