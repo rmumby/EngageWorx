@@ -513,6 +513,9 @@ if (!priceId) {
 
             // ── Create Pipeline lead ──
             try {
+              var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
+              var spTenantId = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+              var billingStageId = await getPipelineStageId(supabase, spTenantId, STAGE_KEYS.WON);
               await supabase.from('leads').insert({
                 name: userMeta.full_name || name,
                 company: name,
@@ -520,6 +523,7 @@ if (!priceId) {
                 type: 'Direct Business',
                 urgency: 'Hot',
                 stage: 'customer',
+                pipeline_stage_id: billingStageId,
                 source: 'Signup',
                 notes: 'Auto-created from signup. Plan: ' + plan,
                 ai_summary: 'New paying customer signed up for ' + plan + ' plan.',

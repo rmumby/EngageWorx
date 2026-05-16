@@ -11,6 +11,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
+var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { BLOCKED_BODY_PATTERNS, looksLikeEmail, cleanEmailToName, GENERIC_LOCAL_PARTS } = require('./_lib/email-safety-gates');
 
 function getSupabase() {
@@ -596,6 +597,7 @@ module.exports = async function handler(req, res) {
           }
         }
         if (!bulkLeadId) {
+          var bulkStageId = await getPipelineStageId(supabase, bulkTenantId, STAGE_KEYS.LEAD);
           var newLeadRes = await supabase.from('leads').insert({
             name: ((bulkLead.first_name || '') + ' ' + (bulkLead.last_name || '')).trim() || bulkLeadEmail || 'Unknown',
             company: bulkLead.company || '',
@@ -604,6 +606,7 @@ module.exports = async function handler(req, res) {
             type: 'Unknown',
             urgency: 'Warm',
             stage: 'inquiry',
+            pipeline_stage_id: bulkStageId,
             source: bulkLead.source || 'CSV Import',
             notes: bulkLead.notes || '',
             last_action_at: new Date().toISOString().split('T')[0],

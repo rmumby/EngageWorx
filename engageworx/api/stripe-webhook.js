@@ -1,6 +1,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var { getNotifyEmails } = require('./_notify');
 var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
+var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { sendTenantEmail: _sendTenantEmail } = require('./_lib/send-tenant-email');
 var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
 
@@ -303,6 +304,7 @@ module.exports = async function handler(req, res) {
           try {
             var existingLead = await supabase.from('leads').select('id').eq('email', email).limit(1);
             if (!existingLead.data || existingLead.data.length === 0) {
+              var signupStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.WON);
               await supabase.from('leads').insert({
                 name: companyName,
                 company: companyName,
@@ -310,6 +312,7 @@ module.exports = async function handler(req, res) {
                 type: 'Direct Business',
                 urgency: 'Warm',
                 stage: 'customer',
+                pipeline_stage_id: signupStageId,
                 source: 'Website',
                 notes: 'Auto-created from Stripe signup. Plan: ' + plan,
                 last_action_at: new Date().toISOString().split('T')[0],
@@ -380,12 +383,14 @@ module.exports = async function handler(req, res) {
   try {
     var existingAbandon = await supabase.from('leads').select('id').eq('email', expiredEmail).limit(1);
     if (!existingAbandon.data || existingAbandon.data.length === 0) {
+      var abandonStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.LEAD);
       var abandonRes = await supabase.from('leads').insert({
         name: expiredName || null,
         company: expiredName || '',
         email: expiredEmail,
         source: 'abandoned_checkout',
         stage: 'inquiry',
+        pipeline_stage_id: abandonStageId,
         type: 'Direct Business',
         urgency: 'Hot',
         billing_status: 'abandoned',
@@ -498,9 +503,11 @@ module.exports = async function handler(req, res) {
               var ownerLeadRes = await supabase.from('leads').select('id').eq('email', ownerEmail).limit(1);
               var ownerLeadId = ownerLeadRes.data && ownerLeadRes.data[0] ? ownerLeadRes.data[0].id : null;
               if (!ownerLeadId) {
+                var churnStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.LOST);
                 var newLead = await supabase.from('leads').insert({
                   name: cancelTenant.name, company: cancelTenant.name, email: ownerEmail,
                   source: 'churn', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  pipeline_stage_id: churnStageId,
                   billing_status: cancelEventName, tenant_id: EW_SP_TENANT_ID,
                   notes: 'Subscription ' + cancelEventName + '. Plan was: ' + (cancelTenant.plan || 'unknown'),
                   last_action_at: new Date().toISOString().split('T')[0],
@@ -570,9 +577,11 @@ module.exports = async function handler(req, res) {
               var failLeadRes = await supabase.from('leads').select('id').eq('email', failOwnerEmail).limit(1);
               var failLeadId = failLeadRes.data && failLeadRes.data[0] ? failLeadRes.data[0].id : null;
               if (!failLeadId) {
+                var failStageId = await getPipelineStageId(supabase, EW_SP_TENANT_ID, STAGE_KEYS.LOST);
                 var newFailLead = await supabase.from('leads').insert({
                   name: failedTenant.name, company: failedTenant.name, email: failOwnerEmail,
                   source: 'payment_failed', stage: 'dormant', type: 'Direct Business', urgency: 'Hot',
+                  pipeline_stage_id: failStageId,
                   billing_status: 'payment_failed', tenant_id: EW_SP_TENANT_ID,
                   notes: 'Payment failed after all retries. Plan was: ' + (failedTenant.plan || 'unknown'),
                   last_action_at: new Date().toISOString().split('T')[0],
