@@ -415,7 +415,13 @@ async function analyzeAndActionEmail(ctx) {
     // 6. Auto-execute stage advance if lead exists
     if (decision.action === 'advance_stage' && match.leadId && decision.new_stage) {
       try {
-        await supabase.from('leads').update({ stage: decision.new_stage, last_activity_at: new Date().toISOString() }).eq('id', match.leadId);
+        var advanceStageMap = { 'inquiry': STAGE_KEYS.LEAD, 'lead': STAGE_KEYS.LEAD, 'qualified': STAGE_KEYS.QUALIFIED, 'opportunity': STAGE_KEYS.QUALIFIED, 'demo_shared': STAGE_KEYS.DEMO_SHARED, 'demo_scheduled': STAGE_KEYS.DEMO_SCHEDULED, 'sandbox_shared': STAGE_KEYS.SANDBOX_SHARED, 'pricing_sent': STAGE_KEYS.PRICING_SENT, 'negotiating': STAGE_KEYS.NEGOTIATING, 'customer': STAGE_KEYS.WON, 'closed_won': STAGE_KEYS.WON, 'dormant': STAGE_KEYS.LOST, 'closed_lost': STAGE_KEYS.LOST };
+        var advanceKey = advanceStageMap[decision.new_stage] || null;
+        var advanceUpdate = { stage: decision.new_stage, last_activity_at: new Date().toISOString() };
+        if (advanceKey && match.tenantId) {
+          try { advanceUpdate.pipeline_stage_id = await getPipelineStageId(supabase, match.tenantId, advanceKey); } catch (e) { console.warn('[EmailAI] pipeline_stage_id resolve failed:', e.message); }
+        }
+        await supabase.from('leads').update(advanceUpdate).eq('id', match.leadId);
         if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
       } catch (stErr) { console.warn('[EmailAI] Stage advance error:', stErr.message); }
     }
@@ -536,7 +542,8 @@ async function reactivateArchivedLeadsForContact(email) {
       var recentlyReactivated = l.reactivated_at && new Date(l.reactivated_at).getTime() > dayAgo;
       if (!recentlyReactivated) notifyEligible.push(l);
       var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound email received]';
-      await supabase.from('leads').update({ archived: false, stage: 'inquiry', urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
+      var emailReactStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
+      await supabase.from('leads').update({ archived: false, stage: 'inquiry', pipeline_stage_id: emailReactStageId, urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
       try {
         var seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%general outreach%').limit(1);
         if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%general outreach%').limit(1);

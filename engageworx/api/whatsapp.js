@@ -4,6 +4,7 @@
 // POST /api/whatsapp?action=webhook    → Inbound messages + status callbacks
 // GET  /api/whatsapp?action=status     → Check WhatsApp sender status
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
+var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 
 var { createClient } = require('@supabase/supabase-js');
 
@@ -94,7 +95,8 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
       var recentlyReactivated = l.reactivated_at && new Date(l.reactivated_at).getTime() > dayAgo;
       if (!recentlyReactivated) notifyEligible.push(l);
       var reactNote = (l.notes || '') + '\n[Auto-reactivated ' + today + ': inbound WhatsApp received]';
-      await supabase.from('leads').update({ archived: false, stage: 'inquiry', urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
+      var waReactStageId = await getPipelineStageId(supabase, l.tenant_id, STAGE_KEYS.LEAD);
+      await supabase.from('leads').update({ archived: false, stage: 'inquiry', pipeline_stage_id: waReactStageId, urgency: 'Hot', reactivated_at: now, last_activity_at: now, last_action_at: today, notes: reactNote }).eq('id', l.id);
       try {
         var seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%new lead%general outreach%').limit(1);
         if (!seq.data || seq.data.length === 0) seq = await supabase.from('sequences').select('id').eq('tenant_id', l.tenant_id).ilike('name', '%general outreach%').limit(1);
