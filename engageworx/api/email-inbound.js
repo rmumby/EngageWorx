@@ -229,11 +229,22 @@ async function analyzeAndActionEmail(ctx) {
     } catch(e) {}
     try {
       if (!match.leadId) {
-        var l = await supabase.from('leads').select('id, tenant_id, stage').ilike('email', sender).limit(1).maybeSingle();
-        if (l.data) { match.leadId = l.data.id; match.tenantId = match.tenantId || l.data.tenant_id; match.leadStage = l.data.stage; }
+        var l = await supabase.from('leads').select('id, tenant_id, stage, pipeline_stage_id').ilike('email', sender).limit(1).maybeSingle();
+        if (l.data) {
+          match.leadId = l.data.id; match.tenantId = match.tenantId || l.data.tenant_id;
+          if (l.data.pipeline_stage_id) {
+            var _lps = await supabase.from('pipeline_stages').select('stage_key').eq('id', l.data.pipeline_stage_id).maybeSingle();
+            match.leadStage = (_lps.data && _lps.data.stage_key) || l.data.stage;
+          } else { match.leadStage = l.data.stage; }
+        }
       } else {
-        var lr = await supabase.from('leads').select('stage').eq('id', match.leadId).maybeSingle();
-        if (lr.data) match.leadStage = lr.data.stage;
+        var lr = await supabase.from('leads').select('stage, pipeline_stage_id').eq('id', match.leadId).maybeSingle();
+        if (lr.data) {
+          if (lr.data.pipeline_stage_id) {
+            var _lps2 = await supabase.from('pipeline_stages').select('stage_key').eq('id', lr.data.pipeline_stage_id).maybeSingle();
+            match.leadStage = (_lps2.data && _lps2.data.stage_key) || lr.data.stage;
+          } else { match.leadStage = lr.data.stage; }
+        }
       }
     } catch(e) {}
     try {

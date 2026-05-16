@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
 
   // Find stale leads for this tenant
   var { data: leads } = await supabase.from('leads')
-    .select('id, name, company, email, stage, last_activity_at, created_at, source')
+    .select('id, name, company, email, stage, pipeline_stage_id, last_activity_at, created_at, source')
     .eq('tenant_id', tenantId)
     .eq('qualified', true)
     .eq('archived', false)

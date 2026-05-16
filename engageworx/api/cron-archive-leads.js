@@ -29,7 +29,7 @@ module.exports = async function handler(req, res) {
     // 1. Find completed enrollments older than 3 days
     var enrolRes = await supabase
       .from('lead_sequences')
-      .select('id, lead_id, completed_at, tenant_id, leads(id, stage, archived, email, phone, name, last_activity_at, notes)')
+      .select('id, lead_id, completed_at, tenant_id, leads(id, stage, pipeline_stage_id, archived, email, phone, name, last_activity_at, notes)')
       .eq('status', 'completed')
       .not('completed_at', 'is', null)
       .lt('completed_at', cutoff);

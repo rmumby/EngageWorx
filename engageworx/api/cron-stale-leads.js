@@ -175,7 +175,7 @@ module.exports = async function handler(req, res) {
     }
 
     var leadsQuery = supabase.from('leads')
-      .select('id, name, company, email, phone, stage, urgency, notes, tenant_id, last_activity_at, created_at, source')
+      .select('id, name, company, email, phone, stage, pipeline_stage_id, urgency, notes, tenant_id, last_activity_at, created_at, source')
       .eq('qualified', true)
       .eq('archived', false)
       .not('stage', 'in', '(' + FROZEN_STAGES.map(function(s) { return '"' + s + '"'; }).join(',') + ')')
