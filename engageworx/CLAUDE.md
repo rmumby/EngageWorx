@@ -16,6 +16,7 @@ This is the standing instruction set for every Claude Code session on the Engage
 - After every build: suggest **ONE** optimization or simplification that would improve the feature without scope creep. Rob decides if it's in or deferred.
 - After every build: flag **ONE** thing that could streamline via AI that currently requires manual work or clicks.
 - Never add new config storage (new table, new JSON blob) without checking if existing config infrastructure can be extended instead.
+- Lead writes MUST set `pipeline_stage_id` via `STAGE_KEYS` + `getPipelineStageId` helper (`src/lib/pipelineStages.js` for frontend, `api/_lib/pipelineStages.js` for backend). Setting `leads.stage` text directly is deprecated and will be removed in upcoming migration phase. A DB trigger (`fn_sync_pipeline_stage_id`) currently backfills `pipeline_stage_id` from `stage` as a safety net, but new code must not rely on it.
 - ### Platform reference doc is source of truth
 
 After shipping any feature, schema change, endpoint, or behavior change, update `engageworx-platform-code-reference.md` in the same commit. The reference doc is the cross-chat source of truth — without it being current, any other Claude session (specs, customer comms, support drafts) operates on stale assumptions.
