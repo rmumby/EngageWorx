@@ -26,13 +26,14 @@ const SP_TENANT_ID    = (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-49
 const STALE_DAYS      = 5;
 
 const NEXT_ACTIONS = {
-  inquiry:           ["Send intro deck", "Book discovery call", "Connect on LinkedIn", "Send personalised video"],
-  demo_shared:       ["Follow up within 48hrs", "Ask for feedback", "Offer sandbox access", "Send case study"],
-  sandbox_shared:    ["Check sandbox activity", "Schedule walkthrough call", "Address objections", "Send ROI calculator"],
-  opportunity:       ["Send formal proposal", "Confirm decision maker", "Agree timeline", "Reference customer intro"],
-  package_selection: ["Send order form", "Confirm go-live date", "Intro to onboarding", "Process payment"],
-  go_live:           ["Onboarding call booked", "Complete setup checklist", "First message sent", "Training complete"],
-  customer:          ["30-day check-in", "Upsell opportunity review", "Case study request", "Referral ask"],
+  lead:                   ["Send intro deck", "Book discovery call", "Connect on LinkedIn", "Send personalised video"],
+  active_demo_shared:     ["Follow up within 48hrs", "Ask for feedback", "Offer sandbox access", "Send case study"],
+  active_sandbox_shared:  ["Check sandbox activity", "Schedule walkthrough call", "Address objections", "Send ROI calculator"],
+  active_qualified:       ["Send formal proposal", "Confirm decision maker", "Agree timeline", "Reference customer intro"],
+  active_demo_scheduled:  ["Prep demo deck", "Confirm attendees", "Send calendar invite", "Share pre-demo materials"],
+  active_pricing_sent:    ["Send order form", "Confirm go-live date", "Intro to onboarding", "Process payment"],
+  active_negotiating:     ["Onboarding call booked", "Complete setup checklist", "First message sent", "Training complete"],
+  closed_won:             ["30-day check-in", "Upsell opportunity review", "Case study request", "Referral ask"],
 };
 
 function daysSince(d) {
@@ -686,7 +687,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   const sortedLeads = [...leads].sort((a, b) => {
     var av = a[sortBy] || "", bv = b[sortBy] || "";
     if (sortBy === "urgency") { var ord = {Hot:0,Warm:1,Cold:2}; av = ord[a.urgency]||1; bv = ord[b.urgency]||1; }
-    if (sortBy === "stage")   { var ords = STAGES.map(s=>s.id); av = ords.indexOf(a.stage); bv = ords.indexOf(b.stage); }
+    if (sortBy === "stage")   { var ords = STAGES.map(s=>s.id); av = ords.indexOf(resolveStageKey(a, STAGES)); bv = ords.indexOf(resolveStageKey(b, STAGES)); }
     if (sortBy === "company") { av = (a.company||a.name||"").toLowerCase(); bv = (b.company||b.name||"").toLowerCase(); }
     if (sortBy === "next_action_date") { av = a.next_action_date || "9999"; bv = b.next_action_date || "9999"; }
     if (typeof av === "string") av = av.toLowerCase();
@@ -864,7 +865,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
               {orderedCompanies.map(function(co) {
                 var rows = groups[co];
                 var stageCounts = {};
-                rows.forEach(function(r) { stageCounts[r.stage] = (stageCounts[r.stage] || 0) + 1; });
+                rows.forEach(function(r) { var sk = resolveStageKey(r, STAGES); stageCounts[sk] = (stageCounts[sk] || 0) + 1; });
                 return (
                   <div key={co} style={{ background: surface, border: '1px solid ' + border, borderRadius: 10, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
