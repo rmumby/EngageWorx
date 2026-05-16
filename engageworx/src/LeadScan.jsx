@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from './supabaseClient';
+import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 
 const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
+
+const LEGACY_STAGE_MAP = {
+  'inquiry': STAGE_KEYS.LEAD,
+  'demo_shared': STAGE_KEYS.DEMO_SHARED,
+  'sandbox_shared': STAGE_KEYS.SANDBOX_SHARED,
+  'opportunity': STAGE_KEYS.QUALIFIED,
+  'package_selection': STAGE_KEYS.PRICING_SENT,
+  'go_live': STAGE_KEYS.NEGOTIATING,
+  'customer': STAGE_KEYS.WON,
+};
 const CPEXPO_SEQ_ID = '2cc4658f-46f6-4425-8300-95bc9213b720';
 
 const STAGES = ['inquiry','demo_shared','sandbox_shared','opportunity','package_selection','go_live','customer'];
@@ -139,6 +150,8 @@ export default function LeadScan({ C, demoMode = false }) {
     setSaving(true);
     setError('');
     try {
+      var mappedStageKey = LEGACY_STAGE_MAP[form.stage] || STAGE_KEYS.LEAD;
+      var scanStageId = await getPipelineStageId(supabase, SP_TENANT_ID, mappedStageKey);
       var leadPayload = {
         name: form.name || form.company,
         company: form.company || '',
@@ -147,6 +160,7 @@ export default function LeadScan({ C, demoMode = false }) {
         type: 'Unknown',
         urgency: form.urgency,
         stage: form.stage,
+        pipeline_stage_id: scanStageId,
         source: selectedLocation || 'Direct',
         notes: form.notes || (form.title ? 'Title: ' + form.title : ''),
         event_tag: (eventTag || '').trim() || null,

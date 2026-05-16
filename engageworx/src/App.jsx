@@ -824,6 +824,9 @@ try {
 // Auto-create pipeline lead
 try {
   const { supabase } = await import('./supabaseClient');
+  const { STAGE_KEYS: _SK, getPipelineStageId: _getStageId } = await import('./lib/pipelineStages');
+  const spTid = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+  const demoStageId = await _getStageId(supabase, spTid, _SK.DEMO_SHARED);
   const existingLead = await supabase.from('leads').select('id').eq('email', demoForm.email).limit(1);
   if (!existingLead.data || existingLead.data.length === 0) {
     await supabase.from('leads').insert({
@@ -833,6 +836,7 @@ try {
       type: 'Direct Business',
       urgency: 'Warm',
       stage: 'demo_shared',
+      pipeline_stage_id: demoStageId,
       source: 'Direct',
       notes: 'Demo account created. Plan: ' + demoForm.plan + '. Tenant ID: ' + demoTenantId,
       last_action_at: new Date().toISOString().split('T')[0],

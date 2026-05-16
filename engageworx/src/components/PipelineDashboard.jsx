@@ -286,6 +286,8 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
       if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
       else {
         if (!tenantId) { setSaveError("No tenant context — cannot create lead."); setSaving(false); return; }
+        payload.pipeline_stage_id = form.stage;
+        payload.stage = stage.stage_key || form.stage;
         const { error } = await supabase.from("leads").insert({ ...payload, tenant_id: tenantId });
         if (error) throw error;
       }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
+import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import { DEMO_CONTACTS } from './demoFixtures';
 
 const TAGS = ["New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
@@ -586,9 +587,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               // Create a minimal lead from the contact
               var contactRow = importRows.find(function(x) { return (x.email || '').trim().toLowerCase() === email; }) || {};
               var name = ((contactRow.first_name || '') + ' ' + (contactRow.last_name || '')).trim() || email;
+              var csvStageId = await getPipelineStageId(supabase, tid, STAGE_KEYS.LEAD);
               var newLead = await supabase.from('leads').insert({
                 tenant_id: tid, name: name, email: email, company: contactRow.company || '',
-                type: 'Direct Business', urgency: 'Warm', stage: 'inquiry', source: 'csv_import',
+                type: 'Direct Business', urgency: 'Warm', stage: 'inquiry', pipeline_stage_id: csvStageId, source: 'csv_import',
                 last_action_at: new Date().toISOString().split('T')[0], last_activity_at: new Date().toISOString(),
               }).select('id').single();
               if (newLead.data) leadId = newLead.data.id;
@@ -842,11 +844,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         }
       }
       var leadName = contact.company || ((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || 'New Lead';
+      var convertStageId = await getPipelineStageId(supabase, resolvedTenantId, STAGE_KEYS.LEAD);
       var ins = await supabase.from('leads').insert({
         tenant_id: resolvedTenantId,
         name: leadName, company: contact.company || null,
         email: contact.email || null, phone: contact.mobile_phone || contact.phone || null,
-        stage: 'inquiry', urgency: 'Warm', type: 'Direct Business',
+        stage: 'inquiry', pipeline_stage_id: convertStageId, urgency: 'Warm', type: 'Direct Business',
         source: 'Contact Convert', notes: ((contact.title ? 'Title: ' + contact.title + '\n' : '') + (contact.notes || '')).trim() || '',
         last_action_at: new Date().toISOString().split('T')[0],
         last_activity_at: new Date().toISOString(),
@@ -1672,10 +1675,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                           if (pr.data) leadId = pr.data.id;
                         }
                         if (!leadId) {
+                          var quickStageId = await getPipelineStageId(supabase, resolvedTenantId, STAGE_KEYS.LEAD);
                           var newLead = await supabase.from('leads').insert({
                             tenant_id: resolvedTenantId, name: ((ct.firstName || '') + ' ' + (ct.lastName || '')).trim() || email,
                             email: email || null, phone: phone || null, company: ct.company || null,
-                            source: ct.source || 'contacts', stage: 'inquiry', type: 'Unknown',
+                            source: ct.source || 'contacts', stage: 'inquiry', pipeline_stage_id: quickStageId, type: 'Unknown',
                             last_activity_at: new Date().toISOString(),
                           }).select('id').single();
                           if (newLead.data) { leadId = newLead.data.id; created++; }
