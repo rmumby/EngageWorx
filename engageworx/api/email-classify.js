@@ -256,23 +256,17 @@ module.exports = async function handler(req, res) {
     var { data: actionItem, error: aiErr } = await supabase.from('action_items').insert({
       tenant_id: tenantId,
       user_id: adminUserId,
-      source: 'inbound_email_forward',
+      source: 'inbound_email',
       tier: tier,
-      title: 'Reply to ' + (cls.sender_name || cls.sender_email) + ': ' + (cls.subject || '(no subject)'),
+      title: 'Reply to: ' + (cls.subject || '(no subject)'),
+      context: reason || (classification + ' from ' + (cls.sender_name || cls.sender_email)),
+      suggested_action: 'Send reply',
       draft_subject: replySubject,
       draft_body_html: draftReply ? '<p>' + draftReply.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>' : null,
       draft_recipients: [{ email: cls.sender_email, name: cls.sender_name || cls.sender_email }],
       contact_id: contactId,
       lead_id: leadId,
       status: 'pending',
-      context_data: {
-        classification_id: classificationId,
-        classification: classification,
-        confidence: confidence,
-        reason: reason,
-        original_sender_email: cls.sender_email,
-        original_subject: cls.subject,
-      },
     }).select('id').single();
 
     if (aiErr) {
