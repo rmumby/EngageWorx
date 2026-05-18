@@ -85,11 +85,16 @@ module.exports = async function handler(req, res) {
   var stamp = weekStamp();
 
   try {
-    // 0. Idempotency — skip if a draft already exists for this week
-    var existingDraft = await supabase.from('platform_updates').select('id').is('published_at', null).gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()).maybeSingle();
+    // 0. Idempotency — skip if any update exists for this ISO week (Monday boundary)
+    var now = new Date();
+    var dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon
+    var daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    var monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday));
+    var mondayCutoff = monday.toISOString();
+    var existingDraft = await supabase.from('platform_updates').select('id').gte('created_at', mondayCutoff).limit(1).maybeSingle();
     if (existingDraft.data) {
-      console.log('[WeeklyUpdate] Draft already exists for this week:', existingDraft.data.id, '— skipping');
-      return res.status(200).json({ skipped: true, reason: 'draft_exists', existing_id: existingDraft.data.id });
+      console.log('[WeeklyUpdate] Update already exists for week of', mondayCutoff, ':', existingDraft.data.id, '— skipping');
+      return res.status(200).json({ skipped: true, reason: 'draft_exists', existing_id: existingDraft.data.id, week_start: mondayCutoff });
     }
 
     // 1. Pull recent release notes (preferred) or fall back to GitHub API
@@ -116,14 +121,23 @@ module.exports = async function handler(req, res) {
       markdown = '## What\'s New\n- (Claude could not generate a draft — review the changelog manually)\n\n## Improvements\n- —\n\n## Coming Next\n- —\n\n## Tip of the Week\n- —';
     }
 
-    // 3. Save as draft
+    // 3. Save as draft (race-condition guard: re-check before insert)
     var title = 'Weekly platform update — ' + dateLabel;
+    var raceCheck = await supabase.from('platform_updates').select('id').gte('created_at', mondayCutoff).limit(1).maybeSingle();
+    if (raceCheck.data) {
+      console.log('[WeeklyUpdate] Race condition — draft appeared during processing:', raceCheck.data.id);
+      return res.status(200).json({ skipped: true, reason: 'race_condition', existing_id: raceCheck.data.id });
+    }
     var ins = await supabase.from('platform_updates').insert({
       title: title,
       body: markdown,
       target_audience: 'all',
       published_at: null,
     }).select('id').single();
+    if (ins.error) {
+      console.error('[WeeklyUpdate] Insert failed:', ins.error.message);
+      return res.status(500).json({ error: 'Insert failed: ' + ins.error.message });
+    }
     var draftId = ins.data && ins.data.id;
     console.log('[WeeklyUpdate] Draft saved:', draftId);
 
