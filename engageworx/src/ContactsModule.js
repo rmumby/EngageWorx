@@ -1118,10 +1118,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 14, width: 20 }}>🏷️</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Tags</span>
-                    <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ fontSize: 14, width: 20, paddingTop: 4 }}>🏷️</span>
+                    <span style={{ color: C.muted, fontSize: 12, width: 80, paddingTop: 4 }}>Tags</span>
+                    <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
                       {TAGS.map(function(t) {
                         var has = (editingContact.tags || []).includes(t);
                         return <button key={t} onClick={function() { var current = editingContact.tags || []; var next = has ? current.filter(function(x) { return x !== t; }) : current.concat([t]); setEditingContact(Object.assign({}, editingContact, { tags: next })); }} style={{ background: has ? (TAG_COLORS[t] || C.muted) + "22" : "rgba(255,255,255,0.04)", border: "1px solid " + (has ? (TAG_COLORS[t] || C.muted) + "55" : "rgba(255,255,255,0.08)"), borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: has ? 700 : 400, color: has ? (TAG_COLORS[t] || C.muted) : "rgba(255,255,255,0.3)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{has ? "✓ " : ""}{t}</button>;
