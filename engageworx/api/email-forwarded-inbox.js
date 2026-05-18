@@ -201,7 +201,7 @@ module.exports = async function handler(req, res) {
   }).eq('id', classification.id);
 
   // ── 6. Synchronous classify call (Vercel kills async after res.send) ────
-  var classifyUrl = (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000') + '/api/email-classify';
+  var classifyUrl = (process.env.APP_BASE_URL || 'https://portal.engwx.com') + '/api/email-classify';
   var internalSecret = process.env.EMAIL_CLASSIFY_INTERNAL_SECRET || '';
   var classifyStart = Date.now();
   try {
