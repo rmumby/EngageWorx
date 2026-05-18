@@ -1031,6 +1031,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               try { localStorage.setItem('engwx_vip_queue', JSON.stringify(vipContact)); } catch (e) {}
               onNavigate('action-board');
             }} style={{ background: "rgba(255,214,0,0.1)", border: "1px solid rgba(255,214,0,0.35)", borderRadius: 8, padding: "8px 16px", color: "#FFD600", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>⭐ VIP Outreach</button>}
+            <button onClick={function() {
+              setShowSeqPicker(true); setSeqSelected(null); setSeqSearch(''); setSeqLoading(true);
+              supabase.from('sequences').select('id, name, status').eq('tenant_id', resolvedTenantId).in('status', ['active', 'draft']).order('name')
+                .then(function(r) { setSeqList(r.data || []); setSeqLoading(false); })
+                .catch(function() { setSeqList([]); setSeqLoading(false); });
+              setSelectedContacts([c.id]);
+            }} style={{ background: "rgba(224,64,251,0.1)", border: "1px solid rgba(224,64,251,0.35)", borderRadius: 8, padding: "8px 16px", color: "#E040FB", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🚀 Enrol in Sequence</button>
               {!c.pipeline_lead_id && !convertResult && (
                 <button type="button" onMouseDown={function() { convertToLead(c); }} disabled={convertingLead} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: convertingLead ? 0.5 : 1 }}>{convertingLead ? '⏳…' : '📈 Convert to Lead'}</button>
               )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
+import LeadPickerModal from './components/LeadPickerModal';
 
 function daysSince(d) {
   if (!d) return null;
@@ -23,6 +24,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
   var [loading, setLoading] = useState(false);
   var [seqLoading, setSeqLoading] = useState(true);
   var [filter, setFilter] = useState('all');
+  var [showLeadPicker, setShowLeadPicker] = useState(false);
   var [search, setSearch] = useState('');
 
   useEffect(function() {
@@ -40,7 +42,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
       .catch(function() { setSeqLoading(false); });
   }, [currentTenantId]);
 
-  useEffect(function() {
+  function loadRoster() {
     if (!selectedSeq) return;
     setLoading(true);
     fetch('/api/sequences?action=roster&sequence_id=' + selectedSeq)
@@ -50,7 +52,9 @@ export default function SequenceRoster({ C, currentTenantId }) {
         setLoading(false);
       })
       .catch(function() { setLoading(false); });
-  }, [selectedSeq]);
+  }
+
+  useEffect(function() { loadRoster(); }, [selectedSeq]);
 
   var filtered = enrolments.filter(function(e) {
     if (filter !== 'all' && e.status !== filter) return false;
@@ -78,9 +82,12 @@ export default function SequenceRoster({ C, currentTenantId }) {
 
   return (
     <div style={{ padding: '28px 32px', fontFamily: "'DM Sans', sans-serif", color: '#f1f5f9', minHeight: '100vh', background: colors.bg }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>Sequence Roster</h1>
-        <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>See who is enrolled in each sequence and where they are in the flow</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>Sequence Roster</h1>
+          <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>See who is enrolled in each sequence and where they are in the flow</p>
+        </div>
+        {selectedSeq && <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Add Leads</button>}
       </div>
 
       {seqLoading ? (
@@ -214,6 +221,16 @@ export default function SequenceRoster({ C, currentTenantId }) {
             )}
           </div>
         </div>
+      )}
+      {showLeadPicker && selectedSeq && (
+        <LeadPickerModal
+          sequenceId={selectedSeq}
+          sequenceName={(sequences.find(function(s) { return s.id === selectedSeq; }) || {}).name || 'Sequence'}
+          tenantId={currentTenantId}
+          C={C}
+          onClose={function() { setShowLeadPicker(false); }}
+          onEnrolled={function() { setShowLeadPicker(false); loadRoster(); }}
+        />
       )}
     </div>
   );

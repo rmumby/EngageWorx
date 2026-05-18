@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
+import LeadPickerModal from './components/LeadPickerModal';
 
 const CHANNELS = ['email', 'sms', 'whatsapp'];
 
@@ -8,6 +9,7 @@ export default function SequenceBuilder({ C, currentTenantId }) {
 
   var [sequences, setSequences] = useState([]);
   var [selectedSeq, setSelectedSeq] = useState(null);
+  var [showLeadPicker, setShowLeadPicker] = useState(false);
   var [editingId, setEditingId] = useState(null);
   var [editingName, setEditingName] = useState('');
   var [renameSaving, setRenameSaving] = useState(false);
@@ -302,6 +304,7 @@ setSteps(aiSteps.map(function(s, i) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Add Leads</button>
                 <button onClick={function() { setShowAI(!showAI); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(224,64,251,0.3)', background: showAI ? 'rgba(224,64,251,0.2)' : 'rgba(224,64,251,0.08)', color: '#e879f9', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Build with AI</button>
                 <button onClick={addStep} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add Step</button>
                 <button onClick={saveSteps} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: saving ? 'rgba(0,201,255,0.3)' : colors.primary, color: '#000', fontWeight: 800, fontSize: 12, cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving...' : 'Save'}</button>
@@ -375,6 +378,16 @@ setSteps(aiSteps.map(function(s, i) {
           </>
         )}
       </div>
+      {showLeadPicker && selectedSeq && (
+        <LeadPickerModal
+          sequenceId={selectedSeq.id}
+          sequenceName={selectedSeq.name}
+          tenantId={currentTenantId}
+          C={C}
+          onClose={function() { setShowLeadPicker(false); }}
+          onEnrolled={function() { setShowLeadPicker(false); }}
+        />
+      )}
     </div>
   );
 }
