@@ -133,7 +133,7 @@ module.exports = async function handler(req, res) {
   var messageId = null;
   // Extract Message-ID from headers
   if (rawHeaders) {
-    var midMatch = rawHeaders.match(/Message-ID:\s*<?([^>\s]+)>?/i);
+    var midMatch = rawHeaders.match(/^Message-ID:\s*<([^>]+)>/im);
     if (midMatch) messageId = midMatch[1];
   }
   // Fallback: hash of sender + subject + body prefix
