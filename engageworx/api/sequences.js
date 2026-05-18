@@ -185,7 +185,6 @@ async function sendStep(supabase, step, lead, tenant) {
     var bodyHtml =
       '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 16px;">' +
       '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
-    var bodyClose = '</div>';
 
     var seqThreadId = generateThreadId();
     var seqReplyTo = makeReplyToAddress(seqThreadId, tenant.email_tracking_domain);
@@ -197,7 +196,7 @@ async function sendStep(supabase, step, lead, tenant) {
       from_name: sigInfo.fromName || emailConfig.fromName || undefined,
       subject: subject,
       text: _sig.composeTextBody(body, sigInfo.closingLine, sigInfo.fromName),
-      html: _sig.composeHtmlBody(bodyHtml + bodyClose, sigInfo.closingLine, sigInfo.signatureHtml),
+      html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml) + '</div>',
       reply_to: seqReplyTo,
       bcc: aiOmniBcc || undefined,
     });
