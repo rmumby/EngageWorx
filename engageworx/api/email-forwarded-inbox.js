@@ -195,7 +195,20 @@ module.exports = async function handler(req, res) {
     forwarded_by: parsed.forwardedBy ? parsed.forwardedBy.email : null,
   });
 
-  // ── 5. Return 200 fast ────────────────────────────────────────────────────
-  // TODO (commit 4): fire-and-forget call to classify + create action_item
+  // ── 5. Store cleaned body for downstream classification ────────────────
+  await supabase.from('inbound_email_classifications').update({
+    cleaned_body: cleanedBody.substring(0, 10000),
+  }).eq('id', classification.id);
+
+  // ── 6. Fire-and-forget: trigger classification + action_item creation ──
+  var classifyUrl = (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'http://localhost:3000') + '/api/email-classify';
+  var internalSecret = process.env.EMAIL_CLASSIFY_INTERNAL_SECRET || '';
+  fetch(classifyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-internal-secret': internalSecret },
+    body: JSON.stringify({ classification_id: classification.id }),
+  }).catch(function(e) { console.warn('[fwd-inbox] Classify trigger failed (non-fatal):', e.message); });
+
+  // ── 7. Return 200 fast ────────────────────────────────────────────────────
   return res.status(200).json({ ok: true, classification_id: classification.id });
 };
