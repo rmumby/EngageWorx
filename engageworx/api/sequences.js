@@ -733,3 +733,6 @@ module.exports = async function handler(req, res) {
 
   return res.status(400).json({ error: 'Invalid action' });
 };
+
+// Export processDueSteps for direct use by cron-sequences.js (avoids HTTP round-trip)
+module.exports.processDueSteps = processDueSteps;
