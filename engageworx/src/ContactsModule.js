@@ -1001,7 +1001,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
-  const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
+  const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" });
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("desc"); } };
   const toggleSelect = (id) => setSelectedContacts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleSelectAll = () => { if (selectedContacts.length === paged.length) setSelectedContacts([]); else setSelectedContacts(paged.map(c => c.id)); };
@@ -1060,11 +1060,14 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24 }}>
           <div>
             <div style={{ ...card, textAlign: "center", marginBottom: 16 }}>
-              <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", margin: "0 auto 14px" }}>{c.firstName[0]}{c.lastName[0]}</div>
+              {(() => { var displayName = (c.firstName && c.lastName) ? c.firstName + ' ' + c.lastName : c.firstName || c.lastName || (c.email ? c.email.split('@')[0] : '?'); var initials = (c.firstName ? c.firstName[0] : '') + (c.lastName ? c.lastName[0] : ''); if (!initials && c.email) initials = c.email[0]; return (
+              <>
+              <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", margin: "0 auto 14px" }}>{(initials || '?').toUpperCase()}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <h2 style={{ color: C.text, margin: "0", fontSize: 20 }}>{c.firstName} {c.lastName}</h2>
+                <h2 style={{ color: C.text, margin: "0", fontSize: 20 }}>{displayName}</h2>
                 <button onClick={function() { toggleVip(c); }} title={c.is_vip ? "Remove VIP" : "Mark as VIP"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, color: c.is_vip ? "#FFD600" : "rgba(255,255,255,0.15)", transition: "color 0.2s" }}>{c.is_vip ? "⭐" : "☆"}</button>
               </div>
+              </>); })()}
               {c.title && <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2, marginBottom: 4 }}>{c.title}</div>}
               <div style={{ color: C.muted, fontSize: 13, marginBottom: 8 }}>{c.company}</div>
               <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 4 }}>
