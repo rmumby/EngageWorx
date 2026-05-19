@@ -241,7 +241,7 @@ async function sendStep(supabase, step, lead, tenant) {
 
     if (!lead.phone && !lead.mobile) {
       console.log('[Sequences] No phone for lead:', lead.id, '— skipping SMS step');
-      return false;
+      return { skipped: true, reason: 'no_phone_for_sms', advance: true };
     }
 
     var accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -264,11 +264,11 @@ async function sendStep(supabase, step, lead, tenant) {
     } else {
       var smsErr = await smsResp.json();
       console.error('[Sequences] SMS failed:', smsErr.message);
-      return false;
+      return { skipped: true, reason: 'sms_send_failed: ' + (smsErr.message || 'unknown'), advance: false };
     }
   }
 
-  return false;
+  return { skipped: true, reason: 'unknown_channel: ' + step.channel, advance: false };
 }
 
 async function processDueSteps(supabase) {
@@ -379,8 +379,46 @@ async function processDueSteps(supabase) {
 
       if (sent && sent.refused) {
         var refusedReason = sent.missing.join(', ');
-        await supabase.from('lead_sequences').update({ status: 'error', error_message: refusedReason, last_error: refusedReason, last_error_at: new Date().toISOString(), processing_started_at: null }).eq('id', enrolment.id);
+        var isMetaLanguageBlock = refusedReason.indexOf('ai_meta_language_blocked') !== -1;
+        var refusedStatus = isMetaLanguageBlock ? 'paused' : 'error';
+        await supabase.from('lead_sequences').update({ status: refusedStatus, error_message: refusedReason, last_error: refusedReason, last_error_at: new Date().toISOString(), processing_started_at: null }).eq('id', enrolment.id);
+        console.log('[Sequences] Enrollment', enrolment.id, refusedStatus + ':', refusedReason);
         errors++;
+        continue;
+      }
+
+      if (sent && sent.skipped) {
+        console.log('[Sequences] Step skipped for enrolment', enrolment.id, ':', sent.reason);
+        if (sent.advance) {
+          // Graceful skip: advance past this step (e.g., SMS step but lead has no phone)
+          var skipNextStepRes = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sequence.id).eq('step_number', nextStepNumber + 1).maybeSingle();
+          var skipNextStep = skipNextStepRes.data;
+          var skipNextAt = null;
+          if (skipNextStep) {
+            var skipDate = new Date();
+            skipDate.setDate(skipDate.getDate() + (skipNextStep.delay_days || 1));
+            skipNextAt = skipDate.toISOString();
+          }
+          await supabase.from('lead_sequences').update({
+            current_step: nextStepNumber,
+            next_step_at: skipNextAt,
+            status: skipNextAt ? 'active' : 'completed',
+            completed_at: skipNextAt ? null : now,
+            processing_started_at: null,
+            last_error: 'step_skipped: ' + sent.reason,
+            last_error_at: new Date().toISOString(),
+          }).eq('id', enrolment.id);
+          processed++;
+        } else {
+          // Non-recoverable skip: pause for human review
+          await supabase.from('lead_sequences').update({
+            status: 'paused',
+            last_error: sent.reason,
+            last_error_at: new Date().toISOString(),
+            processing_started_at: null,
+          }).eq('id', enrolment.id);
+          errors++;
+        }
         continue;
       }
 
