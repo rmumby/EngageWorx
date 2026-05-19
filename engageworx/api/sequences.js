@@ -183,7 +183,7 @@ async function sendStep(supabase, step, lead, tenant) {
     var sigInfo = await _sig.getSignature(supabase, { tenantId: tenant.id, fromEmail: emailConfig.from, isFirstTouch: isFirstStep, closingKind: closingKind });
 
     var bodyHtml =
-      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 16px;">' +
+      '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0;padding:32px 16px;">' +
       '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
 
     var seqThreadId = generateThreadId();
