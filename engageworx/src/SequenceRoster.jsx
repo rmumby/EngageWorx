@@ -172,7 +172,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-                          {['Contact', 'Step', 'Status', 'Enrolled', 'Next Step', 'Days In'].map(function(h) {
+                          {['Contact', 'Step', 'Status', 'Enrolled', 'Next Step', 'Days In', ''].map(function(h) {
                             return <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: colors.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>;
                           })}
                         </tr>
@@ -209,6 +209,19 @@ export default function SequenceRoster({ C, currentTenantId }) {
                               </td>
                               <td style={{ padding: '10px 14px', color: colors.muted, fontSize: 12 }}>
                                 {daysIn !== null ? daysIn + 'd' : '—'}
+                              </td>
+                              <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                                {(e.status === 'active' || e.status === 'paused') ? (
+                                  <button onClick={async function() {
+                                    var name = lead.company || lead.name || lead.email || 'this contact';
+                                    var seqName = (sequences.find(function(s) { return s.id === selectedSeq; }) || {}).name || 'this sequence';
+                                    if (!window.confirm('Cancel enrollment for ' + name + ' from ' + seqName + '?')) return;
+                                    await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', e.id);
+                                    loadRoster();
+                                  }} style={{ background: 'none', border: 'none', color: colors.muted, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 8px', borderRadius: 4, transition: 'color 0.15s' }} onMouseEnter={function(ev) { ev.target.style.color = '#ef4444'; }} onMouseLeave={function(ev) { ev.target.style.color = colors.muted; }} title="Cancel enrollment">Cancel</button>
+                                ) : (
+                                  <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 11 }}>—</span>
+                                )}
                               </td>
                             </tr>
                           );
