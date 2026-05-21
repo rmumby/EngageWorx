@@ -20,6 +20,23 @@ async function safeEnrolSequence(supabase, opts) {
     return { enrolled: false, reason: 'missing_field' };
   }
 
+  // Guard: skip if a human already reached out to this lead's contact
+  try {
+    var leadContact = await supabase.from('contacts').select('id').eq('pipeline_lead_id', leadId).limit(1).maybeSingle();
+    if (leadContact.data) {
+      var humanOutreach = await supabase.from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('contact_id', leadContact.data.id)
+        .eq('direction', 'outbound')
+        .eq('sender_type', 'agent')
+        .not('metadata->>source', 'eq', 'sequence');
+      if (humanOutreach.count && humanOutreach.count > 0) {
+        console.log('[safeEnrol] Skipped — human already reached out:', { lead_id: leadId, contact_id: leadContact.data.id, outbound_count: humanOutreach.count });
+        return { enrolled: false, reason: 'human_already_reached_out' };
+      }
+    }
+  } catch (guardErr) { console.warn('[safeEnrol] Human outreach guard error (non-fatal):', guardErr.message); }
+
   // Check for existing enrollment
   var existing = await supabase.from('lead_sequences')
     .select('id, status')

@@ -161,6 +161,7 @@ function mapContact(c) {
     customFields: c.custom_fields || {},
     tenant_id: c.tenant_id,
     whatsapp_number: c.whatsapp_number || '',
+    pipeline_lead_id: c.pipeline_lead_id || null,
   };
 }
 
@@ -298,6 +299,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [seqSelected, setSeqSelected] = useState(null);
   const [seqEnrolling, setSeqEnrolling] = useState(false);
   const [seqSearch, setSeqSearch] = useState('');
+  const [activeSequences, setActiveSequences] = useState([]);
 
   // Fetch real activity timeline from the database when opening a contact in live mode.
   // In demoMode we fall back to generateActivity(c) so the fixtures still drive the demo.
@@ -344,6 +346,24 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     })();
     return () => { cancelled = true; };
   }, [selectedContact, view, demoMode]);
+
+  // Load active sequences for the selected contact
+  useEffect(function() {
+    if (!selectedContact || view !== 'detail' || demoMode) { setActiveSequences([]); return; }
+    var leadId = selectedContact.pipeline_lead_id;
+    if (!leadId) { setActiveSequences([]); return; }
+    (async function() {
+      try {
+        var { data } = await supabase.from('lead_sequences')
+          .select('id, status, enrolled_at, current_step, next_step_at, sequences(id, name)')
+          .eq('lead_id', leadId)
+          .in('status', ['active', 'paused'])
+          .order('enrolled_at', { ascending: false });
+        setActiveSequences(data || []);
+      } catch (e) { setActiveSequences([]); }
+    })();
+  }, [selectedContact, view, demoMode]);
+
   const [showImport, setShowImport] = useState(false);
   const [showAddContact, setShowAddContact] = useState(false);
   const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
@@ -1078,6 +1098,30 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 {c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>)}
               </div>
             </div>
+            {activeSequences.length > 0 && (
+              <div style={{ ...card, marginBottom: 16 }}>
+                <h3 style={{ color: C.text, margin: "0 0 10px", fontSize: 14 }}>Active Sequences</h3>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {activeSequences.map(function(enrol) {
+                    var seqName = enrol.sequences ? enrol.sequences.name : 'Unknown';
+                    var enrolled = enrol.enrolled_at ? new Date(enrol.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—';
+                    return (
+                      <div key={enrol.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: C.text, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{seqName}</div>
+                          <div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Step {enrol.current_step} · Enrolled {enrolled} · <span style={{ color: enrol.status === 'active' ? '#10b981' : '#f59e0b', fontWeight: 700 }}>{enrol.status}</span></div>
+                        </div>
+                        <button onClick={async function() {
+                          if (!window.confirm('Unenroll from "' + seqName + '"?')) return;
+                          await supabase.from('lead_sequences').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', enrol.id);
+                          setActiveSequences(function(prev) { return prev.filter(function(e) { return e.id !== enrol.id; }); });
+                        }} style={{ background: "none", border: "none", color: C.muted, fontSize: 10, cursor: "pointer", fontFamily: "inherit", padding: "4px 8px", flexShrink: 0 }} onMouseEnter={function(ev) { ev.target.style.color = '#ef4444'; }} onMouseLeave={function(ev) { ev.target.style.color = C.muted; }} title="Unenroll">Unenroll</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: C.text, margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
               {editingContact ? (
