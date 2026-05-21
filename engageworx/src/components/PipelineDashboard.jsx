@@ -282,8 +282,12 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
     const payload = { ...form, name: fullName(firstName, lastName) || form.company, ai_next_action: aiText || form.ai_next_action, go_live_date: form.go_live_date || null, last_action_at: form.last_action_at || null, next_action: form.next_action || null, next_action_date: form.next_action_date || null, last_activity_at: new Date().toISOString() };
     delete payload.id;
     delete payload.contact_count;
-    // Map form.stage (pipeline_stages.id) to pipeline_stage_id; remove dropped 'stage' column
-    if (payload.stage) { payload.pipeline_stage_id = payload.stage; delete payload.stage; }
+    // Map form.stage (stage_key string) to pipeline_stage_id (UUID); remove dropped 'stage' column
+    if (payload.stage) {
+      var matchedStage = stages.find(function(s) { return s.id === payload.stage; });
+      payload.pipeline_stage_id = matchedStage ? matchedStage.stage_id : null;
+      delete payload.stage;
+    }
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     try {
       if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
@@ -355,9 +359,19 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Delete this lead?")) return;
-    await supabase.from("leads").delete().eq("id", lead.id);
-    onSave();
+    if (!window.confirm("Delete this lead and all its sequence enrollments?")) return;
+    try {
+      // Clean up FK dependencies before deleting the lead
+      await supabase.from('lead_sequences').delete().eq('lead_id', lead.id);
+      await supabase.from('lead_sequence_events').delete().eq('lead_id', lead.id);
+      await supabase.from('sent_emails').delete().eq('lead_id', lead.id);
+      await supabase.from('contacts').update({ pipeline_lead_id: null }).eq('pipeline_lead_id', lead.id);
+      var { error } = await supabase.from("leads").delete().eq("id", lead.id);
+      if (error) throw error;
+      onSave();
+    } catch (err) {
+      alert('Delete failed: ' + (err.message || 'Unknown error'));
+    }
   };
 
   return (
