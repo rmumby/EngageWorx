@@ -1094,7 +1094,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <span style={badge(STATUS_COLORS[c.status])}>{c.status}</span>
                 {c.is_vip && <span style={badge("#FFD600")}>⭐ VIP</span>}
               </div>
-              <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 6, justifyContent: "flex-start", marginTop: 8, flexWrap: "wrap", width: "100%", overflow: "visible" }}>
                 {c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>)}
               </div>
             </div>
