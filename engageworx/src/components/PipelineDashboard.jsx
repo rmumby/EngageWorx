@@ -282,12 +282,13 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
     const payload = { ...form, name: fullName(firstName, lastName) || form.company, ai_next_action: aiText || form.ai_next_action, go_live_date: form.go_live_date || null, last_action_at: form.last_action_at || null, next_action: form.next_action || null, next_action_date: form.next_action_date || null, last_activity_at: new Date().toISOString() };
     delete payload.id;
     delete payload.contact_count;
+    // Map form.stage (pipeline_stages.id) to pipeline_stage_id; remove dropped 'stage' column
+    if (payload.stage) { payload.pipeline_stage_id = payload.stage; delete payload.stage; }
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     try {
       if (!isNew) { const { error } = await supabase.from("leads").update(payload).eq("id", lead.id); if (error) throw error; }
       else {
         if (!tenantId) { setSaveError("No tenant context — cannot create lead."); setSaving(false); return; }
-        payload.pipeline_stage_id = form.stage;
         const { error } = await supabase.from("leads").insert({ ...payload, tenant_id: tenantId });
         if (error) throw error;
       }
