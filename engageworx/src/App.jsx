@@ -68,38 +68,36 @@ function useLiveData(demoMode, isSPAdmin) {
         .order('created_at', { ascending: false });
       if (error) throw error;
 
-      // Count contacts directly assigned to each tenant
+      // Count active contacts per tenant (excludes unsubscribed/churned/deleted)
       const { data: contactCounts } = await supabase
         .from('contacts')
         .select('tenant_id')
-        .neq('tenant_id', null);
+        .neq('tenant_id', null)
+        .not('status', 'in', '("unsubscribed","churned","deleted")')
+        .limit(10000);
       const countMap = {};
       (contactCounts || []).forEach(c => {
         countMap[c.tenant_id] = (countMap[c.tenant_id] || 0) + 1;
       });
 
-      // Count Pipeline contacts under SP tenant by company name
-      const { data: pipelineContacts } = await supabase
-        .from('contacts')
-        .select('company_name')
-        .eq('tenant_id', (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'));
-      const companyCountMap = {};
-      (pipelineContacts || []).forEach(c => {
-        if (c.company_name) {
-          var key = c.company_name.toLowerCase().trim();
-          companyCountMap[key] = (companyCountMap[key] || 0) + 1;
-        }
-      });
-
-      // Source of truth for active channels per tenant — channel_configs.enabled = true
+      // Active channels: enabled=true AND has key credentials configured
       const { data: chRows } = await supabase
         .from('channel_configs')
-        .select('tenant_id, channel, enabled')
+        .select('tenant_id, channel, enabled, config_encrypted')
         .eq('enabled', true);
       const channelMap = {};
       const CHANNEL_LABELS = { sms: 'SMS', email: 'Email', whatsapp: 'WhatsApp', voice: 'Voice', rcs: 'RCS', mms: 'MMS' };
+      function hasCredentials(channel, cfg) {
+        if (!cfg) return false;
+        if (channel === 'sms' || channel === 'voice') return !!(cfg.phone_number || cfg.account_sid);
+        if (channel === 'email') return !!(cfg.api_key || cfg.from_email || cfg.domain);
+        if (channel === 'whatsapp') return !!(cfg.access_token || cfg.phone_number_id);
+        if (channel === 'rcs') return !!(cfg.agent_id);
+        return true; // unknown channels: trust enabled flag
+      }
       (chRows || []).forEach(function(r) {
         if (!r.tenant_id || !r.channel) return;
+        if (!hasCredentials(r.channel, r.config_encrypted)) return;
         if (!channelMap[r.tenant_id]) channelMap[r.tenant_id] = [];
         var label = CHANNEL_LABELS[String(r.channel).toLowerCase()] || r.channel.toUpperCase();
         if (channelMap[r.tenant_id].indexOf(label) === -1) channelMap[r.tenant_id].push(label);
@@ -115,10 +113,7 @@ function useLiveData(demoMode, isSPAdmin) {
       } catch (e) {}
 
       const formatted = (tenants || []).map(t => {
-        var directCount = countMap[t.id] || 0;
-        var companyKey = (t.brand_name || t.name || '').toLowerCase().trim();
-        var pipelineCount = companyCountMap[companyKey] || 0;
-        var totalContacts = directCount > 0 ? directCount : pipelineCount;
+        var totalContacts = countMap[t.id] || 0;
         return {
           id: t.id,
           name: t.name,
@@ -136,7 +131,7 @@ function useLiveData(demoMode, isSPAdmin) {
             text: "#E8F4FD", muted: "#6B8BAE",
           },
           stats: {
-            messages: 0, revenue: 0, campaigns: 0,
+            messages: 0, revenue: 0,
             contacts: totalContacts, deliveryRate: 0, openRate: 0,
           },
           channels: channelMap[t.id] || [],
@@ -942,7 +937,6 @@ setDemoCreating(false);
                 </div>
                 <div>
                   <div style={{ color: "#fff", fontSize: 13 }}>{c.stats.contacts.toLocaleString()} contacts</div>
-                  <div style={{ color: C.muted, fontSize: 11 }}>{c.stats.campaigns} campaigns</div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
