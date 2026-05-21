@@ -7,13 +7,34 @@ function daysSince(d) {
   return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
 
-function statusColor(status) {
-  if (status === 'active') return '#10b981';
-  if (status === 'completed') return '#6366f1';
-  if (status === 'paused') return '#f59e0b';
-  if (status === 'cancelled') return '#ef4444';
-  return '#64748b';
+// Normalize raw forensic status strings to display categories.
+// Raw values like 'cancelled_round3', 'cancelled_round5_safeenrol_bug' are
+// preserved in the DB as audit trail — only the UI display is normalized.
+function normalizeStatus(raw) {
+  if (!raw) return { display: 'unknown', color: '#64748b' };
+  if (raw === 'paused_emergency') return { display: 'Paused (emergency)', color: '#b91c1c' };
+  if (raw.startsWith('cancelled')) return { display: 'Cancelled', color: '#ef4444' };
+  if (raw.startsWith('paused')) return { display: 'Paused', color: '#f59e0b' };
+  if (raw === 'active') return { display: 'Active', color: '#10b981' };
+  if (raw === 'completed') return { display: 'Completed', color: '#6366f1' };
+  if (raw === 'error') return { display: 'Error', color: '#dc2626' };
+  if (raw === 'replied') return { display: 'Replied', color: '#06b6d4' };
+  return { display: raw, color: '#64748b' };
 }
+
+function statusColor(status) {
+  return normalizeStatus(status).color;
+}
+
+var STATUS_TOOLTIPS = {
+  active: 'Sequence is running — next step will send on schedule',
+  completed: 'All steps sent — sequence finished',
+  paused: 'Paused — rate limit, missing data, or manual pause',
+  paused_emergency: 'Emergency kill-switch — all processing halted by admin',
+  cancelled: 'Cancelled — will not send further steps',
+  error: 'Step failed — click to see error details',
+  replied: 'Contact replied — sequence stopped automatically',
+};
 
 export default function SequenceRoster({ C, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
@@ -57,7 +78,10 @@ export default function SequenceRoster({ C, currentTenantId }) {
   useEffect(function() { loadRoster(); }, [selectedSeq]);
 
   var filtered = enrolments.filter(function(e) {
-    if (filter !== 'all' && e.status !== filter) return false;
+    if (filter !== 'all') {
+      var norm = normalizeStatus(e.status).display.toLowerCase().split(' ')[0];
+      if (norm !== filter) return false;
+    }
     if (search) {
       var q = search.toLowerCase();
       var lead = e.leads || e.lead_data || {};
@@ -71,12 +95,16 @@ export default function SequenceRoster({ C, currentTenantId }) {
   var selectedSequence = sequences.find(function(s) { return s.id === selectedSeq; });
   var stepCount = selectedSequence && selectedSequence.sequence_steps ? selectedSequence.sequence_steps.length : 0;
 
-  var stats = {
-    active: enrolments.filter(function(e) { return e.status === 'active'; }).length,
-    completed: enrolments.filter(function(e) { return e.status === 'completed'; }).length,
-    paused: enrolments.filter(function(e) { return e.status === 'paused'; }).length,
-    cancelled: enrolments.filter(function(e) { return e.status === 'cancelled'; }).length,
-  };
+  var stats = { active: 0, completed: 0, paused: 0, cancelled: 0, error: 0, replied: 0 };
+  enrolments.forEach(function(e) {
+    var norm = normalizeStatus(e.status).display.toLowerCase().split(' ')[0]; // 'paused (emergency)' → 'paused'
+    if (norm === 'active') stats.active++;
+    else if (norm === 'completed') stats.completed++;
+    else if (norm === 'paused') stats.paused++;
+    else if (norm === 'cancelled') stats.cancelled++;
+    else if (norm === 'error') stats.error++;
+    else if (norm === 'replied') stats.replied++;
+  });
 
   var inputStyle = { background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px', color: '#f1f5f9', fontSize: 13, fontFamily: 'inherit', outline: 'none' };
 
@@ -137,9 +165,10 @@ export default function SequenceRoster({ C, currentTenantId }) {
                     { label: 'Active', value: stats.active, color: '#10b981' },
                     { label: 'Completed', value: stats.completed, color: '#6366f1' },
                     { label: 'Paused', value: stats.paused, color: '#f59e0b' },
-                    { label: 'Cancelled', value: stats.cancelled, color: '#ef4444' },
+                    { label: 'Error', value: stats.error, color: '#dc2626' },
+                    { label: 'Replied', value: stats.replied, color: '#06b6d4' },
                     { label: 'Total', value: enrolments.length, color: colors.primary },
-                  ].map(function(s) {
+                  ].filter(function(s) { return s.value > 0 || s.label === 'Total' || s.label === 'Active'; }).map(function(s) {
                     return (
                       <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '12px 16px', textAlign: 'center', minWidth: 80 }}>
                         <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -152,13 +181,16 @@ export default function SequenceRoster({ C, currentTenantId }) {
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
                   <input placeholder="Search contacts..." value={search} onChange={function(e) { setSearch(e.target.value); }} style={{ ...inputStyle, width: 200 }} />
                   <div style={{ display: 'flex', gap: 4 }}>
-                    {['all', 'active', 'completed', 'paused', 'cancelled'].map(function(f) {
+                    {['all', 'active', 'completed', 'paused', 'cancelled', 'error', 'replied'].map(function(f) {
                       return (
                         <button key={f} onClick={function() { setFilter(f); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: filter === f ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', color: filter === f ? '#a5b4fc' : '#475569', fontSize: 11, fontWeight: filter === f ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
                       );
                     })}
                   </div>
-                  <div style={{ marginLeft: 'auto', fontSize: 12, color: colors.muted }}>{filtered.length} contacts</div>
+                  <div style={{ marginLeft: 'auto', fontSize: 11, color: colors.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{filtered.length} contacts</span>
+                    <span title="Hover any status badge to see details. Variant statuses (e.g. cancelled_round3) are forensic markers preserved for audit — the badge shows the normalized category." style={{ cursor: 'help', opacity: 0.5 }}>ⓘ</span>
+                  </div>
                 </div>
 
                 {loading ? (
@@ -199,7 +231,17 @@ export default function SequenceRoster({ C, currentTenantId }) {
                                 </div>
                               </td>
                               <td style={{ padding: '10px 14px' }}>
-                                <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: statusColor(e.status) + '22', color: statusColor(e.status), border: '1px solid ' + statusColor(e.status) + '44', textTransform: 'capitalize' }}>{e.status}</span>
+                                {(function() {
+                                  var norm = normalizeStatus(e.status);
+                                  var tooltipBase = STATUS_TOOLTIPS[e.status] || STATUS_TOOLTIPS[e.status.split('_')[0]] || '';
+                                  var tooltip = e.status !== norm.display.toLowerCase() ? (tooltipBase ? tooltipBase + '\n' : '') + 'Raw: ' + e.status : tooltipBase;
+                                  return (
+                                    <span
+                                      title={tooltip}
+                                      onClick={e.status === 'error' && e.last_error ? function() { alert('Error: ' + e.last_error + (e.last_error_at ? '\n\nAt: ' + new Date(e.last_error_at).toLocaleString() : '')); } : undefined}
+                                      style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: norm.color + '22', color: norm.color, border: '1px solid ' + norm.color + '44', cursor: e.status === 'error' ? 'pointer' : 'default' }}>{norm.display}{e.status === 'error' ? ' ⓘ' : ''}</span>
+                                  );
+                                })()}
                               </td>
                               <td style={{ padding: '10px 14px', color: colors.muted, fontSize: 12 }}>
                                 {e.enrolled_at ? new Date(e.enrolled_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
@@ -211,7 +253,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
                                 {daysIn !== null ? daysIn + 'd' : '—'}
                               </td>
                               <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                                {(e.status === 'active' || e.status === 'paused') ? (
+                                {(e.status === 'active' || e.status.startsWith('paused')) ? (
                                   <button onClick={async function() {
                                     var name = lead.company || lead.name || lead.email || 'this contact';
                                     var seqName = (sequences.find(function(s) { return s.id === selectedSeq; }) || {}).name || 'this sequence';
