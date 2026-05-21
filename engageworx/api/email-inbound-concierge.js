@@ -1,0 +1,284 @@
+// api/email-inbound-concierge.js — Resend inbound webhook for wedding concierge email channel
+// POST /api/email-inbound-concierge (Resend inbound webhook)
+// Receives email to weddings@delameremanor.co.uk → identifies couple → AI concierge → replies
+
+var { createClient } = require('@supabase/supabase-js');
+var { sendTenantEmail } = require('./_lib/send-tenant-email');
+var { generateConciergeResponse } = require('./wedding-concierge');
+
+function getSupabase() {
+  return createClient(
+    process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(200).json({ ok: true });
+
+  // ── 1. Verify Resend webhook signature ────────────────────────────────
+  var webhookSecret = process.env.RESEND_INBOUND_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    var signature = req.headers['x-webhook-signature'] || req.headers['svix-signature'] || '';
+    if (!signature) {
+      console.warn('[email-concierge] Missing webhook signature — rejecting');
+      return res.status(401).json({ error: 'Missing signature' });
+    }
+    // Svix verification: for v1, accept if secret is configured and signature header is present
+    // Full Svix SDK verification can be added later for stricter validation
+  }
+
+  var supabase = getSupabase();
+  var payload = req.body || {};
+
+  // Resend inbound payload structure
+  var fromRaw = payload.from || '';
+  var toRaw = payload.to || '';
+  var subject = payload.subject || '(no subject)';
+  var bodyText = payload.text || '';
+  var bodyHtml = payload.html || '';
+  var headers = payload.headers || {};
+  var messageId = (headers['message-id'] || headers['Message-ID'] || '').replace(/[<>]/g, '');
+
+  // Extract sender email
+  var senderMatch = fromRaw.match(/<([^>]+)>/) || [null, fromRaw];
+  var senderEmail = (senderMatch[1] || '').toLowerCase().trim();
+  var senderName = (fromRaw.match(/^([^<]+)</) || [])[1];
+  senderName = senderName ? senderName.trim().replace(/"/g, '') : '';
+
+  // Extract recipient
+  var recipientMatch = (Array.isArray(toRaw) ? toRaw[0] : toRaw).match(/<([^>]+)>/) || [null, Array.isArray(toRaw) ? toRaw[0] : toRaw];
+  var recipientEmail = (recipientMatch[1] || '').toLowerCase().trim();
+  var recipientDomain = recipientEmail.split('@')[1] || '';
+
+  // Use text body; fall back to stripped HTML
+  var emailBody = bodyText.trim();
+  if (!emailBody && bodyHtml) {
+    emailBody = bodyHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  console.log('[email-concierge] Inbound:', { from: senderEmail, to: recipientEmail, subject: subject.substring(0, 60) });
+
+  if (!senderEmail || !recipientEmail) {
+    console.log('[email-concierge] Missing sender or recipient — dropping');
+    return res.status(200).json({ ok: true, dropped: 'missing_addresses' });
+  }
+
+  // ── 2. Tenant resolution ──────────────────────────────────────────────
+  var tenantId = null;
+
+  // (a) Check channel_configs for exact recipient email match
+  try {
+    var { data: configs } = await supabase.from('channel_configs')
+      .select('tenant_id, config_encrypted')
+      .eq('channel', 'email');
+
+    if (configs) {
+      for (var i = 0; i < configs.length; i++) {
+        var cfg = configs[i].config_encrypted || {};
+        var inboundEmail = (cfg.inbound_email || cfg.from_email || '').toLowerCase();
+        if (inboundEmail === recipientEmail) {
+          tenantId = configs[i].tenant_id;
+          break;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // (b) Fall back to domain match against tenants
+  if (!tenantId && recipientDomain) {
+    try {
+      var { data: t } = await supabase.from('tenants')
+        .select('id')
+        .or('custom_domain.ilike.%' + recipientDomain + '%,website_url.ilike.%' + recipientDomain + '%')
+        .limit(1).maybeSingle();
+      if (t) tenantId = t.id;
+    } catch (e) {}
+  }
+
+  if (!tenantId) {
+    console.log('[email-concierge] No tenant for recipient:', recipientEmail);
+    return res.status(200).json({ ok: true, dropped: 'no_tenant' });
+  }
+
+  // ── 3. Verify concierge is enabled for this tenant ────────────────────
+  var { data: chatbotConfig } = await supabase.from('chatbot_configs')
+    .select('id, channels_active')
+    .eq('tenant_id', tenantId)
+    .eq('surface', 'wedding_concierge')
+    .maybeSingle();
+
+  if (!chatbotConfig || !(chatbotConfig.channels_active || []).includes('email')) {
+    console.log('[email-concierge] Email channel not active for wedding_concierge, tenant:', tenantId);
+    return res.status(200).json({ ok: true, dropped: 'email_not_active' });
+  }
+
+  // ── 4. Couple resolution ──────────────────────────────────────────────
+  var { data: contact } = await supabase.from('contacts')
+    .select('id, first_name, last_name, email')
+    .eq('tenant_id', tenantId)
+    .ilike('email', senderEmail)
+    .limit(1).maybeSingle();
+
+  var contactId = contact ? contact.id : null;
+  var weddingId = null;
+
+  if (contactId) {
+    // Find wedding where this contact is primary or partner
+    var { data: wedding } = await supabase.from('weddings')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .or('primary_contact_id.eq.' + contactId + ',partner_contact_id.eq.' + contactId)
+      .limit(1).maybeSingle();
+
+    if (wedding) weddingId = wedding.id;
+  }
+
+  // If no wedding found: create support ticket for manual triage
+  if (!weddingId) {
+    console.log('[email-concierge] Unrecognised sender — creating support ticket:', senderEmail);
+    try {
+      await supabase.from('support_tickets').insert({
+        tenant_id: tenantId,
+        subject: 'Unrecognised sender: ' + subject,
+        description: 'Email from ' + senderEmail + ' (' + senderName + ') to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
+        submitter_email: senderEmail,
+        submitter_name: senderName || senderEmail,
+        category: 'wedding_concierge_escalation',
+        status: 'open',
+        priority: 'normal',
+      });
+    } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
+    return res.status(200).json({ ok: true, action: 'unrecognised_sender_ticket' });
+  }
+
+  // ── 5. Conversation continuity ────────────────────────────────────────
+  var conversationId = null;
+  try {
+    // Find existing conversation
+    var { data: existingConv } = await supabase.from('conversations')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('contact_id', contactId)
+      .eq('channel', 'email')
+      .limit(1).maybeSingle();
+
+    if (existingConv) {
+      conversationId = existingConv.id;
+      await supabase.from('conversations').update({
+        last_message_at: new Date().toISOString(),
+        unread_count: supabase.rpc ? 1 : 1, // increment handled by trigger if exists
+      }).eq('id', conversationId);
+    } else {
+      var { data: newConv } = await supabase.from('conversations').insert({
+        tenant_id: tenantId,
+        contact_id: contactId,
+        channel: 'email',
+        status: 'active',
+        subject: subject,
+        last_message_at: new Date().toISOString(),
+        unread_count: 1,
+      }).select('id').single();
+      if (newConv) conversationId = newConv.id;
+    }
+  } catch (convErr) { console.warn('[email-concierge] Conversation error:', convErr.message); }
+
+  // ── 6. Persist inbound message ────────────────────────────────────────
+  if (conversationId) {
+    try {
+      await supabase.from('messages').insert({
+        tenant_id: tenantId,
+        conversation_id: conversationId,
+        contact_id: contactId,
+        channel: 'email',
+        direction: 'inbound',
+        sender_type: 'contact',
+        body: emailBody.substring(0, 10000),
+        status: 'delivered',
+      });
+    } catch (msgErr) { console.warn('[email-concierge] Inbound message persist error:', msgErr.message); }
+  }
+
+  // ── 7. Call AI concierge ──────────────────────────────────────────────
+  var contactName = contact ? ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() : senderName;
+  var aiResult;
+  try {
+    aiResult = await generateConciergeResponse(supabase, {
+      tenantId: tenantId,
+      surface: 'wedding_concierge',
+      weddingId: weddingId,
+      conversationId: conversationId,
+      userMessage: emailBody.substring(0, 5000),
+      contactMeta: { name: contactName, email: senderEmail },
+    });
+  } catch (aiErr) {
+    console.error('[email-concierge] AI error:', aiErr.message);
+    return res.status(500).json({ error: 'AI generation failed' });
+  }
+
+  console.log('[email-concierge] AI response:', { prefix: aiResult.prefix, length: aiResult.response.length, kb: aiResult.kb_article_count });
+
+  // ── 8. Send reply email ───────────────────────────────────────────────
+  var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
+  var replyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
+    aiResult.response.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
+    '</div>';
+
+  try {
+    var sendResult = await sendTenantEmail(supabase, {
+      tenant_id: tenantId,
+      to: senderEmail,
+      from: recipientEmail,
+      from_name: 'Delamere Manor',
+      subject: replySubject,
+      html: replyHtml,
+      text: aiResult.response,
+      reply_to: recipientEmail,
+    });
+    console.log('[email-concierge] Reply sent:', sendResult.message_id || 'ok');
+  } catch (sendErr) {
+    console.error('[email-concierge] Reply send failed:', sendErr.message);
+    // Don't fail the webhook — email is already ingested
+  }
+
+  // ── 9. Persist outbound message ───────────────────────────────────────
+  if (conversationId) {
+    try {
+      await supabase.from('messages').insert({
+        tenant_id: tenantId,
+        conversation_id: conversationId,
+        contact_id: contactId,
+        channel: 'email',
+        direction: 'outbound',
+        sender_type: 'bot',
+        body: aiResult.response,
+        status: 'delivered',
+      });
+    } catch (outErr) { console.warn('[email-concierge] Outbound message persist error:', outErr.message); }
+  }
+
+  // ── 10. Prefix routing ────────────────────────────────────────────────
+  if (aiResult.prefix === 'ESCALATE') {
+    try {
+      await supabase.from('support_tickets').insert({
+        tenant_id: tenantId,
+        wedding_id: weddingId,
+        subject: 'Concierge escalation: ' + subject,
+        description: 'Original email from ' + contactName + ' (' + senderEmail + '):\n\n' + emailBody.substring(0, 3000) + '\n\n---\n\nAI escalation summary:\n' + aiResult.response,
+        submitter_email: senderEmail,
+        submitter_name: contactName || senderEmail,
+        category: 'wedding_concierge_escalation',
+        status: 'open',
+        priority: 'high',
+      });
+      console.log('[email-concierge] Escalation ticket created for:', senderEmail);
+    } catch (escErr) { console.error('[email-concierge] Escalation ticket error:', escErr.message); }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    prefix: aiResult.prefix,
+    wedding_id: weddingId,
+    conversation_id: conversationId,
+  });
+};
