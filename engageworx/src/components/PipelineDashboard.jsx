@@ -498,6 +498,13 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
           <textarea style={{ ...inputStyleFn(), minHeight: "70px", resize: "vertical" }} value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} />
         </div>
 
+        <div style={{ marginBottom: "12px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: form.auto_sequence_opt_out ? "#f59e0b" : t.muted }}>
+            <input type="checkbox" checked={!!form.auto_sequence_opt_out} onChange={function(e) { setForm(Object.assign({}, form, { auto_sequence_opt_out: e.target.checked })); }} style={{ accentColor: "#f59e0b" }} />
+            Exclude from auto-enrollment sequences
+          </label>
+        </div>
+
         <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.15)", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#a5b4fc", marginBottom: "10px" }}>NEXT ACTION</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "10px", alignItems: "end" }}>

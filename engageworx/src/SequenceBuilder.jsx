@@ -315,6 +315,28 @@ setSteps(aiSteps.map(function(s, i) {
               <div style={{ padding: '10px 16px', borderRadius: 8, background: saveMsg.startsWith('Error') ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', border: '1px solid ' + (saveMsg.startsWith('Error') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'), color: saveMsg.startsWith('Error') ? '#ef4444' : '#10b981', fontSize: 13, marginBottom: 16 }}>{saveMsg}</div>
             )}
 
+            {selectedSeq && selectedSeq.name && selectedSeq.name.toLowerCase().indexOf('contact qualification') !== -1 && (
+              <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', marginBottom: 4 }}>Auto-enrollment</div>
+                    <div style={{ fontSize: 11, color: colors.muted, lineHeight: 1.5 }}>Auto-enrols new leads in this tenant that have an email address and have not been marked qualified. Per-lead opt-out is configurable on individual lead records.</div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: selectedSeq.auto_enroll_enabled !== false ? '#10b981' : colors.muted, flexShrink: 0, marginLeft: 16 }}>
+                    <input type="checkbox" checked={selectedSeq.auto_enroll_enabled !== false} onChange={async function(e) {
+                      var val = e.target.checked;
+                      try {
+                        await supabase.from('sequences').update({ auto_enroll_enabled: val }).eq('id', selectedSeq.id);
+                        setSelectedSeq(Object.assign({}, selectedSeq, { auto_enroll_enabled: val }));
+                        setSequences(function(prev) { return prev.map(function(s) { return s.id === selectedSeq.id ? Object.assign({}, s, { auto_enroll_enabled: val }) : s; }); });
+                      } catch (err) { alert('Error: ' + err.message); }
+                    }} style={{ accentColor: '#10b981' }} />
+                    {selectedSeq.auto_enroll_enabled !== false ? 'Enabled' : 'Disabled'}
+                  </label>
+                </div>
+              </div>
+            )}
+
             {showAI && (
               <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#e879f9', marginBottom: 12 }}>AI Sequence Builder</div>
