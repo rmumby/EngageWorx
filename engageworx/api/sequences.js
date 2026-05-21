@@ -271,10 +271,90 @@ async function sendStep(supabase, step, lead, tenant) {
   return { skipped: true, reason: 'unknown_channel: ' + step.channel, advance: false };
 }
 
+// ── Platform-level error detection + alerting ────────────────────────────
+var PLATFORM_ERROR_PATTERNS = [
+  'SMTP credentials', 'Invalid API key', 'Authentication failed', 'ECONNREFUSED',
+  'RESEND_API_KEY not configured', 'ANTHROPIC_API_KEY not configured',
+  'Resend error', 'SMTP credentials incomplete', 'connect ETIMEDOUT',
+  'getaddrinfo ENOTFOUND', 'certificate has expired', 'self signed certificate',
+  'ESOCKET', 'EAUTH', 'Invalid login', 'rate limit', 'quota exceeded',
+];
+
+function isPlatformError(errorMessage) {
+  var lower = (errorMessage || '').toLowerCase();
+  for (var i = 0; i < PLATFORM_ERROR_PATTERNS.length; i++) {
+    if (lower.indexOf(PLATFORM_ERROR_PATTERNS[i].toLowerCase()) !== -1) return PLATFORM_ERROR_PATTERNS[i];
+  }
+  return null;
+}
+
+// Throttle: keyed by tenant_id:pattern, 4-hour window.
+// Uses a DB table check so throttle persists across cron invocations.
+async function shouldAlertPlatform(supabase, tenantId, pattern) {
+  try {
+    var fourHoursAgo = new Date(Date.now() - 4 * 3600000).toISOString();
+    var { data } = await supabase.from('debug_logs')
+      .select('id')
+      .eq('endpoint', 'sequence_platform_alert')
+      .eq('action', tenantId + ':' + pattern)
+      .gte('created_at', fourHoursAgo)
+      .limit(1)
+      .maybeSingle();
+    return !data;
+  } catch (e) { return true; } // fail open — send the alert
+}
+
+async function recordAlertSent(supabase, tenantId, pattern) {
+  try {
+    await supabase.from('debug_logs').insert({
+      endpoint: 'sequence_platform_alert',
+      action: tenantId + ':' + pattern,
+      payload: { tenant_id: tenantId, pattern: pattern },
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {}
+}
+
+async function sendPlatformAlert(tenantId, sequenceId, errorMsg, pattern, affectedCount) {
+  var adminEmail = process.env.PLATFORM_ADMIN_EMAIL;
+  var resendKey = process.env.RESEND_API_KEY;
+  var fromEmail = process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com';
+  if (!adminEmail || !resendKey) {
+    console.error('[Sequences] PLATFORM ALERT (no email configured):', { tenant_id: tenantId, pattern: pattern, error: errorMsg, affected: affectedCount });
+    return;
+  }
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'EngageWorx Alerts <' + fromEmail + '>',
+        to: [adminEmail],
+        subject: '[ALERT] Sequence cron failing: ' + pattern,
+        html: '<div style="font-family:Arial,sans-serif;max-width:600px;padding:20px;">' +
+          '<h2 style="color:#dc2626;margin:0 0 12px;">Sequence Infrastructure Error</h2>' +
+          '<p style="color:#334155;font-size:14px;line-height:1.6;">' +
+          '<strong>Pattern:</strong> ' + pattern + '<br>' +
+          '<strong>Tenant:</strong> ' + tenantId + '<br>' +
+          '<strong>Sequence:</strong> ' + (sequenceId || 'multiple') + '<br>' +
+          '<strong>Affected enrollments:</strong> ' + affectedCount + '<br>' +
+          '<strong>Error:</strong> ' + (errorMsg || '').substring(0, 500).replace(/</g, '&lt;') + '<br>' +
+          '<strong>Time:</strong> ' + new Date().toISOString() + '</p>' +
+          '<p style="color:#94a3b8;font-size:12px;margin-top:16px;">This alert is throttled to once per 4 hours per tenant+pattern combination.</p>' +
+          '</div>',
+      }),
+    });
+    console.log('[Sequences] Platform alert sent:', { tenant_id: tenantId, pattern: pattern, to: adminEmail });
+  } catch (alertErr) {
+    console.error('[Sequences] Platform alert send failed:', alertErr.message);
+  }
+}
+
 async function processDueSteps(supabase) {
   var now = new Date().toISOString();
   var processed = 0;
   var errors = 0;
+  var platformErrors = {}; // { 'tenantId:pattern': { tenantId, sequenceId, error, count } }
 
   var fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString();
   var enrolmentsRes = await supabase
@@ -476,15 +556,35 @@ async function processDueSteps(supabase) {
         processing_started_at: null,
       }).eq('id', enrolment.id);
 
-      // TODO: migrate to proper admin notification helper when send-notification.js is built
-      console.error('[Sequences] ADMIN ALERT: enrolment', enrolment.id, 'lead', enrolment.lead_id, 'errored:', sendError.message);
+      // Detect platform-level infrastructure errors (vs per-contact errors)
+      var platformPattern = isPlatformError(sendError.message);
+      if (platformPattern) {
+        var pKey = (sequence ? sequence.tenant_id : 'unknown') + ':' + platformPattern;
+        if (!platformErrors[pKey]) platformErrors[pKey] = { tenantId: sequence ? sequence.tenant_id : null, sequenceId: sequence ? sequence.id : null, error: sendError.message, pattern: platformPattern, count: 0 };
+        platformErrors[pKey].count++;
+      }
 
       errors++;
       continue;
     }
   }
 
-  return { processed: processed, errors: errors };
+  // Fire platform alerts for infrastructure-level errors (throttled)
+  var alertKeys = Object.keys(platformErrors);
+  for (var ak = 0; ak < alertKeys.length; ak++) {
+    var pe = platformErrors[alertKeys[ak]];
+    try {
+      var shouldAlert = await shouldAlertPlatform(supabase, pe.tenantId, pe.pattern);
+      if (shouldAlert) {
+        await sendPlatformAlert(pe.tenantId, pe.sequenceId, pe.error, pe.pattern, pe.count);
+        await recordAlertSent(supabase, pe.tenantId, pe.pattern);
+      } else {
+        console.log('[Sequences] Platform alert throttled:', { tenant_id: pe.tenantId, pattern: pe.pattern, affected: pe.count });
+      }
+    } catch (alertErr) { console.warn('[Sequences] Alert dispatch error:', alertErr.message); }
+  }
+
+  return { processed: processed, errors: errors, platform_alerts: alertKeys.length };
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
