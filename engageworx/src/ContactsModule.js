@@ -1095,7 +1095,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 {c.is_vip && <span style={badge("#FFD600")}>⭐ VIP</span>}
               </div>
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-start", marginTop: 8, flexWrap: "wrap", width: "100%", overflow: "visible" }}>
-                {c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>)}
+                {c.tags.length > 0 ? c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>) : <span style={{ color: C.muted, fontSize: 11, fontStyle: "italic" }}>No tags</span>}
               </div>
             </div>
             {activeSequences.length > 0 && (
@@ -1125,68 +1125,83 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 16 }}>
               <h3 style={{ color: C.text, margin: "0 0 14px", fontSize: 14 }}>Contact Info</h3>
               {editingContact ? (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {[{ key: "firstName", label: "First Name", icon: "👤" }, { key: "lastName", label: "Last Name", icon: "👤" }, { key: "email", label: "Email", icon: "📧" }].map(f => (
-                    <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
-                      <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
-                    </div>
-                  ))}
-                  {[{ key: "mobile_phone", label: "Mobile", icon: "📱" }, { key: "office_phone", label: "Office", icon: "📞" }, { key: "whatsapp_number", label: "WhatsApp", icon: "📲" }].map(function(f) {
-                    var parts = splitPhone(editingContact[f.key]);
-                    return (
-                      <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
-                        <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                        <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 6px", color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 90 }}>
-                          {COUNTRY_CODES.map(function(cc) { return <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>; })}
+                <div>
+                  {/* Two-column grid: Identity left, Business right */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 14 }}>
+                    {/* LEFT — Identity */}
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {[{ key: "firstName", label: "First Name" }, { key: "lastName", label: "Last Name" }, { key: "email", label: "Email" }].map(f => (
+                        <div key={f.key}>
+                          <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
+                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                        </div>
+                      ))}
+                      {[{ key: "mobile_phone", label: "Mobile" }, { key: "office_phone", label: "Office" }, { key: "whatsapp_number", label: "WhatsApp" }].map(function(f) {
+                        var parts = splitPhone(editingContact[f.key]);
+                        return (
+                          <div key={f.key}>
+                            <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 6px", color: C.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 80 }}>
+                                {COUNTRY_CODES.map(function(cc) { return <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>; })}
+                              </select>
+                              <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div>
+                        <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Status</label>
+                        <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
-                        <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Phone number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                       </div>
-                    );
-                  })}
-                  {[{ key: "company", label: "Company", icon: "🏢" }, { key: "title", label: "Title", icon: "💼" }, { key: "linkedinUrl", label: "LinkedIn", icon: "🔗" }].map(f => (
-                    <div key={f.key} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 14, width: 20 }}>{f.icon}</span>
-                      <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{f.label}</span>
-                      <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                     </div>
-                  ))}
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 14, width: 20, paddingTop: 6 }}>📝</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80, paddingTop: 6 }}>Notes</span>
-                    <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={3} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical" }} />
+                    {/* RIGHT — Business context */}
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {[{ key: "company", label: "Company" }, { key: "title", label: "Title" }, { key: "linkedinUrl", label: "LinkedIn" }].map(f => (
+                        <div key={f.key}>
+                          <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
+                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                        </div>
+                      ))}
+                      <div>
+                        <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Notes</label>
+                        <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={5} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                    <span style={{ fontSize: 14, width: 20 }}>📋</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>Status</span>
-                    <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
-                      {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {/* Tags — full width below both columns */}
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 6 }}>Tags</label>
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+                      {(editingContact.tags || []).map(function(t) {
+                        return <span key={t} onClick={function() { setEditingContact(Object.assign({}, editingContact, { tags: (editingContact.tags || []).filter(function(x) { return x !== t; }) })); }} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: (TAG_COLORS[t] || C.muted) + "22", color: TAG_COLORS[t] || C.muted, border: "1px solid " + (TAG_COLORS[t] || C.muted) + "55", borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{t} <span style={{ fontSize: 12, lineHeight: 1, opacity: 0.6 }}>×</span></span>;
+                      })}
+                      {(editingContact.tags || []).length === 0 && <span style={{ color: C.muted, fontSize: 11, fontStyle: "italic" }}>No tags</span>}
+                    </div>
+                    <select onChange={function(e) { if (!e.target.value) return; var tag = e.target.value; var current = editingContact.tags || []; if (current.indexOf(tag) === -1) setEditingContact(Object.assign({}, editingContact, { tags: current.concat([tag]) })); e.target.value = ""; }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "5px 10px", color: C.muted, fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none" }}>
+                      <option value="">+ Add tag…</option>
+                      {TAGS.filter(function(t) { return !(editingContact.tags || []).includes(t); }).map(function(t) { return <option key={t} value={t}>{t}</option>; })}
                     </select>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <span style={{ fontSize: 14, width: 20, paddingTop: 4 }}>🏷️</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80, paddingTop: 4 }}>Tags</span>
-                    <div style={{ flex: 1, display: "flex", gap: 4, flexWrap: "wrap", minWidth: 0 }}>
-                      {TAGS.map(function(t) {
-                        var has = (editingContact.tags || []).includes(t);
-                        return <button key={t} onClick={function() { var current = editingContact.tags || []; var next = has ? current.filter(function(x) { return x !== t; }) : current.concat([t]); setEditingContact(Object.assign({}, editingContact, { tags: next })); }} style={{ background: has ? (TAG_COLORS[t] || C.muted) + "22" : "rgba(255,255,255,0.04)", border: "1px solid " + (has ? (TAG_COLORS[t] || C.muted) + "55" : "rgba(255,255,255,0.08)"), borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: has ? 700 : 400, color: has ? (TAG_COLORS[t] || C.muted) : "rgba(255,255,255,0.3)", cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>{has ? "✓ " : ""}{t}</button>;
-                      })}
-                    </div>
-                  </div>
-                  <button onClick={() => handleEditContact(editingContact)} style={{ marginTop: 8, background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                  <button onClick={() => handleEditContact(editingContact)} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
               ) : (
-                [{ icon: "📧", label: "Email", value: c.email }, { icon: "📱", label: "Mobile", value: c.mobile_phone }, c.whatsapp_number ? { icon: "📲", label: "WhatsApp", value: c.whatsapp_number } : null, c.office_phone ? { icon: "📞", label: "Office", value: c.office_phone } : null, { icon: "🏢", label: "Company", value: c.company }, c.title ? { icon: "💼", label: "Title", value: c.title } : null, c.linkedinUrl ? { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true } : null, { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
-                  <div key={item.label} style={{ display: "flex", gap: 10, padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                    <span style={{ fontSize: 14, width: 20 }}>{item.icon}</span>
-                    <span style={{ color: C.muted, fontSize: 12, width: 80 }}>{item.label}</span>
-                    <span style={{ color: C.text, fontSize: 13, flex: 1, wordBreak: "break-all" }}>
-                      {item.isLink && item.value ? <a href={item.value} target="_blank" rel="noopener noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{item.value}</a> : (item.value || '')}
-                    </span>
-                  </div>
-                ))
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  {[{ icon: "📧", label: "Email", value: c.email }, { icon: "🏢", label: "Company", value: c.company },
+                    { icon: "📱", label: "Mobile", value: c.mobile_phone }, c.title ? { icon: "💼", label: "Title", value: c.title } : null,
+                    c.whatsapp_number ? { icon: "📲", label: "WhatsApp", value: c.whatsapp_number } : null, c.linkedinUrl ? { icon: "🔗", label: "LinkedIn", value: c.linkedinUrl, isLink: true } : null,
+                    c.office_phone ? { icon: "📞", label: "Office", value: c.office_phone } : null, null,
+                    { icon: "📅", label: "Created", value: c.created.toLocaleDateString() }, { icon: "⏰", label: "Last Active", value: c.lastActive.toLocaleDateString() }].filter(Boolean).map(item => (
+                    <div key={item.label} style={{ padding: "6px 0" }}>
+                      <div style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>{item.icon} {item.label}</div>
+                      <div style={{ color: C.text, fontSize: 13, wordBreak: "break-all" }}>
+                        {item.isLink && item.value ? <a href={item.value} target="_blank" rel="noopener noreferrer" style={{ color: C.primary, textDecoration: 'none' }}>{item.value}</a> : (item.value || '—')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
             {c.notes && !editingContact && (
