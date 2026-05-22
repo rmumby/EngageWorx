@@ -60,13 +60,19 @@ module.exports = async function handler(req, res) {
   var recipientEmail = (toArray[0] || '').toLowerCase().trim();
   var recipientDomain = recipientEmail.split('@')[1] || '';
 
-  // Use text body; fall back to stripped HTML
+  // Use text body; fall back to stripped HTML (Gmail often sends HTML-only)
   var emailBody = (bodyText || '').trim();
   if (!emailBody && bodyHtml) {
-    emailBody = bodyHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    emailBody = bodyHtml
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   console.log('[email-concierge] Inbound:', { from: senderEmail, to: recipientEmail, subject: subject.substring(0, 60) });
+  console.log('[email-concierge] Body extracted:', { textLength: (bodyText || '').length, htmlLength: (bodyHtml || '').length, bodyLength: emailBody.length, preview: emailBody.substring(0, 100) });
 
   if (!senderEmail || !recipientEmail) {
     console.log('[email-concierge] Missing sender or recipient — dropping');
@@ -149,12 +155,19 @@ module.exports = async function handler(req, res) {
   if (contactId) {
     // Find wedding where this contact is primary or partner
     var { data: wedding } = await supabase.from('weddings')
-      .select('id')
+      .select('id, display_name')
       .eq('tenant_id', tenantId)
       .or('primary_contact_id.eq.' + contactId + ',partner_contact_id.eq.' + contactId)
       .limit(1).maybeSingle();
 
-    if (wedding) weddingId = wedding.id;
+    if (wedding) {
+      weddingId = wedding.id;
+      console.log('[email-concierge] Matched wedding:', wedding.display_name || wedding.id, 'for contact:', contactId);
+    }
+  }
+
+  if (!weddingId) {
+    console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised');
   }
 
   // If no wedding found: create support ticket for manual triage
@@ -230,6 +243,16 @@ module.exports = async function handler(req, res) {
 
   // ── 7. Call AI concierge ──────────────────────────────────────────────
   var contactName = contact ? ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() : senderName;
+
+  // Guard: if body is empty after all extraction, don't call Anthropic
+  var userMessage = (emailBody || '').substring(0, 5000).trim();
+  if (!userMessage) {
+    console.log('[email-concierge] Empty body after extraction — skipping AI call');
+    return res.status(200).json({ ok: true, action: 'empty_body_skipped', wedding_id: weddingId });
+  }
+
+  console.log('[email-concierge] Calling Anthropic:', { messageLength: userMessage.length, wedding: weddingId ? 'yes' : 'no', contact: contactName || senderEmail });
+
   var aiResult;
   try {
     aiResult = await generateConciergeResponse(supabase, {
@@ -237,7 +260,7 @@ module.exports = async function handler(req, res) {
       surface: 'wedding_concierge',
       weddingId: weddingId,
       conversationId: conversationId,
-      userMessage: emailBody.substring(0, 5000),
+      userMessage: userMessage,
       contactMeta: { name: contactName, email: senderEmail },
     });
   } catch (aiErr) {
