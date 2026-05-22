@@ -5,6 +5,7 @@
 var { createClient } = require('@supabase/supabase-js');
 var { Resend } = require('resend');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
+var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
 
 function getSupabase() {
@@ -371,6 +372,52 @@ module.exports = async function handler(req, res) {
         metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
       });
       console.log('[email-concierge] Escalation ticket created for:', senderEmail);
+
+      // Notify tenant members with notify_on_escalation = true
+      try {
+        var notifyEmails = await getNotifyEmails(tenantId, 'notify_on_escalation');
+        if (notifyEmails.length > 0) {
+          var portalUrl = 'https://portal.engwx.com';
+          var escHtml =
+            '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
+            '<div style="background:linear-gradient(135deg,#FF6B35,#FF3B30);padding:20px 24px;border-radius:10px 10px 0 0;">' +
+            '<h2 style="color:#fff;margin:0;font-size:18px;">Wedding Concierge Escalation</h2>' +
+            '<p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">A couple\'s email needs your attention</p>' +
+            '</div>' +
+            '<div style="background:#f8fafc;padding:24px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:14px;">' +
+            '<tr><td style="padding:8px 0;color:#64748b;width:120px;">From</td><td style="padding:8px 0;font-weight:700;color:#1e293b;">' + (contactName || senderEmail) + '</td></tr>' +
+            '<tr><td style="padding:8px 0;color:#64748b;">Subject</td><td style="padding:8px 0;color:#1e293b;">' + subject + '</td></tr>' +
+            '<tr><td style="padding:8px 0;color:#64748b;">Category</td><td style="padding:8px 0;color:#1e293b;">Wedding Concierge Escalation</td></tr>' +
+            '<tr><td style="padding:8px 0;color:#64748b;">Priority</td><td style="padding:8px 0;color:#ef4444;font-weight:700;">High</td></tr>' +
+            '</table>' +
+            '<div style="margin:16px 0;padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">' +
+            '<div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Couple\'s Message</div>' +
+            '<div style="color:#334155;font-size:14px;line-height:1.6;">' + emailBody.substring(0, 1000).replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>' +
+            '</div>' +
+            '<div style="margin:16px 0;padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;">' +
+            '<div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">AI Escalation Response</div>' +
+            '<div style="color:#334155;font-size:14px;line-height:1.6;">' + (aiResult.response || '').substring(0, 1000).replace(/</g, '&lt;').replace(/\n/g, '<br>') + '</div>' +
+            '</div>' +
+            '<a href="' + portalUrl + '" style="display:inline-block;background:linear-gradient(135deg,#FF6B35,#FF3B30);color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;">View in Portal →</a>' +
+            '</div></div>';
+
+          for (var ni = 0; ni < notifyEmails.length; ni++) {
+            await sendTenantEmail(supabase, {
+              tenant_id: tenantId,
+              to: notifyEmails[ni],
+              from: recipientEmail,
+              from_name: 'Delamere Manor',
+              subject: 'Wedding concierge escalation: ' + (contactName || senderEmail) + ' — ' + subject,
+              html: escHtml,
+              text: 'Escalation from ' + (contactName || senderEmail) + '\nSubject: ' + subject + '\n\nCouple wrote:\n' + emailBody.substring(0, 1000) + '\n\nAI response:\n' + (aiResult.response || '').substring(0, 1000) + '\n\nView in portal: ' + portalUrl,
+            });
+          }
+          console.log('[email-concierge] Escalation notification sent to:', notifyEmails);
+        } else {
+          console.warn('[email-concierge] No notify_on_escalation recipients for tenant:', tenantId);
+        }
+      } catch (notifyErr) { console.warn('[email-concierge] Escalation notification failed (non-fatal):', notifyErr.message); }
     } catch (escErr) { console.error('[email-concierge] Escalation ticket error:', escErr.message); }
   }
 
