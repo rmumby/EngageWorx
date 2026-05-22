@@ -13,6 +13,22 @@ function getSupabase() {
   );
 }
 
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
 
@@ -38,8 +54,8 @@ module.exports = async function handler(req, res) {
   var fromRaw = eventData.from || '';
   var toArray = Array.isArray(eventData.to) ? eventData.to : [eventData.to].filter(Boolean);
   var subject = eventData.subject || '(no subject)';
-  var bodyText = eventData.text || '';
-  var bodyHtml = eventData.html || '';
+  var rawText = eventData.text || '';
+  var rawHtml = eventData.html || '';
   // Resend headers: array of {name, value} objects
   var headersArr = Array.isArray(eventData.headers) ? eventData.headers : [];
   function findHeader(name) {
@@ -60,19 +76,11 @@ module.exports = async function handler(req, res) {
   var recipientEmail = (toArray[0] || '').toLowerCase().trim();
   var recipientDomain = recipientEmail.split('@')[1] || '';
 
-  // Use text body; fall back to stripped HTML (Gmail often sends HTML-only)
-  var emailBody = (bodyText || '').trim();
-  if (!emailBody && bodyHtml) {
-    emailBody = bodyHtml
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  // Body: prefer text, fall back to stripped HTML (Gmail often sends HTML-only)
+  var emailBody = (rawText || '').trim() || stripHtml(rawHtml);
 
   console.log('[email-concierge] Inbound:', { from: senderEmail, to: recipientEmail, subject: subject.substring(0, 60) });
-  console.log('[email-concierge] Body extracted:', { textLength: (bodyText || '').length, htmlLength: (bodyHtml || '').length, bodyLength: emailBody.length, preview: emailBody.substring(0, 100) });
+  console.log('[email-concierge] Body extracted:', { textLength: (rawText || '').length, htmlLength: (rawHtml || '').length, finalBodyLength: emailBody.length, preview: emailBody.substring(0, 100) });
 
   if (!senderEmail || !recipientEmail) {
     console.log('[email-concierge] Missing sender or recipient — dropping');
@@ -155,19 +163,19 @@ module.exports = async function handler(req, res) {
   if (contactId) {
     // Find wedding where this contact is primary or partner
     var { data: wedding } = await supabase.from('weddings')
-      .select('id, display_name')
+      .select('id, display_name, wedding_date')
       .eq('tenant_id', tenantId)
       .or('primary_contact_id.eq.' + contactId + ',partner_contact_id.eq.' + contactId)
       .limit(1).maybeSingle();
 
     if (wedding) {
       weddingId = wedding.id;
-      console.log('[email-concierge] Matched wedding:', wedding.display_name || wedding.id, 'for contact:', contactId);
+      console.log('[email-concierge] Matched wedding:', wedding.display_name, 'id:', wedding.id, 'date:', wedding.wedding_date);
     }
   }
 
   if (!weddingId) {
-    console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised');
+    console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised_sender');
   }
 
   // If no wedding found: create support ticket for manual triage
@@ -187,7 +195,7 @@ module.exports = async function handler(req, res) {
         wedding_id: null,
         status: 'open',
         priority: 'normal',
-        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: bodyHtml ? bodyHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
         metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
       });
     } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
@@ -247,11 +255,21 @@ module.exports = async function handler(req, res) {
   // Guard: if body is empty after all extraction, don't call Anthropic
   var userMessage = (emailBody || '').substring(0, 5000).trim();
   if (!userMessage) {
-    console.log('[email-concierge] Empty body after extraction — skipping AI call');
-    return res.status(200).json({ ok: true, action: 'empty_body_skipped', wedding_id: weddingId });
+    console.warn('[email-concierge] Empty body — skipping AI, creating empty-content ticket');
+    try {
+      await supabase.from('support_tickets').insert({
+        tenant_id: tenantId, wedding_id: weddingId,
+        subject: 'Empty email body: ' + subject,
+        description: 'Email from ' + senderEmail + ' had no extractable text or HTML content.\n\nSubject: ' + subject,
+        submitter_email: senderEmail, submitter_name: contactName || senderEmail,
+        submitter_type: 'couple', category: 'wedding_concierge_empty_body',
+        channel: 'email', ai_handled: false, status: 'open', priority: 'low',
+      });
+    } catch (e) {}
+    return res.status(200).json({ ok: true, action: 'empty_body_skipped' });
   }
 
-  console.log('[email-concierge] Calling Anthropic:', { messageLength: userMessage.length, wedding: weddingId ? 'yes' : 'no', contact: contactName || senderEmail });
+  console.log('[email-concierge] Calling Anthropic — messages count: 1, user msg length:', userMessage.length, 'wedding:', weddingId ? 'yes' : 'no');
 
   var aiResult;
   try {
@@ -325,7 +343,7 @@ module.exports = async function handler(req, res) {
         ai_handled: true,
         status: 'open',
         priority: 'high',
-        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: bodyHtml ? bodyHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
         metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
       });
       console.log('[email-concierge] Escalation ticket created for:', senderEmail);
