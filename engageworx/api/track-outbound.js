@@ -43,9 +43,19 @@ module.exports = async function handler(req, res) {
     if (boundary) {
       boundary = boundary.split(';')[0].trim();
       body = {};
-      rawBody.split('--' + boundary).forEach(function(part) {
-        var m = part.match(/Content-Disposition: form-data; name="([^"]+)"\r\n\r\n([\s\S]*?)\r\n$/);
-        if (m) body[m[1]] = m[2];
+      var parts = rawBody.split('--' + boundary).filter(function(p) { return p.trim() && p.trim() !== '--'; });
+      parts.forEach(function(part) {
+        var nameMatch = part.match(/name="([^"]+)"/);
+        if (nameMatch) {
+          var name = nameMatch[1];
+          var valueStart = part.indexOf('\r\n\r\n');
+          if (valueStart > -1) {
+            var value = part.substring(valueStart + 4).trim();
+            if (value.endsWith('--')) value = value.slice(0, -2).trim();
+            if (value.endsWith('\r\n')) value = value.slice(0, -2);
+            body[name] = value;
+          }
+        }
       });
     }
   }
