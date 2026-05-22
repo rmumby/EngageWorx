@@ -32,11 +32,6 @@ function stripHtml(html) {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
 
-  // ── DIAGNOSTIC: raw payload inspection ──
-  console.log('[email-concierge] RAW PAYLOAD KEYS:', Object.keys(req.body || {}));
-  console.log('[email-concierge] RAW DATA KEYS:', Object.keys((req.body || {}).data || {}));
-  console.log('[email-concierge] RAW PAYLOAD (first 3000 chars):', JSON.stringify(req.body || {}).substring(0, 3000));
-  // ── END DIAGNOSTIC ──
 
   // ── 1. Verify Resend webhook signature ────────────────────────────────
   var webhookSecret = process.env.RESEND_INBOUND_WEBHOOK_SECRET;
@@ -56,21 +51,11 @@ module.exports = async function handler(req, res) {
   // Resend webhook nests email fields inside data object
   var eventData = payload.data || payload;
 
-  // Extract fields per Resend email.received webhook schema
+  // Extract metadata from webhook payload (body NOT included — must fetch via API)
   var fromRaw = eventData.from || '';
   var toArray = Array.isArray(eventData.to) ? eventData.to : [eventData.to].filter(Boolean);
   var subject = eventData.subject || '(no subject)';
-  var rawText = eventData.text || '';
-  var rawHtml = eventData.html || '';
-  // Resend headers: array of {name, value} objects
-  var headersArr = Array.isArray(eventData.headers) ? eventData.headers : [];
-  function findHeader(name) {
-    var lower = name.toLowerCase();
-    var h = headersArr.find(function(x) { return x && x.name && x.name.toLowerCase() === lower; });
-    return h ? h.value : null;
-  }
-  var messageId = (findHeader('message-id') || '').replace(/[<>]/g, '');
-  var inReplyTo = (findHeader('in-reply-to') || '').replace(/[<>]/g, '') || null;
+  var messageId = (eventData.message_id || '').replace(/[<>]/g, '');
 
   // Sender: Resend from is a plain string (email or "Name <email>")
   var senderMatch = fromRaw.match(/<([^>]+)>/) || [null, fromRaw];
@@ -82,11 +67,45 @@ module.exports = async function handler(req, res) {
   var recipientEmail = (toArray[0] || '').toLowerCase().trim();
   var recipientDomain = recipientEmail.split('@')[1] || '';
 
-  // Body: prefer text, fall back to stripped HTML (Gmail often sends HTML-only)
-  var emailBody = (rawText || '').trim() || stripHtml(rawHtml);
-
   console.log('[email-concierge] Inbound:', { from: senderEmail, to: recipientEmail, subject: subject.substring(0, 60) });
-  console.log('[email-concierge] Body extracted:', { textLength: (rawText || '').length, htmlLength: (rawHtml || '').length, finalBodyLength: emailBody.length, preview: emailBody.substring(0, 100) });
+
+  // Resend webhook only delivers metadata. Fetch full email content via API.
+  var emailId = eventData.email_id;
+  if (!emailId) {
+    console.error('[email-concierge] No email_id in webhook payload — cannot fetch body');
+    return res.status(200).json({ ok: true, dropped: 'no_email_id' });
+  }
+
+  var fullEmail;
+  try {
+    var fetchResp = await fetch('https://api.resend.com/emails/' + emailId, {
+      headers: { 'Authorization': 'Bearer ' + process.env.RESEND_API_KEY, 'Accept': 'application/json' },
+    });
+    if (!fetchResp.ok) {
+      var errText = await fetchResp.text();
+      console.error('[email-concierge] Resend API fetch failed:', fetchResp.status, errText.substring(0, 200));
+      return res.status(500).json({ error: 'resend_fetch_failed', status: fetchResp.status });
+    }
+    fullEmail = await fetchResp.json();
+    console.log('[email-concierge] Fetched full email — keys:', Object.keys(fullEmail), 'text:', (fullEmail.text || '').length, 'html:', (fullEmail.html || '').length);
+  } catch (fetchErr) {
+    console.error('[email-concierge] Resend API fetch threw:', fetchErr.message);
+    return res.status(500).json({ error: 'resend_fetch_threw' });
+  }
+
+  // Extract body from API-fetched email
+  var rawText = fullEmail.text || '';
+  var rawHtml = fullEmail.html || '';
+  var emailBody = rawText.trim() || stripHtml(rawHtml);
+  var inReplyTo = null;
+  // Headers may be in the full email response
+  var headersArr = Array.isArray(fullEmail.headers) ? fullEmail.headers : [];
+  if (headersArr.length > 0) {
+    var irh = headersArr.find(function(x) { return x && x.name && x.name.toLowerCase() === 'in-reply-to'; });
+    if (irh) inReplyTo = (irh.value || '').replace(/[<>]/g, '') || null;
+  }
+
+  console.log('[email-concierge] Body extracted:', { textLength: rawText.length, htmlLength: rawHtml.length, finalBodyLength: emailBody.length, preview: emailBody.substring(0, 100) });
 
   if (!senderEmail || !recipientEmail) {
     console.log('[email-concierge] Missing sender or recipient — dropping');
