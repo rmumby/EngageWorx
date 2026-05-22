@@ -32,6 +32,12 @@ function stripHtml(html) {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
 
+  // ── DIAGNOSTIC: raw payload inspection ──
+  console.log('[email-concierge] RAW PAYLOAD KEYS:', Object.keys(req.body || {}));
+  console.log('[email-concierge] RAW DATA KEYS:', Object.keys((req.body || {}).data || {}));
+  console.log('[email-concierge] RAW PAYLOAD (first 3000 chars):', JSON.stringify(req.body || {}).substring(0, 3000));
+  // ── END DIAGNOSTIC ──
+
   // ── 1. Verify Resend webhook signature ────────────────────────────────
   var webhookSecret = process.env.RESEND_INBOUND_WEBHOOK_SECRET;
   if (webhookSecret) {
