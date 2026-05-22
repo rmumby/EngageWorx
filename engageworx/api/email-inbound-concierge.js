@@ -75,6 +75,7 @@ module.exports = async function handler(req, res) {
 
   // ── 2. Tenant resolution ──────────────────────────────────────────────
   var tenantId = null;
+  var tenantName = null;
 
   // (a) Check channel_configs for exact recipient email match
   try {
@@ -94,20 +95,33 @@ module.exports = async function handler(req, res) {
     }
   } catch (e) {}
 
-  // (b) Fall back to domain match against tenants
+  // (b) Progressive domain match: strip subdomains until custom_domain matches
   if (!tenantId && recipientDomain) {
-    try {
-      var { data: t } = await supabase.from('tenants')
-        .select('id')
-        .or('custom_domain.ilike.%' + recipientDomain + '%,website_url.ilike.%' + recipientDomain + '%')
-        .limit(1).maybeSingle();
-      if (t) tenantId = t.id;
-    } catch (e) {}
+    var domainParts = recipientDomain.split('.');
+    var domainCandidates = [];
+    for (var di = 0; di <= domainParts.length - 2; di++) {
+      var candidate = domainParts.slice(di).join('.');
+      if (candidate.split('.').length >= 2) domainCandidates.push(candidate);
+    }
+    for (var dc = 0; dc < domainCandidates.length; dc++) {
+      try {
+        var { data: matched } = await supabase.from('tenants')
+          .select('id, name, custom_domain')
+          .eq('custom_domain', domainCandidates[dc])
+          .maybeSingle();
+        if (matched) {
+          tenantId = matched.id;
+          tenantName = matched.name;
+          console.log('[email-concierge] Matched tenant:', matched.name, 'via custom_domain:', domainCandidates[dc]);
+          break;
+        }
+      } catch (e) { continue; }
+    }
   }
 
   if (!tenantId) {
-    console.log('[email-concierge] No tenant for recipient:', recipientEmail);
-    return res.status(200).json({ ok: true, dropped: 'no_tenant' });
+    console.log('[email-concierge] No tenant for recipient:', recipientEmail, 'tried:', recipientDomain);
+    return res.status(200).json({ ok: true, dropped: 'no_tenant_match' });
   }
 
   // ── 3. Verify concierge is enabled for this tenant ────────────────────
