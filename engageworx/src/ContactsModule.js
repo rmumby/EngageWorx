@@ -144,7 +144,7 @@ function mapContact(c) {
     title: c.title || '',
     linkedinUrl: c.linkedin_url || '',
     notes: c.notes || '',
-    status: c.status || 'subscribed',
+    status: c.status || 'active',
     tags: (c.tags || []).filter(function(t) { return t !== 'VIP'; }),
     channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
     preferred_channel: autoPreferredChannel(c),
@@ -726,13 +726,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         id: "ct_" + Date.now(),
         firstName: newContact.firstName, lastName: newContact.lastName,
         email: newContact.email, phone: newContact.phone, company: newContact.company,
-        status: newContact.status || "subscribed", tags: [],
+        status: newContact.status || "active", tags: [],
         channels: [newContact.channel_preference || "SMS"],
         created: new Date(), lastActive: new Date(),
         messagesSent: 0, messagesReceived: 0, openRate: 0, clickRate: 0, ltv: 0,
         city: "", state: "", notes: "", customFields: {},
       }, ...prev]);
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" });
       setShowAddContact(false);
       return;
     }
@@ -775,7 +775,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         .order('created_at', { ascending: false });
       if (fetchError) throw fetchError;
       setContacts((data || []).map(mapContact));
-      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" });
+      setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" });
       setShowAddContact(false);
     } catch (err) {
       console.error('Add contact error:', err);
@@ -1013,7 +1013,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
   const totalContacts = contacts.length;
-  const subscribedCount = contacts.filter(c => c.status === "subscribed").length;
+  const subscribedCount = contacts.filter(c => c.status === "active").length;
   const avgOpenRate = totalContacts > 0 ? (contacts.reduce((s, c) => s + c.openRate, 0) / totalContacts).toFixed(1) : "0.0";
   const totalLTV = contacts.reduce((s, c) => s + c.ltv, 0);
 
@@ -1480,7 +1480,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Add Contact</h3>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label><input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} /></div>
@@ -1577,7 +1577,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Channel</label><select value={newContact.channel_preference} onChange={e => setNewContact(p => ({ ...p, channel_preference: e.target.value }))} style={inputStyle}>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select></div>
               </div>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", linkedinUrl: "", status: "subscribed", channel_preference: "SMS" }); }} style={btnSecondary}>Cancel</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" }); }} style={btnSecondary}>Cancel</button>
                 <button onClick={handleAddContact} style={btnPrimary}>Save Contact</button>
               </div>
             </div>
