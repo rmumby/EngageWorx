@@ -60,6 +60,17 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ── DIAGNOSTIC: log raw parsed fields to identify subject field name ──
+  console.log('[track-outbound] DIAG — parsed body keys:', Object.keys(body));
+  console.log('[track-outbound] DIAG — body.subject:', typeof body.subject, JSON.stringify(body.subject));
+  console.log('[track-outbound] DIAG — body.Subject:', typeof body.Subject, JSON.stringify(body.Subject));
+  console.log('[track-outbound] DIAG — content-type:', req.headers['content-type']);
+  console.log('[track-outbound] DIAG — body pre-parse empty?', !req.body || Object.keys(req.body || {}).length === 0);
+  console.log('[track-outbound] DIAG — body.from preview:', (body.from || '').substring(0, 60));
+  console.log('[track-outbound] DIAG — body.to preview:', (body.to || '').substring(0, 80));
+  console.log('[track-outbound] DIAG — body.text preview:', (body.text || '').substring(0, 60));
+  // ── END DIAGNOSTIC ──
+
   var supabase = getSupabase();
   try {
     var fromRaw = body.from || '';
