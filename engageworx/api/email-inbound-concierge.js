@@ -31,28 +31,37 @@ module.exports = async function handler(req, res) {
   var supabase = getSupabase();
   var payload = req.body || {};
 
-  // Resend inbound payload structure
-  var fromRaw = payload.from || '';
-  var toRaw = payload.to || '';
-  var subject = payload.subject || '(no subject)';
-  var bodyText = payload.text || '';
-  var bodyHtml = payload.html || '';
-  var headers = payload.headers || {};
-  var messageId = (headers['message-id'] || headers['Message-ID'] || '').replace(/[<>]/g, '');
+  // Resend webhook nests email fields inside data object
+  var eventData = payload.data || payload;
 
-  // Extract sender email
+  // Extract fields per Resend email.received webhook schema
+  var fromRaw = eventData.from || '';
+  var toArray = Array.isArray(eventData.to) ? eventData.to : [eventData.to].filter(Boolean);
+  var subject = eventData.subject || '(no subject)';
+  var bodyText = eventData.text || '';
+  var bodyHtml = eventData.html || '';
+  // Resend headers: array of {name, value} objects
+  var headersArr = Array.isArray(eventData.headers) ? eventData.headers : [];
+  function findHeader(name) {
+    var lower = name.toLowerCase();
+    var h = headersArr.find(function(x) { return x && x.name && x.name.toLowerCase() === lower; });
+    return h ? h.value : null;
+  }
+  var messageId = (findHeader('message-id') || '').replace(/[<>]/g, '');
+  var inReplyTo = (findHeader('in-reply-to') || '').replace(/[<>]/g, '') || null;
+
+  // Sender: Resend from is a plain string (email or "Name <email>")
   var senderMatch = fromRaw.match(/<([^>]+)>/) || [null, fromRaw];
-  var senderEmail = (senderMatch[1] || '').toLowerCase().trim();
+  var senderEmail = (senderMatch[1] || fromRaw || '').toLowerCase().trim();
   var senderName = (fromRaw.match(/^([^<]+)</) || [])[1];
   senderName = senderName ? senderName.trim().replace(/"/g, '') : '';
 
-  // Extract recipient
-  var recipientMatch = (Array.isArray(toRaw) ? toRaw[0] : toRaw).match(/<([^>]+)>/) || [null, Array.isArray(toRaw) ? toRaw[0] : toRaw];
-  var recipientEmail = (recipientMatch[1] || '').toLowerCase().trim();
+  // Recipient: Resend to is an array of plain email strings
+  var recipientEmail = (toArray[0] || '').toLowerCase().trim();
   var recipientDomain = recipientEmail.split('@')[1] || '';
 
   // Use text body; fall back to stripped HTML
-  var emailBody = bodyText.trim();
+  var emailBody = (bodyText || '').trim();
   if (!emailBody && bodyHtml) {
     emailBody = bodyHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -141,12 +150,18 @@ module.exports = async function handler(req, res) {
       await supabase.from('support_tickets').insert({
         tenant_id: tenantId,
         subject: 'Unrecognised sender: ' + subject,
-        description: 'Email from ' + senderEmail + ' (' + senderName + ') to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
+        description: 'Email from ' + senderEmail + (senderName ? ' (' + senderName + ')' : '') + ' to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
         submitter_email: senderEmail,
         submitter_name: senderName || senderEmail,
-        category: 'wedding_concierge_escalation',
+        submitter_type: 'external',
+        category: 'wedding_concierge_unrecognised_sender',
+        channel: 'email',
+        ai_handled: false,
+        wedding_id: null,
         status: 'open',
         priority: 'normal',
+        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: bodyHtml ? bodyHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+        metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
       });
     } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
     return res.status(200).json({ ok: true, action: 'unrecognised_sender_ticket' });
@@ -267,9 +282,14 @@ module.exports = async function handler(req, res) {
         description: 'Original email from ' + contactName + ' (' + senderEmail + '):\n\n' + emailBody.substring(0, 3000) + '\n\n---\n\nAI escalation summary:\n' + aiResult.response,
         submitter_email: senderEmail,
         submitter_name: contactName || senderEmail,
+        submitter_type: 'couple',
         category: 'wedding_concierge_escalation',
+        channel: 'email',
+        ai_handled: true,
         status: 'open',
         priority: 'high',
+        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: bodyHtml ? bodyHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+        metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
       });
       console.log('[email-concierge] Escalation ticket created for:', senderEmail);
     } catch (escErr) { console.error('[email-concierge] Escalation ticket error:', escErr.message); }
