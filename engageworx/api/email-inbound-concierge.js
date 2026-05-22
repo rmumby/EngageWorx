@@ -3,6 +3,7 @@
 // Receives email to weddings@delameremanor.co.uk → identifies couple → AI concierge → replies
 
 var { createClient } = require('@supabase/supabase-js');
+var { Resend } = require('resend');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { generateConciergeResponse } = require('./wedding-concierge');
 
@@ -69,36 +70,34 @@ module.exports = async function handler(req, res) {
 
   console.log('[email-concierge] Inbound:', { from: senderEmail, to: recipientEmail, subject: subject.substring(0, 60) });
 
-  // Resend webhook only delivers metadata. Fetch full email content via API.
+  // Resend webhook only delivers metadata. Fetch full email content via SDK.
   var emailId = eventData.email_id;
   if (!emailId) {
     console.error('[email-concierge] No email_id in webhook payload — cannot fetch body');
     return res.status(200).json({ ok: true, dropped: 'no_email_id' });
   }
 
+  var resend = new Resend(process.env.RESEND_API_KEY);
   var fullEmail;
   try {
-    var fetchResp = await fetch('https://api.resend.com/emails/' + emailId, {
-      headers: { 'Authorization': 'Bearer ' + process.env.RESEND_API_KEY, 'Accept': 'application/json' },
-    });
-    if (!fetchResp.ok) {
-      var errText = await fetchResp.text();
-      console.error('[email-concierge] Resend API fetch failed:', fetchResp.status, errText.substring(0, 200));
-      return res.status(500).json({ error: 'resend_fetch_failed', status: fetchResp.status });
+    var result = await resend.emails.receiving.get(emailId);
+    if (result.error) {
+      console.error('[email-concierge] resend.emails.receiving.get error:', result.error);
+      return res.status(500).json({ error: 'resend_inbound_fetch_failed' });
     }
-    fullEmail = await fetchResp.json();
-    console.log('[email-concierge] Fetched full email — keys:', Object.keys(fullEmail), 'text:', (fullEmail.text || '').length, 'html:', (fullEmail.html || '').length);
+    fullEmail = result.data;
+    console.log('[email-concierge] Fetched inbound email — keys:', Object.keys(fullEmail || {}));
+    console.log('[email-concierge] Body lengths:', { text: (fullEmail.text || '').length, html: (fullEmail.html || '').length });
   } catch (fetchErr) {
-    console.error('[email-concierge] Resend API fetch threw:', fetchErr.message);
-    return res.status(500).json({ error: 'resend_fetch_threw' });
+    console.error('[email-concierge] resend.emails.receiving.get threw:', fetchErr.message);
+    return res.status(500).json({ error: 'resend_inbound_fetch_threw' });
   }
 
-  // Extract body from API-fetched email
+  // Extract body from SDK-fetched email
   var rawText = fullEmail.text || '';
   var rawHtml = fullEmail.html || '';
   var emailBody = rawText.trim() || stripHtml(rawHtml);
   var inReplyTo = null;
-  // Headers may be in the full email response
   var headersArr = Array.isArray(fullEmail.headers) ? fullEmail.headers : [];
   if (headersArr.length > 0) {
     var irh = headersArr.find(function(x) { return x && x.name && x.name.toLowerCase() === 'in-reply-to'; });

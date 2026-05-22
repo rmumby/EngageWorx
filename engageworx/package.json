@@ -17,6 +17,7 @@
     "react-dom": "^18.2.0",
     "react-i18next": "^12.3.1",
     "react-scripts": "5.0.1",
+    "resend": "^6.12.3",
     "twilio": "^5.0.0"
   },
   "engines": {
