@@ -500,8 +500,11 @@ module.exports = async function handler(req, res) {
       }
 
       if (!tenantId) {
-        tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-        console.log('[Twilio] Using SP tenant fallback');
+        console.error('[sms] No tenant for inbound message', {
+          to: To, from: From, messageSid: req.body.MessageSid || req.body.SmsSid,
+          timestamp: new Date().toISOString()
+        });
+        return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
       }
 
       // 2. Classify message type
