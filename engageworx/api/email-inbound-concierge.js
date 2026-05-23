@@ -315,10 +315,49 @@ module.exports = async function handler(req, res) {
 
   console.log('[email-concierge] AI response:', { prefix: aiResult.prefix, length: aiResult.response.length, kb: aiResult.kb_article_count });
 
+  // ── 7b. Strip routing prefixes from customer-facing body ──────────────
+  // wedding-concierge.js strips leading [PREFIX] but the model occasionally
+  // inserts it mid-text, wraps it in markdown bold, or adds it after a preamble.
+  // Only strip from the AI's own text — skip quoted lines (> prefix) to avoid
+  // mangling a customer quoting a previous reply.
+  var cleanBody = aiResult.response;
+
+  // Routing prefix pattern: optional markdown bold wrapping, optional whitespace/newlines after
+  var PREFIX_RE = /\*{0,2}\[(RESOLVED|PENDING|ESCALATE)\]\*{0,2}[\s\n]*/gi;
+
+  // Leading prefix (with newlines)
+  var leadingRe = /^\*{0,2}\[(RESOLVED|PENDING|ESCALATE)\]\*{0,2}[\s\n]*/i;
+  var leadingPrefixMatch = cleanBody.match(leadingRe);
+  if (leadingPrefixMatch) {
+    console.warn('[email-concierge] Leading prefix leaked through wedding-concierge parser — stripping:', leadingPrefixMatch[0].trim());
+    cleanBody = cleanBody.substring(leadingPrefixMatch[0].length);
+  }
+
+  // Mid-text occurrences: log each, then strip — but only on non-quoted lines
+  var lines = cleanBody.split('\n');
+  var strippedLines = [];
+  for (var li = 0; li < lines.length; li++) {
+    var line = lines[li];
+    // Skip quoted lines (email reply convention: starts with >)
+    if (/^\s*>/.test(line)) {
+      strippedLines.push(line);
+      continue;
+    }
+    // Log before stripping — use a separate regex instance for exec to avoid lastIndex state leaking
+    var logRe = /\*{0,2}\[(RESOLVED|PENDING|ESCALATE)\]\*{0,2}[\s\n]*/gi;
+    var midMatch;
+    while ((midMatch = logRe.exec(line)) !== null) {
+      console.warn('[email-concierge] Mid-text prefix at line', li, 'offset', midMatch.index, '— stripping:', midMatch[0].trim(), '| context: "...' + line.substring(Math.max(0, midMatch.index - 20), midMatch.index + midMatch[0].length + 20) + '..."');
+    }
+    PREFIX_RE.lastIndex = 0;
+    strippedLines.push(line.replace(PREFIX_RE, ''));
+  }
+  cleanBody = strippedLines.join('\n').trim();
+
   // ── 8. Send reply email ───────────────────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
   var replyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
-    aiResult.response.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
+    cleanBody.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
     '</div>';
 
   try {
@@ -329,7 +368,7 @@ module.exports = async function handler(req, res) {
       from_name: tenantName || 'Team',
       subject: replySubject,
       html: replyHtml,
-      text: aiResult.response,
+      text: cleanBody,
       reply_to: recipientEmail,
     });
     if (sendResult.blocked) {
@@ -352,7 +391,7 @@ module.exports = async function handler(req, res) {
         channel: 'email',
         direction: 'outbound',
         sender_type: 'bot',
-        body: aiResult.response,
+        body: cleanBody,
         status: 'delivered',
       });
     } catch (outErr) { console.warn('[email-concierge] Outbound message persist error:', outErr.message); }
