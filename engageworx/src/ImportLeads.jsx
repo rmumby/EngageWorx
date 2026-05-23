@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 
-const CPEXPO_SEQUENCE_ID = '2cc4658f-46f6-4425-8300-95bc9213b720';
-
 function parseCSV(text) {
   var lines = text.trim().split('\n').filter(function(l) { return l.trim(); });
   if (lines.length < 2) return [];
@@ -32,15 +30,13 @@ function parseCSV(text) {
   }).filter(function(r) { return r.email || r.first_name || r.company; });
 }
 
-const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-
-export default function ImportLeads({ C, demoMode = false }) {
+export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
 
   var [csvText, setCsvText] = useState('');
   var [parsed, setParsed] = useState([]);
   var [sequences, setSequences] = useState([]);
-  var [selectedSeq, setSelectedSeq] = useState(CPEXPO_SEQUENCE_ID);
+  var [selectedSeq, setSelectedSeq] = useState('');
   var [enrolling, setEnrolling] = useState(false);
   var [result, setResult] = useState(null);
   var [tab, setTab] = useState('paste'); // 'paste' | 'manual'
@@ -51,11 +47,12 @@ export default function ImportLeads({ C, demoMode = false }) {
 
   useEffect(function() {
     if (demoMode) { setSequences([]); return; }
-    fetch('/api/sequences?action=list&tenant_id=' + SP_TENANT_ID)
+    if (!currentTenantId) { setSequences([]); return; }
+    fetch('/api/sequences?action=list&tenant_id=' + currentTenantId)
       .then(function(r) { return r.json(); })
       .then(function(d) { setSequences(d.sequences || []); })
       .catch(function() {});
-  }, [demoMode]);
+  }, [demoMode, currentTenantId]);
 
   function handleParse() {
     var rows = parseCSV(csvText);
@@ -138,7 +135,6 @@ export default function ImportLeads({ C, demoMode = false }) {
               return (
                 <button key={s.id} onClick={function() { setSelectedSeq(s.id); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid ' + (isSelected ? colors.primary + '66' : 'rgba(255,255,255,0.1)'), background: isSelected ? colors.primary + '22' : 'rgba(255,255,255,0.04)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {s.name}
-                  {s.id === CPEXPO_SEQUENCE_ID && <span style={{ marginLeft: 6, fontSize: 10, background: '#ef444422', color: '#ef4444', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>CPExpo</span>}
                 </button>
               );
             })}

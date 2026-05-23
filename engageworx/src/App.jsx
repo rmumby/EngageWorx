@@ -2662,7 +2662,7 @@ var spNavBase = [
         {spPage === "pipeline" && (isSuperAdmin || profile?.aup_accepted
           ? <PipelineDashboard C={C} supabase={supabase} tenantId={profile?.tenant_id} demoMode={demoMode} isSuperAdmin={isSuperAdmin} />
           : <FeatureGate featureName="Pipeline" C={C} requirements={{ met: false, steps: [{ title: 'Accept AUP', description: 'Required for all pipeline features.', done: !!profile?.aup_accepted }] }} />)}
-        {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} />}
+        {spPage === "import" && <ImportLeads C={C} demoMode={demoMode} currentTenantId={process.env.REACT_APP_SP_TENANT_ID || profile?.tenant_id} />}
         {spPage === "sequences" && (isSuperAdmin || (profile?.aup_accepted && profile?.sms_enabled)
           ? <SequenceRoster C={C} currentTenantId={profile?.role === "superadmin" ? (process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387") : profile?.tenant_id} />
           : <FeatureGate featureName="Sequence Roster" C={C} requirements={{ met: false, steps: [

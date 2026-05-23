@@ -13,7 +13,6 @@ const LEGACY_STAGE_MAP = {
   'go_live': STAGE_KEYS.NEGOTIATING,
   'customer': STAGE_KEYS.WON,
 };
-const CPEXPO_SEQ_ID = '2cc4658f-46f6-4425-8300-95bc9213b720';
 
 const STAGES = ['inquiry','demo_shared','sandbox_shared','opportunity','package_selection','go_live','customer'];
 
@@ -87,7 +86,7 @@ export default function LeadScan({ C, demoMode = false }) {
   var [saved, setSaved]             = useState(null);
   var [error, setError]             = useState('');
   var [sequences, setSequences]     = useState([]);
-  var [selectedSeqId, setSelectedSeqId] = useState(CPEXPO_SEQ_ID);
+  var [selectedSeqId, setSelectedSeqId] = useState('');
   var [aiReading, setAiReading]     = useState(false);
 
   // Location manager
