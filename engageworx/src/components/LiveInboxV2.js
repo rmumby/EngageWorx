@@ -426,11 +426,14 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             }
           }
         } catch (e) {}
-        // Team member emails
+        // Team member emails (prefer tenant_members.sender_email_override, fall back to user_profiles)
         try {
-          var tmR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').eq('tenant_id', resolvedTenantId);
-          (tmR.data || []).forEach(function(p) {
-            var senderAddr = p.sender_email || p.email;
+          var tmR = await supabase.from('tenant_members').select('user_id, sender_email_override').eq('tenant_id', resolvedTenantId).eq('status', 'active');
+          var tmMap = {};
+          (tmR.data || []).forEach(function(tm) { tmMap[tm.user_id] = tm.sender_email_override; });
+          var upR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').in('id', Object.keys(tmMap).length > 0 ? Object.keys(tmMap) : ['_none_']);
+          (upR.data || []).forEach(function(p) {
+            var senderAddr = tmMap[p.id] || p.sender_email || p.email;
             if (!senderAddr) return;
             if (emails.find(function(e) { return e.email === senderAddr; })) return;
             if (isAdmin || p.id === currentUserId) {

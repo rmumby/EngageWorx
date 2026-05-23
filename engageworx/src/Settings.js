@@ -159,7 +159,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
       setMembers(memberData.map(function(m) {
         var profile = profileMap[m.user_id] || {};
-        return Object.assign({}, m, { email: profile.email || 'Unknown', full_name: profile.full_name || profile.company_name || profile.email || 'Unknown', sender_email: profile.sender_email || '' });
+        return Object.assign({}, m, { email: profile.email || 'Unknown', full_name: profile.full_name || profile.company_name || profile.email || 'Unknown', sender_email: m.sender_email_override || profile.sender_email || '' });
       }));
     } catch (e) { console.error('fetchMembers error:', e); }
     setLoading(false);
@@ -181,7 +181,13 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
   async function saveSenderEmail(memberId, userId, email) {
     setSaving(memberId + '_sender');
     try {
-      await supabase.from('user_profiles').update({ sender_email: email || null }).eq('id', userId);
+      // Validate email format if provided
+      if (email && email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+        alert('Please enter a valid email address.');
+        setSaving(null);
+        return;
+      }
+      await supabase.from('tenant_members').update({ sender_email_override: (email || '').trim() || null }).eq('id', memberId);
       setMembers(function(prev) { return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { sender_email: email }) : m; }); });
     } catch (e) { alert('Error saving sender email: ' + e.message); }
     setSaving(null);
