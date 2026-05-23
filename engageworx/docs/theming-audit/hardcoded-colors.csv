@@ -1,0 +1,61 @@
+id,value,occurrences,usage_type,classification,notes
+1,#fff / #ffffff,513,text,theme-structural,Primary text in dark mode; button text on dark buttons
+2,#00C9FF,242,accent,brand-primary,Platform default brand primary; links; active states; gradients
+3,#00E676,204,accent,semantic-success,Active badges; success states; toggle-on; positive indicators
+4,#E040FB,171,accent,brand-secondary,Platform default brand secondary; gradient endpoints
+5,#000 / #000000,158,text,theme-structural,Button text on gradient backgrounds; text in light mode
+6,#6B8BAE,150,text,theme-structural,Muted/secondary text in dark mode
+7,#FFD600,126,accent,semantic-warning,Pending states; gold tier badges; warnings
+8,#10b981,117,accent,semantic-success,Tailwind emerald-500; connected/success states
+9,#FF3B30,110,accent,semantic-error,Error states; urgent badges; destructive actions
+10,#E8F4FD,87,text,theme-structural,Default dark-mode body text
+11,#FF6B35,68,accent,channel-specific,Email channel indicator; orange theme; agent accent
+12,#94a3b8,62,text,theme-structural,Tailwind slate-400; muted text
+13,#6366f1,59,accent,semantic-info,Indigo; categories/badges; alternate CTAs
+14,#64748b,55,text,theme-structural,Tailwind slate-500; muted text
+15,#ef4444,53,accent,semantic-error,Tailwind red-500; error/danger variant
+16,#f59e0b,46,accent,semantic-warning,Tailwind amber-500; warning variant
+17,#7C4DFF,37,accent,channel-specific,RCS channel; violet theme; CSP badge color
+18,#0d1425,38,background,theme-structural,Surface/card background (dark mode)
+19,#475569,35,text,theme-structural,Tailwind slate-600; body text
+20,#f1f5f9,33,text,theme-structural,Near-white text variant; light bg
+21,#a5b4fc,33,text,semantic,Indigo light text variant
+22,#cbd5e1,32,text,theme-structural,Tailwind slate-300; secondary text
+23,#25D366,31,accent,channel-specific,WhatsApp brand green
+24,#dc2626,30,accent,semantic-error,Tailwind red-600; error variant
+25,#111827,29,text,theme-structural,Tailwind gray-900; primary text in light mode
+26,#080d1a,27,background,theme-structural,Page background (dark mode)
+27,#0ea5e9,27,accent,semantic-info,Tailwind sky-500; CTAs; links
+28,#182440,23,border,theme-structural,Card/section borders (dark mode)
+29,#e5e7eb,21,border,theme-structural,Tailwind gray-200; light mode borders
+30,#FF6B6B,21,text,semantic-error,Error message text variant
+31,#d97706,21,text,semantic-warning,Tailwind amber-700; warning text
+32,#374151,21,text,theme-structural,Tailwind gray-700; light mode secondary text
+33,#FF5252,9,text,semantic-error,Danger/sign-out red variant
+34,#4b5563,12,text,theme-structural,Tailwind gray-600; muted text
+35,#0f172a,12,background,theme-structural,Tailwind slate-900; deep dark background
+36,#f9fafb,9,background,theme-structural,Tailwind gray-50; light mode page bg
+37,#FF9800,8,accent,semantic-warning,Paused states; material orange
+38,#8b5cf6,8,accent,semantic,Violet gradient endpoint
+39,#eab308,7,text,semantic-warning,Caution/warning text
+40,#0077B6,4,accent,theme-structural,Light mode primary override
+41,#7C3AED,4,accent,theme-structural,Light mode accent override
+42,#651FFF,4,accent,brand-variant,Deep purple; brand secondary variant
+43,#00BFA5,4,accent,brand-variant,Teal; brand secondary variant
+44,#FF8C42,4,accent,brand-variant,Orange; brand secondary variant
+45,#fcd34d,3,text,semantic-warning,Light amber text
+46,#A855F7,5,accent,semantic,Purple gradient endpoint
+47,#059669,3,accent,semantic-success,Light mode green override (Tailwind emerald-600)
+48,#00BFFF,3,accent,brand-alias,Alias for brand primary
+49,#b91c1c,2,accent,semantic-error,Deep red emergency
+50,#06b6d4,3,accent,semantic-info,Cyan; replied status
+51,rgba(255;255;255;0.06),~200,background,theme-structural,Subtle surface overlay (dark mode cards)
+52,rgba(255;255;255;0.1),~180,border,theme-structural,Input/card borders in dark mode
+53,rgba(0;0;0;0.3),~150,background,theme-structural,Input backgrounds (dark mode)
+54,rgba(255;255;255;0.08),~120,border,theme-structural,Card borders (dark mode)
+55,rgba(255;255;255;0.03),~100,background,theme-structural,Card fills (dark mode)
+56,rgba(255;255;255;0.04),~80,background,theme-structural,Hover/active state (dark mode)
+57,rgba(0;201;255;0.15),~60,background,brand-tint,Accent-tinted backgrounds (brand primary derived)
+58,rgba(255;59;48;0.1),~40,background,semantic-error-tint,Error state tinted backgrounds
+59,rgba(0;230;118;0.15),~35,background,semantic-success-tint,Success state tinted backgrounds
+60,rgba(224;64;251;0.15),~30,background,brand-tint,Accent-tinted backgrounds (brand secondary derived)

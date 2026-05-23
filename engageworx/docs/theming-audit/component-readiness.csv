@@ -1,0 +1,61 @@
+component_path,component_name,status,hardcoded_count,brand_color_usage,notes
+src/components/LandingPage.jsx,LandingPage,red,271,none,Public marketing page; entirely self-contained dark palette with no theme system
+src/App.jsx,App (shell + TenantManagement),red,307,C prop + BrandingContext + CSS vars,Hub component; uses ThemeContext for shell but 307 inline hardcoded colors across child renders
+src/EmailDigest.jsx,EmailDigest,red,158,C prop (aliases colors.),Dead code per CLAUDE.md; 158 hardcoded in ACTION_STYLE map. Sunset scheduled.
+src/components/PipelineDashboard.jsx,PipelineDashboard,red,155,C prop,Accepts C but FALLBACK_STAGES/STAGE_COLORS fully hardcoded plus layout colors
+src/AnalyticsDashboard.js,AnalyticsDashboard,red,144,C prop (53 refs),Uses C for some layout but defines local CHANNEL_COLORS and chart palettes hardcoded
+src/components/LiveInboxV2.js,LiveInboxV2,red,141,C prop (34 refs via rawC),Main inbox; 141 hardcoded for status/channel maps plus inline dark-mode surfaces
+src/CampaignsModule.js,CampaignsModule,red,139,C prop (155 refs),Highest C usage but still 139 hardcoded in STATUS_COLORS/CHANNEL_COLORS maps
+src/AgentPortal.jsx,AgentPortal,red,134,Own getColors() + brand overrides,Defines dark-only getColors(); no ThemeContext; 134 hardcoded in nav/status
+src/ContactsModule.js,ContactsModule,red,125,C prop (152 refs),Strong C usage but 125 hardcoded in TAG_COLORS/CHANNEL_ICONS semantic maps
+src/Settings.js,Settings,red,152,C prop (146 refs),Highest total refs to C but 152 hardcoded for status/notification/tab states
+src/AIChatbot.js,AIChatbot,red,96,C prop (82 refs),Good C usage; 96 hardcoded for message bubbles/code blocks/status
+src/components/EngageWorxDemo.jsx,EngageWorxDemo,red,81,none,Self-contained demo; dark-only palette throughout
+src/components/HelpDesk/HelpDeskModule.jsx,HelpDeskModule,red,64,C prop + ThemeContext,Theme-aware structure but 64 hardcoded in STATUS_CONFIG/PRIORITY_CONFIG maps
+src/OnboardingWizard.jsx,OnboardingWizard,red,58,none (minimal C pass to child),Full-screen wizard; no C prop acceptance; 58 dark-mode hardcoded colors
+src/SignupPage.jsx,SignupPage,red,56,none,Public signup; self-contained dark palette
+src/MobileDemo.jsx,MobileDemo,red,56,C prop,Accepts C but 56 hardcoded in demo STATS/CHANNEL constants
+src/components/EmailSetupWizard.jsx,EmailSetupWizard,red,53,C prop (2 refs only),Accepts C but barely uses it; 53 hardcoded throughout wizard steps
+src/MasterAgentPortal.jsx,MasterAgentPortal,red,49,Own getColors() + brand,Same pattern as AgentPortal; dark-only getColors(); 49 hardcoded
+src/CSPPortal.jsx,CSPPortal,red,47,getThemedColors + ThemeContext,Structurally theme-ready but 47 hardcoded in status/nav inline styles
+src/components/AIConfigBuilder.jsx,AIConfigBuilder,red,45,none,No C prop; no ThemeContext; dark-only palette baked in
+src/NLCampaignBuilder.jsx,NLCampaignBuilder,red,19+local palette,Local COLORS constant (dark-only),Defines own COLORS={}; all refs self-referencing; no external theme
+src/ChatbotConfig.jsx,ChatbotConfig,red,27+local palette,Local const C (dark-only shadows prop name),Defines own const C locally; 77 C. refs but all to local dark palette
+src/FlowBuilder.js,FlowBuilder,yellow,10,C prop (66 refs),Excellent C adoption; only 10 semantic node-type colors hardcoded. Still uses JS prop not CSS vars — needs migration but defaults would match SP look.
+src/TCRRegistration.jsx,TCRRegistration,yellow,14,C prop (71 refs),71 C refs; 14 hardcoded all semantic (success/error/warning). Strong pattern but still prop-driven not CSS-var-driven.
+src/LeadScan.jsx,LeadScan,yellow,45,C prop (3 refs),Accepts C but barely uses it; 45 hardcoded; mostly semantic score/status colors
+src/TCRQueue.jsx,TCRQueue,yellow,39,C prop (32 refs via colors.),Good C usage; 39 hardcoded mostly semantic TCR status colors
+src/ImportLeads.jsx,ImportLeads,yellow,33,C prop,Accepts C; 33 hardcoded for status/validation indicators
+src/CreateSandbox.jsx,CreateSandbox,yellow,33,C prop (7 refs),Light C usage; 33 hardcoded in step wizard and config options
+src/HierarchyView.jsx,HierarchyView,yellow,33,C prop (11 refs via colors.),Good fallback pattern; 33 hardcoded in TIER_STYLE semantic map
+src/SequenceRoster.jsx,SequenceRoster,yellow,33,C prop,Accepts C; 33 hardcoded for status dots/channel badges
+src/ActionBoard.jsx,ActionBoard,yellow,32,C prop (8 refs),Accepts C; 32 hardcoded for priority tiers and action status
+src/BlogAdmin.jsx,BlogAdmin,yellow,31,C prop (5 refs),Light C usage; 31 hardcoded for status/category colors
+src/SequenceBuilder.jsx,SequenceBuilder,yellow,30,C prop,Accepts C; 30 hardcoded for step type badges
+src/CSPSMSRegistration.jsx,CSPSMSRegistration,yellow,25,C prop,Accepts C; 25 hardcoded for registration status
+src/BrandingEditor.jsx,BrandingEditor,yellow,25,C prop,Accepts C; 25 hardcoded for editor chrome around color pickers
+src/WhatsAppTemplatesTab.jsx,WhatsAppTemplatesTab,yellow,24,C prop,Accepts C; 24 hardcoded for template/category status
+src/StreamingTest.jsx,StreamingTest,yellow,23,C prop (2 refs),Internal test page; minimal C use; 23 hardcoded
+src/AuthCallback.jsx,AuthCallback,yellow,22,CSS variables (--brand-primary),Uses var(--brand-primary) for CTAs; 22 hardcoded for loading states. Closest to GREEN — actually reads CSS vars for brand.
+src/AdminTenants.jsx,AdminTenants,yellow,22,none,No C prop; 22 hardcoded; admin-only legacy page
+src/WelcomeEmailSettings.jsx,WelcomeEmailSettings,yellow,20,C prop,Accepts C; 20 hardcoded for toggle/preview chrome
+src/CustomerSuccessDashboard.jsx,CustomerSuccessDashboard,yellow,19,C prop (11 refs via colors.),Good pattern; 19 hardcoded health indicator colors (semantic)
+src/components/DemoRequestForm.jsx,DemoRequestForm,yellow,18,none,Public form; 18 hardcoded; no theming
+src/WhatsAppEmbeddedSignup.jsx,WhatsAppEmbeddedSignup,yellow,17,C prop,Accepts C; 17 hardcoded for step/status indicators
+src/components/LeadPickerModal.jsx,LeadPickerModal,yellow,17,C prop,Accepts C; 17 hardcoded for selection highlights
+src/AUPModal.jsx,AUPModal,yellow,15,none,Full-screen modal; 15 hardcoded; dark-only
+src/PlatformUpdatesBell.jsx,PlatformUpdatesBell,yellow,14,none,Notification dropdown; 14 hardcoded category colors
+src/DemoMode.jsx,DemoMode,yellow,13,Local const C (dark-only),Own local constant; 13 hardcoded; admin tool
+src/PolandCarrierCard.jsx,PolandCarrierCard,yellow,12,C prop,Accepts C; 12 hardcoded for carrier status
+src/PlatformUpdates.jsx,PlatformUpdates,yellow,12,C prop (8 refs via colors.),Accepts C; 12 hardcoded category badges
+src/FeatureGate.jsx,FeatureGate,yellow,12,C prop,Accepts C; 12 hardcoded for gate/banner colors
+src/EmailTrackingInstructions.jsx,EmailTrackingInstructions,yellow,11,C prop,Accepts C; 11 hardcoded for code-block styling
+src/SupportRequestForm.jsx,SupportRequestForm,yellow,6,C prop,6 semantic hardcoded; C used for layout. Still prop-driven not CSS-var-driven.
+src/SetupChecklist.jsx,SetupChecklist,yellow,7,C prop,7 semantic; C used for structure. Still prop-driven not CSS-var-driven.
+src/AutoDetectBrandBar.jsx,AutoDetectBrandBar,yellow,9,C prop,Small component; 9 semantic indicators. Still needs CSS var migration.
+src/GmailConnect.jsx,GmailConnect,yellow,6,C prop,Small component; 6 status colors. Prop-driven not CSS-var.
+src/TenantBrandingManager.jsx,TenantBrandingManager,yellow,5,C prop,5 hardcoded; uses C for structure. Prop-driven not CSS-var.
+src/BrandLogo.jsx,BrandLogo,yellow,2,BrandingContext,2 fallback colors; reads from useBranding(). Closest to green but still not CSS-var for structural colors.
+src/components/LegalContent.js,LegalContent,green,0,none,Pure data; no styling. N/A for theming.
+src/ThemeContext.js,ThemeContext,green,233,N/A (IS the theme system),Defines theme palettes; not a consumer. Will become the CSS var publisher in Phase 2.
+src/BrandingContext.js,BrandingContext,green,8,N/A (IS the branding system),Already sets --brand-primary/--brand-secondary CSS vars on :root. Infrastructure component.
