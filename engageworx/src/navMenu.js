@@ -20,7 +20,6 @@ var NAV_MENU = [
   { id: 'registrations',    label: 'Registrations',         icon: '📋', scope: 'all' },
   { id: 'analytics',        label: 'Analytics',             icon: '📊', scope: 'all' },
   { id: 'integrations',     label: 'APIs & Integrations',   icon: '🔌', scope: 'all' },
-  { id: 'branding',         label: 'Branding',              icon: '🎨', scope: 'all' },
   { id: 'settings',         label: 'Settings',              icon: '⚙️', scope: 'all' },
 ];
 

@@ -113,15 +113,16 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     setError('');
     try {
       if (step === 2) {
-        var brandingPatch = {
-          brand_name: displayName.trim() || null,
-          portal_name: portalName.trim() || null,
-          logo_url: logoUrl.trim() || null,
-          brand_primary: primaryColor || null,
-          brand_secondary: accentColor || null,
-          website_url: websiteUrl.trim() || null,
-        };
-        await supabase.from('tenants').update(brandingPatch).eq('id', tenantId);
+        var brandRpc = await supabase.rpc('update_tenant_branding', {
+          p_tenant_id: tenantId,
+          p_brand_name: displayName.trim() || null,
+          p_portal_name: portalName.trim() || null,
+          p_brand_logo_url: logoUrl.trim() || null,
+          p_brand_primary: primaryColor || null,
+          p_brand_secondary: accentColor || null,
+          p_website_url: websiteUrl.trim() || null,
+        });
+        if (brandRpc.error) throw brandRpc.error;
       } else if (step === 3 && !skipEmail) {
         var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
         var emailCfg = Object.assign({}, (existing.data && existing.data.config_encrypted) || {}, {

@@ -7,7 +7,7 @@ import EmailSetupWizard from './components/EmailSetupWizard';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
-import TenantBranding from './TenantBranding';
+import BrandingEditor from './BrandingEditor';
 import GmailConnect from './GmailConnect';
 import { getToggleableModules, MODULE_CATEGORIES } from './lib/modules';
 
@@ -1990,7 +1990,7 @@ return (<div>
       })()}
 
       {activeTab === "branding" && (
-        <TenantBranding tenantId={resolvedTenantId || currentTenantId} userRole={userRole} />
+        <BrandingEditor tenantId={resolvedTenantId || currentTenantId} C={C} />
       )}
     {showEmailWizard && (
       <EmailSetupWizard

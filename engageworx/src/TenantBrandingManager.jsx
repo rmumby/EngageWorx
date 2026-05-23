@@ -42,7 +42,7 @@ export default function TenantBrandingManager({ parentTenantId, C }) {
                   <span>{t.plan || 'Trial'} · {t.status || 'active'}</span>
                   {t.brand_primary && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: t.brand_primary, display: 'inline-block' }} /> {t.brand_primary}</span>}
                   {t.brand_secondary && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: t.brand_secondary, display: 'inline-block' }} /> {t.brand_secondary}</span>}
-                  {!t.brand_primary && <span style={{ color: '#d97706' }}>⚠ No brand colors set</span>}
+                  {!t.brand_primary && <span style={{ color: '#d97706' }}>No brand colors set</span>}
                 </div>
               </div>
               <span style={{ color: colors.muted, fontSize: 14 }}>{isOpen ? '▼' : '▶'}</span>
@@ -50,7 +50,7 @@ export default function TenantBrandingManager({ parentTenantId, C }) {
             {isOpen && (
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <AutoDetectBrandBar tenantId={t.id} C={C} />
-                <BrandingEditor entityId={t.id} actor={{ tenantId: parentTenantId, entityTier: 'csp', isSuperAdmin: false, mspEnabled: true, loaOnFile: true }} C={C} />
+                <BrandingEditor tenantId={t.id} C={C} />
               </div>
             )}
           </div>

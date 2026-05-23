@@ -41,7 +41,7 @@ import StreamingTest from './StreamingTest';
 import PlatformUpdatesBell from './PlatformUpdatesBell';
 import SupportRequestForm from './SupportRequestForm';
 import OnboardingWizard from './OnboardingWizard';
-// AutoDetectBrandBar removed — branding is now self-serve via TenantBranding in Settings
+// AutoDetectBrandBar removed — branding is now via BrandingEditor in Settings
 import SetupChecklist from './SetupChecklist';
 import AUPModal from './AUPModal';
 import { FeatureGate, KycStartBanner } from './FeatureGate';
