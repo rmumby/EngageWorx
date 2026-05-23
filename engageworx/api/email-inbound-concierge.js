@@ -115,6 +115,7 @@ module.exports = async function handler(req, res) {
   // ── 2. Tenant resolution ──────────────────────────────────────────────
   var tenantId = null;
   var tenantName = null;
+  var tenantSenderEmail = null;
 
   // (a) Check channel_configs for exact recipient email match
   try {
@@ -145,12 +146,13 @@ module.exports = async function handler(req, res) {
     for (var dc = 0; dc < domainCandidates.length; dc++) {
       try {
         var { data: matched } = await supabase.from('tenants')
-          .select('id, name, custom_domain')
+          .select('id, name, brand_name, custom_domain, default_sender_email, resend_domain')
           .eq('custom_domain', domainCandidates[dc])
           .maybeSingle();
         if (matched) {
           tenantId = matched.id;
-          tenantName = matched.name;
+          tenantName = matched.brand_name || matched.name;
+          tenantSenderEmail = matched.default_sender_email || (matched.resend_domain ? 'weddings@' + matched.resend_domain : null);
           console.log('[email-concierge] Matched tenant:', matched.name, 'via custom_domain:', domainCandidates[dc]);
           break;
         }
@@ -323,8 +325,8 @@ module.exports = async function handler(req, res) {
     var sendResult = await sendTenantEmail(supabase, {
       tenant_id: tenantId,
       to: senderEmail,
-      from: recipientEmail,
-      from_name: 'Delamere Manor',
+      from: tenantSenderEmail || recipientEmail,
+      from_name: tenantName || 'Team',
       subject: replySubject,
       html: replyHtml,
       text: aiResult.response,

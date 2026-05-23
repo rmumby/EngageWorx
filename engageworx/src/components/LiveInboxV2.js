@@ -416,13 +416,19 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         var emails = [
           { email: 'hello@engwx.com', label: 'Hello', type: 'default' },
         ];
-        // Tenant's configured from_email
+        // Tenant's default_sender_email (preferred) or channel_configs from_email
+        try {
+          var tenantR = await supabase.from('tenants').select('default_sender_email, brand_name, name').eq('id', resolvedTenantId).maybeSingle();
+          if (tenantR.data && tenantR.data.default_sender_email) {
+            emails.unshift({ email: tenantR.data.default_sender_email, label: (tenantR.data.brand_name || tenantR.data.name || 'Tenant') + ' default', type: 'tenant' });
+          }
+        } catch (e) {}
         try {
           var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
           if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
             var tenantEmail = chR.data.config_encrypted.from_email;
             if (!emails.find(function(e) { return e.email === tenantEmail; })) {
-              emails.unshift({ email: tenantEmail, label: 'Tenant default', type: 'tenant' });
+              emails.push({ email: tenantEmail, label: 'Channel config', type: 'tenant' });
             }
           }
         } catch (e) {}
