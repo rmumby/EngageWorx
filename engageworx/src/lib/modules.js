@@ -22,7 +22,6 @@ export const MODULES = [
   { id: 'analytics', label: 'Analytics', icon: '📊', route: 'analytics', minTier: 'tenant', toggleable: true, defaultEnabled: true, category: 'analytics', description: 'Channel performance metrics' },
   { id: 'help_desk', label: 'Help Desk', icon: '🎫', route: 'help_desk', minTier: 'tenant', toggleable: true, defaultEnabled: true, category: 'integration', description: 'Submit and track support tickets' },
   { id: 'api_integrations', label: 'APIs & Integrations', icon: '🔌', route: 'integrations', minTier: 'tenant', toggleable: false, category: 'integration', description: 'Webhooks, API keys, third-party integrations' },
-  { id: 'branding', label: 'Branding', icon: '🎨', route: 'branding', minTier: 'tenant', toggleable: false, category: 'integration', description: 'White-label branding and theme' },
   { id: 'settings', label: 'Settings', icon: '⚙️', route: 'settings', minTier: 'tenant', toggleable: false, category: 'core', description: 'Account, channels, team, modules' },
 ];
 

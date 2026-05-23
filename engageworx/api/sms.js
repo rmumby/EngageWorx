@@ -372,7 +372,7 @@ module.exports = async function handler(req, res) {
     if (!accountSid || !authToken || !fromNumber) {
       return res.status(500).json({ error: 'Missing env vars', has_sid: !!accountSid, has_token: !!authToken, has_number: !!fromNumber });
     }
-    const result = await sendSMS(to, '🚀 EngageWorx SMS test successful! Your Twilio integration is live.', fromNumber);
+    const result = await sendSMS(to, '🚀 EngageWorx SMS test successful! Your messaging integration is live.', fromNumber);
     if (!result.ok) return res.status(result.status).json({ error: result.data.message, code: result.data.code });
     return res.status(200).json({ success: true, message: 'Test SMS sent!', sid: result.data.sid });
   }

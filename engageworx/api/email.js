@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
             <h1 style="color: #00C9FF; margin: 0 0 8px; font-size: 24px;">EngageWorx</h1>
             <h2 style="color: #ffffff; margin: 0 0 16px; font-size: 20px;">Email Integration Active!</h2>
             <p style="color: #6B8BAE; font-size: 14px; line-height: 1.6; margin: 0;">
-              Your SendGrid integration is working perfectly.<br/>
+              Your email integration is working perfectly.<br/>
               Transactional and marketing emails are ready to send.
             </p>
             <div style="margin-top: 24px; padding: 16px; background: rgba(0,201,255,0.1); border-radius: 8px; border: 1px solid rgba(0,201,255,0.2);">
@@ -77,14 +77,14 @@ module.exports = async function handler(req, res) {
           </p>
         </div>
       `,
-      text: 'EngageWorx Email Test Successful! Your SendGrid integration is working perfectly.',
+      text: 'EngageWorx Email Test Successful! Your email integration is working perfectly.',
     });
 
     if (result.ok) {
       return res.status(200).json({ success: true, message: 'Test email sent!' });
     }
 
-    return res.status(result.status).json({ error: 'SendGrid error', details: result.data });
+    return res.status(result.status).json({ error: 'Email delivery error', details: result.data });
   }
 
   // ─── SEND ─────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ success: true, message: 'Email sent' });
       }
 
-      return res.status(result.status).json({ error: 'SendGrid error', details: result.data });
+      return res.status(result.status).json({ error: 'Email delivery error', details: result.data });
     } catch (err) {
       console.error('Send email error:', err);
       return res.status(500).json({ error: 'Internal server error' });
@@ -144,7 +144,7 @@ module.exports = async function handler(req, res) {
       }
 
       const data = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ error: 'SendGrid error', details: data });
+      return res.status(response.status).json({ error: 'Email delivery error', details: data });
     } catch (err) {
       console.error('Template email error:', err);
       return res.status(500).json({ error: 'Internal server error' });

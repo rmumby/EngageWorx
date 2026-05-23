@@ -58,7 +58,7 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
   }, [tenantId]);
 
   async function startSignup() {
-    if (!appId) { alert('FACEBOOK_APP_ID not configured — add it to Vercel env vars first.'); return; }
+    if (!appId) { alert('FACEBOOK_APP_ID not configured — contact support to enable WhatsApp Embedded Signup.'); return; }
     setStatus({ state: 'loading' });
     try {
       var FB = await loadFbSdk(appId);
@@ -128,7 +128,7 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
         <button onClick={function() { setManualMode(!manualMode); }} style={btnSec}>{manualMode ? 'Hide manual setup' : 'Enter credentials manually →'}</button>
         {status.state === 'error' && <span style={{ color: '#FF6B6B', fontSize: 12 }}>{status.msg}</span>}
       </div>
-      {!appId && <div style={{ marginTop: 10, color: '#d97706', fontSize: 11 }}>⚠️ FACEBOOK_APP_ID not set on Vercel — Embedded Signup is disabled. Use manual setup for now.</div>}
+      {!appId && <div style={{ marginTop: 10, color: '#d97706', fontSize: 11 }}>⚠️ FACEBOOK_APP_ID not configured — Embedded Signup is disabled. Use manual setup for now.</div>}
       {manualMode && (
         <div style={{ marginTop: 14, padding: 12, background: 'rgba(0,0,0,0.25)', borderRadius: 8, color: colors.muted, fontSize: 12 }}>
           Manual fields appear in the channel card below (Phone Number ID, Business Account ID, Access Token). Fill those in if you already have credentials.
