@@ -162,6 +162,11 @@ export default function BrandingEditor({ tenantId: tenantIdProp, entityId, actor
         p_custom_domain: (form.custom_domain || '').trim() || null,
         p_powered_by_visible: form.powered_by_visible,
         p_custom_css: (form.custom_css || '').trim() || null,
+        p_clear_logo: !(form.brand_logo_url || '').trim() && !!(entity.brand_logo_url),
+        p_clear_favicon: !(form.brand_favicon_url || '').trim() && !!(entity.brand_favicon_url),
+        p_clear_website: !(form.website_url || '').trim() && !!(entity.website_url),
+        p_clear_custom_domain: !(form.custom_domain || '').trim() && !!(entity.custom_domain),
+        p_clear_custom_css: !(form.custom_css || '').trim() && !!(entity.custom_css),
       };
       var r = await supabase.rpc('update_tenant_branding', rpcParams);
       if (r.error) throw r.error;
