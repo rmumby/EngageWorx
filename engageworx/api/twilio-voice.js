@@ -251,28 +251,18 @@ module.exports = async function handler(req, res) {
       var config = {};
       var tenantId = null;
 
-      // Force SP tenant for the EngageWorx main number — skip DB lookup entirely
-      if (toNum.indexOf('7869827800') > -1) {
+      try {
+        voiceConfig = await getVoiceConfig(toNum);
+        config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
+        tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
+      } catch(e) { console.warn('Config lookup error:', e.message); }
+
+      if (!tenantId) {
         tenantId = SP_TID;
-        console.log('[Voice] FORCED SP tenant for EngageWorx number ' + toNum);
         try {
           var spCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', SP_TID).eq('channel', 'voice').eq('enabled', true).maybeSingle();
           if (spCfg.data) config = spCfg.data.config_encrypted || {};
         } catch(e) {}
-      } else {
-        try {
-          voiceConfig = await getVoiceConfig(toNum);
-          config = voiceConfig ? (voiceConfig.config_encrypted || {}) : {};
-          tenantId = voiceConfig ? (voiceConfig.tenant_id || (voiceConfig.tenant ? voiceConfig.tenant.id : null)) : null;
-        } catch(e) { console.warn('Config lookup error:', e.message); }
-
-        if (!tenantId) {
-          tenantId = SP_TID;
-          try {
-            var spCfg2 = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', SP_TID).eq('channel', 'voice').eq('enabled', true).maybeSingle();
-            if (spCfg2.data) config = spCfg2.data.config_encrypted || {};
-          } catch(e) {}
-        }
       }
       console.log('[Voice] resolved tenant=' + tenantId + ' auto_answer=' + (config.auto_answer || 'NOT SET') + ' greeting=' + ((config.during_hours_greeting || config.greeting || '').substring(0, 40) || 'default'));
 
