@@ -154,13 +154,12 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       var memberData = memberResult.data || [];
       if (memberData.length === 0) { setMembers([]); setLoading(false); return; }
       var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
-      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, first_name, last_name, company_name, sender_email').in('id', userIds);
+      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, company_name, sender_email').in('id', userIds);
       var profileMap = {};
       (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
       setMembers(memberData.map(function(m) {
         var profile = profileMap[m.user_id] || {};
         var displayName = profile.full_name
-          || ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim()
           || profile.company_name
           || profile.email
           || m.notify_email
