@@ -444,7 +444,7 @@ function AutoTriagePanel({ colors, onBack }) {
       <div style={{ padding: '20px 24px 12px', borderBottom: '1px solid ' + colors.border, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>🤖 Auto-Triage</div>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>Claude-classified tickets + auto-fix outcomes</div>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>AI-classified tickets + auto-fix outcomes</div>
         </div>
         <button onClick={onBack} style={btn}>← Back</button>
       </div>

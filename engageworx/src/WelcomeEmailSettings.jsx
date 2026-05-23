@@ -152,7 +152,7 @@ export default function WelcomeEmailSettings({ C, tenantId }) {
           {/* AI Message */}
           <div style={card}>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>AI Personalisation</div>
-            <div style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>Claude writes a personalised 2-paragraph message for each new signup using their company name and plan. Customise the instructions below or leave blank to use the default.</div>
+            <div style={{ color: colors.muted, fontSize: 12, marginBottom: 16 }}>AI writes a personalised 2-paragraph message for each new signup using their company name and plan. Customise the instructions below or leave blank to use the default.</div>
             <label style={labelStyle}>AI Instructions (optional)</label>
             <textarea value={settings.welcome_email_ai_prompt} onChange={function(e) { update('welcome_email_ai_prompt', e.target.value); }} placeholder={"Default: Write a warm, personal welcome message referencing their company name and plan. Invite them to book a call. 2 short paragraphs, no URLs, no sign-off."} rows={4} style={Object.assign({}, inputStyle, { resize: 'vertical', lineHeight: 1.6 })} />
             <div style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>Leave blank to use the default AI instructions. The AI always receives the new tenant's company name, plan, and email automatically.</div>

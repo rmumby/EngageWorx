@@ -326,7 +326,7 @@ module.exports = async function handler(req, res) {
             '<div style="font-size:13px;opacity:0.9;margin-top:4px;">' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · mode: ' + mode + '</div>' +
           '</div>' +
           '<p style="color:#475569;font-size:13px;line-height:1.6;">' + items.length + ' stale lead(s) analysed today. ' +
-          (mode === 'autonomous' ? 'Autonomous mode: Claude already actioned these. Summary below.' : 'Supervised mode: open AI Email Digest to approve.') + '</p>' +
+          (mode === 'autonomous' ? 'Autonomous mode: AI already actioned these. Summary below.' : 'Supervised mode: open AI Email Digest to approve.') + '</p>' +
           '<table style="width:100%;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><tr style="background:#f1f5f9;"><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Lead</th><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Action</th><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#64748b;">Reasoning</th></tr>' + rowsHtml + '</table>' +
           '<div style="text-align:center;margin-top:20px;"><a href="https://portal.engwx.com" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#E040FB);color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:700;">Review in AI Email Digest →</a></div>' +
           '</div></body></html>';

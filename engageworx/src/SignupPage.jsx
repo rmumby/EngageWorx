@@ -434,25 +434,25 @@ export default function SignupPage({ onBack }) {
                       onClick={() => setTwilioOption("managed")}>
                       <div style={styles.optionIcon}>📱</div>
                       <div style={styles.optionTitle}>EngageWorx Managed</div>
-                      <div style={styles.optionDesc}>We provision and manage your number. Simplest option — no Twilio account needed.</div>
+                      <div style={styles.optionDesc}>We provision and manage your number. Simplest option — no separate messaging account needed.</div>
                     </div>
                     <div style={{ ...styles.optionCard, ...(twilioOption === "own" ? styles.optionCardActive : {}) }}
                       onClick={() => setTwilioOption("own")}>
                       <div style={styles.optionIcon}>🔧</div>
-                      <div style={styles.optionTitle}>Bring Your Own Twilio</div>
-                      <div style={styles.optionDesc}>Use your existing Twilio account and number. Best for enterprises.</div>
+                      <div style={styles.optionTitle}>Bring Your Own Carrier</div>
+                      <div style={styles.optionDesc}>Use your existing messaging carrier account and number. Best for enterprises.</div>
                     </div>
                   </div>
 
                   {twilioOption === "own" && (
                     <div style={styles.twilioFields}>
                       <div style={styles.field}>
-                        <label style={styles.label}>Twilio Account SID</label>
+                        <label style={styles.label}>Carrier Account SID</label>
                         <input style={styles.input} value={form.twilioAccountSid}
                           onChange={e => update("twilioAccountSid", e.target.value)} placeholder="ACxxxxxxxxxxxxxxxx" />
                       </div>
                       <div style={styles.field}>
-                        <label style={styles.label}>Twilio Auth Token</label>
+                        <label style={styles.label}>Carrier Auth Token</label>
                         <div style={{ position: "relative" }}>
                           <input style={{ ...styles.input, width: "100%", boxSizing: "border-box", paddingRight: 44 }}
                             type={showTwilioToken ? "text" : "password"} value={form.twilioAuthToken}
@@ -463,7 +463,7 @@ export default function SignupPage({ onBack }) {
                         </div>
                       </div>
                       <div style={styles.field}>
-                        <label style={styles.label}>Twilio Phone Number</label>
+                        <label style={styles.label}>Phone Number</label>
                         <input style={styles.input} value={form.twilioPhoneNumber}
                           onChange={e => update("twilioPhoneNumber", e.target.value)} placeholder="+12135551234" />
                       </div>

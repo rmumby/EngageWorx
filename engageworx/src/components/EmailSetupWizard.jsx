@@ -1,4 +1,4 @@
-// src/components/EmailSetupWizard.jsx — Resend custom domain setup wizard
+// src/components/EmailSetupWizard.jsx — Custom email domain setup wizard
 // Step wizard: Domain → DNS Records → Verify → From Address → Test Send
 import React, { useState, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
@@ -124,7 +124,7 @@ export default function EmailSetupWizard({ C, tenantId, onComplete, onCancel, ex
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <div style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>Email Setup</div>
-            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Resend custom domain</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 2 }}>Custom email domain</div>
           </div>
           <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 20, cursor: 'pointer' }}>✕</button>
         </div>

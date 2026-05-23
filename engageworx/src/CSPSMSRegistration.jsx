@@ -80,7 +80,7 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
         body: JSON.stringify({ action: 'guide_faq', industry: industry, tenant_id: cspTenantId }),
       });
       var data = await res.json();
-      setGuide({ industry: industry, generated: data.text || '(Claude returned no content — try again with more detail.)', loading: false });
+      setGuide({ industry: industry, generated: data.text || '(AI returned no content — try again with more detail.)', loading: false });
     } catch (e) {
       setGuide(function(g) { return Object.assign({}, g, { loading: false, generated: 'Error: ' + e.message }); });
     }

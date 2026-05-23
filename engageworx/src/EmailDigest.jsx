@@ -194,7 +194,7 @@ export default function EmailDigest({ C, currentTenantId }) {
   async function restoreOriginal(a) {
     var orig = a.action_payload && a.action_payload.original_draft;
     if (!orig) return;
-    if (!window.confirm('Restore the original Claude-drafted reply? Your improved version will be lost.')) return;
+    if (!window.confirm('Restore the original AI-drafted reply? Your improved version will be lost.')) return;
     try {
       var newPayload = Object.assign({}, a.action_payload || {});
       delete newPayload.original_draft;
@@ -753,7 +753,7 @@ export default function EmailDigest({ C, currentTenantId }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>📡 AI Omnichannel Digest</h1>
-          <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>Claude-analyzed inbound email, WhatsApp, SMS, and voice with recommended actions</p>
+          <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>AI-analyzed inbound email, WhatsApp, SMS, and voice with recommended actions</p>
         </div>
         <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄 Refresh</button>
       </div>
@@ -828,7 +828,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                 )}
               </div>
             </div>
-            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 8px' }}>Contacts with no reply or conversation in the last 7 days. Claude generates personalized follow-ups using event context.</p>
+            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 8px' }}>Contacts with no reply or conversation in the last 7 days. AI generates personalized follow-ups using event context.</p>
 
             {fuLastDismissed && (
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 12px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 8, marginBottom: 10 }}>
@@ -1063,7 +1063,7 @@ export default function EmailDigest({ C, currentTenantId }) {
               <button onClick={function() { setVipSearchOpen(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '6px 12px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>＋ Add Contact</button>
               </div>
             </div>
-            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>AI-researched, hyper-personalized outreach. Claude uses web search to learn about each company and crafts a tailored message.</p>
+            <p style={{ color: colors.muted, fontSize: 12, margin: '0 0 10px' }}>AI-researched, hyper-personalized outreach. AI uses web search to learn about each company and crafts a tailored message.</p>
 
             {vipContacts.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 30 })}>
@@ -1409,7 +1409,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                     )}
                     {improveOpenFor === a.id && (
                       <div style={{ marginTop: 10, padding: 12, background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 8 }}>
-                        <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>✨ Add context for Claude</div>
+                        <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>✨ Add context for AI</div>
                         <textarea value={improveContext} onChange={function(e) { setImproveContext(e.target.value); }} placeholder="e.g. Met at CPExpo, interested in CSP model, has 500 agents, follow up about Poland SMS" rows={3} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
                         <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
                           <button onClick={function() { regenerate(a); }} disabled={improving} style={{ background: 'linear-gradient(135deg,#E040FB,#A855F7)', border: 'none', borderRadius: 6, padding: '8px 14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12, opacity: improving ? 0.5 : 1 }}>{improving ? 'Rewriting…' : '✨ Regenerate Draft'}</button>

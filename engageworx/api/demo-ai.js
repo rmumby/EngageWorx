@@ -33,11 +33,11 @@ module.exports = async function handler(req, res) {
 Key facts about EngageWorx:
 - AI-powered platform for SMS, Email, Voice, WhatsApp, RCS
 - White-label multi-tenant architecture for service providers
-- Built-in AI chatbot with 90%+ resolution rate (powered by Claude)
+- Built-in AI chatbot with 90%+ resolution rate
 - Visual flow builder for automation, no code required
 - Voice IVR system with business hours, voicemail, transcription
 - Plans: Starter $99/mo, Growth $249/mo, Pro $499/mo, Enterprise custom
-- Replaces tools like MoneyPenny, GoHighLevel messaging, Twilio DIY builds
+- Replaces tools like MoneyPenny, GoHighLevel messaging, and DIY carrier builds
 - Deployed for hospitality client, replacing their $650/month call service
 - Contact: +1 (305) 810-8877, rob@engwx.com, www.engwx.com
 

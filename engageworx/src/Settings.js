@@ -681,7 +681,7 @@ if (!tenantId) {
       var errs = []; var warns = [];
       if (ch === 'voice') {
         if (!cfg.phone_number) errs.push('Phone number required');
-        if (cfg.forward_to && cfg.phone_number && cfg.forward_to === cfg.phone_number) errs.push('Forward-to cannot match the Twilio DID (routing loop)');
+        if (cfg.forward_to && cfg.phone_number && cfg.forward_to === cfg.phone_number) errs.push('Forward-to cannot match the platform DID (routing loop)');
         if (cfg.forward_to && !/^\+\d{7,15}$/.test(cfg.forward_to)) errs.push('Forward-to must be E.164 format (e.g. +14155551234)');
         var rt = parseInt(cfg.ring_timeout_seconds, 10);
         if (cfg.ring_timeout_seconds && !isNaN(rt) && (rt < 5 || rt > 60)) errs.push('Ring timeout must be 5-60 seconds');
@@ -1301,7 +1301,7 @@ return (<div>
                             {hasResendDomain ? (
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
-                                  <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>Resend domain verified</div>
+                                  <div style={{ color: '#10b981', fontWeight: 700, fontSize: 13 }}>Email domain verified</div>
                                   <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 }}>
                                     Sending from <strong style={{ color: C.text }}>{configData.from_name || '—'}</strong> &lt;{configData.from_email || '—'}&gt; via <strong style={{ color: C.text }}>{configData.domain}</strong>
                                   </div>
@@ -1806,7 +1806,7 @@ return (<div>
               {calendlyUrlSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
-              Your booking link. Used by Claude when drafting outreach emails, in your AI assistant auto-replies, and when you type "add calendly link" in the Improve with Context panel. Leave blank to omit.
+              Your booking link. Used by AI when drafting outreach emails, in your AI assistant auto-replies, and when you type "add calendly link" in the Improve with Context panel. Leave blank to omit.
             </div>
           </div>
 
@@ -1901,11 +1901,11 @@ return (<div>
           {/* Stale Lead Outreach mode */}
           <div style={{ ...card, maxWidth: 560, marginTop: 20 }}>
             <h3 style={{ color: C.text, fontSize: 15, margin: '0 0 4px' }}>🔄 Stale Lead Outreach</h3>
-            <p style={{ color: C.muted, fontSize: 12, margin: '0 0 14px' }}>How Claude handles the daily stale-lead re-engagement pass (leads with no activity in 7+ days).</p>
+            <p style={{ color: C.muted, fontSize: 12, margin: '0 0 14px' }}>How AI handles the daily stale-lead re-engagement pass (leads with no activity in 7+ days).</p>
             <div style={{ display: 'flex', gap: 8 }}>
               {[
-                { id: 'supervised',  label: '👁️ Supervised',  desc: 'Claude drafts. You approve in AI Email Digest.' },
-                { id: 'autonomous',  label: '🤖 Autonomous',   desc: 'Claude executes immediately. You see the digest.' },
+                { id: 'supervised',  label: '👁️ Supervised',  desc: 'AI drafts. You approve in Action Board.' },
+                { id: 'autonomous',  label: '🤖 Autonomous',   desc: 'AI executes immediately. You review in Action Board.' },
               ].map(opt => (
                 <div key={opt.id} onClick={() => !staleModeSaving && saveStaleMode(opt.id)} style={{
                   flex: 1, padding: 14, borderRadius: 10, cursor: staleModeSaving ? 'wait' : 'pointer',
@@ -1918,7 +1918,7 @@ return (<div>
                 </div>
               ))}
             </div>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>Default: Supervised. Switch to Autonomous only after you trust Claude's output (usually post-CPExpo).</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 10 }}>Default: Supervised. Switch to Autonomous only after you trust the AI's output.</div>
           </div>
         </div>
       )}

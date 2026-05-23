@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
       '<p style="color:#475569;font-size:14px;line-height:1.6;">Hi there — Rob from EngageWorx here. We noticed your portal hasn\'t been fully configured yet. Most tenants finish in under 5 minutes:</p>' +
       '<ul style="color:#475569;font-size:14px;line-height:1.8;padding-left:20px;">' +
         '<li>Add your brand name + logo</li>' +
-        '<li>Connect your email (SendGrid API key)</li>' +
+        '<li>Connect your email sending domain</li>' +
         '<li>Set up Aria with your business info + FAQs</li>' +
       '</ul>' +
       '<div style="text-align:center;margin:24px 0;">' +

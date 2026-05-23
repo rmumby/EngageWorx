@@ -420,7 +420,7 @@ export default function TCRRegistration({ tenantId, C: propC }) {
         {step === 2 && (
           <div style={{ background: C.surface, border: "1px solid " + C.border, borderRadius: 16, padding: 28 }}>
             <h2 style={{ color: C.text, fontSize: 20, fontWeight: 800, margin: "0 0 4px" }}>AI Compliance Check</h2>
-            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 24px" }}>Claude reviews your submission against TCR rejection patterns. Score must be 80+ to submit.</p>
+            <p style={{ color: C.muted, fontSize: 13, margin: "0 0 24px" }}>AI reviews your submission against TCR rejection patterns. Score must be 80+ to submit.</p>
 
             {aiScore === null && (
               <div style={{ textAlign: "center", padding: 40 }}>

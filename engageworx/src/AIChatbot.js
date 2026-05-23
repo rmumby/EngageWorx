@@ -473,7 +473,7 @@ saveAIConfig(newSources);
 
                   <div style={card}>
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
-                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Used in every outbound email. <strong>First</strong> signature is used for new outreach / sequence step 1. <strong>Reply</strong> signature is used for replies and sequence steps 2+. Claude adds a contextual closing line (e.g. "Looking forward to connecting!") above the signature HTML automatically.</div>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Used in every outbound email. <strong>First</strong> signature is used for new outreach / sequence step 1. <strong>Reply</strong> signature is used for replies and sequence steps 2+. AI adds a contextual closing line (e.g. "Looking forward to connecting!") above the signature HTML automatically.</div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       {/* Personal */}
@@ -676,7 +676,7 @@ saveAIConfig(newSources);
                       <button onClick={handleKbUrlFetch} disabled={!kbUrlInput.trim() || kbUploadState === "fetching"} style={{ background: kbUrlInput.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "10px 16px", color: kbUrlInput.trim() ? "#000" : "rgba(255,255,255,0.2)", fontWeight: 700, cursor: kbUrlInput.trim() ? "pointer" : "not-allowed", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{kbUploadState === "fetching" ? "..." : "Fetch"}</button>
                       <button onClick={function() { setShowKbUrl(false); setKbUrlInput(""); setKbUploadState("idle"); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 12px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
                     </div>
-                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 6 }}>Claude will fetch your website and extract business info into the knowledge base</div>
+                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 6 }}>AI will fetch your website and extract business info into the knowledge base</div>
                   </div>
                 )}
 
@@ -876,9 +876,9 @@ saveAIConfig(newSources);
                     <div>
                       <label style={label}>AI Model</label>
                       <select style={inputStyle}>
-                        <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (Recommended)</option>
-                        <option value="claude-haiku-4-5">Claude Haiku 4.5 (Fast)</option>
-                        <option value="claude-opus-4-7">Claude Opus 4.7 (Most Capable)</option>
+                        <option value="claude-sonnet-4-6">AI Standard (Recommended)</option>
+                        <option value="claude-haiku-4-5">AI Fast</option>
+                        <option value="claude-opus-4-7">AI Advanced (Most Capable)</option>
                       </select>
                     </div>
                     <div>
@@ -969,7 +969,7 @@ saveAIConfig(newSources);
             colors={C}
           />
           <div style={{ display: "flex", gap: 8, marginTop: 8, justifyContent: "center" }}>
-            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: Claude Sonnet</span>
+            <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Model: AI Standard</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
             <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10 }}>Temp: {temperature}</span>
             <span style={{ color: "rgba(255,255,255,0.08)" }}>·</span>
