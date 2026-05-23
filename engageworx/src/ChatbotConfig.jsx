@@ -1,10 +1,5 @@
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_ANON_KEY
-);
+import { supabase } from "./supabaseClient";
 
 const C = {
   bg: "#0A0E1A",
@@ -231,7 +226,7 @@ export default function ChatbotConfig({ tenantId }) {
           .eq("id", existing.id);
       } else {
         await supabase.from("chatbot_config")
-          .insert({ tenant_id: null, config });
+          .insert({ tenant_id: tenantId, config });
       }
       showToast("Chatbot configuration saved!");
     } catch (err) {
