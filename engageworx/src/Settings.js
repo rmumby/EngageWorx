@@ -150,76 +150,53 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
     if (!tenantId) { setMembers([]); setLoading(false); return; }
     setLoading(true);
     try {
-      var memberResult = await supabase.from('tenant_members').select('*').eq('tenant_id', tenantId).order('joined_at', { ascending: false });
-      var memberData = memberResult.data || [];
-      if (memberData.length === 0) { setMembers([]); setLoading(false); return; }
-      var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
-      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, company_name, sender_email').in('id', userIds);
-      var profileMap = {};
-      (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
-      setMembers(memberData.map(function(m) {
-        var profile = profileMap[m.user_id] || {};
-        return Object.assign({}, m, {
-          displayName: profile.full_name || profile.company_name || profile.email || m.notify_email || 'Unknown',
-          displayEmail: profile.email || m.notify_email || null,
-          senderEmail: m.sender_email_override || profile.sender_email || '',
-        });
-      }));
-    } catch (e) { console.error('fetchMembers error:', e); }
+      var session = await supabase.auth.getSession();
+      var token = session.data?.session?.access_token;
+      var resp = await fetch('/api/team/list?tenant_id=' + tenantId, { headers: { 'Authorization': 'Bearer ' + token } });
+      var data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Failed to load team');
+      setMembers(data.members || []);
+    } catch (e) { console.error('fetchMembers error:', e); setMembers([]); }
     setLoading(false);
   }
 
-  async function toggleFlag(memberId, flag, currentVal) {
-    setSaving(memberId + flag);
-    var update = {}; update[flag] = !currentVal;
-    await supabase.from('tenant_members').update(update).eq('id', memberId);
-    setMembers(function(prev) { return prev.map(function(m) { if (m.id !== memberId) return m; var u = Object.assign({}, m); u[flag] = !currentVal; return u; }); });
-    setSaving(null);
-  }
-
-  async function updateRole(memberId, role) {
-    await supabase.from('tenant_members').update({ role }).eq('id', memberId);
-    setMembers(function(prev) { return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { role }) : m; }); });
-  }
-
-  async function saveSenderEmail(memberId, userId, email) {
-    setSaving(memberId + '_sender');
+  async function saveMemberField(userId, updates) {
+    setSaving(userId);
     try {
-      // Validate email format if provided
-      if (email && email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
-        alert('Please enter a valid email address.');
-        setSaving(null);
-        return;
-      }
-      await supabase.from('tenant_members').update({ sender_email_override: (email || '').trim() || null }).eq('id', memberId);
-      setMembers(function(prev) { return prev.map(function(m) { return m.id === memberId ? Object.assign({}, m, { sender_email: email }) : m; }); });
-    } catch (e) { alert('Error saving sender email: ' + e.message); }
+      var session = await supabase.auth.getSession();
+      var token = session.data?.session?.access_token;
+      var resp = await fetch('/api/team/update', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify(Object.assign({ tenant_id: selectedTenantId, user_id: userId }, updates)),
+      });
+      var data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Update failed');
+      await fetchMembers(selectedTenantId);
+    } catch (e) { alert('Error: ' + e.message); }
     setSaving(null);
   }
 
   async function removeMember(memberId) {
     if (!window.confirm('Remove this team member?')) return;
     await supabase.from('tenant_members').delete().eq('id', memberId);
-    setMembers(function(prev) { return prev.filter(function(m) { return m.id !== memberId; }); });
+    fetchMembers(selectedTenantId);
   }
 
   async function inviteMember() {
     if (!inviteEmail) return;
+    var fullName = ((inviteFirstName || '') + ' ' + (inviteLastName || '')).trim();
+    if (!fullName) { alert('Name is required.'); return; }
     setSaving('invite');
     try {
-      var r = await fetch('/api/invite-member', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenant_id: selectedTenantId, email: inviteEmail, role: inviteRole, first_name: inviteFirstName, last_name: inviteLastName }),
+      var session = await supabase.auth.getSession();
+      var token = session.data?.session?.access_token;
+      var resp = await fetch('/api/team/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ tenant_id: selectedTenantId, email: inviteEmail, full_name: fullName, role: inviteRole }),
       });
-      var d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Invite failed');
-      if (d.already_member) {
-        alert('ℹ️ ' + inviteEmail + ' is already a member.');
-      } else if (d.invited && d.temp_password) {
-        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.\n\nTemp password: ' + d.temp_password + '\n\n' + (d.welcome_email_sent ? 'Welcome email sent.' : 'Welcome email not sent — share credentials manually.') + '\n\nThey can log in immediately.');
-      } else {
-        alert('✅ ' + (d.full_name || inviteEmail) + ' added as ' + inviteRole + '.');
-      }
+      var d = await resp.json();
+      if (!resp.ok) throw new Error(d.error || 'Invite failed');
+      alert('✅ ' + fullName + ' added as ' + inviteRole + '.' + (d.welcome_email_sent ? ' Welcome email sent.' : '') + (d.temp_password ? '\n\nTemp password: ' + d.temp_password : ''));
       setInviteEmail(''); setInviteFirstName(''); setInviteLastName(''); setShowInvite(false); fetchMembers(selectedTenantId);
     } catch (e) { alert('Error: ' + e.message); }
     setSaving(null);
@@ -281,7 +258,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {editable && <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ Edit</button>}
                     {editable ? (
-                      <select value={m.role || 'admin'} onChange={function(e) { updateRole(m.id, e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
+                      <select value={m.role || 'admin'} onChange={function(e) { saveMemberField(m.user_id, { role: e.target.value }); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
                         <option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option><option value="notification_only">Notification Only</option>
                       </select>
                     ) : <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 700 }}>{m.role}</span>}
@@ -290,22 +267,34 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                 </div>
                 {editingId === m.id && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 14 }}>
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✉️ Sender Email (Live Inbox)</div>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input value={m.senderEmail || ''} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { senderEmail: val }) : x; }); }); }} placeholder={(m.displayEmail || '') + ' (default)'} style={Object.assign({}, inputSt, { maxWidth: 300 })} />
-                        <button onClick={function() { saveSenderEmail(m.id, m.user_id, m.senderEmail); }} disabled={saving === m.id + '_sender'} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 6, padding: '7px 14px', color: C.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>{saving === m.id + '_sender' ? '...' : 'Save'}</button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+                      <div>
+                        <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Full Name</div>
+                        <input value={m._editName !== undefined ? m._editName : m.displayName} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { _editName: val }) : x; }); }); }} style={inputSt} />
                       </div>
-                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 4 }}>Custom "From" address for this team member when sending from Live Inbox. Leave blank to use their login email.</div>
+                      <div>
+                        <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Sender Email Override</div>
+                        <input value={m._editSender !== undefined ? m._editSender : (m.senderEmail || '')} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { _editSender: val }) : x; }); }); }} placeholder={(m.displayEmail || '') + ' (default)'} style={inputSt} />
+                      </div>
                     </div>
-                    <div style={{ marginBottom: 12 }}>
-                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Notifications</div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {NOTIFY_FLAGS.map(function(flag) {
                           var isOn = m[flag.key] || false;
-                          return <button key={flag.key} onClick={function() { toggleFlag(m.id, flag.key, isOn); }} style={{ background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: isOn ? C.primary : 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>{isOn ? '✓ ' : ''}{flag.label}</button>;
+                          return <button key={flag.key} onClick={function() { setMembers(function(prev) { return prev.map(function(x) { if (x.id !== m.id) return x; var u = Object.assign({}, x); u[flag.key] = !isOn; u._dirty = true; return u; }); }); }} style={{ background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: isOn ? C.primary : 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>{isOn ? '✓ ' : ''}{flag.label}</button>;
                         })}
                       </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button disabled={saving === m.user_id} onClick={function() {
+                        var updates = {};
+                        if (m._editName !== undefined) updates.full_name = m._editName;
+                        if (m._editSender !== undefined) updates.sender_email_override = m._editSender || null;
+                        NOTIFY_FLAGS.forEach(function(f) { updates[f.key] = !!m[f.key]; });
+                        saveMemberField(m.user_id, updates).then(function() { setEditingId(null); });
+                      }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: 'none', borderRadius: 8, padding: '8px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>{saving === m.user_id ? 'Saving...' : 'Save Changes'}</button>
+                      <button onClick={function() { setEditingId(null); fetchMembers(selectedTenantId); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 18px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
                     </div>
                   </div>
                 )}
