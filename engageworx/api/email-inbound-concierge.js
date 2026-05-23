@@ -332,7 +332,11 @@ module.exports = async function handler(req, res) {
       text: aiResult.response,
       reply_to: recipientEmail,
     });
-    console.log('[email-concierge] Reply sent:', sendResult.message_id || 'ok');
+    if (sendResult.blocked) {
+      console.error('[email-concierge] Reply BLOCKED by filter:', sendResult.block_reason, 'pattern:', sendResult.matched_pattern);
+    } else {
+      console.log('[email-concierge] Reply sent:', sendResult.message_id || sendResult.method || 'ok');
+    }
   } catch (sendErr) {
     console.error('[email-concierge] Reply send failed:', sendErr.message);
     // Don't fail the webhook — email is already ingested

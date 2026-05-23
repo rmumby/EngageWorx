@@ -1,13 +1,14 @@
 // api/_lib/email-safety-gates.js — Shared Layer 1 + Layer 2 safety for ALL email sends
 // Imported by sendTenantEmail (enforced on every send) and sequences.js (pre-send).
 
-// Layer 2: blocked patterns — AI meta-language, scratchpad reasoning, unfilled tokens
+// Layer 2: blocked patterns — scratchpad reasoning + unfilled merge tokens only.
+// DO NOT add common English phrases here — they block legitimate AI customer replies.
+// Only add patterns that indicate the AI leaked its internal reasoning or left merge tokens.
 var BLOCKED_BODY_PATTERNS = [
-  "i don't have", "i do not have", "could you please provide",
-  "could you provide", "the data provided", "to personalize this message",
-  "information is missing", "information needed", "the lead's first name",
-  "the lead's company", "once you provide", "once i have these details",
-  "the email shows", "the email suggests", "i'd need", "i would need",
+  "the data provided", "to personalize this message",
+  "the lead's first name", "the lead's company",
+  "the email shows", "the email suggests",
+  "once i have these details",
   "{first_name}", "{company_name}", "[firstname]", "[company]",
   "[calendly_link]", "[your name]",
 ];
