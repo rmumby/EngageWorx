@@ -98,11 +98,11 @@ export default function TenantKnowledgeDocuments({ tenantId, C }) {
   var btnSec = { background: 'transparent', color: colors.text, border: '1px solid ' + colors.border, borderRadius: 8, padding: '6px 12px', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' };
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 1000 }}>
+    <div style={{ maxWidth: 1000 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{ color: colors.text, fontSize: 24, fontWeight: 800, margin: 0 }}>Knowledge Documents</h1>
-          <p style={{ color: colors.muted, fontSize: 13, marginTop: 4 }}>Upload source documents to automatically generate knowledge base articles.</p>
+          <h3 style={{ color: colors.text, fontSize: 16, fontWeight: 700, margin: 0 }}>Uploaded Documents</h3>
+          <p style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>Documents are processed by AI into structured articles your concierge can reference.</p>
         </div>
         <button onClick={function() { setShowUpload(true); }} style={btnPrimary}>+ Upload Document</button>
       </div>

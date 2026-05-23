@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
 import EscalationRulesConfig from "./EscalationRulesConfig";
+import TenantKnowledgeDocuments from "./admin/TenantKnowledgeDocuments";
 
 var LANGUAGE_OPTIONS = [
   { id: 'en_auto', name: 'English (auto-detect non-English)' },
@@ -624,76 +625,25 @@ saveAIConfig(newSources);
             <div>
               <div style={{ marginBottom: 20 }}>
                 <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Knowledge Base</h2>
-                <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Upload documents or connect your website to build your AI knowledge base</p>
+                <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Manage the documents and articles your AI concierge uses to answer questions</p>
               </div>
 
-              {kbSources.length > 0 && (
-                <div style={{ ...card, marginBottom: 16 }}>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 12, fontWeight: 700 }}>Added This Session</div>
-                  {kbSources.map(function(src, i) {
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < kbSources.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                        <span style={{ fontSize: 16 }}>{src.type === "file" ? "📄" : "🔗"}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>{src.name}</div>
-                          <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10 }}>{src.type === "file" ? "File upload" : src.url} · {src.addedAt}</div>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-  <span style={{ color: "#00E676", fontSize: 11, fontWeight: 700 }}>✓ Saved</span>
-  <button onClick={function() {
-    var newSources = kbSources.filter(function(_, j) { return j !== i; });
-    setKbSources(newSources);
-    saveAIConfig(newSources);
-  }} style={{ background: "rgba(255,59,48,0.1)", border: "1px solid rgba(255,59,48,0.3)", borderRadius: 6, padding: "2px 8px", color: "#FF3B30", fontSize: 10, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Remove</button>
-</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div style={{ ...card, border: "2px dashed rgba(255,255,255,0.1)", padding: 28 }}>
-                <div style={{ textAlign: "center", marginBottom: 20 }}>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>📁</div>
-                  <div style={{ color: C.text, fontWeight: 600, marginBottom: 4 }}>Add Knowledge Source</div>
-                  <div style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Upload a document or connect your website to auto-fill your AI's knowledge base</div>
-                </div>
-
-                {kbUploadState !== "idle" && (
-                  <div style={{ background: kbUploadState === "error" ? "rgba(255,59,48,0.1)" : kbUploadState === "done" ? "rgba(0,230,118,0.1)" : "rgba(0,201,255,0.08)", border: `1px solid ${kbUploadState === "error" ? "rgba(255,59,48,0.3)" : kbUploadState === "done" ? "rgba(0,230,118,0.3)" : "rgba(0,201,255,0.2)"}`, borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: kbUploadState === "error" ? "#FF3B30" : kbUploadState === "done" ? "#00E676" : C.primary, fontSize: 13, textAlign: "center" }}>
-                    {kbUploadState === "uploading" && "⏳ Extracting text from document..."}
-                    {kbUploadState === "fetching" && "⏳ Fetching website content..."}
-                    {kbUploadState === "done" && "✓ " + kbUploadMsg}
-                    {kbUploadState === "error" && "✕ " + kbUploadMsg}
-                  </div>
-                )}
-
-                {showKbUrl && (
-                  <div style={{ marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 10, padding: 16 }}>
-                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 8, fontWeight: 700 }}>Website URL</div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input value={kbUrlInput} onChange={function(e) { setKbUrlInput(e.target.value); }} onKeyDown={function(e) { if (e.key === "Enter") handleKbUrlFetch(); }} placeholder="https://yourwebsite.com" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
-                      <button onClick={handleKbUrlFetch} disabled={!kbUrlInput.trim() || kbUploadState === "fetching"} style={{ background: kbUrlInput.trim() ? `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})` : "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, padding: "10px 16px", color: kbUrlInput.trim() ? "#000" : "rgba(255,255,255,0.2)", fontWeight: 700, cursor: kbUrlInput.trim() ? "pointer" : "not-allowed", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>{kbUploadState === "fetching" ? "..." : "Fetch"}</button>
-                      <button onClick={function() { setShowKbUrl(false); setKbUrlInput(""); setKbUploadState("idle"); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "10px 12px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>✕</button>
+              <div style={{ ...card, marginBottom: 20, border: "1px solid rgba(0,201,255,0.2)", background: "rgba(0,201,255,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>ℹ️</span>
+                  <div>
+                    <div style={{ color: C.text, fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Knowledge Documents</div>
+                    <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
+                      Upload documents below to build your AI concierge's knowledge base. Uploaded files are processed by AI into structured articles that your concierge uses to answer questions accurately.
                     </div>
-                    <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 6 }}>AI will fetch your website and extract business info into the knowledge base</div>
+                    <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginTop: 6 }}>
+                      Supported formats: PDF, Word (.docx), plain text, Markdown, HTML, and email (.eml) files.
+                    </div>
                   </div>
-                )}
-
-                <input ref={kbFileRef} type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv" style={{ display: "none" }} onChange={handleKbFileUpload} />
-                <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                  <button style={btnSecondary} onClick={function() { if (kbFileRef.current) kbFileRef.current.click(); }}>📄 Upload Files</button>
-                  <button style={{ ...btnSecondary, background: showKbUrl ? `${C.primary}22` : undefined, borderColor: showKbUrl ? `${C.primary}44` : undefined, color: showKbUrl ? C.primary : undefined }} onClick={function() { setShowKbUrl(!showKbUrl); setKbUploadState("idle"); }}>🔗 Connect URL</button>
-                  <button style={btnSecondary} onClick={function() { alert("🔌 API import coming soon."); }}>🔌 API Import</button>
                 </div>
-                <div style={{ textAlign: "center", color: "rgba(255,255,255,0.2)", fontSize: 11, marginTop: 10 }}>Supported: TXT, Markdown, CSV (use Connect URL for websites)</div>
-
-                <div style={{ marginTop: 20, textAlign: "center" }}>
-  <button onClick={saveAIConfig} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "12px 28px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>💾 Save to AI Knowledge Base</button>
-  {configSaved && <div style={{ color: "#00E676", fontSize: 13, fontWeight: 600, marginTop: 8 }}>✓ Saved — your AI agent has been updated</div>}
-  {configError && <div style={{ color: "#FF3B30", fontSize: 13, marginTop: 8 }}>{configError}</div>}
-</div>
               </div>
+
+              <TenantKnowledgeDocuments tenantId={currentTenantId} C={C} />
             </div>
           )}
 

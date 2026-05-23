@@ -143,17 +143,50 @@ module.exports = async function handler(req, res) {
       var candidate = domainParts.slice(di).join('.');
       if (candidate.split('.').length >= 2) domainCandidates.push(candidate);
     }
+    console.log('[email-concierge] Domain candidates:', domainCandidates);
     for (var dc = 0; dc < domainCandidates.length; dc++) {
       try {
-        var { data: matched } = await supabase.from('tenants')
+        var { data: matched, error: matchErr } = await supabase.from('tenants')
           .select('id, name, brand_name, custom_domain, default_sender_email, resend_domain')
           .eq('custom_domain', domainCandidates[dc])
           .maybeSingle();
+        if (matchErr) {
+          console.error('[email-concierge] Domain match query error for', domainCandidates[dc], ':', matchErr.message, matchErr.code);
+          continue;
+        }
         if (matched) {
           tenantId = matched.id;
           tenantName = matched.brand_name || matched.name;
           tenantSenderEmail = matched.default_sender_email || (matched.resend_domain ? 'weddings@' + matched.resend_domain : null);
           console.log('[email-concierge] Matched tenant:', matched.name, 'via custom_domain:', domainCandidates[dc]);
+          break;
+        } else {
+          console.log('[email-concierge] No match for custom_domain:', domainCandidates[dc]);
+        }
+      } catch (e) {
+        console.error('[email-concierge] Domain match threw for', domainCandidates[dc], ':', e.message);
+        continue;
+      }
+    }
+  }
+
+  // (c) Fallback: match resend_domain
+  if (!tenantId && recipientDomain) {
+    var domainParts2 = recipientDomain.split('.');
+    for (var di2 = 0; di2 <= domainParts2.length - 2; di2++) {
+      var candidate2 = domainParts2.slice(di2).join('.');
+      if (candidate2.split('.').length < 2) continue;
+      try {
+        var { data: rdMatch, error: rdErr } = await supabase.from('tenants')
+          .select('id, name, brand_name, custom_domain, default_sender_email, resend_domain')
+          .eq('resend_domain', candidate2)
+          .maybeSingle();
+        if (rdErr) continue;
+        if (rdMatch) {
+          tenantId = rdMatch.id;
+          tenantName = rdMatch.brand_name || rdMatch.name;
+          tenantSenderEmail = rdMatch.default_sender_email || ('weddings@' + rdMatch.resend_domain);
+          console.log('[email-concierge] Matched tenant:', rdMatch.name, 'via resend_domain:', candidate2);
           break;
         }
       } catch (e) { continue; }
@@ -161,7 +194,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (!tenantId) {
-    console.log('[email-concierge] No tenant for recipient:', recipientEmail, 'tried:', recipientDomain);
+    console.log('[email-concierge] No tenant for recipient:', recipientEmail, 'tried candidates for domain:', recipientDomain);
     return res.status(200).json({ ok: true, dropped: 'no_tenant_match' });
   }
 
