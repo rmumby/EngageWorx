@@ -159,13 +159,11 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
       setMembers(memberData.map(function(m) {
         var profile = profileMap[m.user_id] || {};
-        var displayName = profile.full_name
-          || profile.company_name
-          || profile.email
-          || m.notify_email
-          || 'Unknown';
-        var displayEmail = profile.email || m.notify_email || 'Unknown';
-        return Object.assign({}, m, { email: displayEmail, full_name: displayName, sender_email: m.sender_email_override || profile.sender_email || '' });
+        return Object.assign({}, m, {
+          displayName: profile.full_name || profile.company_name || profile.email || m.notify_email || 'Unknown',
+          displayEmail: profile.email || m.notify_email || null,
+          senderEmail: m.sender_email_override || profile.sender_email || '',
+        });
       }));
     } catch (e) { console.error('fetchMembers error:', e); }
     setLoading(false);
@@ -267,7 +265,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
           {members.map(function(m) {
-            var initials = (m.full_name || m.email || '?').split(' ').map(function(w) { return w[0] || ''; }).join('').slice(0, 2).toUpperCase();
+            var initials = (m.displayName || '?').split(' ').map(function(w) { return w[0] || ''; }).join('').slice(0, 2).toUpperCase();
             var editable = canEdit(selectedTenantId);
             return (
               <div key={m.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '18px 20px' }}>
@@ -275,10 +273,10 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{initials}</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>
-                      {m.full_name}
+                      {m.displayName}
                       {m.role === 'notification_only' && <span style={{ marginLeft: 8, background: 'rgba(255,165,0,0.15)', border: '1px solid rgba(255,165,0,0.3)', borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, color: '#FFA500' }}>NOTIFY ONLY</span>}
                     </div>
-                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.email}{m.role === 'notification_only' ? ' · No portal access' : ''}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{m.displayEmail || 'no email'}{m.role === 'notification_only' ? ' · No portal access' : ''}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {editable && <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ Edit</button>}
@@ -290,23 +288,27 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                     {editable && <button onClick={function() { removeMember(m.id); }} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.2)', borderRadius: 6, padding: '5px 10px', color: '#FF3B30', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Remove</button>}
                   </div>
                 </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✉️ Sender Email (Live Inbox)</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input value={m.sender_email || ''} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { sender_email: val }) : x; }); }); }} placeholder={m.email + ' (default)'} disabled={!editable} style={Object.assign({}, inputSt, { maxWidth: 300 })} />
-                    {editable && <button onClick={function() { saveSenderEmail(m.id, m.user_id, m.sender_email); }} disabled={saving === m.id + '_sender'} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 6, padding: '7px 14px', color: C.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>{saving === m.id + '_sender' ? '...' : 'Save'}</button>}
+                {editingId === m.id && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14, marginTop: 14 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✉️ Sender Email (Live Inbox)</div>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input value={m.senderEmail || ''} onChange={function(e) { var val = e.target.value; setMembers(function(prev) { return prev.map(function(x) { return x.id === m.id ? Object.assign({}, x, { senderEmail: val }) : x; }); }); }} placeholder={(m.displayEmail || '') + ' (default)'} style={Object.assign({}, inputSt, { maxWidth: 300 })} />
+                        <button onClick={function() { saveSenderEmail(m.id, m.user_id, m.senderEmail); }} disabled={saving === m.id + '_sender'} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 6, padding: '7px 14px', color: C.primary, cursor: 'pointer', fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0 }}>{saving === m.id + '_sender' ? '...' : 'Save'}</button>
+                      </div>
+                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 4 }}>Custom "From" address for this team member when sending from Live Inbox. Leave blank to use their login email.</div>
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {NOTIFY_FLAGS.map(function(flag) {
+                          var isOn = m[flag.key] || false;
+                          return <button key={flag.key} onClick={function() { toggleFlag(m.id, flag.key, isOn); }} style={{ background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: isOn ? C.primary : 'rgba(255,255,255,0.3)', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>{isOn ? '✓ ' : ''}{flag.label}</button>;
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, marginTop: 4 }}>Custom "From" address for this team member when sending from Live Inbox. Leave blank to use their login email.</div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📧 Email Notifications</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {NOTIFY_FLAGS.map(function(flag) {
-                      var isOn = m[flag.key] || false;
-                      return <button key={flag.key} onClick={editable ? function() { toggleFlag(m.id, flag.key, isOn); } : undefined} disabled={!editable} style={{ background: isOn ? `${C.primary}22` : 'rgba(255,255,255,0.04)', border: `1px solid ${isOn ? C.primary + '55' : 'rgba(255,255,255,0.08)'}`, borderRadius: 6, padding: '5px 12px', fontSize: 11, fontWeight: 600, color: isOn ? C.primary : 'rgba(255,255,255,0.3)', cursor: editable ? 'pointer' : 'default', fontFamily: "'DM Sans', sans-serif" }}>{isOn ? '✓ ' : ''}{flag.label}</button>;
-                    })}
-                  </div>
-                </div>
+                )}
               </div>
             );
           })}
