@@ -479,20 +479,15 @@ module.exports = async function handler(req, res) {
         var phoneResult = await supabase.from('phone_numbers').select('tenant_id').eq('number', cleanTo).maybeSingle();
         if (phoneResult.data) tenantId = phoneResult.data.tenant_id;
 
-        // Fallback: check channel_configs
+        // No match — log and acknowledge webhook without processing
         if (!tenantId) {
-          var configResult = await supabase.from('channel_configs').select('tenant_id').eq('channel', 'whatsapp').limit(1).maybeSingle();
-          if (configResult.data) tenantId = configResult.data.tenant_id;
+          console.error('[whatsapp] No matching config for inbound', {
+            to: cleanTo, from: cleanFrom, timestamp: new Date().toISOString()
+          });
+          return res.status(200).json({ status: 'ok' });
         }
 
-        // Final fallback: SP tenant
-        if (!tenantId) {
-          tenantId = (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
-          console.log('[WhatsApp] Using SP tenant fallback');
-        }
-
-        if (tenantId) {
-          // Find or create contact
+        // Find or create contact
           var contactResult = await supabase.from('contacts').select('id, first_name').eq('phone', cleanFrom).eq('tenant_id', tenantId).maybeSingle();
           var contactId = contactResult.data ? contactResult.data.id : null;
 
@@ -667,7 +662,7 @@ module.exports = async function handler(req, res) {
           var contactName = cleanFrom;
           try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || cleanFrom; } catch(e) {}
           notifyInboundSendGrid(contactName, 'WhatsApp', messageBody, tenantId).catch(function() {});
-        }
+
       } catch (whErr) {
         console.error('[WhatsApp] Webhook error:', whErr.message);
       }

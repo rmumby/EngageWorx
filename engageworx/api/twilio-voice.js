@@ -245,7 +245,6 @@ module.exports = async function handler(req, res) {
     // INBOUND — Entry point for all calls
     // ═══════════════════════════════════════════════════════════════
     if (action === 'inbound') {
-      var SP_TID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
       var toNum = body.To || '';
       var voiceConfig = null;
       var config = {};
@@ -258,11 +257,16 @@ module.exports = async function handler(req, res) {
       } catch(e) { console.warn('Config lookup error:', e.message); }
 
       if (!tenantId) {
-        tenantId = SP_TID;
-        try {
-          var spCfg = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', SP_TID).eq('channel', 'voice').eq('enabled', true).maybeSingle();
-          if (spCfg.data) config = spCfg.data.config_encrypted || {};
-        } catch(e) {}
+        console.error('[voice] No tenant for inbound call', {
+          to: toNum, from: body.From, callSid: body.CallSid,
+          timestamp: new Date().toISOString()
+        });
+        var noMatchVoice = defaultVoiceFor(toNum);
+        return res.status(200).type('text/xml').send(
+          '<?xml version="1.0" encoding="UTF-8"?><Response>' +
+          '<Say voice="' + noMatchVoice + '">This number is not currently configured. Please check the number and try again. Goodbye.</Say>' +
+          '<Hangup/></Response>'
+        );
       }
       console.log('[Voice] resolved tenant=' + tenantId + ' auto_answer=' + (config.auto_answer || 'NOT SET') + ' greeting=' + ((config.during_hours_greeting || config.greeting || '').substring(0, 40) || 'default'));
 
