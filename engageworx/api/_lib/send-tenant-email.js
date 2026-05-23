@@ -24,6 +24,8 @@ async function sendViaResend(fromAddress, fromName, opts) {
   if (opts.replyTo) payload.reply_to = opts.replyTo;
   if (opts.bcc) payload.bcc = Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc];
 
+  console.log('[sendViaResend] Payload:', { from: payload.from, to: payload.to, subject: (payload.subject || '').substring(0, 60) });
+
   var res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
@@ -174,6 +176,7 @@ async function sendTenantEmail(supabase, opts) {
   if (method === 'resend' && tenant.resend_domain_verified && tenant.resend_domain) {
     var resendFrom = opts.from || ('hello@' + tenant.resend_domain);
     var resendName = opts.from_name || tenant.name;
+    console.log('[sendTenantEmail] Resend path:', { resendFrom: resendFrom, resendName: resendName, resend_domain: tenant.resend_domain, opts_from: opts.from || '(none)' });
     var resendResult = await sendViaResend(resendFrom, resendName, sendOpts);
     resendResult.threadId = threadId;
     resendResult.replyToAddress = replyTo;
