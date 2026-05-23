@@ -8,16 +8,7 @@ ALTER TABLE tenants
   ADD COLUMN IF NOT EXISTS powered_by_visible boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS custom_css text;
 
--- Step 2: Backfill from tenant_branding if any rows exist there
-UPDATE tenants t
-SET
-  powered_by_visible = COALESCE((tb.branding->>'poweredByVisible')::boolean, true),
-  custom_css         = NULLIF(tb.branding->>'customCss', '')
-FROM tenant_branding tb
-WHERE tb.tenant_id = t.id
-  AND tb.branding IS NOT NULL;
-
--- Step 3: Drop old RPC and create extended version with cascade permission checks
+-- Step 2: Drop old RPC and create extended version with cascade permission checks
 DROP FUNCTION IF EXISTS public.update_tenant_branding(uuid, text, text, text, text, text);
 
 CREATE OR REPLACE FUNCTION public.update_tenant_branding(
