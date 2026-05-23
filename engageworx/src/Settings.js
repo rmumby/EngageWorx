@@ -154,12 +154,19 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       var memberData = memberResult.data || [];
       if (memberData.length === 0) { setMembers([]); setLoading(false); return; }
       var userIds = memberData.map(function(m) { return m.user_id; }).filter(Boolean);
-      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, company_name, sender_email').in('id', userIds);
+      var profileResult = await supabase.from('user_profiles').select('id, email, full_name, first_name, last_name, company_name, sender_email').in('id', userIds);
       var profileMap = {};
       (profileResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
       setMembers(memberData.map(function(m) {
         var profile = profileMap[m.user_id] || {};
-        return Object.assign({}, m, { email: profile.email || 'Unknown', full_name: profile.full_name || profile.company_name || profile.email || 'Unknown', sender_email: m.sender_email_override || profile.sender_email || '' });
+        var displayName = profile.full_name
+          || ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim()
+          || profile.company_name
+          || profile.email
+          || m.notify_email
+          || 'Unknown';
+        var displayEmail = profile.email || m.notify_email || 'Unknown';
+        return Object.assign({}, m, { email: displayEmail, full_name: displayName, sender_email: m.sender_email_override || profile.sender_email || '' });
       }));
     } catch (e) { console.error('fetchMembers error:', e); }
     setLoading(false);
