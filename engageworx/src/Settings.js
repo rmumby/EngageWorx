@@ -717,21 +717,16 @@ if (!tenantId) {
     } else {
       setChannelWarnings(function(prev) { var n = Object.assign({}, prev); delete n[channelId]; return n; });
     }
-    const payload = {
-      tenant_id: tenantId, channel: channelId, enabled: newEnabled,
-      config_encrypted: mergedConfig,
-      status: newEnabled ? "connected" : "disconnected",
-      updated_at: new Date().toISOString(),
-    };
-    let error;
-    if (existingRow && existingRow.id) {
-      // Scope the update by BOTH id AND tenant_id as a defence-in-depth check.
-      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existingRow.id).eq("tenant_id", tenantId));
-    } else {
-      ({ error } = await supabase.from("channel_configs").insert(payload));
-    }
-    if (error) {
-      alert("Error saving: " + error.message);
+    // Save via RPC with server-side cascade permission enforcement + phone validation
+    var rpcResult = await supabase.rpc('save_channel_config', {
+      p_tenant_id: tenantId,
+      p_channel: channelId,
+      p_enabled: newEnabled,
+      p_config_encrypted: mergedConfig,
+    });
+
+    if (rpcResult.error) {
+      alert("Error saving: " + rpcResult.error.message);
     } else {
       setChannelSavedId(channelId);
       setChannelSavedConfig(mergedConfig);
