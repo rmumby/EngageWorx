@@ -200,7 +200,10 @@ function CreateEventModal({ colors, tenantId, contacts, inputStyle, onClose }) {
     return '';
   }
 
+  var hasPrimaryContact = form.primary_contact_id || form.primary_first_name.trim();
+
   async function handleSave() {
+    if (!hasPrimaryContact) { setError('Primary contact is required. Select an existing contact or click "+ New" to create one.'); return; }
     if (!form.display_name && !autoDisplayName()) { setError('Display name is required'); return; }
     if (!form.event_date) { setError('Event date is required'); return; }
     setError('');
@@ -296,7 +299,7 @@ function CreateEventModal({ colors, tenantId, contacts, inputStyle, onClose }) {
         {/* Primary Contact */}
         <div style={{ marginBottom: 16, padding: 14, background: 'rgba(0,0,0,0.15)', borderRadius: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <label style={Object.assign({}, labelStyle, { margin: 0 })}>Primary Contact</label>
+            <label style={Object.assign({}, labelStyle, { margin: 0, color: !hasPrimaryContact ? '#ef4444' : colors.muted })}>Primary Contact *</label>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={function() { setPrimaryMode('search'); }} style={Object.assign({}, btnSec, primaryMode === 'search' ? { color: colors.primary, borderColor: colors.primary + '55' } : {})}>Search</button>
               <button onClick={function() { setPrimaryMode('new'); }} style={Object.assign({}, btnSec, primaryMode === 'new' ? { color: colors.primary, borderColor: colors.primary + '55' } : {})}>+ New</button>
@@ -379,7 +382,7 @@ function CreateEventModal({ colors, tenantId, contacts, inputStyle, onClose }) {
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'transparent', color: colors.muted, border: '1px solid ' + colors.border, borderRadius: 8, padding: '10px 18px', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ background: 'linear-gradient(135deg, ' + colors.primary + ', ' + (colors.accent || colors.primary) + ')', color: '#000', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>{saving ? 'Creating...' : 'Create Event'}</button>
+          <button onClick={handleSave} disabled={saving || !hasPrimaryContact} style={{ background: (hasPrimaryContact && !saving) ? 'linear-gradient(135deg, ' + colors.primary + ', ' + (colors.accent || colors.primary) + ')' : 'rgba(255,255,255,0.06)', color: (hasPrimaryContact && !saving) ? '#000' : 'rgba(255,255,255,0.3)', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: hasPrimaryContact ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>{saving ? 'Creating...' : 'Create Event'}</button>
         </div>
       </div>
     </div>
