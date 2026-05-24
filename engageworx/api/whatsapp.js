@@ -225,19 +225,31 @@ module.exports = async function handler(req, res) {
     if (tenantId) {
       try {
         var cfgResult = await supabase.from('channel_configs')
-          .select('config_encrypted')
+          .select('config_encrypted, whatsapp_phone_number_id')
           .eq('tenant_id', tenantId)
           .eq('channel', 'whatsapp')
           .eq('enabled', true)
           .maybeSingle();
-        if (cfgResult.data && cfgResult.data.config_encrypted) {
-          var cfg = cfgResult.data.config_encrypted;
-          if (cfg.phone_number_id && cfg.access_token) {
-            metaPhoneNumberId = cfg.phone_number_id;
+        if (cfgResult.data) {
+          var cfg = cfgResult.data.config_encrypted || {};
+          // Use top-level column (indexed) for phone_number_id, fall back to JSONB
+          var pnId = cfgResult.data.whatsapp_phone_number_id || cfg.phone_number_id;
+          if (pnId && cfg.access_token) {
+            metaPhoneNumberId = pnId;
             metaAccessToken = cfg.access_token;
             gateway = 'meta';
           }
         }
+      } catch (_) {}
+    }
+
+    // Strict: if no WhatsApp config found for this tenant, reject
+    if (tenantId && gateway === 'twilio' && !from) {
+      // No Meta credentials and no explicit From number — check phone_numbers
+      try {
+        var pnWa = await supabase.from('phone_numbers').select('number')
+          .eq('tenant_id', tenantId).eq('status', 'active').limit(1).maybeSingle();
+        if (pnWa.data) from = pnWa.data.number;
       } catch (_) {}
     }
 
