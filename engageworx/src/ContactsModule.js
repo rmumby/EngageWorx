@@ -102,7 +102,6 @@ const SEGMENTS = [
   { id: "all", name: "All Contacts", icon: "👥", desc: "Every contact in your database", filter: () => true },
   { id: "active", name: "Active", icon: "✅", desc: "Active contacts", filter: c => c.status === "active" },
   { id: "vip", name: "VIP Customers", icon: "⭐", desc: "Tagged as VIP", filter: c => c.tags.includes("VIP") },
-  { id: "wedding", name: "Wedding Couples", icon: "💒", desc: "Marked as wedding couples", filter: c => c.is_wedding_couple },
   { id: "new30", name: "New (30 days)", icon: "🆕", desc: "Joined in the last 30 days", filter: c => (Date.now() - c.created) < 30 * 86400000 },
   { id: "inactive", name: "Inactive 30+ Days", icon: "😴", desc: "No activity in 30+ days", filter: c => (Date.now() - c.lastActive) > 30 * 86400000 },
   { id: "highvalue", name: "High Value", icon: "💎", desc: "LTV over $1,000", filter: c => c.ltv > 1000 },
@@ -150,8 +149,6 @@ function mapContact(c) {
     channels: c.channel_preference ? [c.channel_preference] : ['SMS'],
     preferred_channel: autoPreferredChannel(c),
     is_vip: c.is_vip || false,
-    is_wedding_couple: c.is_wedding_couple || false,
-    wedding_id: c.wedding_id || null,
     created: new Date(c.created_at),
     lastActive: c.last_contacted_at ? new Date(c.last_contacted_at) : new Date(c.created_at),
     messagesSent: c.message_count || 0,
@@ -291,7 +288,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [filterVip, setFilterVip] = useState(false);
-  const [filterWedding, setFilterWedding] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
   const [mergePrimaryId, setMergePrimaryId] = useState(null);
   const [mergeChoices, setMergeChoices] = useState({});
@@ -389,8 +385,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [availableCampaigns, setAvailableCampaigns] = useState([]);
   const [existingEmailSet, setExistingEmailSet] = useState(new Set());
   const [editingContact, setEditingContact] = useState(null);
-  const [weddingForm, setWeddingForm] = useState({ partner_first_name: '', partner_last_name: '', partner_email: '', wedding_date: '', status: 'planning' });
-  const [weddingSaving, setWeddingSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [convertingLead, setConvertingLead] = useState(false);
   const [convertResult, setConvertResult] = useState(null);
@@ -402,20 +396,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     const fetchContacts = async () => {
       setLiveLoading(true);
       try {
-        let query = supabase.from('contacts').select('*, weddings:wedding_id(wedding_date, display_name, status)').order('created_at', { ascending: false });
+        let query = supabase.from('contacts').select('*').order('created_at', { ascending: false });
         if (currentTenantId) query = query.eq('tenant_id', currentTenantId);
         else if (viewLevel === 'sp' && spTenantFilter && spTenantFilter !== 'all') query = query.eq('tenant_id', spTenantFilter);
         const { data, error } = await query;
         if (error) throw error;
-        setContacts((data || []).map(function(c) {
-          var mapped = mapContact(c);
-          if (c.weddings) {
-            mapped.wedding_date = c.weddings.wedding_date || null;
-            mapped.wedding_display_name = c.weddings.display_name || null;
-            mapped.wedding_status = c.weddings.status || null;
-          }
-          return mapped;
-        }));
+        setContacts((data || []).map(mapContact));
       } catch (err) {
         console.warn('Contacts fetch error:', err.message);
         setContacts([]);
@@ -1006,7 +992,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const filtered = contacts.filter(c => {
     if (!segment.filter(c)) return false;
     if (filterVip && !c.is_vip) return false;
-    if (filterWedding && !c.is_wedding_couple) return false;
     if (filterStatus !== "all" && c.status !== filterStatus) return false;
     if (filterTag !== "all" && !c.tags.includes(filterTag)) return false;
     if (filterChannel !== "all" && !c.channels.includes(filterChannel)) return false;
@@ -1108,7 +1093,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <div style={{ display: "flex", gap: 6, justifyContent: "center", marginBottom: 4 }}>
                 <span style={badge(STATUS_COLORS[c.status])}>{c.status}</span>
                 {c.is_vip && <span style={badge("#FFD600")}>⭐ VIP</span>}
-                {c.is_wedding_couple && <span style={badge("#ec4899")}>💒 Wedding{c.wedding_date ? ' · ' + new Date(c.wedding_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>}
               </div>
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-start", marginTop: 8, flexWrap: "wrap", width: "100%", overflow: "visible" }}>
                 {c.tags.length > 0 ? c.tags.map(t => <span key={t} style={badge(TAG_COLORS[t] || C.muted)}>{t}</span>) : <span style={{ color: C.muted, fontSize: 11, fontStyle: "italic" }}>No tags</span>}
@@ -1200,61 +1184,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       <option value="">+ Add tag…</option>
                       {TAGS.filter(function(t) { return !(editingContact.tags || []).includes(t); }).map(function(t) { return <option key={t} value={t}>{t}</option>; })}
                     </select>
-                  </div>
-                  {/* Wedding Couple toggle */}
-                  <div style={{ marginBottom: 14, padding: 14, background: "rgba(236,72,153,0.04)", border: "1px solid rgba(236,72,153,0.15)", borderRadius: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editingContact.is_wedding_couple && !editingContact.wedding_id ? 12 : 0 }}>
-                      <label style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>💒 Wedding Couple</label>
-                      <button onClick={function() {
-                        if (editingContact.is_wedding_couple && editingContact.wedding_id) {
-                          if (!window.confirm('This will unlink the wedding record but not delete it. Continue?')) return;
-                          setWeddingSaving(true);
-                          supabase.auth.getSession().then(function(s) { return fetch('/api/contacts?action=unmark-as-wedding-couple', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (s.data?.session?.access_token || '') }, body: JSON.stringify({ contact_id: editingContact.id }) }); }).then(function(r) { return r.json(); }).then(function(data) {
-                            if (data.success) { var u = Object.assign({}, editingContact, { is_wedding_couple: false, wedding_id: null, wedding_date: null, wedding_display_name: null }); setEditingContact(u); setSelectedContact(u); setContacts(function(p) { return p.map(function(x) { return x.id === u.id ? u : x; }); }); }
-                            else { alert('Error: ' + (data.error || 'Unknown')); }
-                            setWeddingSaving(false);
-                          }).catch(function(e) { alert('Error: ' + e.message); setWeddingSaving(false); });
-                        } else {
-                          setEditingContact(Object.assign({}, editingContact, { is_wedding_couple: !editingContact.is_wedding_couple }));
-                          setWeddingForm({ partner_first_name: '', partner_last_name: '', partner_email: '', wedding_date: '', status: 'planning' });
-                        }
-                      }} disabled={weddingSaving} style={{ background: editingContact.is_wedding_couple ? "rgba(236,72,153,0.2)" : "rgba(255,255,255,0.06)", border: "1px solid " + (editingContact.is_wedding_couple ? "rgba(236,72,153,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "6px 14px", color: editingContact.is_wedding_couple ? "#ec4899" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>
-                        {weddingSaving ? '...' : editingContact.is_wedding_couple ? (editingContact.wedding_id ? 'Unlink Wedding' : 'Cancel') : 'Enable'}
-                      </button>
-                    </div>
-                    {editingContact.is_wedding_couple && editingContact.wedding_id && (
-                      <div style={{ color: C.muted, fontSize: 12, marginTop: 8 }}>Linked: <span style={{ color: "#ec4899", fontWeight: 600 }}>{editingContact.wedding_display_name || '—'}</span>{editingContact.wedding_date && <span> · {new Date(editingContact.wedding_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}</div>
-                    )}
-                    {editingContact.is_wedding_couple && !editingContact.wedding_id && (
-                      <div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                          {[{ key: 'partner_first_name', label: 'Partner First Name *' }, { key: 'partner_last_name', label: 'Partner Last Name' }].map(function(f) { return (
-                            <div key={f.key}><label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
-                            <input value={weddingForm[f.key]} onChange={function(e) { var u = {}; u[f.key] = e.target.value; setWeddingForm(Object.assign({}, weddingForm, u)); }} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} /></div>
-                          ); })}
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-                          <div><label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Partner Email (optional)</label>
-                          <input value={weddingForm.partner_email} onChange={function(e) { setWeddingForm(Object.assign({}, weddingForm, { partner_email: e.target.value })); }} placeholder="partner@example.com" style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} /></div>
-                          <div><label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Wedding Date *</label>
-                          <input type="date" value={weddingForm.wedding_date} onChange={function(e) { setWeddingForm(Object.assign({}, weddingForm, { wedding_date: e.target.value })); }} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} /></div>
-                        </div>
-                        <div style={{ marginBottom: 10 }}><label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Status</label>
-                        <select value={weddingForm.status} onChange={function(e) { setWeddingForm(Object.assign({}, weddingForm, { status: e.target.value })); }} style={{ width: 200, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }}><option value="planning">Planning</option><option value="locked">Confirmed / Locked</option></select></div>
-                        <button onClick={function() {
-                          if (!weddingForm.partner_first_name.trim()) { alert('Partner first name is required'); return; }
-                          if (!weddingForm.wedding_date) { alert('Wedding date is required'); return; }
-                          setWeddingSaving(true);
-                          supabase.auth.getSession().then(function(s) { return fetch('/api/contacts?action=mark-as-wedding-couple', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (s.data?.session?.access_token || '') }, body: JSON.stringify({ contact_id: editingContact.id, partner_first_name: weddingForm.partner_first_name.trim(), partner_last_name: weddingForm.partner_last_name.trim(), partner_email: weddingForm.partner_email.trim() || null, wedding_date: weddingForm.wedding_date, status: weddingForm.status }) }); }).then(function(r) { return r.json(); }).then(function(data) {
-                            if (data.success || data.already_exists) { var dn = data.display_name || (editingContact.firstName + ' & ' + weddingForm.partner_first_name); var u = Object.assign({}, editingContact, { is_wedding_couple: true, wedding_id: data.wedding_id, wedding_date: weddingForm.wedding_date, wedding_display_name: dn }); setEditingContact(u); setSelectedContact(u); setContacts(function(p) { return p.map(function(x) { return x.id === u.id ? u : x; }); }); }
-                            else { alert('Error: ' + (data.error || 'Unknown')); }
-                            setWeddingSaving(false);
-                          }).catch(function(e) { alert('Error: ' + e.message); setWeddingSaving(false); });
-                        }} disabled={weddingSaving} style={{ background: "linear-gradient(135deg, #ec4899, #db2777)", border: "none", borderRadius: 8, padding: "8px 18px", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", opacity: weddingSaving ? 0.6 : 1 }}>
-                          {weddingSaving ? 'Creating...' : '💒 Create Wedding & Partner'}
-                        </button>
-                      </div>
-                    )}
                   </div>
                   <button onClick={() => handleEditContact(editingContact)} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
                 </div>
@@ -1677,7 +1606,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <select value={filterTag} onChange={e => { setFilterTag(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 130 }}><option value="all">All Tags</option>{TAGS.map(t => <option key={t} value={t}>{t}</option>)}</select>
             <select value={filterChannel} onChange={e => { setFilterChannel(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 140 }}><option value="all">All Channels</option>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select>
             <button onClick={function() { setFilterVip(!filterVip); setPage(0); }} style={{ background: filterVip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterVip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterVip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterVip ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterVip ? "⭐ VIP Only" : "⭐ VIP"}</button>
-            <button onClick={function() { setFilterWedding(!filterWedding); setPage(0); }} style={{ background: filterWedding ? "rgba(236,72,153,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterWedding ? "rgba(236,72,153,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterWedding ? "#ec4899" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterWedding ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterWedding ? "💒 Couples Only" : "💒 Couples"}</button>
             <div style={{ marginLeft: "auto", color: C.muted, fontSize: 13 }}>{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</div>
           </div>
 
@@ -1868,7 +1796,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedContacts.includes(c.id)} onChange={() => toggleSelect(c.id)} style={{ cursor: "pointer" }} /></div>
                 <div onClick={() => { setSelectedContact(c); setView("detail"); }} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}44, ${C.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, color: C.primary, flexShrink: 0 }}>{c.firstName[0]}{c.lastName[0]}</div>
-                  <div><div style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{c.is_vip && <span style={{ color: "#FFD600", marginRight: 4 }}>⭐</span>}{c.is_wedding_couple && <span style={{ color: "#ec4899", marginRight: 4 }}>💒</span>}{c.firstName} {c.lastName}</div><div style={{ color: C.muted, fontSize: 11 }}>{c.company}{c.wedding_date ? ' · ' + new Date(c.wedding_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}</div></div>
+                  <div><div style={{ color: C.text, fontWeight: 600, fontSize: 13 }}>{c.is_vip && <span style={{ color: "#FFD600", marginRight: 4 }}>⭐</span>}{c.firstName} {c.lastName}</div><div style={{ color: C.muted, fontSize: 11 }}>{c.company}</div></div>
                 </div>
                 <div onClick={() => { setSelectedContact(c); setView("detail"); }} style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis" }}>{c.email}</div>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, fontFamily: "monospace" }}>{c.phone.slice(0, 6)}...{c.phone.slice(-4)}</div>
