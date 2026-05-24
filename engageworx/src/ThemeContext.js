@@ -115,7 +115,7 @@ export function ThemeProvider({ children }) {
   useEffect(function() {
     if (!profileLoaded) return; // Don't persist the initial load
     var mappedPref = preference === 'auto' ? 'system' : preference;
-    supabase.rpc('save_user_theme_preference', { p_preference: mappedPref }).catch(function() {});
+    supabase.rpc('save_user_theme_preference', { p_preference: mappedPref }).then(function() {}).catch(function() {});
   }, [preference, profileLoaded]);
 
   var theme = mode === 'dark' ? DARK : LIGHT;
