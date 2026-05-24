@@ -64,12 +64,16 @@ export default function CoordinatorEvents({ tenantId, C }) {
     if (!window.confirm(action === 'archive' ? 'Archive "' + event.display_name + '"? This hides it from the active list.' : 'Restore "' + event.display_name + '" to active?')) return;
     var session = await supabase.auth.getSession();
     var token = session.data?.session?.access_token;
-    await fetch('/api/weddings/archive', {
+    var archiveResp = await fetch('/api/weddings/archive', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ event_id: event.id }),
     });
-    loadEvents();
+    if (archiveResp.ok) {
+      // Optimistic update while background refresh catches up
+      setEvents(function(prev) { return prev.map(function(e) { return e.id === event.id ? Object.assign({}, e, { status: action === 'archive' ? 'archived' : 'planning' }) : e; }); });
+    }
+    setTimeout(loadEvents, 300);
   }
 
   var card = { background: colors.surface, border: '1px solid ' + colors.border, borderRadius: 12, padding: 20 };
@@ -137,7 +141,7 @@ export default function CoordinatorEvents({ tenantId, C }) {
       )}
 
       {/* Create Event Modal */}
-      {showCreate && <CreateEventModal colors={colors} tenantId={tenantId} contacts={contacts} inputStyle={inputStyle} onClose={function() { setShowCreate(false); loadEvents(); }} />}
+      {showCreate && <CreateEventModal colors={colors} tenantId={tenantId} contacts={contacts} inputStyle={inputStyle} onClose={function() { setShowCreate(false); setTimeout(loadEvents, 300); }} />}
     </div>
   );
 
