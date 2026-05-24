@@ -1,0 +1,149 @@
+/*
+ * EngageWorx Theme Token System
+ *
+ * 22 CSS custom properties organized in three layers:
+ *   Layer 1: Structural (backgrounds, text, borders — flip between themes)
+ *   Layer 2: Semantic (success/warning/error/info — mode-appropriate values)
+ *   Layer 3: Brand (--brand-primary, --brand-secondary — set by BrandingContext,
+ *            NOT defined here. These layer on top of structural tokens.)
+ *
+ * Dark theme (default) values are the CURRENT SP admin portal hardcoded values.
+ * Changing these breaks the SP admin visual. Do not modify without pixel-diff verification.
+ *
+ * Brand colors (--brand-primary, --brand-secondary) are set dynamically by
+ * BrandingContext.js on :root. They are NOT part of this file.
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   DARK THEME — DEFAULT
+   These values ARE the current SP admin portal. Pixel-identical preservation.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+  /* ─── Structural: Backgrounds ─── */
+  --theme-bg:             #080d1a;
+  --theme-surface:        #0d1425;
+  --theme-surface-raised: rgba(255, 255, 255, 0.03);
+  --theme-input-bg:       rgba(0, 0, 0, 0.3);
+  --theme-overlay:        rgba(0, 0, 0, 0.6);
+
+  /* ─── Structural: Text ─── */
+  --theme-text:           #E8F4FD;
+  --theme-text-secondary: #6B8BAE;
+  --theme-text-muted:     rgba(255, 255, 255, 0.4);
+
+  /* ─── Structural: Borders ─── */
+  --theme-border:         #182440;
+  --theme-border-strong:  rgba(255, 255, 255, 0.1);
+
+  /* ─── Structural: Menu/Sidebar ─── */
+  --theme-menu-bg:        #0d1425;
+  --theme-menu-text:      rgba(255, 255, 255, 0.7);
+  --theme-menu-hover:     rgba(255, 255, 255, 0.1);
+
+  /* ─── Semantic: Status colors ─── */
+  --semantic-success:       #00E676;
+  --semantic-warning:       #FFD600;
+  --semantic-error:         #FF3B30;
+  --semantic-info:          #0ea5e9;
+  --semantic-success-tint:  rgba(0, 230, 118, 0.12);
+  --semantic-warning-tint:  rgba(255, 214, 0, 0.12);
+  --semantic-error-tint:    rgba(255, 59, 48, 0.12);
+  --semantic-info-tint:     rgba(14, 165, 233, 0.12);
+
+  /* ─── Interactive states ─── */
+  --theme-focus-ring:     color-mix(in srgb, var(--brand-primary, #00C9FF) 50%, transparent);
+  --theme-hover-bg:       rgba(255, 255, 255, 0.04);
+  --theme-active-bg:      rgba(255, 255, 255, 0.08);
+  --theme-disabled-bg:    rgba(255, 255, 255, 0.03);
+  --theme-disabled-text:  rgba(255, 255, 255, 0.25);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   LIGHT THEME — OPT-IN
+   Structural values invert for readability on white. Brand colors unchanged.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+  /* ─── Structural: Backgrounds ─── */
+  --theme-bg:             #f9fafb;
+  --theme-surface:        #ffffff;
+  --theme-surface-raised: #f3f4f6;
+  --theme-input-bg:       #ffffff;
+  --theme-overlay:        rgba(0, 0, 0, 0.3);
+
+  /* ─── Structural: Text ─── */
+  --theme-text:           #111827;
+  --theme-text-secondary: #4b5563;
+  --theme-text-muted:     #6b7280;
+
+  /* ─── Structural: Borders ─── */
+  --theme-border:         #e5e7eb;
+  --theme-border-strong:  #d1d5db;
+
+  /* ─── Structural: Menu/Sidebar ─── */
+  --theme-menu-bg:        #ffffff;
+  --theme-menu-text:      #374151;
+  --theme-menu-hover:     #f3f4f6;
+
+  /* ─── Semantic: Status colors (darker for contrast on white) ─── */
+  --semantic-success:       #059669;
+  --semantic-warning:       #d97706;
+  --semantic-error:         #dc2626;
+  --semantic-info:          #0284c7;
+  --semantic-success-tint:  rgba(5, 150, 105, 0.08);
+  --semantic-warning-tint:  rgba(217, 119, 6, 0.08);
+  --semantic-error-tint:    rgba(220, 38, 38, 0.08);
+  --semantic-info-tint:     rgba(2, 132, 199, 0.08);
+
+  /* ─── Interactive states ─── */
+  --theme-focus-ring:     color-mix(in srgb, var(--brand-primary, #00C9FF) 50%, transparent);
+  --theme-hover-bg:       #f3f4f6;
+  --theme-active-bg:      #e5e7eb;
+  --theme-disabled-bg:    #f9fafb;
+  --theme-disabled-text:  #d1d5db;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SYSTEM THEME — follows OS preference
+   Uses dark as base, overrides to light when OS prefers light.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --theme-bg:             #f9fafb;
+    --theme-surface:        #ffffff;
+    --theme-surface-raised: #f3f4f6;
+    --theme-input-bg:       #ffffff;
+    --theme-overlay:        rgba(0, 0, 0, 0.3);
+
+    --theme-text:           #111827;
+    --theme-text-secondary: #4b5563;
+    --theme-text-muted:     #6b7280;
+
+    --theme-border:         #e5e7eb;
+    --theme-border-strong:  #d1d5db;
+
+    --theme-menu-bg:        #ffffff;
+    --theme-menu-text:      #374151;
+    --theme-menu-hover:     #f3f4f6;
+
+    --semantic-success:       #059669;
+    --semantic-warning:       #d97706;
+    --semantic-error:         #dc2626;
+    --semantic-info:          #0284c7;
+    --semantic-success-tint:  rgba(5, 150, 105, 0.08);
+    --semantic-warning-tint:  rgba(217, 119, 6, 0.08);
+    --semantic-error-tint:    rgba(220, 38, 38, 0.08);
+    --semantic-info-tint:     rgba(2, 132, 199, 0.08);
+
+    --theme-focus-ring:     color-mix(in srgb, var(--brand-primary, #00C9FF) 50%, transparent);
+    --theme-hover-bg:       #f3f4f6;
+    --theme-active-bg:      #e5e7eb;
+    --theme-disabled-bg:    #f9fafb;
+    --theme-disabled-text:  #d1d5db;
+  }
+}

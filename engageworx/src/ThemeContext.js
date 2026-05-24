@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from './supabaseClient';
+import './themes/tokens.css';
 
 var DARK = {
   bg: '#080d1a', surface: '#0d1425', border: '#182440',
@@ -82,12 +84,50 @@ export function ThemeProvider({ children }) {
     } catch(e) {}
   }, [mode]);
 
+  // Sync preference from user_profiles on mount (async, localStorage is fast fallback)
+  var [profileLoaded, setProfileLoaded] = useState(false);
+  useEffect(function() {
+    (async function() {
+      try {
+        var { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        var { data: profile } = await supabase
+          .from('user_profiles')
+          .select('theme_preference, role')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profile && profile.theme_preference) {
+          // SP admins are locked to dark regardless of stored preference
+          var isSPAdmin = profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin';
+          if (isSPAdmin) {
+            setMode('dark');
+            setPreference('dark');
+          } else {
+            setThemeMode(profile.theme_preference === 'system' ? 'auto' : profile.theme_preference);
+          }
+        }
+      } catch (e) { /* localStorage fallback already applied */ }
+      setProfileLoaded(true);
+    })();
+  }, []);
+
+  // Persist preference changes to user_profiles via RPC (fire-and-forget)
+  useEffect(function() {
+    if (!profileLoaded) return; // Don't persist the initial load
+    var mappedPref = preference === 'auto' ? 'system' : preference;
+    supabase.rpc('save_user_theme_preference', { p_preference: mappedPref }).catch(function() {});
+  }, [preference, profileLoaded]);
+
   var theme = mode === 'dark' ? DARK : LIGHT;
   var isDark = mode === 'dark';
 
-  // Sync body class + background for CSS targeting
+  // Sync data-theme attribute (activates CSS token system) + body class + background
   useEffect(function() {
     if (typeof document !== 'undefined') {
+      // data-theme drives tokens.css variable resolution
+      var themeAttr = preference === 'auto' || preference === 'system' ? 'system' : mode;
+      document.documentElement.setAttribute('data-theme', themeAttr);
+
       document.body.classList.toggle('dark-mode', isDark);
       document.body.classList.toggle('light-mode', !isDark);
       // Body background uses brand CSS variables set by BrandingContext
@@ -96,7 +136,7 @@ export function ThemeProvider({ children }) {
       document.body.style.background = isDark ? brandPrimary : brandSecondary;
       document.body.style.color = isDark ? '#FFFFFF' : '#000000';
     }
-  }, [isDark]);
+  }, [isDark, mode, preference]);
 
   // Global CSS overrides for light mode — forces readable text on white backgrounds
   var isPortalHost = (typeof window !== 'undefined') && (window.location.hostname.startsWith('portal.') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
