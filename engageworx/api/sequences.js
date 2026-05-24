@@ -231,17 +231,51 @@ async function sendStep(supabase, step, lead, tenant) {
   }
 
   if (step.channel === 'sms') {
-    var smsConfig = { from: process.env.TWILIO_PHONE_NUMBER };
-    try {
-      var smsRes = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenant.id).eq('channel', 'sms').single();
-      if (smsRes.data && smsRes.data.config_encrypted && smsRes.data.config_encrypted.phone_number) {
-        smsConfig.from = smsRes.data.config_encrypted.phone_number;
-      }
-    } catch(e) {}
-
     if (!lead.phone && !lead.mobile) {
       console.log('[Sequences] No phone for lead:', lead.id, '— skipping SMS step');
       return { skipped: true, reason: 'no_phone_for_sms', advance: true };
+    }
+
+    // Resolve sender number from phone_numbers (authoritative source)
+    var pnResult = await supabase
+      .from('phone_numbers')
+      .select('number')
+      .eq('tenant_id', tenant.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+
+    if (!pnResult.data || !pnResult.data.number) {
+      console.error('[Sequences] No active phone_numbers row for tenant', tenant.id, '(' + (tenant.name || '') + ') — cannot send SMS');
+      return { skipped: true, reason: 'no_sender_number', advance: false };
+    }
+    var smsFrom = pnResult.data.number;
+
+    // Verify SMS channel is enabled
+    var ccResult = await supabase
+      .from('channel_configs')
+      .select('id')
+      .eq('tenant_id', tenant.id)
+      .eq('channel', 'sms')
+      .eq('enabled', true)
+      .maybeSingle();
+
+    if (!ccResult.data) {
+      console.error('[Sequences] No enabled SMS channel_config for tenant', tenant.id, '(' + (tenant.name || '') + ')');
+      return { skipped: true, reason: 'sms_channel_not_configured', advance: false };
+    }
+
+    // Check phone_supplier for routing
+    var supplierResult = await supabase
+      .from('tenants')
+      .select('phone_supplier')
+      .eq('id', tenant.id)
+      .maybeSingle();
+    var supplier = (supplierResult.data && supplierResult.data.phone_supplier) || 'twilio';
+
+    if (supplier !== 'twilio') {
+      console.error('[Sequences] Unsupported phone_supplier:', supplier, 'for tenant', tenant.id, '— only twilio is implemented');
+      return { skipped: true, reason: 'unsupported_supplier: ' + supplier, advance: false };
     }
 
     var accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -249,7 +283,7 @@ async function sendStep(supabase, step, lead, tenant) {
     var auth = Buffer.from(accountSid + ':' + authToken).toString('base64');
     var params = new URLSearchParams();
     params.append('To', lead.phone || lead.mobile);
-    params.append('From', smsConfig.from);
+    params.append('From', smsFrom);
     params.append('Body', body);
 
     var smsResp = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json', {
@@ -259,7 +293,7 @@ async function sendStep(supabase, step, lead, tenant) {
     });
 
     if (smsResp.ok) {
-      console.log('[Sequences] SMS sent to:', lead.phone || lead.mobile, 'step:', step.step_number);
+      console.log('[Sequences] SMS sent to:', lead.phone || lead.mobile, 'from:', smsFrom, 'step:', step.step_number);
       return true;
     } else {
       var smsErr = await smsResp.json();
