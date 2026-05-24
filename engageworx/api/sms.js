@@ -477,26 +477,24 @@ module.exports = async function handler(req, res) {
       // ── Inbound message ─────────────────────────────────────────────────
       console.log('[Twilio] Inbound from', From, 'to', To + ':', Body);
 
-      // 1. Resolve tenant
+      // 1. Resolve tenant via phone_numbers (authoritative source)
       var tenantId = null;
-      try {
-        const { data: phoneRecord } = await supabase.from('phone_numbers').select('tenant_id').eq('number', To).single();
-        if (phoneRecord && phoneRecord.tenant_id) {
-          tenantId = phoneRecord.tenant_id;
-          console.log('[Twilio] Resolved tenant', tenantId, 'from phone_numbers for', To);
-        }
-      } catch (e) { console.log('[Twilio] phone_numbers lookup failed:', e.message); }
-
-      if (!tenantId) {
+      var normalizedTo = To.replace(/[\s\-\(\)\.]/g, '');
+      if (normalizedTo.charAt(0) === '+') {
         try {
-          const { data: configs } = await supabase.from('channel_configs').select('tenant_id, config_encrypted').in('channel', ['sms', 'whatsapp']).eq('enabled', true);
-          const normalizedTo = To.replace(/[\s\-\(\)\+]/g, '');
-          const match = (configs || []).find(function(c) {
-            var num = ((c.config_encrypted || {}).phone_number || '').replace(/[\s\-\(\)\+]/g, '');
-            return num && normalizedTo.endsWith(num.slice(-9));
-          });
-          if (match) { tenantId = match.tenant_id; console.log('[Twilio] Resolved tenant from channel_configs:', tenantId); }
-        } catch (e) { console.log('[Twilio] channel_configs lookup failed:', e.message); }
+          var phoneResult = await supabase
+            .from('phone_numbers')
+            .select('tenant_id')
+            .eq('number', normalizedTo)
+            .eq('status', 'active')
+            .maybeSingle();
+          if (phoneResult.data && phoneResult.data.tenant_id) {
+            tenantId = phoneResult.data.tenant_id;
+            console.log('[sms] Resolved tenant', tenantId, 'from phone_numbers for', normalizedTo);
+          }
+        } catch (e) { console.log('[sms] phone_numbers lookup failed:', e.message); }
+      } else {
+        console.warn('[sms] Non-E.164 To number, cannot resolve:', To);
       }
 
       if (!tenantId) {

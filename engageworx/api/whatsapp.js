@@ -474,15 +474,28 @@ module.exports = async function handler(req, res) {
         var cleanFrom = fromNumber.replace('whatsapp:', '');
         var cleanTo = toNumber.replace('whatsapp:', '');
 
-        // Find tenant by phone number
+        // Resolve tenant via phone_numbers (authoritative source)
         var tenantId = null;
-        var phoneResult = await supabase.from('phone_numbers').select('tenant_id').eq('number', cleanTo).maybeSingle();
-        if (phoneResult.data) tenantId = phoneResult.data.tenant_id;
+        var normalizedTo = cleanTo.replace(/[\s\-\(\)\.]/g, '');
+        if (normalizedTo.charAt(0) === '+') {
+          var phoneResult = await supabase
+            .from('phone_numbers')
+            .select('tenant_id')
+            .eq('number', normalizedTo)
+            .eq('status', 'active')
+            .maybeSingle();
+          if (phoneResult.data) {
+            tenantId = phoneResult.data.tenant_id;
+            console.log('[whatsapp] Resolved tenant', tenantId, 'for', normalizedTo);
+          }
+        } else {
+          console.warn('[whatsapp] Non-E.164 To number:', cleanTo);
+        }
 
         // No match — log and acknowledge webhook without processing
         if (!tenantId) {
-          console.error('[whatsapp] No matching config for inbound', {
-            to: cleanTo, from: cleanFrom, timestamp: new Date().toISOString()
+          console.error('[whatsapp] No tenant for inbound', {
+            to: normalizedTo, from: cleanFrom, timestamp: new Date().toISOString()
           });
           return res.status(200).json({ status: 'ok' });
         }
