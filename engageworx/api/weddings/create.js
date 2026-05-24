@@ -41,10 +41,17 @@ module.exports = async function handler(req, res) {
     if (!mem) return res.status(403).json({ error: 'Not authorized for this tenant' });
   }
 
+  // Primary contact is required — either existing ID or inline create fields
+  var hasPrimaryContact = body.primary_contact_id || body.primary_first_name;
+  if (!hasPrimaryContact) {
+    console.warn('[weddings/create] Rejected: no primary contact provided. tenant:', tenantId, 'display_name:', body.display_name);
+    return res.status(400).json({ error: 'Primary contact is required. Select an existing contact or fill in the name fields.' });
+  }
+
   try {
     var eventType = body.event_type || 'wedding';
 
-    // (a) Create/find primary contact if contact_id provided
+    // (a) Create/find primary contact
     var primaryContactId = body.primary_contact_id || null;
     var partnerContactId = body.partner_contact_id || null;
 
