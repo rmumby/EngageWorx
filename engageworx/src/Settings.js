@@ -448,6 +448,9 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
   // Only fall back to user_profiles.tenant_id when no prop is passed (standalone tenant load).
   const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId || null);
   useEffect(() => {
+    // Clear stale channel data immediately on tenant switch to prevent cross-tenant state leakage
+    setChannelConfigs({});
+    setChannelsLoading(true);
     if (currentTenantId) {
       setResolvedTenantId(currentTenantId);
       return;
@@ -632,6 +635,8 @@ if (!tenantId) {
   useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab, resolvedTenantId, currentTenantId]);
 
   const saveChannelConfig = async (channelId, config, enabled) => {
+    // Guard: refuse to save while channel configs are still loading (prevents cross-tenant state leakage)
+    if (channelsLoading) { return alert("Still loading — please wait before saving."); }
     setChannelSaving(channelId);
     // Strict tenant scoping — only the drilled/resolved tenant; no fallback to the signed-in user's tenant.
     const tenantId = resolvedTenantId || currentTenantId;
@@ -1344,7 +1349,7 @@ return (<div>
                           return (<div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div><div style={{ display: "flex", gap: 6 }}>{dayNames.map((d, i) => (<button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>))}</div></div>);
                         })()}
                         <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
-                          <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
+                          <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving || channelsLoading} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: (isSaving || channelsLoading) ? 0.6 : 1 }}>{isSaving ? "Saving..." : channelsLoading ? "Loading..." : "Save Configuration"}</button>
                           {ch.id === 'whatsapp' ? (
                             <button disabled={waVerifying} onClick={async function() {
                               var tid = resolvedTenantId || currentTenantId;
