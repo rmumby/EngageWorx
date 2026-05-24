@@ -265,38 +265,57 @@ module.exports = async function handler(req, res) {
   // ── 5. Conversation continuity ────────────────────────────────────────
   var conversationId = null;
   try {
-    // Find existing conversation
-    var { data: existingConv } = await supabase.from('conversations')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('contact_id', contactId)
-      .eq('channel', 'email')
-      .limit(1).maybeSingle();
-
-    if (existingConv) {
-      conversationId = existingConv.id;
-      await supabase.from('conversations').update({
-        last_message_at: new Date().toISOString(),
-        unread_count: supabase.rpc ? 1 : 1, // increment handled by trigger if exists
-      }).eq('id', conversationId);
+    if (!contactId) {
+      console.error('[email-concierge] contactId is null — cannot create/find conversation. sender:', senderEmail, 'tenant:', tenantId);
     } else {
-      var { data: newConv } = await supabase.from('conversations').insert({
-        tenant_id: tenantId,
-        contact_id: contactId,
-        channel: 'email',
-        status: 'active',
-        subject: subject,
-        last_message_at: new Date().toISOString(),
-        unread_count: 1,
-      }).select('id').single();
-      if (newConv) conversationId = newConv.id;
+      // Find existing conversation
+      var { data: existingConv, error: convFindErr } = await supabase.from('conversations')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('contact_id', contactId)
+        .eq('channel', 'email')
+        .limit(1).maybeSingle();
+
+      if (convFindErr) {
+        console.error('[email-concierge] Conversation find error:', convFindErr.message, '| code:', convFindErr.code, '| detail:', convFindErr.details, '| tenant:', tenantId, '| contact:', contactId);
+      } else if (existingConv) {
+        conversationId = existingConv.id;
+        var { error: convUpdateErr } = await supabase.from('conversations').update({
+          last_message_at: new Date().toISOString(),
+          unread_count: 1,
+        }).eq('id', conversationId);
+        if (convUpdateErr) {
+          console.error('[email-concierge] Conversation update error:', convUpdateErr.message, '| code:', convUpdateErr.code, '| conv:', conversationId);
+        }
+        console.log('[email-concierge] Found existing conversation:', conversationId);
+      } else {
+        var { data: newConv, error: convInsertErr } = await supabase.from('conversations').insert({
+          tenant_id: tenantId,
+          contact_id: contactId,
+          channel: 'email',
+          status: 'active',
+          subject: subject,
+          last_message_at: new Date().toISOString(),
+          unread_count: 1,
+        }).select('id').single();
+        if (convInsertErr) {
+          console.error('[email-concierge] Conversation insert error:', convInsertErr.message, '| code:', convInsertErr.code, '| detail:', convInsertErr.details, '| tenant:', tenantId, '| contact:', contactId, '| channel: email');
+        } else if (newConv) {
+          conversationId = newConv.id;
+          console.log('[email-concierge] Created new conversation:', conversationId);
+        }
+      }
     }
-  } catch (convErr) { console.warn('[email-concierge] Conversation error:', convErr.message); }
+  } catch (convErr) {
+    console.error('[email-concierge] Conversation threw:', convErr.message, '| stack:', convErr.stack ? convErr.stack.substring(0, 300) : 'none');
+  }
+
+  console.log('[email-concierge] conversationId resolved:', conversationId || 'NULL — messages will NOT be persisted');
 
   // ── 6. Persist inbound message ────────────────────────────────────────
   if (conversationId) {
     try {
-      await supabase.from('messages').insert({
+      var { error: inboundMsgErr } = await supabase.from('messages').insert({
         tenant_id: tenantId,
         conversation_id: conversationId,
         contact_id: contactId,
@@ -306,7 +325,14 @@ module.exports = async function handler(req, res) {
         body: emailBody.substring(0, 10000),
         status: 'delivered',
       });
-    } catch (msgErr) { console.warn('[email-concierge] Inbound message persist error:', msgErr.message); }
+      if (inboundMsgErr) {
+        console.error('[email-concierge] Inbound message insert error:', inboundMsgErr.message, '| code:', inboundMsgErr.code, '| detail:', inboundMsgErr.details, '| conv:', conversationId);
+      } else {
+        console.log('[email-concierge] Inbound message persisted to conversation:', conversationId);
+      }
+    } catch (msgErr) {
+      console.error('[email-concierge] Inbound message insert threw:', msgErr.message);
+    }
   }
 
   // ── 7. Call AI concierge ──────────────────────────────────────────────
@@ -417,7 +443,7 @@ module.exports = async function handler(req, res) {
   // ── 9. Persist outbound message ───────────────────────────────────────
   if (conversationId) {
     try {
-      await supabase.from('messages').insert({
+      var { error: outboundMsgErr } = await supabase.from('messages').insert({
         tenant_id: tenantId,
         conversation_id: conversationId,
         contact_id: contactId,
@@ -427,7 +453,14 @@ module.exports = async function handler(req, res) {
         body: cleanBody,
         status: 'delivered',
       });
-    } catch (outErr) { console.warn('[email-concierge] Outbound message persist error:', outErr.message); }
+      if (outboundMsgErr) {
+        console.error('[email-concierge] Outbound message insert error:', outboundMsgErr.message, '| code:', outboundMsgErr.code, '| detail:', outboundMsgErr.details, '| conv:', conversationId);
+      } else {
+        console.log('[email-concierge] Outbound message persisted to conversation:', conversationId);
+      }
+    } catch (outErr) {
+      console.error('[email-concierge] Outbound message insert threw:', outErr.message);
+    }
   }
 
   // ── 10. Prefix routing ────────────────────────────────────────────────
