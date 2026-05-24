@@ -51,6 +51,7 @@ import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
 const ApiDocs = lazy(() => import('./ApiDocs'));
 const WeddingDashboard = lazy(() => import('./wedding/WeddingDashboard'));
+import CoordinatorEvents from './admin/CoordinatorEvents';
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
 function useLiveData(demoMode, isSPAdmin) {
@@ -1697,14 +1698,16 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [entityTier, setEntityTier] = useState('tenant');
   const [customerType, setCustomerType] = useState('');
   const [cspDrillTenant, setCspDrillTenant] = useState(null);
+  const [eventsEnabled, setEventsEnabled] = useState(false);
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier, customer_type').eq('id', tenantId).maybeSingle();
+        const { data } = await supabase.from('tenants').select('aup_accepted, onboarding_completed, entity_tier, customer_type, events_module_enabled').eq('id', tenantId).maybeSingle();
         console.log('[CustomerPortal] tenant data for', tenantId, '→ entity_tier:', data && data.entity_tier, 'customer_type:', data && data.customer_type);
         if (data && data.entity_tier) setEntityTier(data.entity_tier);
         if (data && data.customer_type) setCustomerType(data.customer_type);
+        if (data && data.events_module_enabled) setEventsEnabled(true);
         const isSuper = cpAuth && cpAuth.profile && cpAuth.profile.role === 'superadmin';
         if (!isSuper && data && data.aup_accepted && !data.onboarding_completed) setNeedsOnboarding(true);
       } catch (e) {}
@@ -1737,7 +1740,13 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     })();
   }, [tenantId, i18n]);
   var portalScope = entityTier === 'csp' ? 'csp' : 'tenant';
-  const navItems = getNavItems(portalScope);
+  var navItems = getNavItems(portalScope);
+  if (eventsEnabled) {
+    // Insert Events after Help Desk (support) in the nav
+    var supportIdx = navItems.findIndex(function(n) { return n.id === 'support'; });
+    navItems = navItems.slice();
+    navItems.splice(supportIdx >= 0 ? supportIdx + 1 : navItems.length - 1, 0, { id: 'events', label: 'Events', icon: '📅', scope: 'all' });
+  }
 
   if (needsOnboarding) {
     return <OnboardingWizard tenantId={tenantId} onComplete={() => setNeedsOnboarding(false)} />;
@@ -1860,6 +1869,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
         )}
         {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
+        {page === "events" && eventsEnabled && <div style={{ padding: '32px 40px' }}><CoordinatorEvents tenantId={tenantId} C={C} /></div>}
         {page === "pipeline" && entityTier === 'csp' && (
           <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
         )}
