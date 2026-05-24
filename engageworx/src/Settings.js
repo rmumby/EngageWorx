@@ -31,7 +31,7 @@ const CHANNEL_DEFS = [
       { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
       { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
     ]},
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "5551234567", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
     { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
     { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message." },
     { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices." },
@@ -69,7 +69,7 @@ const CHANNEL_DEFS = [
       { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
       { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
     ]},
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "5551234567" },
     { key: "tts_voice", label: "TTS Voice", type: "select", options: [
       { value: "Polly.Joanna-Neural", label: "Polly.Joanna-Neural (US Female Natural)" },
       { value: "Polly.Joanna", label: "Polly.Joanna (US Female)" },
@@ -448,6 +448,9 @@ const [calendlyMessage, setCalendlyMessage] = useState('');
   // Only fall back to user_profiles.tenant_id when no prop is passed (standalone tenant load).
   const [resolvedTenantId, setResolvedTenantId] = useState(currentTenantId || null);
   useEffect(() => {
+    // Clear stale channel data immediately on tenant switch to prevent cross-tenant state leakage
+    setChannelConfigs({});
+    setChannelsLoading(true);
     if (currentTenantId) {
       setResolvedTenantId(currentTenantId);
       return;
@@ -632,6 +635,8 @@ if (!tenantId) {
   useEffect(() => { if (activeTab === "channels") loadChannelConfigs(); }, [activeTab, resolvedTenantId, currentTenantId]);
 
   const saveChannelConfig = async (channelId, config, enabled) => {
+    // Guard: refuse to save while channel configs are still loading (prevents cross-tenant state leakage)
+    if (channelsLoading) { return alert("Still loading — please wait before saving."); }
     setChannelSaving(channelId);
     // Strict tenant scoping — only the drilled/resolved tenant; no fallback to the signed-in user's tenant.
     const tenantId = resolvedTenantId || currentTenantId;
@@ -712,21 +717,16 @@ if (!tenantId) {
     } else {
       setChannelWarnings(function(prev) { var n = Object.assign({}, prev); delete n[channelId]; return n; });
     }
-    const payload = {
-      tenant_id: tenantId, channel: channelId, enabled: newEnabled,
-      config_encrypted: mergedConfig,
-      status: newEnabled ? "connected" : "disconnected",
-      updated_at: new Date().toISOString(),
-    };
-    let error;
-    if (existingRow && existingRow.id) {
-      // Scope the update by BOTH id AND tenant_id as a defence-in-depth check.
-      ({ error } = await supabase.from("channel_configs").update(payload).eq("id", existingRow.id).eq("tenant_id", tenantId));
-    } else {
-      ({ error } = await supabase.from("channel_configs").insert(payload));
-    }
-    if (error) {
-      alert("Error saving: " + error.message);
+    // Save via RPC with server-side cascade permission enforcement + phone validation
+    var rpcResult = await supabase.rpc('save_channel_config', {
+      p_tenant_id: tenantId,
+      p_channel: channelId,
+      p_enabled: newEnabled,
+      p_config_encrypted: mergedConfig,
+    });
+
+    if (rpcResult.error) {
+      alert("Error saving: " + rpcResult.error.message);
     } else {
       setChannelSavedId(channelId);
       setChannelSavedConfig(mergedConfig);
@@ -1344,7 +1344,7 @@ return (<div>
                           return (<div style={{ marginTop: 14, padding: 14, background: "rgba(255,215,0,0.04)", border: "1px solid rgba(255,215,0,0.15)", borderRadius: 12 }}><div style={{ color: "#FFD600", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>📅 Working Days</div><div style={{ display: "flex", gap: 6 }}>{dayNames.map((d, i) => (<button key={i} onClick={() => { const updated = workDays.includes(i) ? workDays.filter(x => x !== i) : [...workDays, i].sort(); updateChannelField(ch.id, "work_days", updated); }} style={{ flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", border: "1px solid", background: workDays.includes(i) ? "rgba(255,215,0,0.15)" : "rgba(255,255,255,0.03)", borderColor: workDays.includes(i) ? "rgba(255,215,0,0.4)" : "rgba(255,255,255,0.08)", color: workDays.includes(i) ? "#FFD600" : "rgba(255,255,255,0.3)" }}>{d}</button>))}</div></div>);
                         })()}
                         <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" }}>
-                          <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: isSaving ? 0.6 : 1 }}>{isSaving ? "Saving..." : "Save Configuration"}</button>
+                          <button onClick={() => saveChannelConfig(ch.id, configData)} disabled={isSaving || channelsLoading} style={{ ...btnPrimary, padding: "8px 14px", fontSize: 11, opacity: (isSaving || channelsLoading) ? 0.6 : 1 }}>{isSaving ? "Saving..." : channelsLoading ? "Loading..." : "Save Configuration"}</button>
                           {ch.id === 'whatsapp' ? (
                             <button disabled={waVerifying} onClick={async function() {
                               var tid = resolvedTenantId || currentTenantId;
@@ -1870,7 +1870,7 @@ return (<div>
               <div style={{ display: "grid", gap: 20 }}>
                 <div>
                   <label style={label}>Alert Email Address</label>
-                  <input value={alertConfig.alert_email} onChange={e => setAlertConfig({ ...alertConfig, alert_email: e.target.value })} placeholder="rob@engwx.com" style={inputStyle} />
+                  <input value={alertConfig.alert_email} onChange={e => setAlertConfig({ ...alertConfig, alert_email: e.target.value })} placeholder="alerts@yourcompany.com" style={inputStyle} />
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>All SP alert notifications are sent to this address.</div>
                 </div>
                 <div>
