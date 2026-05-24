@@ -69,47 +69,59 @@ function isBusinessHours(config) {
 }
 
 // ─── Get voice config for this number ────────────────────────────────────────
+// phone_numbers is the authoritative tenant→number mapping.
+// channel_configs.config_encrypted phone_number/phone_country fields are
+// deprecated and should not be read for routing.
 async function getVoiceConfig(toNumber) {
-  var SP_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
-  var result = await supabase.from('channel_configs').select('*, tenant:tenant_id(id, name)').eq('channel', 'voice').eq('enabled', true);
-  if (result.error || !result.data || result.data.length === 0) return null;
-  var normalizedTo = toNumber.replace(/[\s\-\(\)]/g, '');
-  var toDigits = normalizedTo.replace(/[^0-9]/g, '');
+  if (!toNumber) return null;
 
-  function buildFullNumber(cfg) {
-    var countryCode = (cfg.phone_country || '').match(/\+\d+/);
-    countryCode = countryCode ? countryCode[0] : '+1';
-    var localNum = (cfg.phone_number || '').replace(/[\s\-\(\)]/g, '').replace(/^0+/, '');
-    return { full: countryCode + localNum, local: localNum };
+  // Normalize to E.164: strip whitespace/punctuation, require '+' prefix
+  var normalized = toNumber.replace(/[\s\-\(\)\.]/g, '');
+  if (normalized.charAt(0) !== '+') {
+    console.log('[getVoiceConfig] non-E.164 input, skipping:', toNumber);
+    return null;
   }
 
-  // Pass 1: exact match
-  var exactMatch = result.data.find(function(c) {
-    var nums = buildFullNumber(c.config_encrypted || {});
-    return nums.full === normalizedTo || nums.full.replace(/[^0-9+]/g, '') === normalizedTo;
-  });
-  if (exactMatch) { console.log('[getVoiceConfig] exact match tenant=' + exactMatch.tenant_id); return exactMatch; }
+  // Single indexed lookup: phone_numbers → LEFT JOIN channel_configs
+  var result = await supabase
+    .from('phone_numbers')
+    .select('tenant_id, id, tenants!inner(id, name)')
+    .eq('number', normalized)
+    .eq('status', 'active')
+    .maybeSingle();
 
-  // Pass 2: SP tenant match (prioritize SP over random fuzzy matches)
-  var spMatch = result.data.find(function(c) { return c.tenant_id === SP_ID; });
-  if (spMatch) {
-    var spNums = buildFullNumber(spMatch.config_encrypted || {});
-    var spDigits = spNums.full.replace(/[^0-9]/g, '');
-    if (toDigits.endsWith(spDigits.slice(-10)) || spDigits.endsWith(toDigits.slice(-10))) {
-      console.log('[getVoiceConfig] SP tenant match'); return spMatch;
-    }
+  if (result.error) {
+    console.warn('[getVoiceConfig] lookup error:', result.error.message);
+    return null;
+  }
+  if (!result.data) {
+    console.log('[getVoiceConfig] no match for', normalized);
+    return null;
   }
 
-  // Pass 3: fuzzy match (last resort)
-  var fuzzy = result.data.find(function(c) {
-    var nums = buildFullNumber(c.config_encrypted || {});
-    var cfgDigits = nums.full.replace(/[^0-9]/g, '');
-    return toDigits.endsWith(cfgDigits.slice(-10)) || cfgDigits.endsWith(toDigits.slice(-10));
-  });
-  if (fuzzy) { console.log('[getVoiceConfig] fuzzy match tenant=' + fuzzy.tenant_id); return fuzzy; }
+  var tenantId = result.data.tenant_id;
 
-  console.log('[getVoiceConfig] no match for ' + toNumber);
-  return null;
+  // Load voice channel config for this tenant
+  var ccResult = await supabase
+    .from('channel_configs')
+    .select('id, config_encrypted')
+    .eq('tenant_id', tenantId)
+    .eq('channel', 'voice')
+    .eq('enabled', true)
+    .maybeSingle();
+
+  if (!ccResult.data) {
+    console.log('[getVoiceConfig] tenant', tenantId, 'owns number but has no voice config');
+    return null;
+  }
+
+  console.log('[getVoiceConfig] matched tenant=' + tenantId + ' for ' + normalized);
+  return {
+    tenant_id: tenantId,
+    id: ccResult.data.id,
+    config_encrypted: ccResult.data.config_encrypted || {},
+    tenant: result.data.tenants || { id: tenantId },
+  };
 }
 
 // ─── Get AI chatbot config for tenant ────────────────────────────────────────
