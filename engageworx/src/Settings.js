@@ -31,7 +31,7 @@ const CHANNEL_DEFS = [
       { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
       { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
     ]},
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "5551234567", hint: "Poland (+48) numbers route through the Poland carrier integration automatically." },
     { key: "business_name", label: "Business Name (Sender ID)", placeholder: "Your Business Name" },
     { key: "opt_in_message", label: "Opt-In Confirmation Message", placeholder: "You're now subscribed to [Business] updates.", aiAssist: true, aiContext: "SMS opt-in confirmation message." },
     { key: "_rcs_note", label: "RCS Messaging", type: "note", text: "Your SMS number automatically upgrades to RCS on supported Android devices." },
@@ -69,7 +69,7 @@ const CHANNEL_DEFS = [
       { value: "+61", label: "🇦🇺 Australia (+61)" }, { value: "+49", label: "🇩🇪 Germany (+49)" }, { value: "+33", label: "🇫🇷 France (+33)" },
       { value: "+34", label: "🇪🇸 Spain (+34)" }, { value: "+353", label: "🇮🇪 Ireland (+353)" }, { value: "+48", label: "🇵🇱 Poland (+48)" },
     ]},
-    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "7869827800" },
+    { key: "phone_number", label: "Phone Number (without country code)", placeholder: "5551234567" },
     { key: "tts_voice", label: "TTS Voice", type: "select", options: [
       { value: "Polly.Joanna-Neural", label: "Polly.Joanna-Neural (US Female Natural)" },
       { value: "Polly.Joanna", label: "Polly.Joanna (US Female)" },
@@ -1870,7 +1870,7 @@ return (<div>
               <div style={{ display: "grid", gap: 20 }}>
                 <div>
                   <label style={label}>Alert Email Address</label>
-                  <input value={alertConfig.alert_email} onChange={e => setAlertConfig({ ...alertConfig, alert_email: e.target.value })} placeholder="rob@engwx.com" style={inputStyle} />
+                  <input value={alertConfig.alert_email} onChange={e => setAlertConfig({ ...alertConfig, alert_email: e.target.value })} placeholder="alerts@yourcompany.com" style={inputStyle} />
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>All SP alert notifications are sent to this address.</div>
                 </div>
                 <div>
