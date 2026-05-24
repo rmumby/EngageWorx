@@ -82,10 +82,10 @@ async function getVoiceConfig(toNumber) {
     return null;
   }
 
-  // Single indexed lookup: phone_numbers → LEFT JOIN channel_configs
+  // Indexed lookup on phone_numbers
   var result = await supabase
     .from('phone_numbers')
-    .select('tenant_id, id, tenants!inner(id, name)')
+    .select('tenant_id, id')
     .eq('number', normalized)
     .eq('status', 'active')
     .maybeSingle();
@@ -101,7 +101,7 @@ async function getVoiceConfig(toNumber) {
 
   var tenantId = result.data.tenant_id;
 
-  // Load voice channel config for this tenant
+  // Load voice channel config + tenant name + phone_supplier
   var ccResult = await supabase
     .from('channel_configs')
     .select('id, config_encrypted')
@@ -115,12 +115,22 @@ async function getVoiceConfig(toNumber) {
     return null;
   }
 
-  console.log('[getVoiceConfig] matched tenant=' + tenantId + ' for ' + normalized);
+  // Load tenant metadata (name + phone_supplier)
+  var tenantResult = await supabase
+    .from('tenants')
+    .select('id, name, phone_supplier')
+    .eq('id', tenantId)
+    .maybeSingle();
+
+  var tenant = tenantResult.data || { id: tenantId, name: null, phone_supplier: 'twilio' };
+
+  console.log('[getVoiceConfig] matched tenant=' + tenantId + ' supplier=' + (tenant.phone_supplier || 'twilio') + ' for ' + normalized);
   return {
     tenant_id: tenantId,
     id: ccResult.data.id,
     config_encrypted: ccResult.data.config_encrypted || {},
-    tenant: result.data.tenants || { id: tenantId },
+    tenant: tenant,
+    phone_supplier: tenant.phone_supplier || 'twilio',
   };
 }
 
