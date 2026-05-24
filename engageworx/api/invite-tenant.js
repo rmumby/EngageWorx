@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
   var customerType = body.customer_type || null;
   console.log('📋 [invite-tenant] Input:', { tenant_name: tenantName, admin: adminEmail, customer_type: customerType, plan: planSlug });
   var inviterTenantId = body.inviter_tenant_id || null;
+  var phoneNumber = (body.phone_number || '').trim() || null;
 
   if (!tenantName || !adminName || !adminEmail) {
     return res.status(400).json({ error: 'tenant_name, admin_full_name, admin_email required' });
@@ -46,6 +47,7 @@ module.exports = async function handler(req, res) {
   }
 
   var supabase = getSupabase();
+  var warnings = [];
   // Use inviter's platform_config (CSP overrides SP defaults)
   var pc = await getPlatformConfig(inviterTenantId, supabase);
 
@@ -101,6 +103,27 @@ module.exports = async function handler(req, res) {
     }
     var newTenantId = tenantIns.data.id;
     console.log('📋 Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
+
+    // 2b. Auto-create phone_numbers row if phone number provided
+    if (phoneNumber) {
+      if (/^\+\d{8,15}$/.test(phoneNumber)) {
+        var pnIns = await supabase.from('phone_numbers').insert({
+          tenant_id: newTenantId,
+          number: phoneNumber,
+          status: 'active',
+          type: '10dlc',
+        });
+        if (pnIns.error) {
+          console.warn('📋 phone_numbers insert failed (non-fatal):', pnIns.error.message);
+          warnings.push('Phone number assignment failed: ' + pnIns.error.message);
+        } else {
+          console.log('📋 Phone number assigned:', phoneNumber, '→', newTenantId);
+        }
+      } else {
+        console.warn('📋 Invalid phone_number format (not E.164), skipping:', phoneNumber);
+        warnings.push('Phone number not assigned — must be E.164 format (e.g. +14155551234)');
+      }
+    }
 
     // 3. Create user via Supabase Auth FIRST — get the real auth user ID
     var tempPassword = generateTempPassword();
@@ -320,7 +343,6 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    var warnings = [];
     steps.password_verified = passwordVerified;
     if (!steps.user_profile) warnings.push('user_profiles insert failed — admin may not be able to log in');
     if (!steps.tenant_member) warnings.push('tenant_members insert failed — admin not linked to tenant');
