@@ -56,25 +56,23 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ status: 'ok' });
     }
 
-    // Look up tenant by Phone Number ID from channel_configs
-    var configResult = await supabase
-      .from('channel_configs')
-      .select('tenant_id, config_encrypted')
-      .eq('channel', 'whatsapp')
-      .eq('enabled', true);
-
+    // Look up tenant by phone_number_id via indexed top-level column
     var tenantId = null;
     var accessToken = null;
 
-    if (configResult.data) {
-      for (var config of configResult.data) {
-        var cfg = config.config_encrypted || {};
-        console.log('[MetaWA] Checking config phone_number_id:', cfg.phone_number_id, 'vs incoming:', phoneNumberId);
-        if (cfg.phone_number_id === phoneNumberId) {
-          tenantId = config.tenant_id;
-          accessToken = cfg.access_token;
-          break;
-        }
+    if (phoneNumberId) {
+      var configResult = await supabase
+        .from('channel_configs')
+        .select('tenant_id, config_encrypted')
+        .eq('channel', 'whatsapp')
+        .eq('enabled', true)
+        .eq('whatsapp_phone_number_id', phoneNumberId)
+        .maybeSingle();
+
+      if (configResult.data) {
+        tenantId = configResult.data.tenant_id;
+        accessToken = (configResult.data.config_encrypted || {}).access_token;
+        console.log('[MetaWA] Matched tenant=' + tenantId + ' for phone_number_id=' + phoneNumberId);
       }
     }
 
