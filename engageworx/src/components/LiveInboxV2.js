@@ -67,8 +67,9 @@ function dedupConversations(convos, contactMap, msgMap) {
       channel: (conv.channel || 'email').toLowerCase(),
       messages: allMsgs,
       status: conv.status || 'active',
-      assignedTo: conv.assigned_agent_id ? { id: conv.assigned_agent_id, name: conv.assigned_agent_id === '00000000-0000-0000-0000-000000000000' ? 'AI Bot' : 'Agent', avatar: conv.assigned_agent_id === '00000000-0000-0000-0000-000000000000' ? '🤖' : '👤' } : null,
+      assignedTo: conv.ai_assigned ? { id: 'bot', name: 'AI Assistant', avatar: '🤖' } : (conv.assigned_agent_id ? { id: conv.assigned_agent_id, name: 'Agent', avatar: '👤' } : null),
       assigned_agent_id: conv.assigned_agent_id || null,
+      ai_assigned: conv.ai_assigned || false,
       unread: totalUnread,
       lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
       isTyping: false,
@@ -1621,7 +1622,9 @@ useEffect(function() {
                     if (!convId) { alert('Could not resolve conversation'); return; }
                     var r = await supabase.rpc('assign_conversation', { p_conversation_id: convId, p_assignee_id: '00000000-0000-0000-0000-000000000000' });
                     if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
-                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
+                    var aiAssignee = { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' };
+                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: aiAssignee, ai_assigned: true }) : prev; });
+                    setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { assignedTo: aiAssignee, ai_assigned: true }) : c; }); });
                   }},
                   { label: "Assign to Me", icon: "👤", action: async function() {
                     if (!supabase || !userProfile) return;
@@ -1631,7 +1634,9 @@ useEffect(function() {
                     if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
                     var myName = userProfile.full_name || userProfile.email || 'Me';
                     var myInitials = myName.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
-                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: userProfile.id, name: myName, avatar: myInitials, status: 'online' } }) : prev; });
+                    var myAssignee = { id: userProfile.id, name: myName, avatar: myInitials, status: 'online' };
+                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: myAssignee, ai_assigned: false }) : prev; });
+                    setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { assignedTo: myAssignee, ai_assigned: false }) : c; }); });
                   }},
                   { label: "Block", icon: "🚫", action: function() {
                     if (window.confirm('Block this contact? They will no longer be able to message you.')) {
