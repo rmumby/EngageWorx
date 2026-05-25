@@ -53,8 +53,9 @@ export default function EscalationRulesSettings({ tenantId, C }) {
       }
       var data = await resp.json();
       console.log('[EscalationRules] team/list returned', (data.members || []).length, 'members');
-      var members = (data.members || []).filter(function(m) { return m.notify_email; }).map(function(m) {
-        return { id: m.id, user_id: m.user_id, notify_email: m.notify_email, notify_on_escalation: m.notify_on_escalation || false, displayName: m.displayName || m.displayEmail || m.notify_email };
+      var members = (data.members || []).filter(function(m) { return m.notify_email || m.displayEmail; }).map(function(m) {
+        var effectiveEmail = m.notify_email || m.displayEmail;
+        return { id: m.id, user_id: m.user_id, notify_email: effectiveEmail, notify_on_escalation: m.notify_on_escalation || false, displayName: m.displayName || effectiveEmail };
       });
       setNotifyMembers(members);
     } catch (e) {
