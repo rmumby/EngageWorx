@@ -89,7 +89,7 @@ BEGIN
 
   -- Perform the assignment
   UPDATE conversations
-  SET assigned_user_id = p_assignee_id,
+  SET assigned_agent_id = p_assignee_id,
       updated_at = now()
   WHERE id = p_conversation_id;
 

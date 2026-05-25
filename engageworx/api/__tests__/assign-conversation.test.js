@@ -52,7 +52,7 @@ function mockAssignConversation(db, callerId, params) {
   }
 
   // Perform assignment
-  conv.assigned_user_id = assigneeId;
+  conv.assigned_agent_id = assigneeId;
   return { data: { conversation_id: convId, assigned_to: assigneeId, success: true }, error: null };
 }
 
@@ -60,8 +60,8 @@ function mockAssignConversation(db, callerId, params) {
 
 var testDb = {
   conversations: [
-    { id: 'conv-1', tenant_id: 'tenant-a', assigned_user_id: null },
-    { id: 'conv-2', tenant_id: 'tenant-b', assigned_user_id: null },
+    { id: 'conv-1', tenant_id: 'tenant-a', assigned_agent_id: null },
+    { id: 'conv-2', tenant_id: 'tenant-b', assigned_agent_id: null },
   ],
   user_profiles: [
     { id: 'sp-admin', role: 'superadmin' },
@@ -80,7 +80,7 @@ var testDb = {
 describe('assign_conversation RPC', function() {
   beforeEach(function() {
     // Reset assignments
-    testDb.conversations.forEach(function(c) { c.assigned_user_id = null; });
+    testDb.conversations.forEach(function(c) { c.assigned_agent_id = null; });
   });
 
   test('SP admin can assign cross-tenant', function() {
@@ -145,11 +145,11 @@ describe('assign_conversation RPC', function() {
   test('null assignee unassigns the conversation', function() {
     // First assign
     mockAssignConversation(testDb, 'sp-admin', { p_conversation_id: 'conv-1', p_assignee_id: 'tenant-a-admin' });
-    expect(testDb.conversations[0].assigned_user_id).toBe('tenant-a-admin');
+    expect(testDb.conversations[0].assigned_agent_id).toBe('tenant-a-admin');
     // Then unassign
     var result = mockAssignConversation(testDb, 'sp-admin', { p_conversation_id: 'conv-1', p_assignee_id: null });
     expect(result.error).toBeNull();
-    expect(testDb.conversations[0].assigned_user_id).toBeNull();
+    expect(testDb.conversations[0].assigned_agent_id).toBeNull();
   });
 
   test('conversation not found returns clean error', function() {

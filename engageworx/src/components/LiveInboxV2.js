@@ -67,7 +67,8 @@ function dedupConversations(convos, contactMap, msgMap) {
       channel: (conv.channel || 'email').toLowerCase(),
       messages: allMsgs,
       status: conv.status || 'active',
-      assignedTo: null,
+      assignedTo: conv.assigned_agent_id ? { id: conv.assigned_agent_id, name: conv.assigned_agent_id === '00000000-0000-0000-0000-000000000000' ? 'AI Bot' : 'Agent', avatar: conv.assigned_agent_id === '00000000-0000-0000-0000-000000000000' ? '🤖' : '👤' } : null,
+      assigned_agent_id: conv.assigned_agent_id || null,
       unread: totalUnread,
       lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
       isTyping: false,
@@ -348,6 +349,14 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
         });
         setTeamMembers(members);
+        // Enrich assignedTo on existing conversations with real names
+        setConversations(function(prev) { return prev.map(function(c) {
+          if (!c.assigned_agent_id) return c;
+          if (c.assigned_agent_id === '00000000-0000-0000-0000-000000000000') return Object.assign({}, c, { assignedTo: { id: 'bot', name: 'AI Bot', avatar: '🤖' } });
+          var member = members.find(function(m) { return m.id === c.assigned_agent_id; });
+          if (member) return Object.assign({}, c, { assignedTo: { id: member.id, name: member.name, avatar: member.avatar } });
+          return c;
+        }); });
       } catch (e) { console.warn('[LiveInbox] team members fetch error:', e.message); }
     })();
   }, [resolvedTenantId, supabase, demoMode]);
