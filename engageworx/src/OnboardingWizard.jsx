@@ -477,7 +477,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           <div style={{ display: 'grid', gap: 6, color: '#cbd5e1', fontSize: 13 }}>
             <div>📥 <strong>Import contacts</strong> — Contacts → Import CSV</div>
             <div>📋 <strong>Set up SMS Registration</strong> if you want to send SMS in the US — Settings → SMS Registration</div>
-            <div>📅 <strong>Book an onboarding call</strong> with our team — <a href="https://calendly.com/rob-engwx/30min" target="_blank" rel="noreferrer" style={{ color: primaryColor }}>calendly.com/rob-engwx</a></div>
+            <div>📅 <strong>Need help?</strong> Check Settings → Support to get in touch with our team</div>
           </div>
         </div>
       </div>

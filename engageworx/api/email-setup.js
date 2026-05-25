@@ -148,7 +148,7 @@ module.exports = async function handler(req, res) {
       // Set email_tracking_domain if not already set
       var tenantRow = await supabase.from('tenants').select('email_tracking_domain').eq('id', tenantId).maybeSingle();
       if (!tenantRow.data || !tenantRow.data.email_tracking_domain) {
-        tenantUpdate.email_tracking_domain = 'track.engwx.com';
+        tenantUpdate.email_tracking_domain = process.env.EMAIL_TRACKING_DOMAIN || null;
       }
       await supabase.from('tenants').update(tenantUpdate).eq('id', tenantId);
 
