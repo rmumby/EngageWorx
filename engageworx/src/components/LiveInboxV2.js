@@ -958,6 +958,8 @@ useEffect(function() {
   // Scroll effect removed - using the one at line 262
 
   const filtered = conversations.filter(conv => {
+    // Channel tab filter: Messages excludes voice, Calls excludes non-voice
+    if (inboxTab === "messages" && conv.channel === "voice") return false;
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
     // Filter by status — "All" uses the hideResolved toggle; specific tabs show only that status
     if (filterStatus === "all") {
