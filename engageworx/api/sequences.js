@@ -27,21 +27,26 @@ function getSupabase() {
 function resolveContactFields(lead) {
   var name = (lead.name || '').trim();
   var email = (lead.email || '').trim();
+  var emailLocal = email ? email.split('@')[0].toLowerCase() : '';
 
-  // Treat email-as-name as no name at all
+  // Treat email-as-name or email-local-part-as-name as no name at all
   if (looksLikeEmail(name) || (name && email && name.toLowerCase() === email.toLowerCase())) {
+    name = '';
+  }
+  if (name && emailLocal && name.toLowerCase() === emailLocal) {
     name = '';
   }
 
   var firstName = name ? name.split(' ')[0] : '';
   var lastName = name ? name.split(' ').slice(1).join(' ') : '';
 
-  // Fallback chain for firstName: name → first_name field → email-derived → 'there'
+  // Fallback chain for firstName: name → first_name field → 'there'
+  // Do NOT extract from email local-part — it is never a reliable name.
   if (!firstName && lead.first_name) {
     var fn = lead.first_name.trim();
-    firstName = looksLikeEmail(fn) ? '' : fn;
+    var fnLower = fn.toLowerCase();
+    firstName = (looksLikeEmail(fn) || fnLower === emailLocal) ? '' : fn;
   }
-  if (!firstName) firstName = cleanEmailToName(email);
 
   // Fallback for lastName
   if (!lastName && lead.last_name) lastName = (lead.last_name || '').trim();
@@ -770,7 +775,7 @@ module.exports = async function handler(req, res) {
         if (!bulkLeadId) {
           var bulkStageId = await getPipelineStageId(supabase, bulkTenantId, STAGE_KEYS.LEAD);
           var newLeadRes = await supabase.from('leads').insert({
-            name: ((bulkLead.first_name || '') + ' ' + (bulkLead.last_name || '')).trim() || bulkLeadEmail || 'Unknown',
+            name: ((bulkLead.first_name || '') + ' ' + (bulkLead.last_name || '')).trim() || null,
             company: bulkLead.company || '',
             email: bulkLeadEmail || null,
             phone: bulkLead.phone || null,
