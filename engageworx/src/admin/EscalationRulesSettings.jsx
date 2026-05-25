@@ -36,22 +36,34 @@ export default function EscalationRulesSettings({ tenantId, C }) {
 
   // Load notify-eligible members via service-role endpoint (RLS blocks cross-user tenant_members reads)
   useEffect(function() {
-    if (!tenantId) return;
+    console.log('[EscalationRules] notify useEffect — tenantId:', tenantId);
+    if (!tenantId) { console.log('[EscalationRules] SKIP: tenantId falsy'); return; }
     (async function() {
       try {
         var session = await supabase.auth.getSession();
         var token = session.data?.session?.access_token || '';
-        var resp = await fetch('/api/team/list?tenant_id=' + tenantId, {
-          headers: { 'Authorization': 'Bearer ' + token },
-        });
-        if (!resp.ok) { console.warn('[EscalationRules] team/list returned', resp.status); return; }
+        console.log('[EscalationRules] token:', token ? 'present (' + token.length + ' chars)' : 'MISSING');
+        if (!token) return;
+        var url = '/api/team/list?tenant_id=' + tenantId;
+        console.log('[EscalationRules] fetching:', url);
+        var resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        console.log('[EscalationRules] response:', resp.status, resp.statusText);
+        if (!resp.ok) {
+          var errText = await resp.text();
+          console.warn('[EscalationRules] ERROR body:', errText.substring(0, 300));
+          return;
+        }
         var data = await resp.json();
-        var members = (data.members || []).filter(function(m) { return m.notify_email; }).map(function(m) {
+        var allMembers = data.members || [];
+        var withEmail = allMembers.filter(function(m) { return m.notify_email; });
+        console.log('[EscalationRules] members:', allMembers.length, 'total,', withEmail.length, 'with notify_email');
+        if (allMembers.length > 0) console.log('[EscalationRules] first member:', JSON.stringify(allMembers[0]).substring(0, 200));
+        var members = withEmail.map(function(m) {
           return { id: m.id, user_id: m.user_id, notify_email: m.notify_email, notify_on_escalation: m.notify_on_escalation || false, displayName: m.displayName || m.displayEmail || m.notify_email };
         });
         setNotifyMembers(members);
       } catch (e) {
-        console.warn('[EscalationRules] Failed to load team members:', e.message);
+        console.error('[EscalationRules] THREW:', e.message);
       }
     })();
   }, [tenantId]);
