@@ -1262,10 +1262,25 @@ useEffect(function() {
                 { label: "✅ Resolve", status: "resolved", color: "#10b981" },
                 { label: "⏳ Waiting", status: "waiting", color: "#FFD600" },
                 { label: "🚨 Urgent", status: "urgent", color: "#FF3B30" },
-                { label: "🛡️ Spam", status: "spam", color: "#6B8BAE" },
+                { label: "🛡️ Spam", status: "spam", color: "#6B8BAE", confirm: true },
               ].map(function(a) {
-                return <button key={a.status} onClick={function() { bulkUpdateStatus(a.status); }} disabled={bulkActing} style={{ background: a.color + "15", border: "1px solid " + a.color + "44", borderRadius: 6, padding: "4px 8px", color: a.color, cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>{a.label}</button>;
+                return <button key={a.status} onClick={function() {
+                  if (a.confirm && !window.confirm('Mark ' + selectedConvIds.length + ' conversation(s) as ' + a.status + '? This action is hard to undo.')) return;
+                  bulkUpdateStatus(a.status);
+                }} disabled={bulkActing} style={{ background: a.color + "15", border: "1px solid " + a.color + "44", borderRadius: 6, padding: "4px 8px", color: a.color, cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>{a.label}</button>;
               })}
+              <button onClick={async function() {
+                if (!window.confirm('Delete ' + selectedConvIds.length + ' conversation(s)? This cannot be undone.')) return;
+                setBulkActing(true);
+                try {
+                  if (!demoMode && supabase) {
+                    await supabase.from('conversations').delete().in('id', selectedConvIds);
+                  }
+                  setConversations(function(prev) { return prev.filter(function(c) { return selectedConvIds.indexOf(c.id) < 0; }); });
+                  setSelectedConvIds([]); setSelectMode(false);
+                } catch (e) { alert('Delete failed: ' + e.message); }
+                setBulkActing(false);
+              }} disabled={bulkActing} style={{ background: "#FF3B3015", border: "1px solid #FF3B3044", borderRadius: 6, padding: "4px 8px", color: "#FF3B30", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>🗑️ Delete</button>
             </div>
           </div>
         ) : (
