@@ -459,16 +459,9 @@ async function processDueSteps(supabase) {
       var tenant = tenantRes.data;
 
       // Backfill lead name if missing — derive from email
-      if (!(lead.name || '').trim() && lead.email) {
-        var derived = cleanEmailToName(lead.email);
-        if (derived && derived !== 'there') {
-          lead.name = derived;
-          try {
-            await supabase.from('leads').update({ name: derived }).eq('id', lead.id).eq('tenant_id', sequence.tenant_id);
-            console.log('[Sequences] Backfilled lead name:', lead.id, '→', derived);
-          } catch (e) {}
-        }
-      }
+      // NOTE: do NOT derive lead.name from email local-part.
+      // resolveContactFields() handles missing names with the "there" fallback.
+      // Earlier backfill block (removed) corrupted lead.name with email local-parts.
 
       // GUARD 1: Max touches in time window (2 emails per 7 days)
       var MAX_EMAILS_PER_WINDOW = 2;
