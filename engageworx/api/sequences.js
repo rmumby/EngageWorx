@@ -12,7 +12,7 @@ var { createClient } = require('@supabase/supabase-js');
 var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
-var { BLOCKED_BODY_PATTERNS, looksLikeEmail, cleanEmailToName, GENERIC_LOCAL_PARTS } = require('./_lib/email-safety-gates');
+var { BLOCKED_BODY_PATTERNS, looksLikeEmail, GENERIC_LOCAL_PARTS } = require('./_lib/email-safety-gates');
 
 function getSupabase() {
   return createClient(
@@ -21,7 +21,7 @@ function getSupabase() {
   );
 }
 
-// cleanEmailToName, looksLikeEmail, GENERIC_LOCAL_PARTS, BLOCKED_BODY_PATTERNS
+// looksLikeEmail, GENERIC_LOCAL_PARTS, BLOCKED_BODY_PATTERNS
 // imported from _lib/email-safety-gates.js
 
 function resolveContactFields(lead) {
@@ -459,16 +459,9 @@ async function processDueSteps(supabase) {
       var tenant = tenantRes.data;
 
       // Backfill lead name if missing — derive from email
-      if (!(lead.name || '').trim() && lead.email) {
-        var derived = cleanEmailToName(lead.email);
-        if (derived && derived !== 'there') {
-          lead.name = derived;
-          try {
-            await supabase.from('leads').update({ name: derived }).eq('id', lead.id).eq('tenant_id', sequence.tenant_id);
-            console.log('[Sequences] Backfilled lead name:', lead.id, '→', derived);
-          } catch (e) {}
-        }
-      }
+      // NOTE: do NOT derive lead.name from email local-part.
+      // resolveContactFields() handles missing names with the "there" fallback.
+      // Earlier backfill block (removed) corrupted lead.name with email local-parts.
 
       // GUARD 1: Max touches in time window (2 emails per 7 days)
       var MAX_EMAILS_PER_WINDOW = 2;
