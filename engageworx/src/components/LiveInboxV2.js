@@ -334,6 +334,23 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (!isSPorCSP || !supabase || !resolvedTenantId) return;
     (async function() { try { var r = await supabase.from('tenants').select('brand_name, name').eq('id', resolvedTenantId).maybeSingle(); if (r.data) setTenantBrandName(r.data.brand_name || r.data.name || ''); } catch(e) {} })();
   }, [resolvedTenantId, isSPorCSP, supabase]);
+  // Load real team members for the resolved tenant (used by Reassign dropdown + bottom bar)
+  useEffect(function() {
+    if (!supabase || !resolvedTenantId || demoMode) { setTeamMembers([]); return; }
+    (async function() {
+      try {
+        var r = await supabase.from('tenant_members').select('user_id, role, user_profiles(id, full_name, email, avatar_url)')
+          .eq('tenant_id', resolvedTenantId).eq('status', 'active').in('role', ['admin', 'agent', 'superadmin']);
+        var members = (r.data || []).map(function(m) {
+          var p = m.user_profiles || {};
+          var name = p.full_name || p.email || 'Unknown';
+          var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
+          return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
+        });
+        setTeamMembers(members);
+      } catch (e) { console.warn('[LiveInbox] team members fetch error:', e.message); }
+    })();
+  }, [resolvedTenantId, supabase, demoMode]);
   function toggleScope() {
     var next = !scopeOwnOnly;
     setScopeOwnOnly(next);
@@ -402,6 +419,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [selectMode, setSelectMode] = useState(false);
   const [selectedConvIds, setSelectedConvIds] = useState([]);
   const [bulkActing, setBulkActing] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
   const composeRef = useRef(null);
   const openedConvIdsRef = useRef(new Set());
 
@@ -1287,10 +1305,11 @@ useEffect(function() {
           <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
             <div style={{ display: "flex", gap: 6 }}>
-              {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
-                <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
-              ))}
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
+              {(demoMode ? AGENTS.filter(function(a) { return a.status === "online"; }) : teamMembers).slice(0, 3).map(function(a) {
+                return <div key={a.id} title={a.name} style={{ width: 22, height: 22, borderRadius: "50%", background: C.primary + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>;
+              })}
+              {teamMembers.length > 3 && !demoMode && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>+{teamMembers.length - 3}</span>}
+              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>{demoMode ? "online" : teamMembers.length + " team"}</span>
             </div>
           </div>
         )}
@@ -1321,10 +1340,26 @@ useEffect(function() {
                   <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{selectedConv.assignedTo.name}</span>
                 </div>
               )}
-             <select style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
-  <option value="">Reassign...</option>
-  {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-</select>
+             <select onChange={async function(e) {
+               var assigneeId = e.target.value;
+               if (!assigneeId || !selectedConv) return;
+               try {
+                 if (!demoMode && supabase) {
+                   await supabase.from('conversations').update({ assigned_to: assigneeId === 'ai_bot' ? null : assigneeId, status: 'active' }).eq('id', selectedConv.id);
+                 }
+                 setConversations(function(prev) { return prev.map(function(c) {
+                   if (c.id !== selectedConv.id) return c;
+                   var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : teamMembers.find(function(m) { return m.id === assigneeId; }) || null;
+                   return Object.assign({}, c, { assignedTo: assignee });
+                 }); });
+               } catch (err) { alert('Reassign failed: ' + err.message); }
+               e.target.value = '';
+             }} style={{ ...inputStyle, width: 130, padding: "6px 8px", fontSize: 11 }}>
+               <option value="">Reassign...</option>
+               {teamMembers.map(function(m) { return <option key={m.id} value={m.id}>{m.name} ({m.role})</option>; })}
+               <option disabled>───────────</option>
+               <option value="ai_bot">🤖 AI Bot</option>
+             </select>
               <button onClick={() => setShowContactInfo(!showContactInfo)} style={{ background: showContactInfo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showContactInfo ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", color: showContactInfo ? C.primary : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>ℹ️ Info</button>
             </div>}
           </div>
