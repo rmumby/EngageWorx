@@ -334,6 +334,23 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (!isSPorCSP || !supabase || !resolvedTenantId) return;
     (async function() { try { var r = await supabase.from('tenants').select('brand_name, name').eq('id', resolvedTenantId).maybeSingle(); if (r.data) setTenantBrandName(r.data.brand_name || r.data.name || ''); } catch(e) {} })();
   }, [resolvedTenantId, isSPorCSP, supabase]);
+  // Load real team members for the resolved tenant (used by Reassign dropdown + bottom bar)
+  useEffect(function() {
+    if (!supabase || !resolvedTenantId || demoMode) { setTeamMembers([]); return; }
+    (async function() {
+      try {
+        var r = await supabase.from('tenant_members').select('user_id, role, user_profiles(id, full_name, email, avatar_url)')
+          .eq('tenant_id', resolvedTenantId).eq('status', 'active').in('role', ['admin', 'agent', 'superadmin']);
+        var members = (r.data || []).map(function(m) {
+          var p = m.user_profiles || {};
+          var name = p.full_name || p.email || 'Unknown';
+          var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
+          return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
+        });
+        setTeamMembers(members);
+      } catch (e) { console.warn('[LiveInbox] team members fetch error:', e.message); }
+    })();
+  }, [resolvedTenantId, supabase, demoMode]);
   function toggleScope() {
     var next = !scopeOwnOnly;
     setScopeOwnOnly(next);
@@ -402,6 +419,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [selectMode, setSelectMode] = useState(false);
   const [selectedConvIds, setSelectedConvIds] = useState([]);
   const [bulkActing, setBulkActing] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
   const composeRef = useRef(null);
   const openedConvIdsRef = useRef(new Set());
 
@@ -958,6 +976,9 @@ useEffect(function() {
   // Scroll effect removed - using the one at line 262
 
   const filtered = conversations.filter(conv => {
+    // Channel tab filter: Messages excludes voice, Voicemails shows only voice+voicemail tag
+    if (inboxTab === "messages" && conv.channel === "voice") return false;
+    if (inboxTab === "voicemails" && !(conv.channel === "voice" && conv.contact && conv.contact.tags && conv.contact.tags.includes("Voicemail"))) return false;
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
     // Filter by status — "All" uses the hideResolved toggle; specific tabs show only that status
     if (filterStatus === "all") {
@@ -1043,6 +1064,7 @@ useEffect(function() {
               { id: "all", label: "💬 " + t('inbox.all') },
               { id: "messages", label: t('inbox.messages') },
               { id: "calls", label: "📞 " + t('inbox.calls') },
+              { id: "voicemails", label: "📩 VM" },
             ].map(tab => (
               <button key={tab.id} onClick={() => setInboxTab(tab.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === tab.id ? `${C.primary}22` : "transparent", color: inboxTab === tab.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{tab.label}</button>
             ))}
@@ -1089,7 +1111,7 @@ useEffect(function() {
         </div>
 
         {/* Conversation List (Messages tab) */}
-        {(inboxTab === "messages" || inboxTab === "all") && (<div style={{ flex: 1, overflowY: "auto" }}>
+        {(inboxTab === "messages" || inboxTab === "all" || inboxTab === "voicemails") && (<div style={{ flex: 1, overflowY: "auto" }}>
           {filtered.map(conv => {
             const msgs = conv.messages || [];
             const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : { from: 'system', text: conv.subject || 'New conversation', agent: null };
@@ -1186,6 +1208,14 @@ useEffect(function() {
                         {dur && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{dur}</span>}
                         <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
+                      {isVoicemail && call.transcript && (
+                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          VM: {call.transcript.length > 80 ? call.transcript.substring(0, 80) + '...' : call.transcript}
+                        </div>
+                      )}
+                      {isVoicemail && !call.transcript && (
+                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 3, fontStyle: "italic" }}>Voice call — voicemail</div>
+                      )}
                     </div>
                   </div>
                   {/* Expanded call details */}
@@ -1204,6 +1234,29 @@ useEffect(function() {
                       )}
                       {!call.transcript && !call.recording_url && (
                         <div style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No recording or transcript available</div>
+                      )}
+                      {isVoicemail && (
+                        <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                          <button onClick={async function(e) {
+                            e.stopPropagation();
+                            try {
+                              // Find the conversation for this call's contact and mark as handled
+                              var convId = call.conversation_id;
+                              if (convId) {
+                                await supabase.from('conversations').update({ voicemail_handled_at: new Date().toISOString() }).eq('id', convId);
+                                // Remove from local calls state
+                                setCalls(function(prev) { return prev.map(function(c) { return c.id === call.id ? Object.assign({}, c, { voicemail_handled: true }) : c; }); });
+                              }
+                            } catch (err) { console.error('[LiveInbox] Mark handled error:', err.message); }
+                          }} disabled={call.voicemail_handled} style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            background: call.voicemail_handled ? "rgba(0,230,118,0.1)" : "rgba(255,214,0,0.1)",
+                            border: call.voicemail_handled ? "1px solid rgba(0,230,118,0.3)" : "1px solid rgba(255,214,0,0.3)",
+                            borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                            color: call.voicemail_handled ? "#00E676" : "#FFD600",
+                            cursor: call.voicemail_handled ? "default" : "pointer",
+                          }}>{call.voicemail_handled ? "✓ Handled" : "Mark as Handled"}</button>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1227,20 +1280,36 @@ useEffect(function() {
                 { label: "✅ Resolve", status: "resolved", color: "#10b981" },
                 { label: "⏳ Waiting", status: "waiting", color: "#FFD600" },
                 { label: "🚨 Urgent", status: "urgent", color: "#FF3B30" },
-                { label: "🛡️ Spam", status: "spam", color: "#6B8BAE" },
+                { label: "🛡️ Spam", status: "spam", color: "#6B8BAE", confirm: true },
               ].map(function(a) {
-                return <button key={a.status} onClick={function() { bulkUpdateStatus(a.status); }} disabled={bulkActing} style={{ background: a.color + "15", border: "1px solid " + a.color + "44", borderRadius: 6, padding: "4px 8px", color: a.color, cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>{a.label}</button>;
+                return <button key={a.status} onClick={function() {
+                  if (a.confirm && !window.confirm('Mark ' + selectedConvIds.length + ' conversation(s) as ' + a.status + '? This action is hard to undo.')) return;
+                  bulkUpdateStatus(a.status);
+                }} disabled={bulkActing} style={{ background: a.color + "15", border: "1px solid " + a.color + "44", borderRadius: 6, padding: "4px 8px", color: a.color, cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>{a.label}</button>;
               })}
+              <button onClick={async function() {
+                if (!window.confirm('Delete ' + selectedConvIds.length + ' conversation(s)? This cannot be undone.')) return;
+                setBulkActing(true);
+                try {
+                  if (!demoMode && supabase) {
+                    await supabase.from('conversations').delete().in('id', selectedConvIds);
+                  }
+                  setConversations(function(prev) { return prev.filter(function(c) { return selectedConvIds.indexOf(c.id) < 0; }); });
+                  setSelectedConvIds([]); setSelectMode(false);
+                } catch (e) { alert('Delete failed: ' + e.message); }
+                setBulkActing(false);
+              }} disabled={bulkActing} style={{ background: "#FF3B3015", border: "1px solid #FF3B3044", borderRadius: 6, padding: "4px 8px", color: "#FF3B30", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>🗑️ Delete</button>
             </div>
           </div>
         ) : (
           <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
             <div style={{ display: "flex", gap: 6 }}>
-              {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
-                <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
-              ))}
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>online</span>
+              {(demoMode ? AGENTS.filter(function(a) { return a.status === "online"; }) : teamMembers).slice(0, 3).map(function(a) {
+                return <div key={a.id} title={a.name} style={{ width: 22, height: 22, borderRadius: "50%", background: C.primary + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>;
+              })}
+              {teamMembers.length > 3 && !demoMode && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>+{teamMembers.length - 3}</span>}
+              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>{demoMode ? "online" : teamMembers.length + " team"}</span>
             </div>
           </div>
         )}
@@ -1271,10 +1340,26 @@ useEffect(function() {
                   <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{selectedConv.assignedTo.name}</span>
                 </div>
               )}
-             <select style={{ ...inputStyle, width: 120, padding: "6px 8px", fontSize: 11 }}>
-  <option value="">Reassign...</option>
-  {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-</select>
+             <select onChange={async function(e) {
+               var assigneeId = e.target.value;
+               if (!assigneeId || !selectedConv) return;
+               try {
+                 if (!demoMode && supabase) {
+                   await supabase.from('conversations').update({ assigned_to: assigneeId === 'ai_bot' ? null : assigneeId, status: 'active' }).eq('id', selectedConv.id);
+                 }
+                 setConversations(function(prev) { return prev.map(function(c) {
+                   if (c.id !== selectedConv.id) return c;
+                   var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : teamMembers.find(function(m) { return m.id === assigneeId; }) || null;
+                   return Object.assign({}, c, { assignedTo: assignee });
+                 }); });
+               } catch (err) { alert('Reassign failed: ' + err.message); }
+               e.target.value = '';
+             }} style={{ ...inputStyle, width: 130, padding: "6px 8px", fontSize: 11 }}>
+               <option value="">Reassign...</option>
+               {teamMembers.map(function(m) { return <option key={m.id} value={m.id}>{m.name} ({m.role})</option>; })}
+               <option disabled>───────────</option>
+               <option value="ai_bot">🤖 AI Bot</option>
+             </select>
               <button onClick={() => setShowContactInfo(!showContactInfo)} style={{ background: showContactInfo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${showContactInfo ? C.primary + "44" : "rgba(255,255,255,0.08)"}`, borderRadius: 8, padding: "6px 12px", color: showContactInfo ? C.primary : "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>ℹ️ Info</button>
             </div>}
           </div>

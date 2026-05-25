@@ -536,6 +536,30 @@ module.exports = async function handler(req, res) {
       }
 
       if (dialStatus === 'completed' || dialStatus === 'answered') {
+        // Auto-resolve voicemails: if the caller previously left voicemails for this tenant,
+        // mark them as handled now that a live connection was made.
+        try {
+          if (dialTenantId && body.From) {
+            var callerNum = body.From.replace(/[\s\-\(\)]/g, '');
+            // Find contact by phone number for this tenant
+            var contactLookup = await supabase.from('contacts').select('id').eq('phone', callerNum).eq('tenant_id', dialTenantId).maybeSingle();
+            if (contactLookup.data && contactLookup.data.id) {
+              var sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+              await supabase
+                .from('conversations')
+                .update({ voicemail_handled_at: new Date().toISOString() })
+                .eq('tenant_id', dialTenantId)
+                .eq('channel', 'voice')
+                .eq('contact_id', contactLookup.data.id)
+                .is('voicemail_handled_at', null)
+                .gte('created_at', sevenDaysAgo);
+              console.log('[Voice] Auto-resolved voicemails for contact', contactLookup.data.id, 'tenant=', dialTenantId);
+            }
+          }
+        } catch (autoResolveErr) {
+          // Non-blocking: log but don't fail the call
+          console.warn('[Voice] Voicemail auto-resolve failed:', autoResolveErr.message);
+        }
         return res.status(200).end(twiml('<Hangup/>'));
       }
 
