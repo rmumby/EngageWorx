@@ -3,6 +3,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { getPersonality, getLanguage } = require('./personalities');
+var { assembleSystemPrompt } = require('./assemble-system-prompt');
 
 function getSupabase() {
   return createClient(
@@ -35,13 +36,18 @@ async function buildSystemPrompt(opts) {
   var tenant = null;
   if (tenantId) {
     try {
-      var tRes = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, language').eq('tenant_id', tenantId).maybeSingle();
+      var tRes = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, language, ai_persona, ai_voice, ai_scope, ai_escalation_instructions, ai_custom_instructions, coordinator_names').eq('tenant_id', tenantId).maybeSingle();
       if (tRes.data) tenant = tRes.data;
     } catch (e) {}
   }
 
-  // Fallback: no platform config → use tenant.system_prompt directly
+  // Fallback: no platform config → use structured fields or legacy system_prompt
   if (!platform) {
+    var assembled = tenant ? assembleSystemPrompt(tenant) : null;
+    if (assembled) {
+      console.log('\u26a0\ufe0f System prompt from structured fields:', { tenantId: tenantId });
+      return assembled;
+    }
     console.log('\u26a0\ufe0f System prompt fallback to tenant.system_prompt:', { tenantId: tenantId, reason: 'no platform config' });
     return (tenant && tenant.system_prompt) || 'You are Aria, a helpful AI assistant.';
   }
