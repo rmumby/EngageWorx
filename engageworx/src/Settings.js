@@ -128,7 +128,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
   const [saving, setSaving] = useState(null);
 
   const NOTIFY_FLAGS = [
-    { key: 'notify_on_escalation', label: 'Ticket Escalations' },
+    { key: 'notify_on_escalation', label: 'Receive escalation alerts' },
     { key: 'notify_on_new_signup', label: 'New Signups' },
     { key: 'notify_on_payment', label: 'Payments' },
     { key: 'notify_on_new_lead', label: 'New Leads' },
