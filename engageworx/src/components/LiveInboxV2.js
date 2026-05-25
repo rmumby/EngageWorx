@@ -77,6 +77,7 @@ function dedupConversations(convos, contactMap, msgMap) {
       subject: conv.subject || '',
       tenant_id: conv.tenant_id,
       contact_id: conv.contact_id,
+      concierge_paused: conv.concierge_paused || false,
     };
   });
 }
@@ -1251,7 +1252,8 @@ useEffect(function() {
                       {conv.contact.tags.slice(0, 2).map(t => (
                         <span key={t} style={{ background: `${TAG_COLORS[t] || "#6B8BAE"}15`, color: TAG_COLORS[t] || "#6B8BAE", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 600 }}>{t}</span>
                       ))}
-                      {conv.assignedTo && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
+                      {conv.concierge_paused && <span style={{ color: "#f59e0b", fontSize: 9, fontWeight: 700 }}>AI PAUSED</span>}
+                      {conv.assignedTo && !conv.concierge_paused && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
                     </div>
                   </div>
                 </div>
@@ -1421,10 +1423,21 @@ useEffect(function() {
                 <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 {!isMobile && <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>}
                 {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
+                {selectedConv.concierge_paused && <span style={{ background: "#f59e0b22", color: "#f59e0b", border: "1px solid #f59e0b44", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>AI PAUSED</span>}
               </div>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.company}{!isMobile && (" · " + selectedConv.contact.phone)}</div>
             </div>
             {!isMobile && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {selectedConv.concierge_paused && (
+                <button onClick={async function() {
+                  if (!supabase || demoMode) return;
+                  try {
+                    await supabase.from('conversations').update({ concierge_paused: false, concierge_paused_at: null, concierge_paused_by_rule_id: null }).eq('id', selectedConv.id);
+                    setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { concierge_paused: false }) : c; }); });
+                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { concierge_paused: false }) : prev; });
+                  } catch (e) { console.warn('Un-pause failed:', e.message); }
+                }} style={{ background: "#f59e0b22", border: "1px solid #f59e0b44", borderRadius: 8, padding: "5px 12px", color: "#f59e0b", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>Un-pause AI</button>
+              )}
               {selectedConv.assignedTo && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "6px 10px" }}>
                   <div style={{ width: 20, height: 20, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary }}>{selectedConv.assignedTo.avatar}</div>
