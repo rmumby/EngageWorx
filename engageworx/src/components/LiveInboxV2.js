@@ -1217,6 +1217,29 @@ useEffect(function() {
                       {!call.transcript && !call.recording_url && (
                         <div style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No recording or transcript available</div>
                       )}
+                      {isVoicemail && (
+                        <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                          <button onClick={async function(e) {
+                            e.stopPropagation();
+                            try {
+                              // Find the conversation for this call's contact and mark as handled
+                              var convId = call.conversation_id;
+                              if (convId) {
+                                await supabase.from('conversations').update({ voicemail_handled_at: new Date().toISOString() }).eq('id', convId);
+                                // Remove from local calls state
+                                setCalls(function(prev) { return prev.map(function(c) { return c.id === call.id ? Object.assign({}, c, { voicemail_handled: true }) : c; }); });
+                              }
+                            } catch (err) { console.error('[LiveInbox] Mark handled error:', err.message); }
+                          }} disabled={call.voicemail_handled} style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            background: call.voicemail_handled ? "rgba(0,230,118,0.1)" : "rgba(255,214,0,0.1)",
+                            border: call.voicemail_handled ? "1px solid rgba(0,230,118,0.3)" : "1px solid rgba(255,214,0,0.3)",
+                            borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600,
+                            color: call.voicemail_handled ? "#00E676" : "#FFD600",
+                            cursor: call.voicemail_handled ? "default" : "pointer",
+                          }}>{call.voicemail_handled ? "✓ Handled" : "Mark as Handled"}</button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
