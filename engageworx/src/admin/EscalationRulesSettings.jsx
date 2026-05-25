@@ -67,10 +67,10 @@ export default function EscalationRulesSettings({ tenantId, C }) {
   async function handleToggleActive(rule) {
     var session = await supabase.auth.getSession();
     var token = session.data?.session?.access_token || '';
-    await fetch('/api/escalation-rules/' + rule.id, {
+    await fetch('/api/escalation-rules', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ active: !rule.active }),
+      body: JSON.stringify({ id: rule.id, active: !rule.active }),
     });
     setRules(function(prev) { return prev.map(function(r) { return r.id === rule.id ? Object.assign({}, r, { active: !r.active }) : r; }); });
   }
@@ -79,9 +79,10 @@ export default function EscalationRulesSettings({ tenantId, C }) {
     if (!window.confirm('Delete rule "' + rule.rule_name + '"?')) return;
     var session = await supabase.auth.getSession();
     var token = session.data?.session?.access_token || '';
-    await fetch('/api/escalation-rules/' + rule.id, {
+    await fetch('/api/escalation-rules', {
       method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + token },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ id: rule.id }),
     });
     setRules(function(prev) { return prev.filter(function(r) { return r.id !== rule.id; }); });
   }
@@ -228,9 +229,9 @@ function RuleEditor({ rule, tenantId, colors, inputStyle, btnPrimary, btnSec, no
         active: form.active,
       };
 
-      var url = rule._isNew ? '/api/escalation-rules' : '/api/escalation-rules/' + rule.id;
       var method = rule._isNew ? 'POST' : 'PUT';
-      var resp = await fetch(url, {
+      if (!rule._isNew) payload.id = rule.id;
+      var resp = await fetch('/api/escalation-rules', {
         method: method,
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify(payload),
@@ -382,10 +383,10 @@ function TestModal({ rule, colors, inputStyle, btnSec, onClose }) {
     try {
       var session = await supabase.auth.getSession();
       var token = session.data?.session?.access_token || '';
-      var resp = await fetch('/api/escalation-rules/' + rule.id + '?action=test', {
+      var resp = await fetch('/api/escalation-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ message: message }),
+        body: JSON.stringify({ id: rule.id, action: 'test', message: message }),
       });
       var data = await resp.json();
       setResult(data.result);
