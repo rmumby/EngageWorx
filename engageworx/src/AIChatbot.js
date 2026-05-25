@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
-import EscalationRulesConfig from "./EscalationRulesConfig";
+// EscalationRulesConfig removed — escalation rules now managed via Settings → Escalation Rules tab
 import TenantKnowledgeDocuments from "./admin/TenantKnowledgeDocuments";
 
 var LANGUAGE_OPTIONS = [
@@ -86,13 +86,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [previewInput, setPreviewInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedDemo, setSelectedDemo] = useState(null);
-  const [escRules, setEscRules] = useState([]);
-  const [escLoading, setEscLoading] = useState(false);
-  const [escSaving, setEscSaving] = useState(null);
-  const [escModal, setEscModal] = useState(null);
-  const [showAIEscBuilder, setShowAIEscBuilder] = useState(false);
-  const [escError, setEscError] = useState(null);
-  const [escTeamMembers, setEscTeamMembers] = useState([]);
+  // Escalation state removed — managed via Settings → Escalation Rules tab
 
 
   // Email signatures (per-tenant, stored on chatbot_configs)
@@ -143,26 +137,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     setSigSaving(false);
   };
 
-  async function loadEscalationRules() {
-    if (!currentTenantId || demoMode) return;
-    setEscLoading(true);
-    try {
-      var r = await fetch('/api/escalation-rules?tenantId=' + currentTenantId);
-      var d = await r.json();
-      if (d.rules) setEscRules(d.rules);
-    } catch (e) { console.warn('Escalation rules load error:', e.message); }
-    try {
-      var { supabase } = await import('./supabaseClient');
-      var tmRes = await supabase.from('tenant_members').select('user_id, role').eq('tenant_id', currentTenantId).eq('status', 'active');
-      if (tmRes.data && tmRes.data.length > 0) {
-        var userIds = tmRes.data.map(function(m) { return m.user_id; });
-        var upRes = await supabase.from('user_profiles').select('id, full_name, email, phone_number').in('id', userIds);
-        if (upRes.data) setEscTeamMembers(upRes.data);
-      }
-    } catch (e) { console.warn('Team members load error:', e.message); }
-    setEscLoading(false);
-  }
-  useEffect(function() { loadEscalationRules(); }, [currentTenantId, demoMode]); // eslint-disable-line
+  // loadEscalationRules removed — managed via Settings → Escalation Rules tab
 
   useEffect(() => {
     if (!currentTenantId || demoMode) return;
@@ -647,159 +622,13 @@ saveAIConfig(newSources);
             </div>
           )}
 
-          {/* ESCALATION RULES TAB */}
-          {activeTab === "escalation" && showAIEscBuilder && (
-            <div style={{ height: 'calc(100vh - 200px)' }}>
-              <EscalationRulesConfig
-                tenantId={currentTenantId}
-                colors={C}
-                onCancel={function () { setShowAIEscBuilder(false); }}
-                onSave={async function (nlSummary, structuredConfig) {
-                  try {
-                    var res = await fetch('/api/escalation-rules', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        tenant_id: currentTenantId,
-                        rule_name: structuredConfig.rule_name || 'AI-configured rule',
-                        description: structuredConfig.description || '',
-                        trigger_type: structuredConfig.trigger_type || 'keyword',
-                        trigger_config: structuredConfig.trigger_config || {},
-                        action_type: structuredConfig.action_type || 'notify_admin',
-                        action_config: structuredConfig.action_config || {},
-                        priority: structuredConfig.priority || 10,
-                        active: structuredConfig.active !== false,
-                        nl_description: nlSummary,
-                        rule_config: structuredConfig,
-                      }),
-                    });
-                    if (!res.ok) { var d = await res.json(); throw new Error(d.error || 'Save failed'); }
-                    setShowAIEscBuilder(false);
-                    loadEscalationRules();
-                  } catch (e) { throw e; }
-                }}
-              />
-            </div>
-          )}
-          {activeTab === "escalation" && !showAIEscBuilder && (
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div>
-                  <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Escalation Rules</h2>
-                  <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the bot should hand off to a human agent</p>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={function() { setShowAIEscBuilder(true); }} style={{ background: 'linear-gradient(135deg, #7C4DFF, #E040FB)', border: 'none', borderRadius: 10, padding: '10px 20px', color: C.text, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>⚙️ Configure with AI</button>
-                  <button onClick={function() { setEscModal({ rule_name: '', description: '', trigger_type: 'keyword', trigger_config: { keywords: [] }, action_type: 'notify_admin', action_config: {}, priority: 10, active: true, _isNew: true }); }} style={btnPrimary}>+ Add Rule</button>
-                </div>
-              </div>
-              {escError && <div style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.3)', borderRadius: 8, padding: '8px 12px', color: '#FF3B30', fontSize: 12, marginBottom: 12 }}>{escError}</div>}
-              {escLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading rules...</div> : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {escRules.length === 0 && <div style={{ color: C.muted, textAlign: 'center', padding: 30 }}>No escalation rules configured. Click "+ Add Rule" to create one.</div>}
-                {escRules.map(function(rule) {
-                  var pColor = rule.priority <= 3 ? '#FF3B30' : rule.priority <= 7 ? '#FFD600' : '#6B8BAE';
-                  var triggerLabel = rule.trigger_type === 'keyword' ? 'Keywords: ' + ((rule.trigger_config && rule.trigger_config.keywords) || []).join(', ') : rule.trigger_type === 'sentiment' ? 'Negative sentiment' : rule.trigger_type === 'vip_match' ? 'VIP contact' : rule.trigger_type;
-                  var actionLabel = (rule.action_type || '').replace(/_/g, ' ');
-                  return (
-                  <div key={rule.id} style={{ ...card, display: "grid", gridTemplateColumns: "1fr 180px 80px 60px 60px", alignItems: "center", gap: 14, opacity: rule.active ? 1 : 0.5, borderLeft: '4px solid ' + pColor }}>
-                    <div>
-                      <div style={{ color: C.text, fontWeight: 700, fontSize: 14 }}>{rule.rule_name}</div>
-                      {rule.description && <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{rule.description}</div>}
-                      <div style={{ color: C.muted, fontSize: 11, marginTop: 2, fontFamily: "monospace" }}>{triggerLabel}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>{actionLabel}</div>
-                      <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>Priority: {rule.priority}</div>
-                      {!(rule.action_config && rule.action_config.notify_user_id) && <div style={{ color: '#FFD600', fontSize: 10, marginTop: 2 }} title="No team member assigned — notifications will not fire">⚠️ No notify target</div>}
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div onClick={async function() {
-                        setEscSaving(rule.id);
-                        try {
-                          var r = await fetch('/api/escalation-rules', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rule.id, tenant_id: currentTenantId, active: !rule.active }) });
-                          if (r.ok) { setEscRules(function(prev) { return prev.map(function(x) { return x.id === rule.id ? Object.assign({}, x, { active: !x.active }) : x; }); }); }
-                          else { var d = await r.json(); setEscError(d.error || 'Toggle failed'); }
-                        } catch (e) { setEscError(e.message); }
-                        setEscSaving(null);
-                      }} style={{ width: 40, height: 22, borderRadius: 11, cursor: escSaving === rule.id ? 'wait' : 'pointer', position: "relative", background: rule.active ? C.primary : "rgba(255,255,255,0.1)", transition: "all 0.2s" }}>
-                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: rule.active ? 20 : 2, transition: "all 0.2s" }} />
-                      </div>
-                    </div>
-                    <button onClick={function() { setEscModal(Object.assign({}, rule, { _isNew: false })); }} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Edit</button>
-                    <button onClick={async function() {
-                      if (!window.confirm('Delete rule "' + rule.rule_name + '"?')) return;
-                      try {
-                        await fetch('/api/escalation-rules', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: rule.id, tenant_id: currentTenantId }) });
-                        setEscRules(function(prev) { return prev.filter(function(x) { return x.id !== rule.id; }); });
-                      } catch (e) { setEscError(e.message); }
-                    }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', fontSize: 14 }}>✕</button>
-                  </div>
-                  );
-                })}
-              </div>
-              )}
-              {/* Edit/Add Modal */}
-              {escModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={function() { setEscModal(null); }}>
-                  <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 16, padding: 28, width: 480, maxHeight: '80vh', overflowY: 'auto' }}>
-                    <h3 style={{ color: C.text, margin: '0 0 16px', fontSize: 16 }}>{escModal._isNew ? 'Add Escalation Rule' : 'Edit Rule'}</h3>
-                    <div style={{ display: 'grid', gap: 12 }}>
-                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Rule Name *</label><input value={escModal.rule_name} onChange={function(e) { setEscModal(Object.assign({}, escModal, { rule_name: e.target.value })); }} style={inputStyle} /></div>
-                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Description</label><input value={escModal.description || ''} onChange={function(e) { setEscModal(Object.assign({}, escModal, { description: e.target.value })); }} style={inputStyle} /></div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Trigger Type</label><select value={escModal.trigger_type} onChange={function(e) { setEscModal(Object.assign({}, escModal, { trigger_type: e.target.value })); }} style={inputStyle}><option value="keyword">Keyword match</option><option value="sentiment">Negative sentiment</option><option value="vip_match">VIP contact</option><option value="custom">Custom</option></select></div>
-                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Action</label><select value={escModal.action_type} onChange={function(e) { setEscModal(Object.assign({}, escModal, { action_type: e.target.value })); }} style={inputStyle}><option value="notify_admin">Notify admin</option><option value="escalate_human">Escalate to human</option><option value="tag_conversation">Tag conversation</option><option value="create_ticket">Create ticket</option></select></div>
-                      </div>
-                      {escModal.trigger_type === 'keyword' && (
-                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Keywords (comma-separated)</label><input value={((escModal.trigger_config && escModal.trigger_config.keywords) || []).join(', ')} onChange={function(e) { setEscModal(Object.assign({}, escModal, { trigger_config: { keywords: e.target.value.split(',').map(function(s) { return s.trim(); }).filter(Boolean) } })); }} placeholder="lawyer, lawsuit, legal action" style={inputStyle} /></div>
-                      )}
-                      <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Priority (1=highest, 10=default)</label><input type="number" min="1" max="99" value={escModal.priority} onChange={function(e) { setEscModal(Object.assign({}, escModal, { priority: parseInt(e.target.value) || 10 })); }} style={inputStyle} /></div>
-                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12, marginTop: 4 }}>
-                        <div style={{ color: '#FFD600', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>🔔 Notification Settings</div>
-                        <div><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Notify team member</label>
-                          <select value={(escModal.action_config && escModal.action_config.notify_user_id) || ''} onChange={function(e) { var ac = Object.assign({}, escModal.action_config || {}); ac.notify_user_id = e.target.value || null; setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={inputStyle}>
-                            <option value="">— Select team member —</option>
-                            {escTeamMembers.map(function(m) { return <option key={m.id} value={m.id}>{(m.full_name || m.email || 'Unknown') + ' (' + (m.email || '') + ')'}</option>; })}
-                          </select>
-                        </div>
-                        <div style={{ marginTop: 8 }}><label style={{ color: C.muted, fontSize: 11, display: 'block', marginBottom: 4 }}>Notification channels</label>
-                          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                            {[{ id: 'email', label: '📧 Email', enabled: true }, { id: 'sms', label: '💬 SMS', enabled: true }, { id: 'voice', label: '📞 Voice', enabled: false }, { id: 'whatsapp', label: '📱 WhatsApp', enabled: false }].map(function(ch) {
-                              var channels = (escModal.action_config && escModal.action_config.channels) || [];
-                              var isChecked = channels.indexOf(ch.id) !== -1;
-                              return <label key={ch.id} style={{ display: 'flex', alignItems: 'center', gap: 6, color: ch.enabled ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 12, cursor: ch.enabled ? 'pointer' : 'not-allowed' }} title={ch.enabled ? '' : 'Coming soon'}>
-                                <input type="checkbox" checked={isChecked} disabled={!ch.enabled} onChange={function() { var ac = Object.assign({}, escModal.action_config || {}); var chs = (ac.channels || []).slice(); if (isChecked) chs = chs.filter(function(c) { return c !== ch.id; }); else chs.push(ch.id); ac.channels = chs; setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={{ accentColor: C.primary }} />{ch.label}</label>;
-                            })}
-                          </div>
-                        </div>
-                        <div style={{ marginTop: 8 }}><label style={{ display: 'flex', alignItems: 'center', gap: 8, color: C.text, fontSize: 12, cursor: 'pointer' }}>
-                          <input type="checkbox" checked={(escModal.action_config && escModal.action_config.include_conversation_link) !== false} onChange={function() { var ac = Object.assign({}, escModal.action_config || {}); ac.include_conversation_link = !(ac.include_conversation_link !== false); setEscModal(Object.assign({}, escModal, { action_config: ac })); }} style={{ accentColor: C.primary }} />Include conversation link in notification</label>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'flex-end' }}>
-                      <button onClick={function() { setEscModal(null); }} style={btnSecondary}>Cancel</button>
-                      <button onClick={async function() {
-                        if (!escModal.rule_name) { setEscError('Rule name is required'); return; }
-                        setEscSaving('modal');
-                        try {
-                          var payload = { tenant_id: currentTenantId, rule_name: escModal.rule_name, description: escModal.description, trigger_type: escModal.trigger_type, trigger_config: escModal.trigger_config || {}, action_type: escModal.action_type, action_config: escModal.action_config || {}, priority: escModal.priority, active: escModal.active !== false };
-                          var method = escModal._isNew ? 'POST' : 'PATCH';
-                          if (!escModal._isNew) payload.id = escModal.id;
-                          var r = await fetch('/api/escalation-rules', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                          var d = await r.json();
-                          if (!r.ok) { setEscError(d.error || 'Save failed'); setEscSaving(null); return; }
-                          setEscModal(null);
-                          setEscError(null);
-                          loadEscalationRules();
-                        } catch (e) { setEscError(e.message); }
-                        setEscSaving(null);
-                      }} disabled={escSaving === 'modal'} style={Object.assign({}, btnPrimary, { opacity: escSaving === 'modal' ? 0.6 : 1 })}>{escSaving === 'modal' ? 'Saving...' : escModal._isNew ? 'Create Rule' : 'Save Changes'}</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+          {/* ESCALATION RULES TAB — redirects to Settings → Escalation Rules */}
+          {activeTab === "escalation" && (
+            <div style={{ textAlign: "center", padding: "60px 20px" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🚨</div>
+              <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 8px" }}>Escalation Rules</h2>
+              <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Escalation rules have moved to Settings for a better experience with multi-action support, test mode, and conversation pausing.</p>
+              <button onClick={function() { if (window.parent && window.parent !== window) { try { window.parent.postMessage({ type: 'navigate', page: 'settings', tab: 'escalation' }, '*'); } catch(e) {} } }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Go to Settings → Escalation Rules</button>
             </div>
           )}
 
