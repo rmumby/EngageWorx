@@ -374,6 +374,29 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       } catch (e) { console.warn('[LiveInbox] team members fetch error:', e.message); }
     })();
   }, [resolvedTenantId, supabase, demoMode]);
+
+  // Load team members for the SELECTED CONVERSATION's tenant (Reassign dropdown)
+  // This is different from resolvedTenantId when SP admin views cross-tenant conversations
+  var [convTeamMembers, setConvTeamMembers] = useState([]);
+  useEffect(function() {
+    var convTenantId = selectedConv && selectedConv.tenant_id;
+    if (!supabase || !convTenantId || demoMode) { setConvTeamMembers([]); return; }
+    // If conversation is in the same tenant as the portal, reuse existing teamMembers
+    if (convTenantId === resolvedTenantId) { setConvTeamMembers(teamMembers); return; }
+    (async function() {
+      try {
+        var r = await supabase.from('tenant_members').select('user_id, role, user_profiles(id, full_name, email, avatar_url)')
+          .eq('tenant_id', convTenantId).eq('status', 'active').in('role', ['admin', 'agent', 'superadmin']);
+        var members = (r.data || []).map(function(m) {
+          var p = m.user_profiles || {};
+          var name = p.full_name || p.email || 'Unknown';
+          var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
+          return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
+        });
+        setConvTeamMembers(members);
+      } catch (e) { console.warn('[LiveInbox] conv team members fetch error:', e.message); setConvTeamMembers([]); }
+    })();
+  }, [selectedConv && selectedConv.tenant_id, supabase, demoMode, resolvedTenantId, teamMembers]);
   function toggleScope() {
     var next = !scopeOwnOnly;
     setScopeOwnOnly(next);
@@ -1421,7 +1444,7 @@ useEffect(function() {
                  }
                  setConversations(function(prev) { return prev.map(function(c) {
                    if (c.id !== selectedConv.id) return c;
-                   var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : teamMembers.find(function(m) { return m.id === assigneeId; }) || null;
+                   var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : convTeamMembers.find(function(m) { return m.id === assigneeId; }) || null;
                    return Object.assign({}, c, { assignedTo: assignee });
                  }); });
                } catch (err) {
@@ -1434,8 +1457,8 @@ useEffect(function() {
                e.target.value = '';
              }} style={{ ...inputStyle, width: 130, padding: "6px 8px", fontSize: 11 }}>
                <option value="">Reassign...</option>
-               {teamMembers.length === 0 && <option disabled>No team members</option>}
-               {teamMembers.map(function(m) { return <option key={m.id} value={m.id}>{m.name} ({m.role})</option>; })}
+               {convTeamMembers.length === 0 && <option disabled>No team members</option>}
+               {convTeamMembers.map(function(m) { return <option key={m.id} value={m.id}>{m.name} ({m.role})</option>; })}
                {userProfile && <option value={userProfile.id}>Assign to Me</option>}
                <option disabled>───────────</option>
                <option value="ai_bot">🤖 AI Bot</option>
