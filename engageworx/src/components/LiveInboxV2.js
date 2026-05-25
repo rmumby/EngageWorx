@@ -1190,6 +1190,14 @@ useEffect(function() {
                         {dur && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{dur}</span>}
                         <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
+                      {isVoicemail && call.transcript && (
+                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          VM: {call.transcript.length > 80 ? call.transcript.substring(0, 80) + '...' : call.transcript}
+                        </div>
+                      )}
+                      {isVoicemail && !call.transcript && (
+                        <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 11, marginTop: 3, fontStyle: "italic" }}>Voice call — voicemail</div>
+                      )}
                     </div>
                   </div>
                   {/* Expanded call details */}
