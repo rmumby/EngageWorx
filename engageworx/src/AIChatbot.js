@@ -90,10 +90,10 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
 
 
   // Email signatures (per-tenant, stored on chatbot_configs)
-  const [sigFromName, setSigFromName] = useState('Rob Mumby');
+  const [sigFromName, setSigFromName] = useState('');
   const [sigFirst, setSigFirst] = useState('');
   const [sigReply, setSigReply] = useState('');
-  const [teamSigFromName, setTeamSigFromName] = useState('The EngageWorx Team');
+  const [teamSigFromName, setTeamSigFromName] = useState('');
   const [teamSigFirst, setTeamSigFirst] = useState('');
   const [teamSigReply, setTeamSigReply] = useState('');
   const [sigSaving, setSigSaving] = useState(false);

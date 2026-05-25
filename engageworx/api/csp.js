@@ -30,9 +30,9 @@ async function sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan)
   if (ws.welcome_email_enabled === false) return;
 
   var brandColor = ws.brand_primary || '#00C9FF';
-  var senderName = ws.welcome_email_from_name || ws.brand_name || ws.name || 'EngageWorx';
-  var senderEmail = ws.welcome_email_from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com');
-  var calendlyUrl = ws.welcome_email_onboarding_link || 'https://calendly.com/rob-engwx/cpexpo-the-venetian';
+  var senderName = ws.welcome_email_from_name || ws.brand_name || ws.name || 'Team';
+  var senderEmail = ws.welcome_email_from || process.env.PLATFORM_FROM_EMAIL || null;
+  var calendlyUrl = ws.welcome_email_onboarding_link || null;
   var planLabel = plan.charAt(0).toUpperCase() + plan.slice(1);
 
   // Generate AI personalised message

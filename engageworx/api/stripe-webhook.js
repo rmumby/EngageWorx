@@ -19,10 +19,10 @@ async function getSPEmailConfig() {
     var res = await supabaseLocal.from('channel_configs').select('config_encrypted').eq('tenant_id', EW_SP_TENANT_ID).eq('channel', 'email').single();
     var cc = (res.data && res.data.config_encrypted) || {};
     return {
-      from: cc.from_email || cc.welcome_email_from || (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
-      fromName: cc.from_name || cc.welcome_email_from_name || 'EngageWorx',
+      from: cc.from_email || cc.welcome_email_from || process.env.PLATFORM_FROM_EMAIL || null,
+      fromName: cc.from_name || cc.welcome_email_from_name || null,
     };
-  } catch(e) { return { from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), fromName: 'EngageWorx' }; }
+  } catch(e) { return { from: process.env.PLATFORM_FROM_EMAIL || null, fromName: null }; }
 }
 
 // ── AI-personalised welcome email builder ─────────────────────────────────
@@ -34,9 +34,9 @@ async function getSPEmailConfig() {
 
 async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPassword) {
   var config = {
-    from: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'),
-    fromName: 'Rob at EngageWorx',
-    calendly: 'https://calendly.com/rob-engwx/30min',
+    from: process.env.PLATFORM_FROM_EMAIL || null,
+    fromName: null,
+    calendly: null,
     aiPrompt: null,
     enabled: true,
     brandColor: '#00C9FF',
@@ -84,8 +84,9 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
   try {
     var AnthropicSdk = require('@anthropic-ai/sdk');
     var anthropic = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
+    var tenantLabel = config.fromName || companyName || 'the team';
     var systemPrompt = config.aiPrompt ||
-      'You are Rob Mumby, Founder & CEO of EngageWorx — an AI-powered omnichannel customer communications platform (SMS, WhatsApp, Email, Voice, RCS). Write a short, warm personal welcome. Exactly 2 short paragraphs. First: warm welcome referencing their company name and plan. Second: invite them to book a quick call — mention it naturally without writing the URL. No subject line, no sign-off, no URLs anywhere in the text.';
+      'You are the AI assistant for ' + tenantLabel + '. Write a short, warm welcome email. Exactly 2 short paragraphs. First: warm welcome referencing their company name and plan. Second: invite them to get in touch if they need help. No subject line, no sign-off, no URLs anywhere in the text.';
     var aiRes = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 300,
@@ -123,8 +124,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
 
     // Header
     '<div style="background:linear-gradient(135deg,' + c1 + ',' + c2 + ');border-radius:16px;padding:36px 32px;text-align:center;margin-bottom:20px;">' +
-    '<div style="color:#fff;font-weight:900;font-size:24px;letter-spacing:-0.5px;">EngageWorx</div>' +
-    '<div style="color:rgba(255,255,255,0.8);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">AI-Powered CX</div>' +
+    (config.fromName ? '<div style="color:#fff;font-weight:900;font-size:24px;letter-spacing:-0.5px;">' + config.fromName + '</div>' : '') +
     '<div style="color:#fff;font-size:36px;margin:16px 0 8px;">🎉</div>' +
     '<h1 style="color:#fff;margin:0;font-size:26px;font-weight:800;">Welcome, ' + companyName + '!</h1>' +
     '<p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:15px;">Your account is live and ready to go.</p>' +
@@ -133,7 +133,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     // AI personal note
     (aiMessage ? (
       '<div style="background:#fff;border-radius:12px;padding:24px 28px;margin-bottom:20px;border-left:4px solid ' + c1 + ';box-shadow:0 1px 3px rgba(0,0,0,0.06);">' +
-      '<div style="font-size:14px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">A note from Rob</div>' +
+      '<div style="font-size:14px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">A note from ' + (config.fromName || 'us') + '</div>' +
       '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + aiMessage.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:12px;">') + '</div>' +
       '</div>'
     ) : '') +
@@ -157,25 +157,22 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     '<table style="width:100%;border-collapse:collapse;">' + stepsHtml + '</table>' +
     '</div>' +
 
-    // Calendly CTA
+    // Calendly CTA — only shown if tenant has configured an onboarding link
+    (config.calendly ? (
     '<div style="background:#fff;border-radius:12px;padding:24px 28px;margin-bottom:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.06);">' +
     '<div style="font-size:22px;margin-bottom:8px;">📅</div>' +
     '<div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:6px;">Want a quick walkthrough?</div>' +
-    '<div style="font-size:13px;color:#64748b;margin-bottom:16px;">Book a free 30-minute onboarding call — we\'ll get you set up fast.</div>' +
+    '<div style="font-size:13px;color:#64748b;margin-bottom:16px;">Book a free 30-minute onboarding call.</div>' +
     '<a href="' + config.calendly + '" style="display:inline-block;border:2px solid ' + c1 + ';color:' + c1 + ';padding:12px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">Book Onboarding Call →</a>' +
-    '</div>' +
+    '</div>'
+    ) : '') +
 
-    // Signature
+    // Signature — uses tenant from name if available
+    (config.fromName ? (
     '<div style="text-align:center;padding:20px 0 8px;">' +
-    '<div style="display:inline-block;background:linear-gradient(135deg,' + c1 + ',' + c2 + ');color:#000;font-weight:900;font-size:16px;padding:8px 14px;border-radius:8px;margin-bottom:10px;">EW</div><br>' +
-    '<div style="font-weight:700;color:#1e293b;font-size:14px;">Rob Mumby</div>' +
-    '<div style="color:#64748b;font-size:13px;margin-top:2px;">Founder & CEO, EngageWorx</div>' +
-    '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
-    '<div style="margin-top:6px;font-size:12px;">' +
-    '<a href="tel:+17869827800" style="color:' + c1 + ';text-decoration:none;">+1 (786) 982-7800</a>' +
-    ' &nbsp;|&nbsp; ' +
-    '<a href="https://engwx.com" style="color:' + c1 + ';text-decoration:none;">engwx.com</a>' +
-    '</div></div>' +
+    '<div style="font-weight:700;color:#1e293b;font-size:14px;">' + config.fromName + '</div>' +
+    '</div>'
+    ) : '') +
 
     '</div></body></html>';
 
@@ -184,7 +181,7 @@ async function buildWelcomeEmail(tenantId, email, plan, companyName, demoPasswor
     fromName: config.fromName,
     subject: config.subject,
     html: html,
-    text: (aiMessage || 'Welcome to EngageWorx!') + '\n\nYour portal: portal.engwx.com\nEmail: ' + email + '\nPlan: ' + planLabel + '\n\nBook an onboarding call: ' + config.calendly + '\n\nRob Mumby\nFounder & CEO, EngageWorx\n+1 (786) 982-7800\nengwx.com',
+    text: (aiMessage || 'Welcome! Your account is live.') + '\n\nYour portal: portal.engwx.com\nEmail: ' + email + '\nPlan: ' + planLabel + (config.calendly ? '\n\nBook an onboarding call: ' + config.calendly : '') + (config.fromName ? '\n\n' + config.fromName : ''),
   };
 }
 
