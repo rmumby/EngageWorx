@@ -1660,12 +1660,13 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   useEffect(() => { const h = () => setCpIsMobile(window.innerWidth < 768); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
   const demoTenant = TENANTS[tenantId];
   const liveTenant = liveTenants?.find(t => t.id === tenantId);
+  const [dbTenantName, setDbTenantName] = useState('');
   const tenant = demoTenant || liveTenant || {
     id: tenantId,
-    name: "My Business",
-    logo: "MB",
+    name: dbTenantName || "Loading...",
+    logo: (dbTenantName || "??").substring(0, 2).toUpperCase(),
     role: "customer",
-    brand: { primary: "#00C9FF", secondary: "#E040FB", name: "My Business" },
+    brand: { primary: "#00C9FF", secondary: "#E040FB", name: dbTenantName || "" },
     colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
     stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
     channels: ["SMS", "Email"],
@@ -1679,13 +1680,16 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
       try {
         const { data } = await supabase.from('tenants').select('brand_primary, brand_secondary, brand_logo_url, brand_name, name').eq('id', tenantId).maybeSingle();
         console.log('[CustomerPortal] brand fetch for', tenantId, '→', data ? { primary: data.brand_primary, secondary: data.brand_secondary, name: data.brand_name || data.name } : 'no data');
-        if (data && (data.brand_primary || data.brand_secondary)) {
-          var c = {
-            primary: data.brand_primary || tenant.colors.primary,
-            accent: data.brand_secondary || tenant.colors.accent,
-          };
-          console.log('[CustomerPortal] applying brand colors:', c);
-          setDbColors(c);
+        if (data) {
+          if (data.brand_name || data.name) setDbTenantName(data.brand_name || data.name);
+          if (data.brand_primary || data.brand_secondary) {
+            var c = {
+              primary: data.brand_primary || tenant.colors.primary,
+              accent: data.brand_secondary || tenant.colors.accent,
+            };
+            console.log('[CustomerPortal] applying brand colors:', c);
+            setDbColors(c);
+          }
         }
       } catch (e) { console.warn('[CustomerPortal] brand fetch error:', e.message); }
     })();
