@@ -7,6 +7,7 @@ var { Resend } = require('resend');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
+var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation');
 
 function getSupabase() {
   return createClient(
@@ -312,6 +313,23 @@ module.exports = async function handler(req, res) {
 
   console.log('[email-concierge] conversationId resolved:', conversationId || 'NULL — messages will NOT be persisted');
 
+  // ── 5b. Check concierge_paused — if paused, persist inbound and exit ──
+  if (conversationId) {
+    try {
+      var { data: convState } = await supabase.from('conversations')
+        .select('concierge_paused').eq('id', conversationId).maybeSingle();
+      if (convState && convState.concierge_paused) {
+        console.log('[email-concierge] Concierge paused for conversation:', conversationId, '— persisting inbound only');
+        await supabase.from('messages').insert({
+          tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+          channel: 'email', direction: 'inbound', sender_type: 'contact',
+          body: emailBody.substring(0, 10000), status: 'delivered',
+        }).then(function() {}).catch(function() {});
+        return res.status(200).json({ ok: true, action: 'concierge_paused', conversation_id: conversationId });
+      }
+    } catch (e) { /* concierge_paused column may not exist yet */ }
+  }
+
   // ── 6. Persist inbound message ────────────────────────────────────────
   if (conversationId) {
     try {
@@ -335,8 +353,35 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // ── 7. Call AI concierge ──────────────────────────────────────────────
+  // ── 6b. Evaluate escalation rules before AI call ──────────────────────
   var contactName = contact ? ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() : senderName;
+  try {
+    var { data: escRules } = await supabase.from('escalation_rules')
+      .select('*').eq('tenant_id', tenantId).eq('active', true)
+      .order('priority', { ascending: true });
+    if (escRules && escRules.length > 0) {
+      var combinedText = (subject || '') + ' ' + emailBody;
+      var matched = findMatchingRule(escRules, combinedText);
+      if (matched) {
+        console.log('[email-concierge] Escalation rule matched:', matched.rule.rule_name, '| match:', JSON.stringify(matched.match));
+        var escResult = await executeActions(supabase, matched, {
+          tenantId: tenantId, conversationId: conversationId, contactName: contactName,
+          senderEmail: senderEmail, messageBody: emailBody, tenantSenderEmail: tenantSenderEmail, tenantName: tenantName,
+        });
+        if (escResult.skipAI) {
+          var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
+          var confHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
+            escResult.confirmationMessage.replace(/\n/g, '<br>') + '</div>';
+          try { await sendTenantEmail(supabase, { tenant_id: tenantId, to: senderEmail, from: tenantSenderEmail || recipientEmail, from_name: tenantName || 'Team', subject: replySubject, html: confHtml, text: escResult.confirmationMessage, reply_to: recipientEmail }); } catch (se) { console.error('[email-concierge] Escalation confirmation send failed:', se.message); }
+          if (conversationId) { await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'email', direction: 'outbound', sender_type: 'bot', body: escResult.confirmationMessage, status: 'delivered' }).then(function() {}).catch(function() {}); }
+          return res.status(200).json({ ok: true, action: 'escalation_confirmation', rule: matched.rule.rule_name, conversation_id: conversationId });
+        }
+        console.log('[email-concierge] Escalation actions executed (notify/pause only), continuing to AI');
+      }
+    }
+  } catch (escErr) { console.warn('[email-concierge] Escalation evaluation error (non-fatal):', escErr.message); }
+
+  // ── 7. Call AI concierge ──────────────────────────────────────────────
 
   // Guard: if body is empty after all extraction, don't call Anthropic
   var userMessage = (emailBody || '').substring(0, 5000).trim();
