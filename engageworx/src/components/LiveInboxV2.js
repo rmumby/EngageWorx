@@ -700,6 +700,50 @@ useEffect(function() {
     setSelectedConvIds(function(prev) { return prev.indexOf(id) > -1 ? prev.filter(function(x) { return x !== id; }) : prev.concat([id]); });
   }
 
+  // Strip synthetic ID prefixes for DB operations. Call-based convos have 'call_' prefix.
+  function stripIdPrefix(id) {
+    if (!id) return id;
+    if (id.startsWith('call_')) return id.replace('call_', '');
+    return id;
+  }
+
+  // Strip synthetic prefixes and resolve the real conversation UUID for RPC calls.
+  // Call-based "conversations" have id='call_<uuid>' — these need a real conversations row.
+  async function resolveConversationIdForRpc(conv) {
+    if (!conv || !conv.id) return null;
+    var rawId = conv.id;
+    // If not prefixed, it's a real conversation UUID
+    if (!rawId.startsWith('call_')) return rawId;
+    // It's a synthetic call-based conversation — find or create the real conversation
+    var callUuid = rawId.replace('call_', '');
+    if (!supabase || !conv.tenant_id) return null;
+    // Look up the call to get contact info
+    var callLookup = await supabase.from('calls').select('id, from_number, tenant_id').eq('id', callUuid).maybeSingle();
+    if (!callLookup.data) return null;
+    var tenantId = callLookup.data.tenant_id;
+    var phone = callLookup.data.from_number;
+    // Find existing voice conversation for this contact+tenant
+    var contactLookup = await supabase.from('contacts').select('id').eq('phone', phone).eq('tenant_id', tenantId).maybeSingle();
+    if (contactLookup.data) {
+      var existingConv = await supabase.from('conversations').select('id')
+        .eq('tenant_id', tenantId).eq('contact_id', contactLookup.data.id).eq('channel', 'voice')
+        .order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+      if (existingConv.data) return existingConv.data.id;
+    }
+    // Create a conversation for this voicemail
+    var contactId = contactLookup.data ? contactLookup.data.id : null;
+    if (!contactId) {
+      var newContact = await supabase.from('contacts').insert({ tenant_id: tenantId, phone: phone, first_name: 'Caller', source: 'voicemail' }).select('id').maybeSingle();
+      contactId = newContact.data ? newContact.data.id : null;
+    }
+    if (!contactId) return null;
+    var newConv = await supabase.from('conversations').insert({
+      tenant_id: tenantId, contact_id: contactId, channel: 'voice', status: 'active',
+      last_message_at: new Date().toISOString(), unread_count: 1,
+    }).select('id').maybeSingle();
+    return newConv.data ? newConv.data.id : null;
+  }
+
   async function bulkUpdateStatus(newStatus) {
     if (selectedConvIds.length === 0) return;
     setBulkActing(true);
@@ -1346,8 +1390,10 @@ useEffect(function() {
                if (!assigneeId || !selectedConv) return;
                try {
                  if (!demoMode && supabase) {
+                   var rpcConvId = await resolveConversationIdForRpc(selectedConv);
+                   if (!rpcConvId) throw { message: 'Could not resolve conversation — please try again' };
                    var rpcAssigneeId = assigneeId === 'ai_bot' ? '00000000-0000-0000-0000-000000000000' : assigneeId;
-                   var rpcResult = await supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: rpcAssigneeId });
+                   var rpcResult = await supabase.rpc('assign_conversation', { p_conversation_id: rpcConvId, p_assignee_id: rpcAssigneeId });
                    if (rpcResult.error) throw rpcResult.error;
                  }
                  setConversations(function(prev) { return prev.map(function(c) {
@@ -1560,19 +1606,23 @@ useEffect(function() {
                       setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
                     });
                   }},
-                  { label: "Assign to AI", icon: "🤖", action: function() {
-                    if (supabase) supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: '00000000-0000-0000-0000-000000000000' }).then(function(r) {
-                      if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
-                    });
+                  { label: "Assign to AI", icon: "🤖", action: async function() {
+                    if (!supabase) return;
+                    var convId = await resolveConversationIdForRpc(selectedConv);
+                    if (!convId) { alert('Could not resolve conversation'); return; }
+                    var r = await supabase.rpc('assign_conversation', { p_conversation_id: convId, p_assignee_id: '00000000-0000-0000-0000-000000000000' });
+                    if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
+                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
                   }},
-                  { label: "Assign to Me", icon: "👤", action: function() {
-                    if (supabase && userProfile) supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: userProfile.id }).then(function(r) {
-                      if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
-                      var myName = userProfile.full_name || userProfile.email || 'Me';
-                      var myInitials = myName.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: userProfile.id, name: myName, avatar: myInitials, status: 'online' } }) : prev; });
-                    });
+                  { label: "Assign to Me", icon: "👤", action: async function() {
+                    if (!supabase || !userProfile) return;
+                    var convId = await resolveConversationIdForRpc(selectedConv);
+                    if (!convId) { alert('Could not resolve conversation'); return; }
+                    var r = await supabase.rpc('assign_conversation', { p_conversation_id: convId, p_assignee_id: userProfile.id });
+                    if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
+                    var myName = userProfile.full_name || userProfile.email || 'Me';
+                    var myInitials = myName.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
+                    setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: userProfile.id, name: myName, avatar: myInitials, status: 'online' } }) : prev; });
                   }},
                   { label: "Block", icon: "🚫", action: function() {
                     if (window.confirm('Block this contact? They will no longer be able to message you.')) {
