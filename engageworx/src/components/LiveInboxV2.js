@@ -1028,6 +1028,7 @@ useEffect(function() {
 
   return (
     <div style={{ display: "flex", height: isMobile ? "100vh" : "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", position: "relative" }}>
+      <style dangerouslySetInnerHTML={{ __html: '.conv-card:hover .conv-checkbox { opacity: 1 !important; }' }} />
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
       <div style={{ width: isMobile ? "100%" : 320, minWidth: isMobile ? 0 : 280, borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.06)", display: isMobile && mobileShowChat ? "none" : "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
         {/* Header */}
@@ -1066,7 +1067,7 @@ useEffect(function() {
               { id: "calls", label: "📞 " + t('inbox.calls') },
               { id: "voicemails", label: "📩 VM" },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setInboxTab(tab.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === tab.id ? `${C.primary}22` : "transparent", color: inboxTab === tab.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{tab.label}</button>
+              <button key={tab.id} onClick={() => { setInboxTab(tab.id); if (tab.id === 'calls' || tab.id === 'voicemails') setFilterChannel('all'); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === tab.id ? `${C.primary}22` : "transparent", color: inboxTab === tab.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{tab.label}</button>
             ))}
           </div>
 
@@ -1093,14 +1094,15 @@ useEffect(function() {
             ))}
           </div>
 
-          {/* Channel Filter */}
+          {/* Channel Filter — only shown on All/Messages tabs (not Calls/VM where it's redundant) */}
+          {(inboxTab === "all" || inboxTab === "messages") && (
           <div style={{ display: "flex", gap: 3, marginTop: 8 }}>
             <button onClick={() => setFilterChannel("all")} style={{
               background: filterChannel === "all" ? `${C.primary}22` : "transparent", border: "none",
               borderRadius: 4, padding: "3px 6px", fontSize: 10, cursor: "pointer",
               color: filterChannel === "all" ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600,
             }}>All</button>
-            {Object.entries(CHANNELS).map(([key, ch]) => (
+            {Object.entries(CHANNELS).filter(([key]) => key !== 'voice').map(([key, ch]) => (
               <button key={key} onClick={() => setFilterChannel(key)} title={ch.label} style={{
                 background: filterChannel === key ? `${ch.color}22` : "transparent", border: "none",
                 borderRadius: 4, padding: "3px 6px", fontSize: 12, cursor: "pointer",
@@ -1108,6 +1110,7 @@ useEffect(function() {
               }}>{ch.icon}</button>
             ))}
           </div>
+          )}
         </div>
 
         {/* Conversation List (Messages tab) */}
@@ -1119,7 +1122,7 @@ useEffect(function() {
             const isSelected = selectedConv?.id === conv.id;
 
             return (
-              <div key={conv.id} onClick={function() { if (selectMode) { toggleConvSelect(conv.id); return; } setSelectedConv(conv); if (isMobile) setMobileShowChat(true); openedConvIdsRef.current.add(conv.id); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id); supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('conversation_id', conv.id).eq('direction', 'inbound').is('read_at', null); } } }} style={{
+              <div key={conv.id} className="conv-card" onClick={function() { if (selectMode) { toggleConvSelect(conv.id); return; } setSelectedConv(conv); if (isMobile) setMobileShowChat(true); openedConvIdsRef.current.add(conv.id); if (conv.unread > 0) { setConversations(function(prev) { return prev.map(function(c) { return c.id === conv.id ? Object.assign({}, c, { unread: 0 }) : c; }); }); if (!demoMode && supabase) { supabase.from('conversations').update({ unread_count: 0 }).eq('id', conv.id); supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('conversation_id', conv.id).eq('direction', 'inbound').is('read_at', null); } } }} style={{
                 padding: "16px 16px", cursor: "pointer", transition: "background 0.15s",
                 background: selectedConvIds.indexOf(conv.id) > -1 ? C.primary + "18" : (isSelected ? C.primary + "15" : "transparent"),
                 borderLeft: selectedConvIds.indexOf(conv.id) > -1 ? "3px solid " + C.primary : (isSelected ? "3px solid " + C.primary : "3px solid transparent"),
@@ -1129,11 +1132,9 @@ useEffect(function() {
                 onMouseLeave={e => { if (!isSelected && selectedConvIds.indexOf(conv.id) < 0) e.currentTarget.style.background = "transparent"; }}
               >
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  {selectMode && (
-                    <div style={{ paddingTop: 12, flexShrink: 0 }}>
-                      <input type="checkbox" checked={selectedConvIds.indexOf(conv.id) > -1} onChange={function() { toggleConvSelect(conv.id); }} onClick={function(e) { e.stopPropagation(); }} style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.primary }} />
-                    </div>
-                  )}
+                  <div className="conv-checkbox" style={{ paddingTop: 12, flexShrink: 0, opacity: selectMode || selectedConvIds.indexOf(conv.id) > -1 ? 1 : 0, transition: 'opacity 0.15s' }}>
+                    <input type="checkbox" checked={selectedConvIds.indexOf(conv.id) > -1} onChange={function() { if (!selectMode) setSelectMode(true); toggleConvSelect(conv.id); }} onClick={function(e) { e.stopPropagation(); }} style={{ cursor: "pointer", width: 16, height: 16, accentColor: C.primary }} />
+                  </div>
                   {/* Avatar */}
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     <div style={{ width: 46, height: 46, borderRadius: "50%", background: `linear-gradient(135deg, ${ch.color}44, ${ch.color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: ch.color }}>{conv.contact.avatar}</div>
@@ -1305,11 +1306,11 @@ useEffect(function() {
           <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10 }}>{filtered.length} conversations</span>
             <div style={{ display: "flex", gap: 6 }}>
-              {(demoMode ? AGENTS.filter(function(a) { return a.status === "online"; }) : teamMembers).slice(0, 3).map(function(a) {
+              {(demoMode ? AGENTS.filter(function(a) { return a.status === "online"; }) : (teamMembers.length > 0 ? teamMembers : (userProfile ? [{ id: userProfile.id, name: userProfile.full_name || userProfile.email || 'You', avatar: (userProfile.full_name || 'Y').substring(0, 2).toUpperCase() }] : []))).slice(0, 3).map(function(a) {
                 return <div key={a.id} title={a.name} style={{ width: 22, height: 22, borderRadius: "50%", background: C.primary + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>;
               })}
               {teamMembers.length > 3 && !demoMode && <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>+{teamMembers.length - 3}</span>}
-              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>{demoMode ? "online" : teamMembers.length + " team"}</span>
+              <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, lineHeight: "22px" }}>{demoMode ? "online" : (teamMembers.length === 0 ? "Just you" : teamMembers.length + " team")}</span>
             </div>
           </div>
         )}
@@ -1356,7 +1357,9 @@ useEffect(function() {
                e.target.value = '';
              }} style={{ ...inputStyle, width: 130, padding: "6px 8px", fontSize: 11 }}>
                <option value="">Reassign...</option>
+               {teamMembers.length === 0 && <option disabled>No team members</option>}
                {teamMembers.map(function(m) { return <option key={m.id} value={m.id}>{m.name} ({m.role})</option>; })}
+               {userProfile && <option value={userProfile.id}>Assign to Me</option>}
                <option disabled>───────────</option>
                <option value="ai_bot">🤖 AI Bot</option>
              </select>
