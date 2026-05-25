@@ -1346,14 +1346,22 @@ useEffect(function() {
                if (!assigneeId || !selectedConv) return;
                try {
                  if (!demoMode && supabase) {
-                   await supabase.from('conversations').update({ assigned_to: assigneeId === 'ai_bot' ? null : assigneeId, status: 'active' }).eq('id', selectedConv.id);
+                   var rpcAssigneeId = assigneeId === 'ai_bot' ? '00000000-0000-0000-0000-000000000000' : assigneeId;
+                   var rpcResult = await supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: rpcAssigneeId });
+                   if (rpcResult.error) throw rpcResult.error;
                  }
                  setConversations(function(prev) { return prev.map(function(c) {
                    if (c.id !== selectedConv.id) return c;
                    var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : teamMembers.find(function(m) { return m.id === assigneeId; }) || null;
                    return Object.assign({}, c, { assignedTo: assignee });
                  }); });
-               } catch (err) { alert('Reassign failed: ' + err.message); }
+               } catch (err) {
+                 var msg = (err && err.message) || 'Unknown error';
+                 if (msg.includes('permissions')) msg = 'You do not have permission to reassign this conversation.';
+                 else if (msg.includes('not a member')) msg = 'The selected person is not a member of this tenant.';
+                 else msg = 'Failed to assign conversation — please try again.';
+                 alert(msg);
+               }
                e.target.value = '';
              }} style={{ ...inputStyle, width: 130, padding: "6px 8px", fontSize: 11 }}>
                <option value="">Reassign...</option>
@@ -1553,13 +1561,17 @@ useEffect(function() {
                     });
                   }},
                   { label: "Assign to AI", icon: "🤖", action: function() {
-                    if (supabase) supabase.from('conversations').update({ assigned_to: 'ai' }).eq('id', selectedConv.id).then(function() {
+                    if (supabase) supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: '00000000-0000-0000-0000-000000000000' }).then(function(r) {
+                      if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
                       setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } }) : prev; });
                     });
                   }},
                   { label: "Assign to Me", icon: "👤", action: function() {
-                    if (supabase) supabase.from('conversations').update({ assigned_to: 'rob' }).eq('id', selectedConv.id).then(function() {
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: 'rob', name: 'Rob Mumby', avatar: 'RM', status: 'online' } }) : prev; });
+                    if (supabase && userProfile) supabase.rpc('assign_conversation', { p_conversation_id: selectedConv.id, p_assignee_id: userProfile.id }).then(function(r) {
+                      if (r.error) { alert('Failed to assign: ' + r.error.message); return; }
+                      var myName = userProfile.full_name || userProfile.email || 'Me';
+                      var myInitials = myName.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: { id: userProfile.id, name: myName, avatar: myInitials, status: 'online' } }) : prev; });
                     });
                   }},
                   { label: "Block", icon: "🚫", action: function() {
