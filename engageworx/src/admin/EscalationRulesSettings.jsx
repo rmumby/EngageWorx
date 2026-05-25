@@ -34,17 +34,25 @@ export default function EscalationRulesSettings({ tenantId, C }) {
 
   useEffect(function() { loadRules(); }, [loadRules]);
 
-  // Load notify-eligible members for the action config
+  // Load notify-eligible members via service-role endpoint (RLS blocks cross-user reads on tenant_members)
   useEffect(function() {
     if (!tenantId) return;
-    supabase.from('tenant_members')
-      .select('id, user_id, notify_email, notify_on_escalation')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'active')
-      .then(function(r) {
-        var members = (r.data || []).filter(function(m) { return m.notify_email; });
+    (async function() {
+      try {
+        var session = await supabase.auth.getSession();
+        var token = session.data?.session?.access_token || '';
+        var resp = await fetch('/api/team/list?tenant_id=' + tenantId, {
+          headers: { 'Authorization': 'Bearer ' + token },
+        });
+        var data = await resp.json();
+        var members = (data.members || []).filter(function(m) { return m.notify_email; }).map(function(m) {
+          return { id: m.id, user_id: m.user_id, notify_email: m.notify_email, notify_on_escalation: m.notify_on_escalation, displayName: m.displayName || m.notify_email };
+        });
         setNotifyMembers(members);
-      });
+      } catch (e) {
+        console.warn('[EscalationRulesSettings] Failed to load team members:', e.message);
+      }
+    })();
   }, [tenantId]);
 
   async function handleToggleActive(rule) {
@@ -318,7 +326,7 @@ function RuleEditor({ rule, tenantId, colors, inputStyle, btnPrimary, btnSec, no
                                 var updated = selected ? current.filter(function(e) { return e !== m.notify_email; }) : current.concat([m.notify_email]);
                                 updateActionConfig('notify', 'recipients', updated);
                               }} />
-                              <span style={{ color: colors.text, fontSize: 12 }}>{m.notify_email}</span>
+                              <span style={{ color: colors.text, fontSize: 12 }}>{m.displayName && m.displayName !== m.notify_email ? m.displayName + ' — ' : ''}{m.notify_email}</span>
                             </label>;
                           })}
                         </div>
