@@ -65,8 +65,18 @@ export default function EscalationRulesSettings({ tenantId, C }) {
       } catch (e) {
         console.error('[EscalationRules] THREW:', e.message);
       }
-    })();
+      var data = await resp.json();
+      console.log('[EscalationRules] team/list returned', (data.members || []).length, 'members');
+      var members = (data.members || []).filter(function(m) { return m.notify_email; }).map(function(m) {
+        return { id: m.id, user_id: m.user_id, notify_email: m.notify_email, notify_on_escalation: m.notify_on_escalation || false, displayName: m.displayName || m.displayEmail || m.notify_email };
+      });
+      setNotifyMembers(members);
+    } catch (e) {
+      console.error('[EscalationRules] Failed to load team members:', e.message);
+    }
   }, [tenantId]);
+
+  useEffect(function() { loadNotifyMembers(); }, [loadNotifyMembers]);
 
   async function handleToggleActive(rule) {
     var session = await supabase.auth.getSession();
@@ -96,7 +106,7 @@ export default function EscalationRulesSettings({ tenantId, C }) {
   var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', color: colors.text, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' };
 
   if (editRule) {
-    return <RuleEditor rule={editRule} tenantId={tenantId} colors={colors} inputStyle={inputStyle} btnPrimary={btnPrimary} btnSec={btnSec} notifyMembers={notifyMembers} onSave={function() { setEditRule(null); loadRules(); }} onCancel={function() { setEditRule(null); }} />;
+    return <RuleEditor rule={editRule} tenantId={tenantId} colors={colors} inputStyle={inputStyle} btnPrimary={btnPrimary} btnSec={btnSec} notifyMembers={notifyMembers} loadNotifyMembers={loadNotifyMembers} onSave={function() { setEditRule(null); loadRules(); }} onCancel={function() { setEditRule(null); }} />;
   }
 
   return (
@@ -150,7 +160,11 @@ export default function EscalationRulesSettings({ tenantId, C }) {
   );
 }
 
-function RuleEditor({ rule, tenantId, colors, inputStyle, btnPrimary, btnSec, notifyMembers, onSave, onCancel }) {
+function RuleEditor({ rule, tenantId, colors, inputStyle, btnPrimary, btnSec, notifyMembers, loadNotifyMembers, onSave, onCancel }) {
+  // Retry loading members if parent didn't have them ready
+  useEffect(function() {
+    if (notifyMembers.length === 0 && loadNotifyMembers) loadNotifyMembers();
+  }, [notifyMembers.length, loadNotifyMembers]);
   var [form, setForm] = useState({
     rule_name: rule.rule_name || '',
     description: rule.description || '',
