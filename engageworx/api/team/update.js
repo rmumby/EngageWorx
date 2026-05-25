@@ -48,6 +48,21 @@ module.exports = async function handler(req, res) {
   if (body.sender_email_override !== undefined) memberUpdate.sender_email_override = body.sender_email_override || null;
   if (body.notify_on_escalation !== undefined) memberUpdate.notify_on_escalation = !!body.notify_on_escalation;
   if (body.notify_on_new_lead !== undefined) memberUpdate.notify_on_new_lead = !!body.notify_on_new_lead;
+  if (body.notify_email !== undefined) memberUpdate.notify_email = body.notify_email || null;
+
+  // Backfill notify_email from user_profiles.email when escalation is toggled on
+  if (body.notify_on_escalation === true) {
+    var { data: currentMember } = await supabase.from('tenant_members')
+      .select('notify_email').eq('tenant_id', tenantId).eq('user_id', targetUserId).maybeSingle();
+    if (currentMember && !currentMember.notify_email) {
+      var { data: targetProfile } = await supabase.from('user_profiles')
+        .select('email').eq('id', targetUserId).maybeSingle();
+      if (targetProfile && targetProfile.email) {
+        memberUpdate.notify_email = targetProfile.email;
+        console.log('[team/update] Backfilled notify_email from profile:', targetProfile.email);
+      }
+    }
+  }
 
   if (Object.keys(memberUpdate).length > 0) {
     var { error: memberErr } = await supabase.from('tenant_members').update(memberUpdate).eq('tenant_id', tenantId).eq('user_id', targetUserId);
