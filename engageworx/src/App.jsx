@@ -1857,7 +1857,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "analytics" && <AnalyticsDashboard C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
         {page === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} onNavigate={setPage} />}
         {page === "inbox" && <LiveInbox key="live-inbox-tenant" C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} supabase={supabase} userProfile={cpAuth && cpAuth.profile} />}
-        {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} />}
+        {page === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="tenant" currentTenantId={tenantId} demoMode={false} onNavigate={setPage} />}
         {page === "streaming-test" && customerType === 'internal' && <StreamingTest tenantId={tenantId} C={C} />}
         {page === "action-board" && <ActionBoard C={C} currentTenantId={tenantId} />}
         {page === "email-digest" && <EmailDigest C={C} currentTenantId={tenantId} />}
@@ -1870,7 +1870,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
-          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
         )}
         {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
         {page === "events" && eventsEnabled && <div style={{ padding: '32px 40px' }}><CoordinatorEvents tenantId={tenantId} C={C} /></div>}
@@ -2692,7 +2692,7 @@ var spNavBase = [
         {spPage === "campaigns" && <CampaignsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "contacts" && <ContactsModule C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "inbox" && <LiveInbox C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} supabase={supabase} />}
-        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId={process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387"} />}
+        {spPage === "chatbot" && <AIChatbot C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} currentTenantId={process.env.REACT_APP_SP_TENANT_ID || "c1bc59a8-5235-4921-9755-02514b574387"} onNavigate={setSpPage} />}
         {spPage === "blog" && <BlogAdmin C={C} />}
         {spPage === "flows" && <FlowBuilder C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} />}
         {spPage === "lead-scan" && (isSuperAdmin || (profile?.aup_accepted && profile?.kyc_status === 'approved')
@@ -2860,7 +2860,7 @@ var spNavBase = [
           }
           return <PlatformSettingsPage />;
         })()}
-        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "security", "alerts", "modules"]} />}
+        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} demoMode={demoMode} />

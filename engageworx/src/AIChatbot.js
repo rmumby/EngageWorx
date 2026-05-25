@@ -58,7 +58,7 @@ const DEMO_CONVERSATIONS = [
 // BOT_ANALYTICS removed — was hardcoded mock data (audit May 2026).
 // Real analytics will query conversations + messages tables scoped by tenant_id.
 
-export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true }) {
+export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, onNavigate }) {
   const [activeTab, setActiveTab] = useState("configure");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
   const [selectedLanguage, setSelectedLanguage] = useState("en_auto");
@@ -628,7 +628,7 @@ saveAIConfig(newSources);
               <div style={{ fontSize: 40, marginBottom: 12 }}>🚨</div>
               <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 8px" }}>Escalation Rules</h2>
               <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Escalation rules have moved to Settings for a better experience with multi-action support, test mode, and conversation pausing.</p>
-              <button onClick={function() { if (window.parent && window.parent !== window) { try { window.parent.postMessage({ type: 'navigate', page: 'settings', tab: 'escalation' }, '*'); } catch(e) {} } }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Go to Settings → Escalation Rules</button>
+              <button onClick={function() { if (onNavigate) onNavigate('settings'); }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Go to Settings → Escalation Rules</button>
             </div>
           )}
 
