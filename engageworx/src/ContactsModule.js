@@ -618,7 +618,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             if (!leadId) {
               // Create a minimal lead from the contact
               var contactRow = importRows.find(function(x) { return (x.email || '').trim().toLowerCase() === email; }) || {};
-              var name = ((contactRow.first_name || '') + ' ' + (contactRow.last_name || '')).trim() || email;
+              var name = ((contactRow.first_name || '') + ' ' + (contactRow.last_name || '')).trim() || null;
               var csvStageId = await getPipelineStageId(supabase, tid, STAGE_KEYS.LEAD);
               var newLead = await supabase.from('leads').insert({
                 tenant_id: tid, name: name, email: email, company: contactRow.company || '',
@@ -1761,7 +1761,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                         if (!leadId) {
                           var quickStageId = await getPipelineStageId(supabase, resolvedTenantId, STAGE_KEYS.LEAD);
                           var newLead = await supabase.from('leads').insert({
-                            tenant_id: resolvedTenantId, name: ((ct.firstName || '') + ' ' + (ct.lastName || '')).trim() || email,
+                            tenant_id: resolvedTenantId, name: ((ct.firstName || '') + ' ' + (ct.lastName || '')).trim() || null,
                             email: email || null, phone: phone || null, company: ct.company || null,
                             source: ct.source || 'contacts', pipeline_stage_id: quickStageId, type: 'Unknown',
                             last_activity_at: new Date().toISOString(),

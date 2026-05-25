@@ -336,15 +336,28 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (!isSPorCSP || !supabase || !resolvedTenantId) return;
     (async function() { try { var r = await supabase.from('tenants').select('brand_name, name').eq('id', resolvedTenantId).maybeSingle(); if (r.data) setTenantBrandName(r.data.brand_name || r.data.name || ''); } catch(e) {} })();
   }, [resolvedTenantId, isSPorCSP, supabase]);
-  // Load team members for the portal tenant (bottom bar avatars)
+  // Load real team members for the resolved tenant (used by Reassign dropdown + bottom bar)
+  // Two-step query: tenant_members first, then user_profiles batch lookup.
+  // The embedded join syntax user_profiles(...) fails silently when FK path is ambiguous.
   useEffect(function() {
     if (!supabase || !resolvedTenantId || demoMode) { setTeamMembers([]); return; }
     (async function() {
       try {
-        var r = await supabase.from('tenant_members').select('user_id, role, user_profiles(id, full_name, email, avatar_url)')
+        // Step 1: Get active team members for this tenant
+        var tmResult = await supabase.from('tenant_members').select('user_id, role')
           .eq('tenant_id', resolvedTenantId).eq('status', 'active').in('role', ['admin', 'agent', 'superadmin']);
-        var members = (r.data || []).map(function(m) {
-          var p = m.user_profiles || {};
+        var tmRows = tmResult.data || [];
+        if (tmRows.length === 0) { setTeamMembers([]); return; }
+
+        // Step 2: Batch load user_profiles for those user_ids
+        var userIds = tmRows.map(function(m) { return m.user_id; });
+        var upResult = await supabase.from('user_profiles').select('id, full_name, email, avatar_url')
+          .in('id', userIds);
+        var profileMap = {};
+        (upResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
+
+        var members = tmRows.map(function(m) {
+          var p = profileMap[m.user_id] || {};
           var name = p.full_name || p.email || 'Unknown';
           var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
           return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
