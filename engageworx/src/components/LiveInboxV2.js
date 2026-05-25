@@ -958,8 +958,9 @@ useEffect(function() {
   // Scroll effect removed - using the one at line 262
 
   const filtered = conversations.filter(conv => {
-    // Channel tab filter: Messages excludes voice, Calls excludes non-voice
+    // Channel tab filter: Messages excludes voice, Voicemails shows only voice+voicemail tag
     if (inboxTab === "messages" && conv.channel === "voice") return false;
+    if (inboxTab === "voicemails" && !(conv.channel === "voice" && conv.contact && conv.contact.tags && conv.contact.tags.includes("Voicemail"))) return false;
     if (filterChannel !== "all" && conv.channel !== filterChannel) return false;
     // Filter by status — "All" uses the hideResolved toggle; specific tabs show only that status
     if (filterStatus === "all") {
@@ -1045,6 +1046,7 @@ useEffect(function() {
               { id: "all", label: "💬 " + t('inbox.all') },
               { id: "messages", label: t('inbox.messages') },
               { id: "calls", label: "📞 " + t('inbox.calls') },
+              { id: "voicemails", label: "📩 VM" },
             ].map(tab => (
               <button key={tab.id} onClick={() => setInboxTab(tab.id)} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: inboxTab === tab.id ? `${C.primary}22` : "transparent", color: inboxTab === tab.id ? C.primary : "rgba(255,255,255,0.4)", transition: "all 0.2s" }}>{tab.label}</button>
             ))}
@@ -1091,7 +1093,7 @@ useEffect(function() {
         </div>
 
         {/* Conversation List (Messages tab) */}
-        {(inboxTab === "messages" || inboxTab === "all") && (<div style={{ flex: 1, overflowY: "auto" }}>
+        {(inboxTab === "messages" || inboxTab === "all" || inboxTab === "voicemails") && (<div style={{ flex: 1, overflowY: "auto" }}>
           {filtered.map(conv => {
             const msgs = conv.messages || [];
             const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : { from: 'system', text: conv.subject || 'New conversation', agent: null };
