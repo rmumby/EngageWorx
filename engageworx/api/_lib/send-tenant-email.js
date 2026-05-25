@@ -108,6 +108,21 @@ async function sendTenantEmail(supabase, opts) {
 
   if (tenantErr || !tenant) throw new Error('Tenant not found: ' + opts.tenant_id);
 
+  // Load channel_configs for email from_name override
+  var channelFromName = null;
+  var channelFromEmail = null;
+  try {
+    var { data: emailConfig } = await supabase.from('channel_configs')
+      .select('config_encrypted')
+      .eq('tenant_id', opts.tenant_id)
+      .eq('channel', 'email')
+      .maybeSingle();
+    if (emailConfig && emailConfig.config_encrypted) {
+      channelFromName = emailConfig.config_encrypted.from_name || null;
+      channelFromEmail = emailConfig.config_encrypted.from_email || null;
+    }
+  } catch (e) { /* non-fatal — fall through to tenant.name */ }
+
   // Build Reply-To for conversation threading
   var replyTo = opts.reply_to || opts.from || null;
   var threadId = null;
@@ -146,8 +161,8 @@ async function sendTenantEmail(supabase, opts) {
       console.error('[sendTenantEmail]', gmailErr);
       throw new Error(gmailErr);
     }
-    var gmailFrom = opts.from || gmailUser;
-    var gmailName = opts.from_name || tenant.name;
+    var gmailFrom = opts.from || channelFromEmail || gmailUser;
+    var gmailName = channelFromName || opts.from_name || tenant.name;
     var gmailResult = await sendViaSMTP(
       { host: 'smtp.gmail.com', port: 587, username: gmailUser, password_encrypted: gmailPass },
       gmailFrom, gmailName, sendOpts
@@ -165,7 +180,7 @@ async function sendTenantEmail(supabase, opts) {
       console.error('[sendTenantEmail]', smtpErr);
       throw new Error(smtpErr);
     }
-    var smtpName = tenant.smtp_config_encrypted.from_name || opts.from_name || tenant.name;
+    var smtpName = channelFromName || tenant.smtp_config_encrypted.from_name || opts.from_name || tenant.name;
     var smtpResult = await sendViaSMTP(tenant.smtp_config_encrypted, smtpFrom, smtpName, sendOpts);
     smtpResult.threadId = threadId;
     smtpResult.replyToAddress = replyTo;
@@ -174,8 +189,8 @@ async function sendTenantEmail(supabase, opts) {
 
   // Resend with verified domain: send from tenant's domain
   if (method === 'resend' && tenant.resend_domain_verified && tenant.resend_domain) {
-    var resendFrom = opts.from || ('hello@' + tenant.resend_domain);
-    var resendName = opts.from_name || tenant.name;
+    var resendFrom = opts.from || channelFromEmail || ('hello@' + tenant.resend_domain);
+    var resendName = channelFromName || opts.from_name || tenant.name;
     console.log('[sendTenantEmail] Resend path:', { resendFrom: resendFrom, resendName: resendName, resend_domain: tenant.resend_domain, opts_from: opts.from || '(none)' });
     var resendResult = await sendViaResend(resendFrom, resendName, sendOpts);
     resendResult.threadId = threadId;
