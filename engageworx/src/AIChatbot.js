@@ -89,7 +89,13 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   // Escalation state removed — managed via Settings → Escalation Rules tab
 
 
-  // Email signatures (per-tenant, stored on chatbot_configs)
+  // Email signatures (per-surface, stored on chatbot_configs)
+  var SIG_SURFACES = [
+    { id: 'wedding_concierge', label: 'Concierge' },
+    { id: 'wedding_enquiry', label: 'Enquiry' },
+    { id: 'wedding_supplier', label: 'Supplier' },
+  ];
+  const [sigSurface, setSigSurface] = useState('wedding_concierge');
   const [sigFromName, setSigFromName] = useState('');
   const [sigFirst, setSigFirst] = useState('');
   const [sigReply, setSigReply] = useState('');
@@ -99,45 +105,23 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [sigSaving, setSigSaving] = useState(false);
   const [sigSaved, setSigSaved] = useState(false);
 
+  // Load signature fields for the selected surface
   useEffect(() => {
     if (!currentTenantId || demoMode) return;
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
-        var { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).eq('surface', 'wedding_concierge').maybeSingle();
+        var { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).eq('surface', sigSurface).maybeSingle();
         if (!data) { var fallback = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).limit(1).maybeSingle(); data = fallback.data; }
-        if (data) {
-          if (data.email_from_name) setSigFromName(data.email_from_name);
-          if (data.email_signature_first) setSigFirst(data.email_signature_first);
-          if (data.email_signature_reply) setSigReply(data.email_signature_reply);
-          if (data.email_team_from_name) setTeamSigFromName(data.email_team_from_name);
-          if (data.email_team_signature_first) setTeamSigFirst(data.email_team_signature_first);
-          if (data.email_team_signature_reply) setTeamSigReply(data.email_team_signature_reply);
-        }
+        setSigFromName((data && data.email_from_name) || '');
+        setSigFirst((data && data.email_signature_first) || '');
+        setSigReply((data && data.email_signature_reply) || '');
+        setTeamSigFromName((data && data.email_team_from_name) || '');
+        setTeamSigFirst((data && data.email_team_signature_first) || '');
+        setTeamSigReply((data && data.email_team_signature_reply) || '');
       } catch (e) {}
     })();
-  }, [currentTenantId, demoMode]);
-
-  const saveSignatures = async () => {
-    if (!currentTenantId) { alert('No tenant context.'); return; }
-    setSigSaving(true);
-    try {
-      const { supabase } = await import('./supabaseClient');
-      // Update all surfaces for this tenant with the same signature config
-      var sigUpdate = {
-        email_from_name: sigFromName || null,
-        email_signature_first: sigFirst || null,
-        email_signature_reply: sigReply || null,
-        email_team_from_name: teamSigFromName || null,
-        email_team_signature_first: teamSigFirst || null,
-        email_team_signature_reply: teamSigReply || null,
-      };
-      await supabase.from('chatbot_configs').update(sigUpdate).eq('tenant_id', currentTenantId);
-      setSigSaved(true);
-      setTimeout(() => setSigSaved(false), 2000);
-    } catch (e) { alert('Error: ' + e.message); }
-    setSigSaving(false);
-  };
+  }, [currentTenantId, demoMode, sigSurface]);
 
   // loadEscalationRules removed — managed via Settings → Escalation Rules tab
 
@@ -224,10 +208,21 @@ if (existing.data) {
       };
       console.log('[AIChatbot] saving chatbot_configs:', JSON.stringify(cbPayload));
       await supabase.from('chatbot_configs').upsert(cbPayload, { onConflict: 'tenant_id' });
+      // Also persist signatures for the selected surface
+      var sigUpdate = {
+        email_from_name: sigFromName || null,
+        email_signature_first: sigFirst || null,
+        email_signature_reply: sigReply || null,
+        email_team_from_name: teamSigFromName || null,
+        email_team_signature_first: teamSigFirst || null,
+        email_team_signature_reply: teamSigReply || null,
+      };
+      await supabase.from('chatbot_configs').update(sigUpdate).eq('tenant_id', currentTenantId).eq('surface', sigSurface);
       setBotName(aiConfig.agentName);
       setConfigSaved(true);
+      setSigSaved(true);
       setKbUploadState("idle");
-      setTimeout(function() { setConfigSaved(false); }, 3000);
+      setTimeout(function() { setConfigSaved(false); setSigSaved(false); }, 3000);
     } catch (err) { setConfigError(err.message); }
   }
 
@@ -451,7 +446,12 @@ saveAIConfig(newSources);
 
                   <div style={card}>
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
-                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>Used in every outbound email. <strong>First</strong> signature is used for new outreach / sequence step 1. <strong>Reply</strong> signature is used for replies and sequence steps 2+. AI adds a contextual closing line (e.g. "Looking forward to connecting!") above the signature HTML automatically.</div>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Per-surface signatures. Select a surface below to edit its signature independently.</div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+                      {SIG_SURFACES.map(function(s) {
+                        return <button key={s.id} onClick={function() { setSigSurface(s.id); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: sigSurface === s.id ? (C.primary + "22") : "transparent", color: sigSurface === s.id ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}</button>;
+                      })}
+                    </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       {/* Personal */}
@@ -489,14 +489,11 @@ saveAIConfig(newSources);
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14 }}>
-                      <button onClick={saveSignatures} disabled={sigSaving || !currentTenantId} style={Object.assign({}, btnPrimary, { opacity: (sigSaving || !currentTenantId) ? 0.5 : 1 })}>{sigSaving ? 'Saving…' : 'Save Signatures'}</button>
-                      {sigSaved && <span style={{ color: "#00E676", fontSize: 13, fontWeight: 600 }}>✓ Saved — will be used on next outbound email</span>}
-                    </div>
+                    {sigSaved && <div style={{ color: "#00E676", fontSize: 12, fontWeight: 600, marginTop: 8 }}>✓ Signatures saved for {SIG_SURFACES.find(function(s) { return s.id === sigSurface; })?.label || sigSurface}</div>}
                   </div>
 
                   <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <button onClick={function() { if (!currentTenantId) { alert("Please log in to save your configuration."); return; } saveAIConfig(); }} style={btnPrimary}>Save Configuration</button>
+                    <button onClick={function() { if (!currentTenantId) { alert("Please log in to save your configuration."); return; } saveAIConfig(); }} style={btnPrimary}>Save changes</button>
                     {configSaved && <span style={{ color: "#00E676", fontSize: 13, fontWeight: 600 }}>✓ Saved successfully — your AI agent is updated across all channels</span>}
                     {configError && <span style={{ color: "#FF3B30", fontSize: 13 }}>{configError}</span>}
                     {demoMode && <span style={{ color: C.muted, fontSize: 12 }}>Demo mode — changes won't be saved</span>}
