@@ -80,10 +80,15 @@ async function resolvePlatformOwner(supabase, recipientTenantId) {
 
     if (!tenant) return null;
 
-    // Is this a platform owner type?
-    if (ownerTypes.indexOf(tenant.customer_type) >= 0) return tenant;
+    // Is this a platform owner type with a verified domain? Return it.
+    // If it's an owner type but has NO verified domain and HAS a parent, keep walking up.
+    if (ownerTypes.indexOf(tenant.customer_type) >= 0) {
+      if (tenant.platform_email_domain_verified) return tenant;
+      if (!tenant.parent_tenant_id) return tenant; // root with no domain — will fail at verification
+      // Unverified owner with parent — walk up to find a verified ancestor
+    }
 
-    // No parent? This is the root (EngageWorx)
+    // No parent? This is the root
     if (!tenant.parent_tenant_id) return tenant;
 
     // Walk up

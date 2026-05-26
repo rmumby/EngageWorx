@@ -38,6 +38,7 @@ module.exports = async function handler(req, res) {
   console.log('📋 [invite-tenant] Input:', { tenant_name: tenantName, admin: adminEmail, customer_type: customerType, plan: planSlug });
   var inviterTenantId = body.inviter_tenant_id || null;
   var phoneNumber = (body.phone_number || '').trim() || null;
+  var pipelineLeadId = body.pipeline_lead_id || null;
 
   if (!tenantName || !adminName || !adminEmail) {
     return res.status(400).json({ error: 'tenant_name, admin_full_name, admin_email required' });
@@ -95,6 +96,7 @@ module.exports = async function handler(req, res) {
       brand_primary: '#00C9FF',
       brand_secondary: '#E040FB',
       parent_tenant_id: inviterTenantId || null,
+      pipeline_lead_id: pipelineLeadId || null,
     }).select('id').single();
 
     if (tenantIns.error) {
@@ -102,7 +104,15 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create tenant: ' + tenantIns.error.message });
     }
     var newTenantId = tenantIns.data.id;
-    console.log('📋 Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
+    console.log('[invite-tenant] Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
+
+    // Link pipeline lead → tenant (if converting from pipeline)
+    if (pipelineLeadId) {
+      try {
+        await supabase.from('leads').update({ converted_tenant_id: newTenantId }).eq('id', pipelineLeadId);
+        console.log('[invite-tenant] Pipeline lead linked:', pipelineLeadId, '→', newTenantId);
+      } catch (linkErr) { console.warn('[invite-tenant] Lead link error (non-fatal):', linkErr.message); }
+    }
 
     // 2b. Auto-create phone_numbers row if phone number provided
     if (phoneNumber) {

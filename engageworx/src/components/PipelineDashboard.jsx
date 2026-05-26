@@ -614,10 +614,37 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
 
         {saveError && <div style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:"8px",padding:"10px 14px",marginBottom:"12px",color:"#ef4444",fontSize:"13px" }}>{saveError}</div>}
 
-        <div style={{ display:"flex",gap:"10px" }}>
+        <div style={{ display:"flex",gap:"10px",flexWrap:"wrap" }}>
           <button onClick={handleSave} disabled={saving} style={{ flex:1,padding:"12px",borderRadius:"8px",background:saving?"rgba(99,102,241,0.5)":"#6366f1",color:"#fff",fontWeight:700,fontSize:"14px",border:"none",cursor:"pointer" }}>
             {saving?"Saving...":"Save Lead"}
           </button>
+          {!isNew && (function() {
+            var currentStage = stages.find(function(s) { return s.id === form.stage; });
+            var isWon = currentStage && currentStage.stage_type === 'closed_won';
+            var alreadyConverted = lead.converted_tenant_id;
+            if (isWon && !alreadyConverted) {
+              return <button onClick={function() {
+                if (typeof window !== 'undefined' && window.__openInviteTenantFromLead) {
+                  window.__openInviteTenantFromLead({
+                    pipeline_lead_id: lead.id,
+                    tenant_name: form.company || '',
+                    admin_full_name: (firstName + ' ' + lastName).trim(),
+                    admin_email: form.email || '',
+                    phone_number: form.phone || '',
+                    website: form.website || '',
+                    notes: form.notes || '',
+                  });
+                  onClose();
+                } else {
+                  alert('Navigate to Tenant Management to invite this lead as a tenant.');
+                }
+              }} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(16,185,129,0.15)",color:"#10b981",fontWeight:700,fontSize:"13px",border:"1px solid rgba(16,185,129,0.3)",cursor:"pointer" }}>Convert to Tenant</button>;
+            }
+            if (alreadyConverted) {
+              return <span style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(16,185,129,0.08)",color:"#6b7280",fontSize:"12px",fontWeight:600 }}>Converted</span>;
+            }
+            return null;
+          })()}
           {!isNew && <button onClick={handleDelete} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(239,68,68,0.1)",color:"#ef4444",fontWeight:600,fontSize:"13px",border:"1px solid rgba(239,68,68,0.2)",cursor:"pointer" }}>Delete</button>}
           <button onClick={onClose} style={{ padding:"12px 16px",borderRadius:"8px",background:"rgba(255,255,255,0.05)",color:"#b0bec5",fontWeight:600,fontSize:"14px",border:"1px solid rgba(255,255,255,0.08)",cursor:"pointer" }}>Cancel</button>
         </div>
