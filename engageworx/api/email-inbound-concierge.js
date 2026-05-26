@@ -8,6 +8,7 @@ var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation');
+var { getSignature, composeHtmlBody, composeTextBody } = require('./_email-signature');
 
 function getSupabase() {
   return createClient(
@@ -458,21 +459,35 @@ module.exports = async function handler(req, res) {
   }
   cleanBody = strippedLines.join('\n').trim();
 
-  // ── 8. Send reply email ───────────────────────────────────────────────
+  // ── 8. Send reply email with signature ─────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
-  var replyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
+  var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
     cleanBody.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
     '</div>';
+
+  // Resolve tenant's configured email signature (uses chatbot_configs fields)
+  var sigInfo = { fromName: tenantName || 'Team', signatureHtml: '', closingLine: '' };
+  try {
+    sigInfo = await getSignature(supabase, {
+      tenantId: tenantId,
+      fromEmail: tenantSenderEmail || recipientEmail,
+      isFirstTouch: false,
+      closingKind: 'reply',
+    });
+  } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
+
+  var replyHtml = composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml);
+  var replyText = composeTextBody(cleanBody, sigInfo.closingLine, sigInfo.fromName);
 
   try {
     var sendResult = await sendTenantEmail(supabase, {
       tenant_id: tenantId,
       to: senderEmail,
       from: tenantSenderEmail || recipientEmail,
-      from_name: tenantName || 'Team',
+      from_name: sigInfo.fromName || tenantName || 'Team',
       subject: replySubject,
       html: replyHtml,
-      text: cleanBody,
+      text: replyText,
       reply_to: recipientEmail,
     });
     if (sendResult.blocked) {
