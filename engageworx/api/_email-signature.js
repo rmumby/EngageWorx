@@ -33,13 +33,13 @@ async function getSignature(supabase, params) {
   var team = isTeamAddress(fromEmail);
 
   var result = {
-    fromName: team ? 'The EngageWorx Team' : 'Rob Mumby',
+    fromName: team ? 'Team' : '',
     signatureHtml: '',
     closingLine: '',
   };
 
   if (!supabase || !tenantId) {
-    result.closingLine = params.closingOverride || defaultClosing(params.closingKind || (isFirstTouch ? 'first' : 'reply'), team ? null : 'Rob');
+    result.closingLine = params.closingOverride || defaultClosing(params.closingKind || (isFirstTouch ? 'first' : 'reply'), null);
     return result;
   }
 

@@ -506,7 +506,9 @@ module.exports = async function handler(req, res) {
     '<span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:' + brandColor + ';">' + (tenantName || '') + '</span>' +
     '</div>';
 
-  var replyHtml = headerHtml + bodyHtml;
+  // Compose: header + body + signature (if configured). No closingLine (AI body has its own sign-off).
+  var signatureBlock = sigInfo.signatureHtml ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;">' + sigInfo.signatureHtml + '</div>' : '';
+  var replyHtml = headerHtml + bodyHtml + signatureBlock;
   var replyText = cleanBody;
 
   try {
