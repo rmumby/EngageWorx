@@ -382,7 +382,26 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   const [showNew, setShowNew] = useState(false);
   const [showDemoForm, setShowDemoForm] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter', customer_type: '' });
+  const [inviteForm, setInviteForm] = useState({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter', customer_type: '', pipeline_lead_id: null });
+
+  // Global callback for Pipeline "Convert to Tenant" button
+  useEffect(function() {
+    window.__openInviteTenantFromLead = function(leadData) {
+      setInviteForm({
+        tenant_name: leadData.tenant_name || '',
+        admin_full_name: leadData.admin_full_name || '',
+        admin_email: leadData.admin_email || '',
+        website: leadData.website || '',
+        industry: '',
+        plan_slug: 'starter',
+        customer_type: '',
+        pipeline_lead_id: leadData.pipeline_lead_id || null,
+      });
+      setShowInvite(true);
+      setInviteResult(null);
+    };
+    return function() { delete window.__openInviteTenantFromLead; };
+  }, []);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
   const [invitePlans, setInvitePlans] = useState([]);
@@ -651,6 +670,12 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
       {showInvite && (
         <div style={{ background: "rgba(255,255,255,0.04)", border: '1px solid ' + C.primary + '44', borderRadius: 14, padding: 28, marginBottom: 24 }}>
           <h3 style={{ color: "#fff", margin: "0 0 20px" }}>🚀 Invite Tenant</h3>
+          {inviteForm.pipeline_lead_id && (
+            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8, padding: '8px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600 }}>Pre-filled from Pipeline lead: {inviteForm.tenant_name}</span>
+              <button onClick={function() { setInviteForm({ tenant_name: '', admin_full_name: '', admin_email: '', industry: '', website: '', plan_slug: 'starter', customer_type: '', pipeline_lead_id: null }); }} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 11 }}>Clear</button>
+            </div>
+          )}
           {inviteResult ? (
             <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: 20 }}>
               <div style={{ color: inviteResult.warnings && inviteResult.warnings.length > 0 ? '#eab308' : '#10b981', fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{inviteResult.warnings && inviteResult.warnings.length > 0 ? '⚠️ Tenant Created with Warnings' : '✅ Tenant Created Successfully'}</div>
