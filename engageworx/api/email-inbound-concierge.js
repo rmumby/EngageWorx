@@ -461,21 +461,52 @@ module.exports = async function handler(req, res) {
 
   // ── 8. Send reply email with signature ─────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
-  // Convert Markdown bold/italic and structure paragraphs properly
-  var htmlContent = cleanBody.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>').trim();
-  var paragraphs = htmlContent.split(/\n\n+/).filter(function(p) { return p.trim(); });
-  var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
-    paragraphs.map(function(p) { p = p.replace(/\n/g, '<br>'); return p.indexOf('<li>') !== -1 ? '<ul style="margin:8px 0;padding-left:20px;">' + p + '</ul>' : '<p style="margin:0 0 12px;">' + p + '</p>'; }).join('') +
-    '</div>';
+  // Convert Markdown to HTML: bold, italic, then group consecutive bullet lines into <ul> blocks
+  var mdLines = cleanBody.split('\n');
+  var htmlLines = [];
+  var inList = false;
+  for (var li = 0; li < mdLines.length; li++) {
+    var line = mdLines[li].replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+    var bulletMatch = line.match(/^[-•]\s+(.+)$/);
+    if (bulletMatch) {
+      if (!inList) { htmlLines.push('<ul style="margin:4px 0 8px;padding-left:20px;">'); inList = true; }
+      htmlLines.push('<li style="margin:0 0 2px;">' + bulletMatch[1] + '</li>');
+    } else {
+      if (inList) { htmlLines.push('</ul>'); inList = false; }
+      htmlLines.push(line);
+    }
+  }
+  if (inList) htmlLines.push('</ul>');
 
-  // Concierge AI replies include their own sign-off. Skip template signature to avoid double sign-off.
-  // Only resolve fromName for the From header.
+  // Group into paragraphs on double-newline boundaries
+  var joined = htmlLines.join('\n');
+  var paragraphs = joined.split(/\n\n+/).filter(function(p) { return p.trim(); });
+  var bodyContent = paragraphs.map(function(p) {
+    p = p.trim();
+    if (p.indexOf('<ul') !== -1) return p;
+    return '<p style="margin:0 0 10px;">' + p.replace(/\n/g, '<br>') + '</p>';
+  }).join('');
+
+  // Wrap in flush-left body div (no side padding — matches quoted email alignment)
+  var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0;color:#1e293b;font-size:15px;line-height:1.75;">' + bodyContent + '</div>';
+
+  // Resolve fromName for the From header. Skip template signature (AI body includes its own sign-off).
   var sigInfo = { fromName: tenantName || 'Team', signatureHtml: '', closingLine: '' };
   try {
     sigInfo = await getSignature(supabase, { tenantId: tenantId, fromEmail: tenantSenderEmail || recipientEmail, isFirstTouch: false, closingKind: 'none' });
   } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
 
-  var replyHtml = bodyHtml;
+  // Header: tenant branding bar (logo-free, just name + accent line)
+  var brandColor = '#1e293b';
+  try {
+    var { data: brandData } = await supabase.from('tenants').select('brand_primary').eq('id', tenantId).maybeSingle();
+    if (brandData && brandData.brand_primary) brandColor = brandData.brand_primary;
+  } catch (e) {}
+  var headerHtml = '<div style="border-bottom:3px solid ' + brandColor + ';padding:0 0 10px;margin:0 0 16px;">' +
+    '<span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:' + brandColor + ';">' + (tenantName || '') + '</span>' +
+    '</div>';
+
+  var replyHtml = headerHtml + bodyHtml;
   var replyText = cleanBody;
 
   try {
