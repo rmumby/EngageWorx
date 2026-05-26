@@ -461,23 +461,22 @@ module.exports = async function handler(req, res) {
 
   // ── 8. Send reply email with signature ─────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
+  // Convert Markdown bold/italic and structure paragraphs properly
+  var htmlContent = cleanBody.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>').replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>').trim();
+  var paragraphs = htmlContent.split(/\n\n+/).filter(function(p) { return p.trim(); });
   var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
-    cleanBody.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
+    paragraphs.map(function(p) { p = p.replace(/\n/g, '<br>'); return p.indexOf('<li>') !== -1 ? '<ul style="margin:8px 0;padding-left:20px;">' + p + '</ul>' : '<p style="margin:0 0 12px;">' + p + '</p>'; }).join('') +
     '</div>';
 
-  // Resolve tenant's configured email signature (uses chatbot_configs fields)
+  // Concierge AI replies include their own sign-off. Skip template signature to avoid double sign-off.
+  // Only resolve fromName for the From header.
   var sigInfo = { fromName: tenantName || 'Team', signatureHtml: '', closingLine: '' };
   try {
-    sigInfo = await getSignature(supabase, {
-      tenantId: tenantId,
-      fromEmail: tenantSenderEmail || recipientEmail,
-      isFirstTouch: false,
-      closingKind: 'reply',
-    });
+    sigInfo = await getSignature(supabase, { tenantId: tenantId, fromEmail: tenantSenderEmail || recipientEmail, isFirstTouch: false, closingKind: 'none' });
   } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
 
-  var replyHtml = composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml);
-  var replyText = composeTextBody(cleanBody, sigInfo.closingLine, sigInfo.fromName);
+  var replyHtml = bodyHtml;
+  var replyText = cleanBody;
 
   try {
     var sendResult = await sendTenantEmail(supabase, {
