@@ -15,7 +15,8 @@ function getSupabase() {
   );
 }
 
-async function verifyAuth(supabase, req, tenantId) {
+async function verifyAuth(supabase, req, tenantId, opts) {
+  var requireAdmin = opts && opts.requireAdmin;
   var authHeader = req.headers.authorization || '';
   var token = authHeader.replace('Bearer ', '');
   if (!token) return { error: 'Missing auth token', status: 401 };
@@ -23,10 +24,12 @@ async function verifyAuth(supabase, req, tenantId) {
   if (authErr || !user) return { error: 'Invalid auth token', status: 401 };
   var { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle();
   var isSA = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
-  if (!isSA) {
-    var { data: mem } = await supabase.from('tenant_members')
-      .select('id, role').eq('tenant_id', tenantId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
-    if (!mem) return { error: 'Not authorized', status: 403 };
+  if (isSA) return { user: user };
+  var { data: mem } = await supabase.from('tenant_members')
+    .select('id, role').eq('tenant_id', tenantId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+  if (!mem) return { error: 'Not authorized', status: 403 };
+  if (requireAdmin && mem.role !== 'admin' && mem.role !== 'owner') {
+    return { error: 'Admin or owner role required', status: 403 };
   }
   return { user: user };
 }
@@ -60,7 +63,7 @@ module.exports = async function handler(req, res) {
     if (!tenantId2) return res.status(400).json({ error: 'tenant_id required' });
     if (!body.title) return res.status(400).json({ error: 'title required' });
     if (!body.content) return res.status(400).json({ error: 'content required' });
-    var auth2 = await verifyAuth(supabase, req, tenantId2);
+    var auth2 = await verifyAuth(supabase, req, tenantId2, { requireAdmin: true });
     if (auth2.error) return res.status(auth2.status).json({ error: auth2.error });
     var { data: article, error: insertErr } = await supabase.from('wedding_kb_articles').insert({
       tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(),
@@ -77,7 +80,7 @@ module.exports = async function handler(req, res) {
     var { data: existing, error: findErr } = await supabase.from('wedding_kb_articles')
       .select('id, tenant_id').eq('id', articleId).maybeSingle();
     if (findErr || !existing) return res.status(404).json({ error: 'Article not found' });
-    var authPut = await verifyAuth(supabase, req, existing.tenant_id);
+    var authPut = await verifyAuth(supabase, req, existing.tenant_id, { requireAdmin: true });
     if (authPut.error) return res.status(authPut.status).json({ error: authPut.error });
     var updates = { updated_at: new Date().toISOString() };
     if (body.title !== undefined) updates.title = body.title.trim();
@@ -96,7 +99,7 @@ module.exports = async function handler(req, res) {
       var { data: sampleArticle } = await supabase.from('wedding_kb_articles')
         .select('tenant_id').eq('source_document_id', body.source_document_id).limit(1).maybeSingle();
       if (!sampleArticle) return res.status(404).json({ error: 'No articles for this source' });
-      var authBulk = await verifyAuth(supabase, req, sampleArticle.tenant_id);
+      var authBulk = await verifyAuth(supabase, req, sampleArticle.tenant_id, { requireAdmin: true });
       if (authBulk.error) return res.status(authBulk.status).json({ error: authBulk.error });
       var { error: bulkErr } = await supabase.from('wedding_kb_articles')
         .delete().eq('source_document_id', body.source_document_id);
@@ -109,7 +112,7 @@ module.exports = async function handler(req, res) {
     var { data: delArticle, error: delFindErr } = await supabase.from('wedding_kb_articles')
       .select('id, tenant_id, title').eq('id', delId).maybeSingle();
     if (delFindErr || !delArticle) return res.status(404).json({ error: 'Article not found' });
-    var authDel = await verifyAuth(supabase, req, delArticle.tenant_id);
+    var authDel = await verifyAuth(supabase, req, delArticle.tenant_id, { requireAdmin: true });
     if (authDel.error) return res.status(authDel.status).json({ error: authDel.error });
     var { error: delErr } = await supabase.from('wedding_kb_articles').delete().eq('id', delId);
     if (delErr) return res.status(500).json({ error: delErr.message });

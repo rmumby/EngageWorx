@@ -18,7 +18,8 @@ var EDITABLE_FIELDS = [
   'personality_preset', 'language', 'temperature',
 ];
 
-async function verifyAuth(supabase, req, tenantId) {
+async function verifyAuth(supabase, req, tenantId, opts) {
+  var requireAdmin = opts && opts.requireAdmin;
   var authHeader = req.headers.authorization || '';
   var token = authHeader.replace('Bearer ', '');
   if (!token) return { error: 'Missing auth token', status: 401 };
@@ -27,10 +28,12 @@ async function verifyAuth(supabase, req, tenantId) {
 
   var { data: profile } = await supabase.from('user_profiles').select('role').eq('id', user.id).maybeSingle();
   var isSA = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
-  if (!isSA) {
-    var { data: mem } = await supabase.from('tenant_members')
-      .select('id, role').eq('tenant_id', tenantId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
-    if (!mem) return { error: 'Not authorized', status: 403 };
+  if (isSA) return { user: user };
+  var { data: mem } = await supabase.from('tenant_members')
+    .select('id, role').eq('tenant_id', tenantId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+  if (!mem) return { error: 'Not authorized', status: 403 };
+  if (requireAdmin && mem.role !== 'admin' && mem.role !== 'owner') {
+    return { error: 'Admin or owner role required', status: 403 };
   }
   return { user: user };
 }
@@ -69,7 +72,7 @@ module.exports = async function handler(req, res) {
     var surface2 = body.surface || 'wedding_concierge';
     if (!tenantId2) return res.status(400).json({ error: 'tenant_id required' });
 
-    var auth2 = await verifyAuth(supabase, req, tenantId2);
+    var auth2 = await verifyAuth(supabase, req, tenantId2, { requireAdmin: true });
     if (auth2.error) return res.status(auth2.status).json({ error: auth2.error });
 
     var updates = {};
