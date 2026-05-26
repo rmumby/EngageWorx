@@ -86,9 +86,24 @@ function composeTextBody(bodyText, closingLine, fromName) {
   return parts.join('\n\n');
 }
 
+
+// Convert common markdown patterns in AI-generated text to HTML.
+// Handles: **bold**, *italic*, [link](url). Does NOT process headers, lists, or code blocks.
+function markdownToHtml(text) {
+  if (!text) return text;
+  var html = text;
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  html = html.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#0077B6;text-decoration:underline;">$1</a>');
+  return html;
+}
+
 module.exports = {
   getSignature: getSignature,
   composeHtmlBody: composeHtmlBody,
   composeTextBody: composeTextBody,
   isTeamAddress: isTeamAddress,
+  markdownToHtml: markdownToHtml,
 };
