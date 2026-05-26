@@ -1,16 +1,18 @@
 // api/_lib/assemble-system-prompt.js — Build system prompt from structured fields
-// Falls back to legacy system_prompt if no structured fields are populated.
+// Falls back to legacy system_prompt unless ALL five structured fields are populated.
+// This prevents partial configs from silently replacing a carefully-tuned legacy prompt.
 // Used by wedding-concierge.js and build-system-prompt.js.
 
 function assembleSystemPrompt(config) {
   if (!config) return null;
 
-  // Check if ANY structured field is populated
-  var hasStructured = config.ai_persona || config.ai_voice || config.ai_scope ||
-    config.ai_escalation_instructions || config.ai_custom_instructions;
+  // ALL five structured fields must be populated to use structured assembly.
+  // If any field is missing, fall back to legacy system_prompt unchanged.
+  // This protects tenants with tuned legacy prompts from accidental regression.
+  var hasAllStructured = config.ai_persona && config.ai_voice && config.ai_scope &&
+    config.ai_escalation_instructions && config.ai_custom_instructions;
 
-  if (!hasStructured) {
-    // Fall back to legacy system_prompt
+  if (!hasAllStructured) {
     return config.system_prompt || null;
   }
 
