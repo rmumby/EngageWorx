@@ -13,6 +13,7 @@ function isTeamAddress(fromEmail) {
   if (e.indexOf('support@') === 0) return true;
   if (e.indexOf('team@') === 0) return true;
   if (e.indexOf('info@') === 0) return true;
+  if (e.indexOf('weddings@') === 0) return true;
   return false;
 }
 
