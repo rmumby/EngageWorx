@@ -66,7 +66,8 @@ describe('getSignature for concierge emails', function() {
   });
 
   test('concierge address is classified as team address', function() {
-    expect(isTeamAddress('weddings@delameremanor.co.uk')).toBe(false); // 'weddings@' not in team list
+    expect(isTeamAddress('weddings@delameremanor.co.uk')).toBe(true);
+    expect(isTeamAddress('weddings@anydomain.com')).toBe(true);
     expect(isTeamAddress('hello@delameremanor.co.uk')).toBe(true);
     expect(isTeamAddress('support@tenant.com')).toBe(true);
   });
