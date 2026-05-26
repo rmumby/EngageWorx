@@ -90,10 +90,10 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
 
 
   // Email signatures (per-tenant, stored on chatbot_configs)
-  const [sigFromName, setSigFromName] = useState('Rob Mumby');
+  const [sigFromName, setSigFromName] = useState('');
   const [sigFirst, setSigFirst] = useState('');
   const [sigReply, setSigReply] = useState('');
-  const [teamSigFromName, setTeamSigFromName] = useState('The EngageWorx Team');
+  const [teamSigFromName, setTeamSigFromName] = useState('');
   const [teamSigFirst, setTeamSigFirst] = useState('');
   const [teamSigReply, setTeamSigReply] = useState('');
   const [sigSaving, setSigSaving] = useState(false);
@@ -104,7 +104,8 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
-        const { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).maybeSingle();
+        var { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).eq('surface', 'wedding_concierge').maybeSingle();
+        if (!data) { var fallback = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).limit(1).maybeSingle(); data = fallback.data; }
         if (data) {
           if (data.email_from_name) setSigFromName(data.email_from_name);
           if (data.email_signature_first) setSigFirst(data.email_signature_first);
@@ -122,15 +123,16 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     setSigSaving(true);
     try {
       const { supabase } = await import('./supabaseClient');
-      await supabase.from('chatbot_configs').upsert({
-        tenant_id: currentTenantId,
+      // Update all surfaces for this tenant with the same signature config
+      var sigUpdate = {
         email_from_name: sigFromName || null,
         email_signature_first: sigFirst || null,
         email_signature_reply: sigReply || null,
         email_team_from_name: teamSigFromName || null,
         email_team_signature_first: teamSigFirst || null,
         email_team_signature_reply: teamSigReply || null,
-      }, { onConflict: 'tenant_id' });
+      };
+      await supabase.from('chatbot_configs').update(sigUpdate).eq('tenant_id', currentTenantId);
       setSigSaved(true);
       setTimeout(() => setSigSaved(false), 2000);
     } catch (e) { alert('Error: ' + e.message); }
@@ -456,7 +458,7 @@ saveAIConfig(newSources);
                       <div style={{ background: "rgba(0,201,255,0.04)", border: "1px solid rgba(0,201,255,0.2)", borderRadius: 10, padding: 14 }}>
                         <div style={{ color: "#00C9FF", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>🧑 Personal</div>
                         <label style={label}>From name</label>
-                        <input value={sigFromName} onChange={e => setSigFromName(e.target.value)} style={inputStyle} />
+                        <input value={sigFromName} onChange={e => setSigFromName(e.target.value)} placeholder="Your name" style={inputStyle} />
                         <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
                         <textarea value={sigFirst} onChange={e => setSigFirst(e.target.value)} rows={8} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
                         <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
@@ -473,7 +475,7 @@ saveAIConfig(newSources);
                       <div style={{ background: "rgba(224,64,251,0.04)", border: "1px solid rgba(224,64,251,0.2)", borderRadius: 10, padding: 14 }}>
                         <div style={{ color: "#E040FB", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 10 }}>{'🤖 Team / ' + (botName || 'AI')}</div>
                         <label style={label}>From name</label>
-                        <input value={teamSigFromName} onChange={e => setTeamSigFromName(e.target.value)} style={inputStyle} />
+                        <input value={teamSigFromName} onChange={e => setTeamSigFromName(e.target.value)} placeholder="Your team name" style={inputStyle} />
                         <label style={Object.assign({}, label, { marginTop: 12, display: 'block' })}>First email signature (HTML)</label>
                         <textarea value={teamSigFirst} onChange={e => setTeamSigFirst(e.target.value)} rows={8} style={Object.assign({}, inputStyle, { fontFamily: 'monospace', fontSize: 11, resize: 'vertical' })} />
                         <div style={{ marginTop: 6, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, overflow: 'hidden' }}>
