@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
 // EscalationRulesConfig removed — escalation rules now managed via Settings → Escalation Rules tab
-import TenantKnowledgeDocuments from "./admin/TenantKnowledgeDocuments";
+import KBArticleEditor from "./admin/KBArticleEditor";
 
 var LANGUAGE_OPTIONS = [
   { id: 'en_auto', name: 'English (auto-detect non-English)' },
@@ -618,7 +618,7 @@ saveAIConfig(newSources);
                 </div>
               </div>
 
-              <TenantKnowledgeDocuments tenantId={currentTenantId} C={C} />
+              <KBArticleEditor tenantId={currentTenantId} C={C} />
             </div>
           )}
 
