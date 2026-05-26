@@ -67,7 +67,8 @@ export default function PlatformUpdates({ C }) {
   async function togglePublish(u) {
     try {
       var next = u.published_at ? null : new Date().toISOString();
-      await supabase.from('platform_updates').update({ published_at: next }).eq('id', u.id);
+      var nextStatus = next ? 'published' : 'draft';
+      await supabase.from('platform_updates').update({ published_at: next, status: nextStatus }).eq('id', u.id);
       await load();
     } catch (e) { alert('Error: ' + e.message); }
   }

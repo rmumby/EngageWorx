@@ -9,6 +9,7 @@ import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
 import BrandingEditor from './BrandingEditor';
 import EscalationRulesSettings from './admin/EscalationRulesSettings';
+import KBArticleEditor from './admin/KBArticleEditor';
 import GmailConnect from './GmailConnect';
 import { getToggleableModules, MODULE_CATEGORIES } from './lib/modules';
 
@@ -1032,6 +1033,7 @@ return (<div>
           { id: "webhooks", label: t('settings.webhooks'), icon: "🔗" },
           { id: "branding", label: "Branding", icon: "🎨" },
           { id: "escalation", label: "Escalation Rules", icon: "🚨" },
+          { id: "knowledge-base", label: "Knowledge Base", icon: "📚" },
         ].filter(tab => !allowedTabs || allowedTabs.includes(tab.id)).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ background: activeTab === tab.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === tab.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 16px", color: activeTab === tab.id ? "#000" : C.muted, fontWeight: activeTab === tab.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", whiteSpace: "nowrap" }}>{tab.icon} {tab.label}</button>
         ))}
@@ -1996,6 +1998,9 @@ return (<div>
       )}
       {activeTab === "escalation" && (
         <EscalationRulesSettings tenantId={resolvedTenantId || currentTenantId} C={C} />
+      )}
+      {activeTab === "knowledge-base" && (
+        <KBArticleEditor tenantId={resolvedTenantId || currentTenantId} C={C} />
       )}
     {showEmailWizard && (
       <EmailSetupWizard

@@ -3,6 +3,7 @@
 // Loads chatbot config + KB + couple context, calls Anthropic, returns response + prefix
 
 var { createClient } = require('@supabase/supabase-js');
+var { assembleSystemPrompt } = require('./_lib/assemble-system-prompt');
 
 function getSupabase() {
   return createClient(
@@ -49,9 +50,9 @@ async function generateConciergeResponse(supabase, opts) {
   var userMessage = opts.userMessage;
   var contactMeta = opts.contactMeta || {};
 
-  // 1. Load chatbot config
+  // 1. Load chatbot config (structured fields + legacy system_prompt)
   var { data: config } = await supabase.from('chatbot_configs')
-    .select('system_prompt, tenant_business_context, ai_model, max_tokens')
+    .select('system_prompt, tenant_business_context, ai_model, max_tokens, ai_persona, ai_voice, ai_scope, ai_escalation_instructions, ai_custom_instructions, coordinator_names')
     .eq('tenant_id', tenantId)
     .eq('surface', surface)
     .maybeSingle();
@@ -146,8 +147,8 @@ async function generateConciergeResponse(supabase, opts) {
     }
   }
 
-  // 5. Compose system prompt
-  var systemPrompt = config.system_prompt || '';
+  // 5. Compose system prompt (structured fields → legacy fallback)
+  var systemPrompt = assembleSystemPrompt(config) || '';
   if (config.tenant_business_context) {
     systemPrompt += '\n\n--- VENUE FACTS ---\n' + config.tenant_business_context;
   }
