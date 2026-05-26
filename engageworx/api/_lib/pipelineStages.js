@@ -1,5 +1,19 @@
 // api/_lib/pipelineStages.js — Pipeline stage constants + resolver (CommonJS)
 // Single source of truth for stage_key values. Used by API/cron handlers.
+//
+// Uses a service-role client for the stage lookup. Stages are config (not
+// customer data), the query is tenant-scoped by the tenantId parameter, and
+// the alternative — relaxing RLS on pipeline_stages to allow SP admins
+// cross-tenant reads — is a much wider blast radius. This approach keeps
+// RLS tight while allowing SP admin operations like cross-tenant contact
+// conversion to resolve the correct pipeline_stage_id.
+
+var { createClient } = require('@supabase/supabase-js');
+
+var serviceClient = createClient(
+  process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 const STAGE_KEYS = {
   LEAD: 'lead',
@@ -17,13 +31,13 @@ const STAGE_KEYS = {
 // In-memory cache: key = `${tenantId}:${stageKey}` → UUID
 var stageIdCache = {};
 
-async function getPipelineStageId(supabase, tenantId, stageKey) {
+async function getPipelineStageId(_supabase, tenantId, stageKey) {
   if (!tenantId || !stageKey) throw new Error('getPipelineStageId: tenantId and stageKey are required');
 
   var cacheKey = tenantId + ':' + stageKey;
   if (stageIdCache[cacheKey]) return stageIdCache[cacheKey];
 
-  var { data, error } = await supabase
+  var { data, error } = await serviceClient
     .from('pipeline_stages')
     .select('id')
     .eq('tenant_id', tenantId)
