@@ -461,8 +461,19 @@ module.exports = async function handler(req, res) {
 
   // ── 8. Send reply email with signature ─────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
+  // Convert Markdown bold/italic + paragraph breaks to proper HTML
+  var htmlContent = cleanBody
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>')
+    .trim();
+  var paragraphs = htmlContent.split(/\n\n+/).filter(function(p) { return p.trim(); });
   var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
-    cleanBody.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') +
+    paragraphs.map(function(p) {
+      p = p.replace(/\n/g, '<br>');
+      if (p.indexOf('<li>') !== -1) return '<ul style="margin:8px 0;padding-left:20px;">' + p + '</ul>';
+      return '<p style="margin:0 0 12px;">' + p + '</p>';
+    }).join('') +
     '</div>';
 
   // Resolve tenant's configured email signature (uses chatbot_configs fields)
@@ -472,7 +483,7 @@ module.exports = async function handler(req, res) {
       tenantId: tenantId,
       fromEmail: tenantSenderEmail || recipientEmail,
       isFirstTouch: false,
-      closingKind: 'reply',
+      closingKind: 'none',
     });
   } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
 

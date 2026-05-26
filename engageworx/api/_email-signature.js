@@ -18,7 +18,8 @@ function isTeamAddress(fromEmail) {
 }
 
 function defaultClosing(kind, firstName) {
-  // kind: 'first' | 'reply' | 'followup'
+  // kind: 'first' | 'reply' | 'followup' | 'none'
+  if (kind === 'none' || kind === null) return '';
   if (kind === 'first') return 'Looking forward to connecting!';
   if (kind === 'followup') return 'Just checking in —';
   // reply
