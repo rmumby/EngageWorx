@@ -8,6 +8,8 @@
 
 var { createClient } = require('@supabase/supabase-js');
 
+var ALLOWED_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier'];
+
 function getSupabase() {
   return createClient(
     process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -63,11 +65,13 @@ module.exports = async function handler(req, res) {
     if (!tenantId2) return res.status(400).json({ error: 'tenant_id required' });
     if (!body.title) return res.status(400).json({ error: 'title required' });
     if (!body.content) return res.status(400).json({ error: 'content required' });
+    var postSurface = body.surface || 'wedding_concierge';
+    if (ALLOWED_SURFACES.indexOf(postSurface) === -1) return res.status(400).json({ error: 'Invalid surface. Allowed: ' + ALLOWED_SURFACES.join(', ') });
     var auth2 = await verifyAuth(supabase, req, tenantId2, { requireAdmin: true });
     if (auth2.error) return res.status(auth2.status).json({ error: auth2.error });
     var { data: article, error: insertErr } = await supabase.from('wedding_kb_articles').insert({
       tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(),
-      surface: body.surface || 'concierge', is_published: body.is_published !== false, source_document_id: null,
+      surface: postSurface, is_published: body.is_published !== false, source_document_id: null,
     }).select('*').single();
     if (insertErr) return res.status(500).json({ error: insertErr.message });
     console.log('[kb-articles] Created:', { id: article.id, title: article.title, tenant: tenantId2 });
@@ -86,7 +90,10 @@ module.exports = async function handler(req, res) {
     if (body.title !== undefined) updates.title = body.title.trim();
     if (body.content !== undefined) updates.content = body.content.trim();
     if (body.is_published !== undefined) updates.is_published = body.is_published;
-    if (body.surface !== undefined) updates.surface = body.surface;
+    if (body.surface !== undefined) {
+      if (ALLOWED_SURFACES.indexOf(body.surface) === -1) return res.status(400).json({ error: 'Invalid surface. Allowed: ' + ALLOWED_SURFACES.join(', ') });
+      updates.surface = body.surface;
+    }
     var { data: updated, error: updateErr } = await supabase.from('wedding_kb_articles')
       .update(updates).eq('id', articleId).select('*').single();
     if (updateErr) return res.status(500).json({ error: updateErr.message });

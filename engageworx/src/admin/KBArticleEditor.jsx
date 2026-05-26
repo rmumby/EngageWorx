@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
 var SURFACES = [
-  { id: 'concierge', label: 'Concierge' },
-  { id: 'enquiry', label: 'Enquiry' },
-  { id: 'supplier', label: 'Supplier' },
+  { id: 'wedding_concierge', label: 'Concierge' },
+  { id: 'wedding_enquiry', label: 'Enquiry' },
+  { id: 'wedding_supplier', label: 'Supplier' },
 ];
 
 function sourceLabel(article) {
@@ -20,7 +20,7 @@ export default function KBArticleEditor({ tenantId, C }) {
   var [editId, setEditId] = useState(null);
   var [editTitle, setEditTitle] = useState('');
   var [editContent, setEditContent] = useState('');
-  var [editSurface, setEditSurface] = useState('concierge');
+  var [editSurface, setEditSurface] = useState('wedding_concierge');
   var [editPublished, setEditPublished] = useState(true);
   var [saving, setSaving] = useState(false);
   var [error, setError] = useState('');
@@ -55,7 +55,7 @@ export default function KBArticleEditor({ tenantId, C }) {
   });
 
   function startEdit(article) { setEditId(article.id); setEditTitle(article.title); setEditContent(article.content); setEditSurface(article.surface); setEditPublished(article.is_published); setShowCreate(false); setError(''); }
-  function startCreate() { setEditId('_new'); setEditTitle(''); setEditContent(''); setEditSurface('concierge'); setEditPublished(true); setShowCreate(true); setError(''); }
+  function startCreate() { setEditId('_new'); setEditTitle(''); setEditContent(''); setEditSurface(filterSurface !== 'all' ? filterSurface : 'wedding_concierge'); setEditPublished(true); setShowCreate(true); setError(''); }
   function cancelEdit() { setEditId(null); setShowCreate(false); setError(''); }
 
   async function getToken() { var s = await supabase.auth.getSession(); return s.data?.session?.access_token || ''; }
