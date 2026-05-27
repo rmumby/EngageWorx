@@ -7,6 +7,7 @@ var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
+var { markdownToHtml } = require('./_lib/markdown-to-html');
 
 // Disable Vercel's default body parser — SendGrid sends multipart/form-data
 module.exports.config = { api: { bodyParser: false } };
@@ -374,7 +375,7 @@ async function analyzeAndActionEmail(ctx) {
         var replySubj = (ctx.subject || '').startsWith('Re:') ? ctx.subject : 'Re: ' + (ctx.subject || 'your message');
         var _sig = require('./_email-signature');
         var sigInfo = await _sig.getSignature(supabase, { tenantId: match.tenantId, fromEmail: aiCtx.fromEmail, isFirstTouch: false, closingKind: 'reply' });
-        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g,'&lt;') + '</div>';
+        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;">' + markdownToHtml(decision.reply_draft) + '</div>';
         var eiThreadId = generateThreadId();
         var eiReplyTo = makeReplyToAddress(eiThreadId);
 

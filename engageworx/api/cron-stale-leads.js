@@ -6,6 +6,7 @@
 // the tenant approve via the AI Email Digest. Autonomous mode fires immediately.
 
 var { createClient } = require('@supabase/supabase-js');
+var { markdownToHtml } = require('./_lib/markdown-to-html');
 
 function tenantLocalHour(tz) {
   try {
@@ -106,7 +107,7 @@ async function executeAction(supabase, lead, decision) {
         sgMail.setApiKey(process.env.SENDGRID_API_KEY);
         var _sig = require('./_email-signature');
         var sigInfo = await _sig.getSignature(supabase, { tenantId: lead.tenant_id, fromEmail: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), isFirstTouch: false, closingKind: 'followup' });
-        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;white-space:pre-wrap;">' + decision.reply_draft.replace(/</g, '&lt;') + '</div>';
+        var bodyHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;">' + markdownToHtml(decision.reply_draft) + '</div>';
         var stalePayload = {
           to: lead.email,
           from: { email: (process.env.PLATFORM_FROM_EMAIL || 'hello@engwx.com'), name: sigInfo.fromName || 'EngageWorx' },
