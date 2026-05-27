@@ -77,3 +77,35 @@ broken, implement as focused new PR.
 **Found**: 2026-05-27 during PR triage
 **Priority**: P2 (cosmetic, not blocking)
 **Status**: Open — audit needed
+
+---
+
+## PLATFORM-AI-REVIEW-NOTIFICATION-PATH (P1)
+
+When email-inbound.js (and possibly other AI handlers) classify an inbound as 
+action: "review" rather than auto_reply, there's no clear notification path to 
+the tenant member. Items appear to sit in Live Inbox waiting for someone to 
+discover them by manually checking.
+
+Rob confirms he doesn't monitor either Delamere or EngageWorx Live Inbox daily. 
+This means review-classified items currently rely on monitoring habit that 
+doesn't exist.
+
+Current state (investigated 2026-05-27):
+- email_actions row created (status: 'pending') — no notification
+- action_items row created IF sp_settings.action_board_enabled = true — no notification
+- No email, Slack, push, or badge counter surfaces the item
+- Old digest crons retired to no-op (AI Omni Digest sunset)
+- Delamere's concierge [ESCALATE] path DOES notify (separate handler) — this gap 
+  is specific to the non-concierge email-inbound.js path
+
+Needs:
+- Design and build a notification path for review-classified items
+- Options: in-portal unread badge on nav, daily digest email to tenant admin, 
+  real-time email/push per classification severity
+- Particularly important for tenants like Delamere where coordinators run the 
+  venue and don't live in the portal
+
+**Found**: 2026-05-27 during PR #54 verification
+**Priority**: P1 — affects real operations for any tenant using non-concierge AI handlers
+**Status**: Open — investigation complete, design needed
