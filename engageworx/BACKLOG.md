@@ -21,3 +21,23 @@ as prop from parent and use that, not infer from SA's session
 **Found**: 2026-05-27 during LiveInbox TDZ debugging  
 **Priority**: P1
 **Status**: Open
+
+---
+
+## PLATFORM-MIGRATION-SYSTEM-AUDIT (P2)
+
+Two parallel migration application paths exist in this project:
+- `supabase_migrations.schema_migrations` tracker (6 entries, May 5-18, mostly abandoned)
+- Direct SQL Editor / manual application (all migrations May 24 onward, bypassing tracker)
+
+Need to formalise a single process going forward. Decisions to make:
+- Continue with sequential numbered files (018, 019, ...) and skip the tracker
+- Or adopt Supabase CLI / timestamp-versioned files with tracker
+- Either way, document the process in CLAUDE.md so future contributors and AI 
+  assistants don't create more parallel systems
+
+Duplicate file cleanup completed in PR #50 (018-021 renumbered to 032-035).
+
+**Found**: 2026-05-27 during migration file duplicate cleanup
+**Priority**: P2 (not blocking, but should be resolved before more tenants onboard)
+**Status**: Open
