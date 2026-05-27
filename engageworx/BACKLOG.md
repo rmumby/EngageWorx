@@ -82,30 +82,50 @@ broken, implement as focused new PR.
 
 ## PLATFORM-AI-REVIEW-NOTIFICATION-PATH (P1)
 
-When email-inbound.js (and possibly other AI handlers) classify an inbound as 
-action: "review" rather than auto_reply, there's no clear notification path to 
-the tenant member. Items appear to sit in Live Inbox waiting for someone to 
-discover them by manually checking.
+EngageWorx tenant (and any tenant using email-inbound.js) — when Claude classifies 
+inbound as action: "review", the action_items row is created silently. No email, no 
+Slack, no in-portal badge, no digest. Coordinator must manually open Action Board to 
+discover items.
 
-Rob confirms he doesn't monitor either Delamere or EngageWorx Live Inbox daily. 
-This means review-classified items currently rely on monitoring habit that 
+Confirmed gap: the retired digest crons (cron-email-digest.js, cron-digest-scheduled.js) 
+were sunset per "AI Omni Digest sunset" in CLAUDE.md. The notification layer that was 
+supposed to replace them was stubbed (line 576 of email-inbound.js has 
+'[Reactivate] ADMIN NOTIFY (not sent)' placeholder) but never built.
+
+Build options:
+- Minimum: in-portal unread badge on Action Board nav item (1-2 hours)
+- Better: daily digest email to tenant admin summarising pending review items (4-6 hours)
+- Best: configurable per-tenant notification (badge + optional daily/weekly digest + 
+  optional Slack), with severity thresholds (4-8 hours)
+
+**Found**: 2026-05-27 — Rob confirmed he doesn't monitor EngageWorx or Delamere Live 
+Inbox daily, meaning silent review items currently rely on monitoring habit that 
 doesn't exist.
+**Priority**: P1
+**Status**: Open
 
-Current state (investigated 2026-05-27):
-- email_actions row created (status: 'pending') — no notification
-- action_items row created IF sp_settings.action_board_enabled = true — no notification
-- No email, Slack, push, or badge counter surfaces the item
-- Old digest crons retired to no-op (AI Omni Digest sunset)
-- Delamere's concierge [ESCALATE] path DOES notify (separate handler) — this gap 
-  is specific to the non-concierge email-inbound.js path
+---
 
-Needs:
-- Design and build a notification path for review-classified items
-- Options: in-portal unread badge on nav, daily digest email to tenant admin, 
-  real-time email/push per classification severity
-- Particularly important for tenants like Delamere where coordinators run the 
-  venue and don't live in the portal
+## PLATFORM-AI-CONCIERGE-QUALITY-AUDIT-LAYER (P2)
 
-**Found**: 2026-05-27 during PR #54 verification
-**Priority**: P1 — affects real operations for any tenant using non-concierge AI handlers
-**Status**: Open — investigation complete, design needed
+Delamere concierge (email-inbound-concierge.js) always sends a reply for RESOLVED and 
+PENDING classifications. No human audit layer — coordinator only learns the AI gave a 
+poor answer if the couple complains or if the coordinator manually reads Live Inbox.
+
+For wedding planning where precision matters (dates, costs, supplier names, dietary 
+requirements), wrong-but-confident AI answers could cause real problems.
+
+Build options:
+- Optional human-review queue: tenant can flag certain conversation patterns 
+  (high-stakes keywords, first-contact emails, end-of-engagement) for coordinator 
+  review BEFORE the AI reply sends
+- Coordinator-side audit: daily digest of recent AI replies for spot-checking 
+  (lower urgency than pre-send)
+- Couple satisfaction signal: thumbs-up/down in the email itself, low-rated responses 
+  bubble up to coordinator attention
+
+**Found**: 2026-05-27 — surfaced during PR #54 verification when discussing 
+notification paths.
+**Priority**: P2 (concierge currently works well, but worth designing before scaling 
+to more couples or venues)
+**Status**: Open
