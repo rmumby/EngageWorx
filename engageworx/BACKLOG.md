@@ -63,3 +63,17 @@ Scope when picked up:
 **Found**: 2026-05-27 during PR #31 close
 **Priority**: P2 — legacy prompts work; this is upgrade work, not fix work
 **Status**: Open — picks up when Studio UX gets a focused session
+
+---
+
+## PLATFORM-OUTBOUND-EMAIL-FROM-NAME-AUDIT (P2)
+
+Verify outbound email From Name behaviour across all tenants. PR #33 was closed as 
+stale; some of its scope (channel_configs.config_encrypted.from_name as authoritative 
+source for sendTenantEmail) may not have been independently addressed. Audit: send a 
+test outbound from each tenant, confirm From Name matches channel_configs setting. If 
+broken, implement as focused new PR.
+
+**Found**: 2026-05-27 during PR triage
+**Priority**: P2 (cosmetic, not blocking)
+**Status**: Open — audit needed
