@@ -875,7 +875,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           return;
         }
       }
-      var leadName = contact.company || ((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || 'New Lead';
+      // Name = person name first, company as separate field. Never use company as the lead name.
+      var leadName = ((contact.firstName || '') + ' ' + (contact.lastName || '')).trim() || contact.company || null;
       var convertStageId = await getPipelineStageId(supabase, resolvedTenantId, STAGE_KEYS.LEAD);
       var ins = await supabase.from('leads').insert({
         tenant_id: resolvedTenantId,
