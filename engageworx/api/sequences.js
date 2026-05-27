@@ -13,6 +13,7 @@ var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { BLOCKED_BODY_PATTERNS, looksLikeEmail, GENERIC_LOCAL_PARTS } = require('./_lib/email-safety-gates');
+var { markdownToHtml } = require('./_lib/markdown-to-html');
 
 function getSupabase() {
   return createClient(
@@ -189,7 +190,7 @@ async function sendStep(supabase, step, lead, tenant) {
 
     var bodyHtml =
       '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0;padding:32px 16px;">' +
-      '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + body.replace(/\n\n/g, '</div><div style="font-size:15px;color:#1e293b;line-height:1.75;margin-top:14px;">').replace(/\n/g, '<br>') + '</div>';
+      '<div style="font-size:15px;color:#1e293b;line-height:1.75;">' + markdownToHtml(body) + '</div>';
 
     var seqThreadId = generateThreadId();
     var seqReplyTo = makeReplyToAddress(seqThreadId, tenant.email_tracking_domain);

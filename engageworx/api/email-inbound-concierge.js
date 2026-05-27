@@ -8,6 +8,7 @@ var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation');
+var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { getSignature, composeHtmlBody, composeTextBody } = require('./_email-signature');
 
 function getSupabase() {
@@ -461,31 +462,7 @@ module.exports = async function handler(req, res) {
 
   // ── 8. Send reply email with signature ─────────────────────────────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
-  // Convert Markdown to HTML: bold, italic, then group consecutive bullet lines into <ul> blocks
-  var mdLines = cleanBody.split('\n');
-  var htmlLines = [];
-  var inList = false;
-  for (var li = 0; li < mdLines.length; li++) {
-    var line = mdLines[li].replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-    var bulletMatch = line.match(/^[-•]\s+(.+)$/);
-    if (bulletMatch) {
-      if (!inList) { htmlLines.push('<ul style="margin:4px 0 8px;padding-left:20px;">'); inList = true; }
-      htmlLines.push('<li style="margin:0 0 2px;">' + bulletMatch[1] + '</li>');
-    } else {
-      if (inList) { htmlLines.push('</ul>'); inList = false; }
-      htmlLines.push(line);
-    }
-  }
-  if (inList) htmlLines.push('</ul>');
-
-  // Group into paragraphs on double-newline boundaries
-  var joined = htmlLines.join('\n');
-  var paragraphs = joined.split(/\n\n+/).filter(function(p) { return p.trim(); });
-  var bodyContent = paragraphs.map(function(p) {
-    p = p.trim();
-    if (p.indexOf('<ul') !== -1) return p;
-    return '<p style="margin:0 0 10px;">' + p.replace(/\n/g, '<br>') + '</p>';
-  }).join('');
+  var bodyContent = markdownToHtml(cleanBody);
 
   // Wrap in flush-left body div (no side padding — matches quoted email alignment)
   var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0;color:#1e293b;font-size:15px;line-height:1.75;">' + bodyContent + '</div>';
