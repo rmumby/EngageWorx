@@ -41,3 +41,25 @@ Duplicate file cleanup completed in PR #50 (018-021 renumbered to 032-035).
 **Found**: 2026-05-27 during migration file duplicate cleanup
 **Priority**: P2 (not blocking, but should be resolved before more tenants onboard)
 **Status**: Open
+
+---
+
+## PLATFORM-AI-PERSONA-STUDIO-UI (P2)
+
+Build the Studio UI to edit the 5 structured AI persona fields (ai_persona, ai_voice, 
+ai_scope, ai_escalation_instructions, ai_custom_instructions) plus coordinator_names. 
+Foundation work (Migration 028 + assemble-system-prompt.js assembler with && gate) 
+already merged. Closing PR #31 left this work paused.
+
+Scope when picked up:
+- Editor cards in AI Chatbot Studio for each field
+- Persona/voice/scope templates as starting points
+- Validation: assembler activates only when ALL 5 populated
+- Migration path for tenants with legacy prompts: extract sections into structured 
+  fields, preserve the working tone
+- Coordinator names as comma-separated input
+- Preview pane showing assembled prompt before save
+
+**Found**: 2026-05-27 during PR #31 close
+**Priority**: P2 — legacy prompts work; this is upgrade work, not fix work
+**Status**: Open — picks up when Studio UX gets a focused session
