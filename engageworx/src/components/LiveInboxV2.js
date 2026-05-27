@@ -405,7 +405,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Effective viewLevel: if SP/CSP toggled to "own only", treat as tenant-scoped
   var effectiveViewLevel = (isSPorCSP && scopeOwnOnly) ? 'tenant' : viewLevel;
   console.log('🔵 LiveInbox v7 loaded, demoMode:', demoMode, 'supabase:', !!supabase);
-  const C = {
+  var C = {
     primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425',
     border: '#182440', text: '#E8F4FD', muted: '#6B8BAE',
     ...(rawC || {}),
