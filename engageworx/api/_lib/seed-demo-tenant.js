@@ -199,6 +199,49 @@ async function seedDemoTenant(tenantId, supabaseOverride) {
     });
   }
 
+  // 5b. Seed ticket_messages for each support ticket (so Help Desk threads aren't empty)
+  var ticketThreads = {
+    'SMS not delivering to Vodafone numbers': [
+      { role: 'user', author_name: 'David Kim', content: 'We\'re seeing about 30% failure rate on SMS to Vodafone UK numbers since yesterday. Other carriers seem fine.' },
+      { role: 'ai', author_name: 'AI Support', content: 'I can see elevated delivery failures on Vodafone UK routes. This appears to be a carrier-side issue affecting multiple providers. I\'ve flagged it with our routing team for priority investigation.' },
+      { role: 'agent', author_name: 'Support Team', content: 'Update: Vodafone confirmed a gateway issue on their end. Expect resolution within 4-6 hours. We\'re monitoring and will update you once delivery rates normalise.' },
+    ],
+    'How to set up auto-responder?': [
+      { role: 'user', author_name: 'Emily Rodriguez', content: 'I want to set up an automatic response when someone texts our business number outside of hours. How do I do that?' },
+      { role: 'ai', author_name: 'AI Support', content: 'You can set up an auto-responder in Settings → Channels → SMS. Toggle "Auto-Response" and set your business hours and out-of-hours message. Would you like me to walk you through it?' },
+    ],
+    'Billing discrepancy — March invoice': [
+      { role: 'user', author_name: 'Ben Foster', content: 'Our March invoice shows 12,000 SMS but our dashboard only shows 8,400 sent. Can you reconcile?' },
+    ],
+    'WhatsApp template rejected by Meta': [
+      { role: 'user', author_name: 'Carlos Mendez', content: 'Our appointment reminder template was rejected by Meta. The rejection reason says "insufficient information" but the template has all required fields.' },
+      { role: 'ai', author_name: 'AI Support', content: 'Meta template rejections with "insufficient information" usually mean the template body needs more context about what the message is for. Try adding your business name and the purpose of the message in the first line. I can help you redraft it.' },
+    ],
+    'GDPR data export request': [
+      { role: 'user', author_name: 'Nina Johansson', content: 'Under GDPR Article 15, I\'m requesting a full export of all personal data we\'ve stored through the platform. Please provide within 30 days.' },
+      { role: 'agent', author_name: 'Support Team', content: 'Thank you for your request. We\'re preparing your data export and will deliver it within the regulatory timeframe. You\'ll receive a secure download link via email.' },
+    ],
+  };
+  // Re-fetch the tickets we just inserted to get their IDs
+  var { data: seededTickets } = await supabase.from('support_tickets')
+    .select('id, subject').eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
+  for (var sti = 0; sti < (seededTickets || []).length; sti++) {
+    var st = seededTickets[sti];
+    var threadMsgs = ticketThreads[st.subject];
+    if (!threadMsgs) continue;
+    for (var tmi = 0; tmi < threadMsgs.length; tmi++) {
+      var tm = threadMsgs[tmi];
+      await supabase.from('ticket_messages').insert({
+        ticket_id: st.id,
+        role: tm.role,
+        author_name: tm.author_name,
+        author_type: tm.role === 'user' ? 'external' : 'system',
+        content: tm.content,
+        metadata: { seed: DEMO_TAG },
+      });
+    }
+  }
+
   // 6. Seed additional messages for analytics date-spread (~30 days, mixed channels)
   var channels = ['sms', 'email', 'whatsapp'];
   var statuses = ['delivered', 'delivered', 'delivered', 'delivered', 'opened', 'opened', 'clicked', 'replied'];
@@ -220,15 +263,16 @@ async function seedDemoTenant(tenantId, supabaseOverride) {
     });
   }
 
-  console.log('[seedDemoTenant] Seeded tenant', tenantId, '— 20 contacts, 15 leads, 12 conversations, 8 tickets, 120 analytics messages');
+  console.log('[seedDemoTenant] Seeded tenant', tenantId, '— 20 contacts, 15 leads, 12 conversations, 8 tickets + thread messages, 120 analytics messages');
   return { seeded: true };
 }
 
 async function teardownDemoTenant(tenantId, supabaseOverride) {
   var supabase = supabaseOverride || getSupabase();
-  // Order matters: messages before conversations (FK), leads before contacts (pipeline_lead_id)
+  // Order matters: child rows before parents (FK dependencies)
   await supabase.from('messages').delete().eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
   await supabase.from('conversations').delete().eq('tenant_id', tenantId); // conversations created inline, no tag — delete all for demo tenant
+  await supabase.from('ticket_messages').delete().contains('metadata', { seed: DEMO_TAG }); // no tenant_id on ticket_messages — filter via metadata tag
   await supabase.from('support_tickets').delete().eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
   await supabase.from('leads').delete().eq('tenant_id', tenantId).eq('source', DEMO_TAG);
   await supabase.from('contacts').delete().eq('tenant_id', tenantId).eq('source', DEMO_TAG);
