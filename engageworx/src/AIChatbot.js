@@ -58,7 +58,7 @@ const DEMO_CONVERSATIONS = [
 // BOT_ANALYTICS removed — was hardcoded mock data (audit May 2026).
 // Real analytics will query conversations + messages tables scoped by tenant_id.
 
-export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, onNavigate }) {
+export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, onNavigate }) {
   const [activeTab, setActiveTab] = useState("configure");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
   const [selectedLanguage, setSelectedLanguage] = useState("en_auto");

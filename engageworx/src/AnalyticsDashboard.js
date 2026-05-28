@@ -224,7 +224,7 @@ function exportToCSV(data, filename) {
 }
 
 // ─── MAIN ANALYTICS DASHBOARD ──────────────────────────────────────────────────
-export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", currentTenantId = null, demoMode = true }) {
+export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", currentTenantId = null, demoMode = false }) {
   const now = new Date();
   const thirtyAgo = new Date(); thirtyAgo.setDate(thirtyAgo.getDate() - 30);
   const [startDate, setStartDate] = useState(thirtyAgo);

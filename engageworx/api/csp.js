@@ -282,6 +282,11 @@ module.exports = async function handler(req, res) {
       // Seed default pipeline stages (non-fatal if it fails)
       try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[csp] Stage seed error (non-fatal):', e.message); }
 
+      // Seed demo data if is_demo (non-fatal)
+      if (isDemo) {
+        try { var { seedDemoTenant } = require('./_lib/seed-demo-tenant'); await seedDemoTenant(tenant.id, supabase); } catch (e) { console.warn('[csp] Demo seed error (non-fatal):', e.message); }
+      }
+
       // Link user
       await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenant.id, role: 'admin', status: 'active' });
 
