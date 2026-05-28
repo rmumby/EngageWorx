@@ -168,40 +168,43 @@ to more couples or venues)
 
 ## PLATFORM-CONFIGURABLE-PIPELINE-STAGES (P1)
 
-Investigation COMPLETE. pipeline_stages is already per-tenant (tenant_id NOT NULL, 
-UNIQUE(tenant_id, stage_key), seeded at tenant creation). All business logic keys off 
-stage_type ('lead'/'active'/'closed_won'/'closed_lost') NOT stage names — confirmed 
-across PipelineDashboard.jsx (Convert-to-Tenant on closed_won, rollups, Hide Dormant 
-on closed_lost) and backend (STAGE_KEYS, cron-stale-leads stage_type exclusion). NO 
-schema migration needed.
+DECISION: Drop vertical templates (would trap us in endless per-vertical maintenance 
+and still guess wrong — proven by Delamere's real 12-stage flow matching no template). 
+Approach: per-tenant custom stages, created via AI-ASSISTED build.
 
-Chosen approach: Option A (vertical presets), path to Option B (full custom) later.
+Architecture (AI proposes, deterministic code enforces):
+1. Tenant describes business (or inferred via existing detect-brand.js at signup)
+2. AI proposes stage list: names + order + suggested stage_type per stage
+3. DETERMINISTIC validation layer (not the AI) enforces invariants before any DB write: 
+   exactly one 'lead', >=1 'closed_won', >=1 'closed_lost'; every stage has valid 
+   stage_type; display_order clean 1..N. AI never writes pipeline_stages directly.
+4. Human review/tweak checkpoint, then confirm
+5. Confirmed stages seed via existing seedPipelineStages helper (the safe write path 
+   from PR #58)
 
-Scope:
-1. Vertical preset stage templates (SaaS, dental, restaurant/events, CSP/reseller, 
-   wedding venue) — each maps display_name/display_order to the four stage_type categories
-2. Tenant creation seeds pipeline_stages from chosen vertical instead of always-SaaS default
-3. Stage editor UI (Settings → Pipeline Stages) — rename/reorder/add/remove, stage_type 
-   constrained to the 4 valid values. INVARIANT: every tenant must retain at least one 
-   'lead'-origin stage and one 'closed_won', else rollups/Convert-to-Tenant/stale-exclusion 
-   break
+Plus a manual stage editor underneath (required regardless — for later edits) with guards:
+- Block delete of a non-empty stage OR force "move leads to [stage]" first (no FK on 
+  leads.pipeline_stage_id — orphan risk). Count query confirmed by CC.
+- Never delete the last stage of any structural type (lead/closed_won/closed_lost)
+- Reorder rewrites display_order to clean 1..N
 
-Key findings from deep investigation (2026-05-28):
-- Stages seeded by one-time migration CROSS JOIN, NOT at tenant creation — new tenants 
-  post-April-30 get zero rows and fall back to hardcoded DEFAULT_STAGES in PipelineDashboard
-- leads.pipeline_stage_id has NO FK to pipeline_stages (deferred Phase 2) — deleting a 
-  stage orphans leads silently. Editor must block delete if leads exist in that stage or 
-  offer reassignment
-- Backend-required stage_keys: 'lead' (12 refs — every lead creation), 'closed_won' (3 refs), 
-  'closed_lost' (3 refs). Middle stages are free to rename/remove — backend degrades gracefully
-- No CRUD endpoint exists for stages — needs new endpoint or client-side RLS writes (policy 
-  already allows admin/owner/manager)
-- The advanceStageMap in email-inbound.js:430 maps Claude suggestions to stage_keys — 
-  non-matching keys simply don't advance, safe fallback
+Investigation findings (2026-05-28):
+- pipeline_stages IS already per-tenant (tenant_id NOT NULL, UNIQUE(tenant_id, stage_key))
+- All business logic keys off stage_type NOT stage names — renames safe
+- No second stage source (the funnel in screenshots is Delamere's external CRM, not platform)
+- No sub_stage uniqueness constraint — many 'active' stages fine
+- display_order freely rewritable, no gaps constraint
+- Seed-at-creation fixed in PR #58 (new tenants get default 7 SaaS stages)
+- Backend-required stage_keys: 'lead' (12 refs), 'closed_won' (3), 'closed_lost' (3). 
+  Middle stages free to rename/remove — backend degrades gracefully
+- No CRUD endpoint for stages yet — needs building
 
-Open question being verified: whether existing tenants all share identical seed rows 
-(cosmetic) or there's a global-stages path. SQL check in flight.
+First real test case: Delamere's actual pipeline (external CRM shows 12 stages: 
+Showround Requested → Contacted → Contacted Follow-up → Showround Booked → 
+Showround Completed → 1st Follow-up → 2nd Follow-up → Date Held → Contract Sent → 
+Booking Confirmed → Left a Review → Won). Confirm with Darren these are intended 
+before seeding.
 
 **Found**: 2026-05-28
-**Priority**: P1 — cheap build, high multi-vertical-onboarding value
-**Status**: Open — ready to build pending data-shape confirmation
+**Priority**: P1 — blocks credible multi-vertical onboarding
+**Status**: Spec ready, build not started. Prerequisite investigation COMPLETE.
