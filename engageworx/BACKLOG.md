@@ -261,3 +261,16 @@ per-tenant registration is a manual multi-week process.
 **Found**: 2026-05-28
 **Priority**: P3 — decision gate: confirm real demand + UK RCS reach first
 **Status**: Deferred — no build until demand validated
+
+---
+
+## PLATFORM-PIPELINE-BULK-LEAD-REASSIGN (P3)
+
+The stage editor's delete-safety 409 sends users to move leads one-at-a-time via 
+the lead detail modal. For a stage with many leads that's heavy friction. Add a bulk 
+"move all leads from stage X to stage Y" action — either in the editor's 
+blocked-stage error UI or the Pipeline view.
+
+**Found**: 2026-05-28 during Phase 1 Part B review
+**Priority**: P3 — works today, friction only at scale
+**Status**: Open
