@@ -1728,6 +1728,21 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   const [customerType, setCustomerType] = useState('');
   const [cspDrillTenant, setCspDrillTenant] = useState(null);
   const [eventsEnabled, setEventsEnabled] = useState(false);
+  const [pendingActionCount, setPendingActionCount] = useState(0);
+  useEffect(function() {
+    if (!tenantId) return;
+    var poll = async function() {
+      try {
+        var { count } = await supabase.from('action_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId).eq('status', 'pending');
+        setPendingActionCount(count || 0);
+      } catch (e) {}
+    };
+    poll();
+    var interval = setInterval(poll, 30000);
+    return function() { clearInterval(interval); };
+  }, [tenantId]);
   useEffect(() => {
     if (!tenantId) return;
     (async () => {
@@ -1829,6 +1844,9 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
             }}>
               <span style={{ fontSize: 16 }}>{item.icon}</span>
               {!cpSidebarCollapsed && item.label}
+              {!cpSidebarCollapsed && item.id === 'action-board' && pendingActionCount > 0 && (
+                <span style={{ marginLeft: 'auto', background: '#ef4444', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>{pendingActionCount}</span>
+              )}
             </button>
           ))}
         </nav>
