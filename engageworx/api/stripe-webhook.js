@@ -4,6 +4,7 @@ var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { sendTenantEmail: _sendTenantEmail } = require('./_lib/send-tenant-email');
 var { notifyTenantAdmins } = require('./_lib/notify-tenant-admins');
+var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -279,6 +280,9 @@ module.exports = async function handler(req, res) {
 
           var tenant = tenantResult.data;
           newTenantId = tenant.id;
+
+          // Seed default pipeline stages (non-fatal if it fails)
+          try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[stripe-webhook] Stage seed error (non-fatal):', e.message); }
 
           await supabase.from('user_profiles').update({
             tenant_id: tenant.id,

@@ -8,6 +8,7 @@ var { getPlatformConfig } = require('./_lib/platform-config');
 var { renderTemplate } = require('./_lib/render-template');
 var { sendEmail } = require('./_lib/send-email');
 var { sendPlatformEmail } = require('./_lib/send-platform-email');
+var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
 
 function getSupabase() {
   return createClient(
@@ -105,6 +106,9 @@ module.exports = async function handler(req, res) {
     }
     var newTenantId = tenantIns.data.id;
     console.log('[invite-tenant] Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
+
+    // Seed default pipeline stages (non-fatal if it fails)
+    try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[invite-tenant] Stage seed error (non-fatal):', e.message); }
 
     // Link pipeline lead → tenant (if converting from pipeline)
     if (pipelineLeadId) {
