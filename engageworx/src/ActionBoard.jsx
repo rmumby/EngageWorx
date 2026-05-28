@@ -62,6 +62,8 @@ export default function ActionBoard({ C, currentTenantId }) {
   var [editDraft, setEditDraft] = useState('');
   var [actionLoading, setActionLoading] = useState(null);
   var [snoozeOpen, setSnoozeOpen] = useState(null);
+  var [teamMembers, setTeamMembers] = useState([]);
+  var [reassignLoading, setReassignLoading] = useState(null);
   var [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   var [gmailConnected, setGmailConnected] = useState(null); // null=loading, true/false
 
@@ -85,6 +87,28 @@ export default function ActionBoard({ C, currentTenantId }) {
       } catch (_) { setGmailConnected(false); }
     })();
   }, []);
+
+  // Load tenant members for reassign dropdown
+  useEffect(function() {
+    if (!currentTenantId) return;
+    (async function() {
+      try {
+        var tmResult = await supabase.from('tenant_members').select('user_id, role')
+          .eq('tenant_id', currentTenantId).eq('status', 'active');
+        var tmRows = tmResult.data || [];
+        if (tmRows.length === 0) { setTeamMembers([]); return; }
+        var userIds = tmRows.map(function(m) { return m.user_id; });
+        var upResult = await supabase.from('user_profiles').select('id, full_name, email')
+          .in('id', userIds);
+        var profileMap = {};
+        (upResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
+        setTeamMembers(tmRows.map(function(m) {
+          var p = profileMap[m.user_id] || {};
+          return { id: m.user_id, name: p.full_name || p.email || 'Unknown', role: m.role };
+        }));
+      } catch (e) { console.warn('[ActionBoard] team members load error:', e.message); }
+    })();
+  }, [currentTenantId]);
 
   // Polling: check drafted_to_gmail items for send detection
   var pollRef = useRef(null);
@@ -258,6 +282,26 @@ export default function ActionBoard({ C, currentTenantId }) {
       setItems(function(prev) { return prev.filter(function(i) { return i.id !== itemId; }); });
     } catch (e) { alert('Error: ' + e.message); }
     setActionLoading(null);
+  }
+
+  async function handleReassign(itemId, targetUserId) {
+    setReassignLoading(itemId);
+    try {
+      var jwt = await getJwt();
+      var r = await fetch('/api/action-items/reassign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify({ action_item_id: itemId, target_user_id: targetUserId }),
+      });
+      var d = await r.json();
+      if (d.success) {
+        // Remove from current view — reassigned items belong to another user
+        setItems(function(prev) { return prev.filter(function(i) { return i.id !== itemId; }); });
+      } else {
+        alert('Reassign failed: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) { alert('Error: ' + e.message); }
+    setReassignLoading(null);
   }
 
   async function handleSendToGmail(itemId) {
@@ -642,6 +686,24 @@ export default function ActionBoard({ C, currentTenantId }) {
               )}
             </div>
 
+            {teamMembers.length > 1 && (
+              <select
+                value=""
+                onChange={function(e) { if (e.target.value) handleReassign(item.id, e.target.value); }}
+                disabled={reassignLoading === item.id}
+                style={{
+                  background: subtleBg, border: '1px solid ' + subtleBorder,
+                  borderRadius: 10, padding: '10px 12px', color: softText,
+                  cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                  minWidth: 120,
+                }}
+              >
+                <option value="">Reassign...</option>
+                {teamMembers.filter(function(m) { return m.id !== item.user_id; }).map(function(m) {
+                  return <option key={m.id} value={m.id}>{m.name}</option>;
+                })}
+              </select>
+            )}
             <button onClick={function() { handleDismiss(item.id); }} disabled={isActioning}
               style={{
                 background: 'none', border: '1px solid ' + cardBorder,
