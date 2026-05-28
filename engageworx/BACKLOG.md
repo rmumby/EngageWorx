@@ -208,3 +208,58 @@ before seeding.
 **Found**: 2026-05-28
 **Priority**: P1 — blocks credible multi-vertical onboarding
 **Status**: Spec ready, build not started. Prerequisite investigation COMPLETE.
+
+---
+
+## PLATFORM-WHATSAPP-FINISH (P2, gap #1 is P1)
+
+INVESTIGATION COMPLETE — WhatsApp is ~80% built, needs finish + test (~2-3 days).
+
+Built already:
+- Embedded Signup UI (WhatsAppEmbeddedSignup.jsx) — full Facebook OAuth flow
+- Backend signup (api/whatsapp-signup.js) — code exchange, WABA discovery, phone 
+  fetch, webhook subscription, credential storage
+- Credential verification (api/whatsapp-verify.js)
+- Template management with AI drafting + Meta submission/approval sync 
+  (api/whatsapp-templates.js + WhatsAppTemplatesTab.jsx)
+- Provisioning tracking (api/whatsapp-provisioning.js)
+- Wired into Settings.js:1410
+- Self-serve WABA onboarding is DONE — needs testing/polish, not greenfield
+
+Three gaps to close:
+1. [P1] 24h session window NOT enforced — free-text sends after 24h fail SILENTLY 
+   (already flagged P1 in CLAUDE.md). WhatsApp requires approved template outside 
+   24h window; current code drops the message with no error. Silent data-loss bug. 
+   Fix: detect last-inbound timestamp, force template path outside 24h, surface 
+   error if no template.
+2. Template send routed via Twilio, not Meta Cloud API — reconcile (templates 
+   submitted/approved via Meta but sent via Twilio = inconsistency).
+3. Optimistic message status — marks delivered before send confirms; UI misreports 
+   delivery.
+
+Dual code path duplication: meta-whatsapp.js (Meta direct, 235 lines) vs whatsapp.js 
+(Twilio+Meta dual, 747 lines). Both handle inbound + AI reply. Consolidation needed.
+
+**Found**: 2026-05-28
+**Priority**: P2 overall, but gap #1 (24h silent failure) = P1 standalone
+**Status**: Investigation complete, ready to build
+
+---
+
+## PLATFORM-RCS-INTEGRATION (P3 — deferred)
+
+Pure greenfield — zero implementation. Only marketing copy and channel icon placeholders.
+
+Path: Twilio → Google RBM (Rich Business Messaging). Requires:
+- Google brand/agent registration per business
+- Carrier approval (multi-week per brand, not self-serve)
+- RCS availability inconsistent by carrier/device/region
+- UK penetration unverified
+
+DEFER — validate demand + UK RCS reach before any build investment. The send API 
+is similar to SMS via Twilio (they abstract it), but onboarding is heavy and 
+per-tenant registration is a manual multi-week process.
+
+**Found**: 2026-05-28
+**Priority**: P3 — decision gate: confirm real demand + UK RCS reach first
+**Status**: Deferred — no build until demand validated
