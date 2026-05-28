@@ -106,6 +106,30 @@ doesn't exist.
 
 ---
 
+## PLATFORM-ACTION-BOARD-ACTIONABILITY (P1)
+
+The Action Board displays pending action_items with AI-drafted replies, but its 
+actionability is unaudited. A functional review queue needs: approve-and-send the AI 
+draft (one click), edit-then-send, dismiss/mark-handled, reassign, snooze — plus a 
+status lifecycle so items leave the pending state. If these don't exist, the board is 
+currently a read-only worry-list rather than a working queue.
+
+Tiers:
+- Tier 1 (discoverability): unread badge (in progress, tomorrow) + notification path 
+  (see PLATFORM-AI-REVIEW-NOTIFICATION-PATH)
+- Tier 2 (actionability): approve/edit/send/dismiss/reassign/snooze + status lifecycle 
+  — likely the highest-value build
+- Tier 3 (intelligence): priority sorting, grouping, SLA/age indicators, bulk actions
+
+Audit in flight 2026-05-27 to determine which tier work is actually needed. Scope to 
+be set once CC reports current ActionBoard.jsx capabilities.
+
+**Found**: 2026-05-27 — Rob asked whether Action Board needs further functionality work.
+**Priority**: P1 — directly affects whether review-classified items can be handled at all.
+**Status**: Open — audit in flight
+
+---
+
 ## PLATFORM-AI-CONCIERGE-QUALITY-AUDIT-LAYER (P2)
 
 Delamere concierge (email-inbound-concierge.js) always sends a reply for RESOLVED and 
