@@ -1913,7 +1913,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "billing" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="billing" allowedTabs={["billing"]} />}
         {page === "integrations" && <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="integrations" allowedTabs={["integrations", "api", "webhooks"]} />}
         {page === "settings" && (
-          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "knowledge-base", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
+          <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "knowledge-base", "pipeline-stages", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
         )}
         {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
         {page === "events" && eventsEnabled && <div style={{ padding: '32px 40px' }}><CoordinatorEvents tenantId={tenantId} C={C} /></div>}
@@ -2903,7 +2903,7 @@ var spNavBase = [
           }
           return <PlatformSettingsPage />;
         })()}
-        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "knowledge-base", "security", "alerts", "modules"]} />}
+        {spPage === "settings" && <Settings C={C} tenants={TENANTS} viewLevel="sp" demoMode={demoMode} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "knowledge-base", "pipeline-stages", "security", "alerts", "modules"]} />}
         {spPage === "helpdesk" && (
           <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <HelpDeskModule tenantId={null} userRole="sp_admin" userId={user?.id} userName={user?.user_metadata?.full_name || user?.email} userEmail={user?.email} isSPAdmin={true} C={C} demoMode={demoMode} />
