@@ -106,27 +106,37 @@ doesn't exist.
 
 ---
 
-## PLATFORM-ACTION-BOARD-ACTIONABILITY (P1)
+## PLATFORM-ACTION-BOARD-ACTIONABILITY (P2 — downgraded)
 
-The Action Board displays pending action_items with AI-drafted replies, but its 
-actionability is unaudited. A functional review queue needs: approve-and-send the AI 
-draft (one click), edit-then-send, dismiss/mark-handled, reassign, snooze — plus a 
-status lifecycle so items leave the pending state. If these don't exist, the board is 
-currently a read-only worry-list rather than a working queue.
+AUDIT COMPLETE — board is already a functional queue (send via direct + Gmail Drafts, 
+edit, dismiss, snooze, proper status lifecycle with CHECK constraint). Tier 2 mostly 
+already built. Only gap: reassignment.
 
 Tiers:
-- Tier 1 (discoverability): unread badge (in progress, tomorrow) + notification path 
+- Tier 1 (discoverability): unread badge SHIPPED (PR #56) + notification path 
   (see PLATFORM-AI-REVIEW-NOTIFICATION-PATH)
-- Tier 2 (actionability): approve/edit/send/dismiss/reassign/snooze + status lifecycle 
-  — likely the highest-value build
-- Tier 3 (intelligence): priority sorting, grouping, SLA/age indicators, bulk actions
-
-Audit in flight 2026-05-27 to determine which tier work is actually needed. Scope to 
-be set once CC reports current ActionBoard.jsx capabilities.
+- Tier 2 (actionability): send/edit/dismiss/snooze ALL EXIST. Only missing: 
+  reassignment (see PLATFORM-ACTION-BOARD-REASSIGNMENT below)
+- Tier 3 (intelligence): priority sorting, grouping, SLA/age indicators, bulk actions 
+  — deferred, not blocking
 
 **Found**: 2026-05-27 — Rob asked whether Action Board needs further functionality work.
-**Priority**: P1 — directly affects whether review-classified items can be handled at all.
-**Status**: Open — audit in flight
+**Priority**: P2 — downgraded from P1 after audit confirmed existing capabilities.
+**Status**: Audit complete 2026-05-28. Remaining scope is reassignment only.
+
+---
+
+## PLATFORM-ACTION-BOARD-REASSIGNMENT (P2)
+
+Action Board has no way to reassign an action_item to a different team member (no UI, 
+no endpoint to change user_id). All items assigned to first admin tenant member at 
+creation. Matters for multi-member tenants (e.g. Delamere: Emma + Darren) where one 
+person should hand an item to another. Build: reassign dropdown listing tenant_members 
++ endpoint to update user_id + audit-trail entry.
+
+**Found**: 2026-05-28 during Action Board actionability audit
+**Priority**: P2 — only relevant for multi-member tenants actively sharing the board
+**Status**: Open
 
 ---
 
