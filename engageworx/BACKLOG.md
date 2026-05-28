@@ -163,3 +163,30 @@ notification paths.
 **Priority**: P2 (concierge currently works well, but worth designing before scaling 
 to more couples or venues)
 **Status**: Open
+
+---
+
+## PLATFORM-CONFIGURABLE-PIPELINE-STAGES (P1)
+
+Current pipeline stages are SaaS-sales-specific and unsuitable for non-SaaS tenants 
+(dental, restaurant, CSP, wedding venue). Need either (A) vertical preset stage 
+templates chosen at onboarding, or (B) fully custom per-tenant stages 
+(name/order/color/win-loss semantics) managed in Settings. Likely path: A then B, 
+with presets seeding the custom builder.
+
+Investigation complete 2026-05-28: pipeline_stages IS already a per-tenant DB table 
+with tenant_id, stage_key, display_name, stage_type, display_order. Win/loss semantics 
+come from stage_type ('lead', 'active', 'closed_won', 'closed_lost') not stage names — 
+renames are safe. All backend consumers (email-inbound, sequences, crons, whatsapp) 
+use stage_type for business logic, not display_name. This is a seed-data + UI task, 
+not a schema migration.
+
+Scope:
+- Stage editor UI in Settings (rename, reorder, add, remove stages within the 4 types)
+- Vertical preset templates at tenant creation (SaaS, Wedding, Dental, Restaurant, Generic)
+- Updated onboarding flow to select vertical → seed appropriate stages
+- No schema changes needed — existing table + constraints are sufficient
+
+**Found**: 2026-05-28
+**Priority**: P1 — blocks credible multi-vertical onboarding
+**Status**: Open — investigation complete, ready to build
