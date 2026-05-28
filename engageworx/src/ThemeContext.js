@@ -13,11 +13,11 @@ var DARK = {
 };
 
 var LIGHT = {
-  bg: '#f9fafb', surface: '#ffffff', border: '#e5e7eb',
+  bg: '#f9fafb', surface: '#ffffff', border: '#d1d5db',
   text: '#111827', muted: '#4b5563',
   primary: '#0077B6', accent: '#7C3AED',
   inputBg: '#ffffff', inputBorder: '#d1d5db',
-  cardBg: '#ffffff', cardBorder: '#e5e7eb',
+  cardBg: '#ffffff', cardBorder: '#d1d5db',
   badgeBg: '#f3f4f6',
   mode: 'light',
 };
