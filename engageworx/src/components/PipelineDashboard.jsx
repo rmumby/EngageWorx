@@ -4,14 +4,14 @@ import { DEMO_LEADS } from '../demoFixtures';
 
 // Fallback stages used before DB stages load (or if fetch fails)
 var FALLBACK_STAGES = [
-  { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥", stage_key: "lead" },
-  { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬", stage_key: "active_demo_scheduled" },
-  { id: "sandbox_shared",    label: "Sandbox Shared",    color: "#a855f7", icon: "🧪", stage_key: "active_demo_scheduled" },
-  { id: "opportunity",       label: "Opportunity",       color: "#ec4899", icon: "🔥", stage_key: "active_qualified" },
-  { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦", stage_key: "active_negotiating" },
-  { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀", stage_key: "closed_won" },
-  { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅", stage_key: "closed_won" },
-  { id: "dormant",           label: "Dormant",           color: "#334155", icon: "😴", stage_key: "closed_lost" },
+  { id: "inquiry",           label: "Inquiry",          color: "#6366f1", icon: "📥", stage_key: "lead",                  stage_type: "lead" },
+  { id: "demo_shared",       label: "Demo Shared",       color: "#8b5cf6", icon: "🎬", stage_key: "active_demo_scheduled", stage_type: "active" },
+  { id: "sandbox_shared",    label: "Sandbox Shared",    color: "#a855f7", icon: "🧪", stage_key: "active_demo_scheduled", stage_type: "active" },
+  { id: "opportunity",       label: "Opportunity",       color: "#ec4899", icon: "🔥", stage_key: "active_qualified",      stage_type: "active" },
+  { id: "package_selection", label: "Package Selected",  color: "#f59e0b", icon: "📦", stage_key: "active_negotiating",    stage_type: "active" },
+  { id: "go_live",           label: "Go Live",           color: "#3b82f6", icon: "🚀", stage_key: "closed_won",            stage_type: "closed_won" },
+  { id: "customer",          label: "Customer",          color: "#10b981", icon: "✅", stage_key: "closed_won",            stage_type: "closed_won" },
+  { id: "dormant",           label: "Dormant",           color: "#334155", icon: "😴", stage_key: "closed_lost",           stage_type: "closed_lost" },
 ];
 
 // Color palette for dynamic stages (assigned by display_order)
@@ -68,6 +68,15 @@ function resolveStageKey(lead, stages) {
   if (lead.pipeline_stage_id) {
     var match = stages.find(function(s) { return s.stage_id === lead.pipeline_stage_id; });
     if (match) return match.id;
+  }
+  return 'lead';
+}
+
+// Resolve a lead's stage_type — used for tab filtering
+function resolveStageType(lead, stages) {
+  if (lead.pipeline_stage_id) {
+    var match = stages.find(function(s) { return s.stage_id === lead.pipeline_stage_id; });
+    if (match) return match.stage_type;
   }
   return 'lead';
 }
@@ -286,6 +295,10 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
     if (payload.stage) {
       var matchedStage = stages.find(function(s) { return s.id === payload.stage; });
       payload.pipeline_stage_id = matchedStage ? matchedStage.stage_id : null;
+      // Advancing to a non-lead stage implicitly qualifies the lead (keeps cron-stale-leads in sync)
+      if (matchedStage && matchedStage.stage_type !== 'lead') {
+        payload.qualified = true;
+      }
       delete payload.stage;
     }
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -336,6 +349,7 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
       var sandboxStage = stages.find(function(s) { return s.id === 'active_sandbox_shared'; });
       await supabase.from("leads").update({
         pipeline_stage_id: sandboxStage ? sandboxStage.stage_id : null,
+        qualified: true,
         last_action_at: new Date().toISOString().split("T")[0],
         last_activity_at: new Date().toISOString(),
         notes: (form.notes ? form.notes + "\n" : "") + "Sandbox created, tenant ID: " + tenant.id
@@ -747,12 +761,14 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   });
 
   const filtered = sortedLeads.filter(l => {
-    // 3-way view: active (qualified, not archived) / prospects (unqualified, not archived) / archived
+    // 4-way view driven by stage_type: active / prospects (lead stage) / closed / archived
+    var st = resolveStageType(l, STAGES);
     if (viewMode === 'archived') { if (!l.archived) return false; }
-    else if (viewMode === 'prospects') { if (l.archived || l.qualified === true) return false; }
+    else if (viewMode === 'closed') { if (l.archived || (st !== 'closed_won' && st !== 'closed_lost')) return false; }
+    else if (viewMode === 'prospects') { if (l.archived || st !== 'lead') return false; }
     else { // 'active'
       if (l.archived) return false;
-      if (l.qualified === false) return false;
+      if (st !== 'active') return false;
     }
     if (hideDormant && resolveStageKey(l, STAGES) === 'closed_lost') return false;
     if (filterType !== "All" && l.type !== filterType) return false;
@@ -808,8 +824,9 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#8899aa" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
             <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
               {[
-                { id: "active",    label: "✅ Active",    count: leads.filter(l => !l.archived && l.qualified !== false).length },
-                { id: "prospects", label: "📥 Prospects", count: leads.filter(l => !l.archived && l.qualified === false).length },
+                { id: "active",    label: "✅ Active",    count: leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'active'; }).length },
+                { id: "prospects", label: "📥 Prospects", count: leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'lead'; }).length },
+                { id: "closed",    label: "🏁 Closed",    count: leads.filter(function(l) { var st = resolveStageType(l, STAGES); return st === 'closed_won' || st === 'closed_lost'; }).length },
                 { id: "archived",  label: "📦 Archived",  count: leads.filter(l => l.archived).length },
               ].map((tab, i) => (
                 <button key={tab.id} onClick={() => { setViewMode(tab.id); setShowArchived(tab.id === 'archived'); }} style={{
@@ -970,7 +987,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
       {selected && <Modal lead={selected} tenantId={tenantId} onClose={()=>setSelected(null)} onSave={()=>{setSelected(null);fetchLeads();}} stages={STAGES} />}
 
       {validateOpen && <ValidateExistingModal
-        leads={leads.filter(function(l) { return !l.archived && l.qualified === false; })}
+        leads={leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'lead'; })}
         tenantId={tenantId}
         busy={validateBusy}
         setBusy={setValidateBusy}
@@ -1052,7 +1069,7 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
             <h2 style={{ color: '#fff', margin: 0, fontSize: 20, fontWeight: 800 }}>🔍 Validate Existing Leads</h2>
-            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{leads.length} unqualified, unarchived lead(s) awaiting review</p>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{leads.length} lead-stage, unarchived lead(s) awaiting review</p>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 20 }}>✕</button>
         </div>
@@ -1072,7 +1089,7 @@ function ValidateExistingModal({ leads, tenantId, busy, setBusy, onClose, onRefr
         )}
 
         {leads.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>✅ No unqualified leads to review.</div>
+          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>✅ No leads at intake stage to review.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {leads.map(function(l) {
