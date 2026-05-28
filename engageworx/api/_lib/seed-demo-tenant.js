@@ -272,7 +272,12 @@ async function teardownDemoTenant(tenantId, supabaseOverride) {
   // Order matters: child rows before parents (FK dependencies)
   await supabase.from('messages').delete().eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
   await supabase.from('conversations').delete().eq('tenant_id', tenantId); // conversations created inline, no tag — delete all for demo tenant
-  await supabase.from('ticket_messages').delete().contains('metadata', { seed: DEMO_TAG }); // no tenant_id on ticket_messages — filter via metadata tag
+  // ticket_messages has no tenant_id — scope via parent ticket IDs
+  var { data: demoTickets } = await supabase.from('support_tickets').select('id').eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
+  var demoTicketIds = (demoTickets || []).map(function(t) { return t.id; });
+  if (demoTicketIds.length > 0) {
+    await supabase.from('ticket_messages').delete().in('ticket_id', demoTicketIds).contains('metadata', { seed: DEMO_TAG });
+  }
   await supabase.from('support_tickets').delete().eq('tenant_id', tenantId).contains('metadata', { seed: DEMO_TAG });
   await supabase.from('leads').delete().eq('tenant_id', tenantId).eq('source', DEMO_TAG);
   await supabase.from('contacts').delete().eq('tenant_id', tenantId).eq('source', DEMO_TAG);
