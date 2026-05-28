@@ -168,30 +168,34 @@ to more couples or venues)
 
 ## PLATFORM-CONFIGURABLE-PIPELINE-STAGES (P1)
 
-DECISION: Drop vertical templates (would trap us in endless per-vertical maintenance 
-and still guess wrong — proven by Delamere's real 12-stage flow matching no template). 
-Approach: per-tenant custom stages, created via AI-ASSISTED build.
+STRATEGIC CONTEXT: Immediate revenue opps are Dean's Dental (dental practice) and 
+Conecta (CSP) — both NON-SaaS, both prove the multi-vertical case. Delamere uses GHL 
+for their pipeline and likely WON'T use the EngageWorx pipeline — so Delamere is NO 
+LONGER the first test case. First test case = Dean's Dental; second = Conecta. The 
+AI-assisted build ("describe your business → AI builds your pipeline") is a SELLING 
+POINT, positioned against GHL's manual setup — so AI proposal quality must be high 
+(feels like polishing, not repairing).
 
-Architecture (AI proposes, deterministic code enforces):
-1. Tenant describes business (or inferred via existing detect-brand.js at signup)
-2. AI proposes stage list: names + order + suggested stage_type per stage
-3. DETERMINISTIC validation layer (not the AI) enforces invariants before any DB write: 
-   exactly one 'lead', >=1 'closed_won', >=1 'closed_lost'; every stage has valid 
-   stage_type; display_order clean 1..N. AI never writes pipeline_stages directly.
-4. Human review/tweak checkpoint, then confirm
-5. Confirmed stages seed via existing seedPipelineStages helper (the safe write path 
-   from PR #58)
+BUILD PHASING:
+Phase 1 (deterministic foundation, no AI): validation layer (1 lead / >=1 closed_won / 
+>=1 closed_lost / clean display_order) + stage CRUD endpoints + editor UI with two 
+guards (structural-type protection; delete-safety: block delete of non-empty stage or 
+force move-leads-to-[stage] first, since no FK on leads.pipeline_stage_id). AI output 
+flows THROUGH this. Build + test standalone.
 
-Plus a manual stage editor underneath (required regardless — for later edits) with guards:
-- Block delete of a non-empty stage OR force "move leads to [stage]" first (no FK on 
-  leads.pipeline_stage_id — orphan risk). Count query confirmed by CC.
-- Never delete the last stage of any structural type (lead/closed_won/closed_lost)
-- Reorder rewrites display_order to clean 1..N
+Phase 2 (AI layer): business description (or reuse detect-brand.js) → AI proposes 
+stages + suggested stage_type → validation layer checks/corrects (AI never writes 
+pipeline_stages directly) → human review/tweak → confirm → seedPipelineStages writes. 
+Use few-shot vertical exemplars (dental, CSP, restaurant, SaaS) for proposal quality — 
+NOT rigid templates.
+
+Phase 3 (demo polish): make Phase 2 sellable — the "watch it build itself" moment 
+for prospects like Dean.
 
 Investigation findings (2026-05-28):
 - pipeline_stages IS already per-tenant (tenant_id NOT NULL, UNIQUE(tenant_id, stage_key))
 - All business logic keys off stage_type NOT stage names — renames safe
-- No second stage source (the funnel in screenshots is Delamere's external CRM, not platform)
+- No second stage source (funnel in screenshots is Delamere's external CRM, not platform)
 - No sub_stage uniqueness constraint — many 'active' stages fine
 - display_order freely rewritable, no gaps constraint
 - Seed-at-creation fixed in PR #58 (new tenants get default 7 SaaS stages)
@@ -199,15 +203,9 @@ Investigation findings (2026-05-28):
   Middle stages free to rename/remove — backend degrades gracefully
 - No CRUD endpoint for stages yet — needs building
 
-First real test case: Delamere's actual pipeline (external CRM shows 12 stages: 
-Showround Requested → Contacted → Contacted Follow-up → Showround Booked → 
-Showround Completed → 1st Follow-up → 2nd Follow-up → Date Held → Contract Sent → 
-Booking Confirmed → Left a Review → Won). Confirm with Darren these are intended 
-before seeding.
-
 **Found**: 2026-05-28
-**Priority**: P1 — blocks credible multi-vertical onboarding
-**Status**: Spec ready, build not started. Prerequisite investigation COMPLETE.
+**Priority**: P1 — direct selling point for active revenue opps (Dean's Dental, Conecta)
+**Status**: Spec ready. Phase 1 is the next build. No code yet.
 
 ---
 
