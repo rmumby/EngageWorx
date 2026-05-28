@@ -168,25 +168,40 @@ to more couples or venues)
 
 ## PLATFORM-CONFIGURABLE-PIPELINE-STAGES (P1)
 
-Current pipeline stages are SaaS-sales-specific and unsuitable for non-SaaS tenants 
-(dental, restaurant, CSP, wedding venue). Need either (A) vertical preset stage 
-templates chosen at onboarding, or (B) fully custom per-tenant stages 
-(name/order/color/win-loss semantics) managed in Settings. Likely path: A then B, 
-with presets seeding the custom builder.
+Investigation COMPLETE. pipeline_stages is already per-tenant (tenant_id NOT NULL, 
+UNIQUE(tenant_id, stage_key), seeded at tenant creation). All business logic keys off 
+stage_type ('lead'/'active'/'closed_won'/'closed_lost') NOT stage names — confirmed 
+across PipelineDashboard.jsx (Convert-to-Tenant on closed_won, rollups, Hide Dormant 
+on closed_lost) and backend (STAGE_KEYS, cron-stale-leads stage_type exclusion). NO 
+schema migration needed.
 
-Investigation complete 2026-05-28: pipeline_stages IS already a per-tenant DB table 
-with tenant_id, stage_key, display_name, stage_type, display_order. Win/loss semantics 
-come from stage_type ('lead', 'active', 'closed_won', 'closed_lost') not stage names — 
-renames are safe. All backend consumers (email-inbound, sequences, crons, whatsapp) 
-use stage_type for business logic, not display_name. This is a seed-data + UI task, 
-not a schema migration.
+Chosen approach: Option A (vertical presets), path to Option B (full custom) later.
 
 Scope:
-- Stage editor UI in Settings (rename, reorder, add, remove stages within the 4 types)
-- Vertical preset templates at tenant creation (SaaS, Wedding, Dental, Restaurant, Generic)
-- Updated onboarding flow to select vertical → seed appropriate stages
-- No schema changes needed — existing table + constraints are sufficient
+1. Vertical preset stage templates (SaaS, dental, restaurant/events, CSP/reseller, 
+   wedding venue) — each maps display_name/display_order to the four stage_type categories
+2. Tenant creation seeds pipeline_stages from chosen vertical instead of always-SaaS default
+3. Stage editor UI (Settings → Pipeline Stages) — rename/reorder/add/remove, stage_type 
+   constrained to the 4 valid values. INVARIANT: every tenant must retain at least one 
+   'lead'-origin stage and one 'closed_won', else rollups/Convert-to-Tenant/stale-exclusion 
+   break
+
+Key findings from deep investigation (2026-05-28):
+- Stages seeded by one-time migration CROSS JOIN, NOT at tenant creation — new tenants 
+  post-April-30 get zero rows and fall back to hardcoded DEFAULT_STAGES in PipelineDashboard
+- leads.pipeline_stage_id has NO FK to pipeline_stages (deferred Phase 2) — deleting a 
+  stage orphans leads silently. Editor must block delete if leads exist in that stage or 
+  offer reassignment
+- Backend-required stage_keys: 'lead' (12 refs — every lead creation), 'closed_won' (3 refs), 
+  'closed_lost' (3 refs). Middle stages are free to rename/remove — backend degrades gracefully
+- No CRUD endpoint exists for stages — needs new endpoint or client-side RLS writes (policy 
+  already allows admin/owner/manager)
+- The advanceStageMap in email-inbound.js:430 maps Claude suggestions to stage_keys — 
+  non-matching keys simply don't advance, safe fallback
+
+Open question being verified: whether existing tenants all share identical seed rows 
+(cosmetic) or there's a global-stages path. SQL check in flight.
 
 **Found**: 2026-05-28
-**Priority**: P1 — blocks credible multi-vertical onboarding
-**Status**: Open — investigation complete, ready to build
+**Priority**: P1 — cheap build, high multi-vertical-onboarding value
+**Status**: Open — ready to build pending data-shape confirmation
