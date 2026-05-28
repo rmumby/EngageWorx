@@ -92,6 +92,14 @@ module.exports = async function handler(req, res) {
 
     var tenant = tenantResult.data;
 
+    // Seed pipeline stages (non-fatal)
+    try { var { seedPipelineStages } = require('./_lib/seed-pipeline-stages'); await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[create-sandbox] Stage seed error:', e.message); }
+
+    // Seed demo data if is_demo (non-fatal)
+    if (isDemo) {
+      try { var { seedDemoTenant } = require('./_lib/seed-demo-tenant'); await seedDemoTenant(tenant.id, supabase); } catch (e) { console.warn('[create-sandbox] Demo seed error:', e.message); }
+    }
+
     // Step 4: Link user to tenant
     var memberResult = await supabase.from('tenant_members').insert({
       user_id: userId,

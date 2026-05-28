@@ -353,7 +353,7 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
 }
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, defaultTab, allowedTabs, enabledModules, onSaveModules, userRole }) {
+export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, defaultTab, allowedTabs, enabledModules, onSaveModules, userRole }) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');

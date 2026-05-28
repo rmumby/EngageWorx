@@ -274,3 +274,22 @@ blocked-stage error UI or the Pipeline view.
 **Found**: 2026-05-28 during Phase 1 Part B review
 **Priority**: P3 — works today, friction only at scale
 **Status**: Open
+
+---
+
+## PLATFORM-DEAD-MESSAGE-TABLES-AUDIT (P3)
+
+conversation_messages and call_messages appear to be unused schema tombstones — zero 
+code reads, zero code writes across the entire codebase. conversation_messages caused 
+a wrong-table claim during demo-seed work (CC asserted it didn't exist; it does exist 
+in the schema but has no code references). The original platform brief listed 
+conversation_messages as a key table — likely renamed to messages at some point, with 
+the old table left behind.
+
+Future cleanup: confirm both tables are genuinely dead (no triggers, no views, no 
+external integrations referencing them), then DROP to reduce schema confusion. Also 
+audit inbound_email_messages (backend-only archive, not rendered) for the same.
+
+**Found**: 2026-05-28 during demo-seed table investigation
+**Priority**: P3 — no runtime impact, but schema confusion is a recurring source of bugs
+**Status**: Open

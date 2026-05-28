@@ -305,7 +305,7 @@ function ConfigPanel({ node, nodes, connections, onChange, onConnect, onDisconne
 }
 
 // ── MAIN FLOW BUILDER ────────────────────────────────
-export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = true, tenantId }) {
+export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, tenantId }) {
   const tid = currentTenantId || tenantId || null;
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
