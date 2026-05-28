@@ -6,6 +6,7 @@
 // POST /api/csp?action=test_welcome_email → Send a test welcome email
 
 var { createClient } = require('@supabase/supabase-js');
+var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
 
 function getSupabase() {
   return createClient(
@@ -277,6 +278,9 @@ module.exports = async function handler(req, res) {
       }
 
       var tenant = tenantResult.data;
+
+      // Seed default pipeline stages (non-fatal if it fails)
+      try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[csp] Stage seed error (non-fatal):', e.message); }
 
       // Link user
       await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenant.id, role: 'admin', status: 'active' });
