@@ -202,16 +202,27 @@ module.exports = async function handler(req, res) {
   }
 
   // ── 3. Verify concierge is enabled for this tenant ────────────────────
-  var { data: chatbotConfig } = await supabase.from('chatbot_configs')
-    .select('id, channels_active')
-    .eq('tenant_id', tenantId)
-    .eq('surface', 'wedding_concierge')
-    .maybeSingle();
+  var CONCIERGE_SURFACES = ['wedding_concierge', 'helpdesk'];
+  var chatbotConfig = null;
+  var matchedSurface = null;
+  for (var si = 0; si < CONCIERGE_SURFACES.length; si++) {
+    var { data: cfgCheck } = await supabase.from('chatbot_configs')
+      .select('id, channels_active')
+      .eq('tenant_id', tenantId)
+      .eq('surface', CONCIERGE_SURFACES[si])
+      .maybeSingle();
+    if (cfgCheck && (cfgCheck.channels_active || []).includes('email')) {
+      chatbotConfig = cfgCheck;
+      matchedSurface = CONCIERGE_SURFACES[si];
+      break;
+    }
+  }
 
-  if (!chatbotConfig || !(chatbotConfig.channels_active || []).includes('email')) {
-    console.log('[email-concierge] Email channel not active for wedding_concierge, tenant:', tenantId);
+  if (!chatbotConfig) {
+    console.log('[email-concierge] No email-enabled concierge surface for tenant:', tenantId);
     return res.status(200).json({ ok: true, dropped: 'email_not_active' });
   }
+  console.log('[email-concierge] Matched surface:', matchedSurface, 'for tenant:', tenantId);
 
   // ── 4. Couple resolution ──────────────────────────────────────────────
   var { data: contact } = await supabase.from('contacts')
@@ -252,7 +263,7 @@ module.exports = async function handler(req, res) {
         submitter_email: senderEmail,
         submitter_name: senderName || senderEmail,
         submitter_type: 'external',
-        category: 'wedding_concierge_unrecognised_sender',
+        category: matchedSurface + '_unrecognised_sender',
         channel: 'email',
         ai_handled: false,
         wedding_id: null,
@@ -395,7 +406,7 @@ module.exports = async function handler(req, res) {
         subject: 'Empty email body: ' + subject,
         description: 'Email from ' + senderEmail + ' had no extractable text or HTML content.\n\nSubject: ' + subject,
         submitter_email: senderEmail, submitter_name: contactName || senderEmail,
-        submitter_type: 'couple', category: 'wedding_concierge_empty_body',
+        submitter_type: 'couple', category: matchedSurface + '_empty_body',
         channel: 'email', ai_handled: false, status: 'open', priority: 'low',
       });
     } catch (e) {}
@@ -408,7 +419,7 @@ module.exports = async function handler(req, res) {
   try {
     aiResult = await generateConciergeResponse(supabase, {
       tenantId: tenantId,
-      surface: 'wedding_concierge',
+      surface: matchedSurface,
       weddingId: weddingId,
       conversationId: conversationId,
       userMessage: userMessage,
@@ -543,7 +554,7 @@ module.exports = async function handler(req, res) {
         submitter_email: senderEmail,
         submitter_name: contactName || senderEmail,
         submitter_type: 'couple',
-        category: 'wedding_concierge_escalation',
+        category: matchedSurface + '_escalation',
         channel: 'email',
         ai_handled: true,
         status: 'open',
