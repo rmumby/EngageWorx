@@ -271,7 +271,7 @@ module.exports = async function handler(req, res) {
     console.error('[email-concierge] Early persist error (non-fatal):', earlyErr.message);
   }
 
-  // ── 4. Couple resolution ──────────────────────────────────────────────
+  // ── 4. Contact + couple resolution ─────────────────────────────────────
   var { data: contact } = await supabase.from('contacts')
     .select('id, first_name, last_name, email')
     .eq('tenant_id', tenantId)
@@ -279,48 +279,49 @@ module.exports = async function handler(req, res) {
     .limit(1).maybeSingle();
 
   var contactId = contact ? contact.id : (earlyContactId || null);
+  var contactName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(' ') : (senderName || senderEmail.split('@')[0]);
   var weddingId = null;
 
-  if (contactId) {
-    // Find wedding where this contact is primary or partner
-    var { data: wedding } = await supabase.from('weddings')
-      .select('id, display_name, wedding_date')
-      .eq('tenant_id', tenantId)
-      .or('primary_contact_id.eq.' + contactId + ',partner_contact_id.eq.' + contactId)
-      .limit(1).maybeSingle();
+  // Wedding lookup + unrecognised-sender ticket gate: wedding_concierge ONLY
+  if (matchedSurface === 'wedding_concierge') {
+    if (contactId) {
+      var { data: wedding } = await supabase.from('weddings')
+        .select('id, display_name, wedding_date')
+        .eq('tenant_id', tenantId)
+        .or('primary_contact_id.eq.' + contactId + ',partner_contact_id.eq.' + contactId)
+        .limit(1).maybeSingle();
 
-    if (wedding) {
-      weddingId = wedding.id;
-      console.log('[email-concierge] Matched wedding:', wedding.display_name, 'id:', wedding.id, 'date:', wedding.wedding_date);
+      if (wedding) {
+        weddingId = wedding.id;
+        console.log('[email-concierge] Matched wedding:', wedding.display_name, 'id:', wedding.id, 'date:', wedding.wedding_date);
+      }
     }
-  }
 
-  if (!weddingId) {
-    console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised_sender');
-  }
-
-  // If no wedding found: create support ticket for manual triage
-  if (!weddingId) {
-    console.log('[email-concierge] Unrecognised sender — creating support ticket:', senderEmail);
-    try {
-      await supabase.from('support_tickets').insert({
-        tenant_id: tenantId,
-        subject: 'Unrecognised sender: ' + subject,
-        description: 'Email from ' + senderEmail + (senderName ? ' (' + senderName + ')' : '') + ' to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
-        submitter_email: senderEmail,
-        submitter_name: senderName || senderEmail,
-        submitter_type: 'external',
-        category: matchedSurface + '_unrecognised_sender',
-        channel: 'email',
-        ai_handled: false,
-        wedding_id: null,
-        status: 'open',
-        priority: 'normal',
-        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
-        metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
-      });
-    } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
-    return res.status(200).json({ ok: true, action: 'unrecognised_sender_ticket' });
+    if (!weddingId) {
+      console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised_sender');
+      try {
+        await supabase.from('support_tickets').insert({
+          tenant_id: tenantId,
+          subject: 'Unrecognised sender: ' + subject,
+          description: 'Email from ' + senderEmail + (senderName ? ' (' + senderName + ')' : '') + ' to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
+          submitter_email: senderEmail,
+          submitter_name: senderName || senderEmail,
+          submitter_type: 'external',
+          category: matchedSurface + '_unrecognised_sender',
+          channel: 'email',
+          ai_handled: false,
+          wedding_id: null,
+          status: 'open',
+          priority: 'normal',
+          transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+          metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
+        });
+      } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
+      return res.status(200).json({ ok: true, action: 'unrecognised_sender_ticket' });
+    }
+  } else {
+    // Helpdesk surface: no wedding required, proceed directly to AI
+    console.log('[email-concierge] Helpdesk surface — skipping wedding lookup, proceeding to AI for:', senderEmail);
   }
 
   // ── 5. Conversation continuity ────────────────────────────────────────
@@ -409,7 +410,6 @@ module.exports = async function handler(req, res) {
   }
 
   // ── 6b. Evaluate escalation rules before AI call ──────────────────────
-  var contactName = contact ? ((contact.first_name || '') + ' ' + (contact.last_name || '')).trim() : senderName;
   try {
     var { data: escRules } = await supabase.from('escalation_rules')
       .select('*').eq('tenant_id', tenantId).eq('active', true)
