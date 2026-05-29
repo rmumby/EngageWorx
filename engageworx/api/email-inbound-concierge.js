@@ -224,6 +224,53 @@ module.exports = async function handler(req, res) {
   }
   console.log('[email-concierge] Matched surface:', matchedSurface, 'for tenant:', tenantId);
 
+  // ── 3b. Persist inbound to messages (unconditional — ensures Live Inbox visibility) ──
+  var earlyContactId = null;
+  var earlyConversationId = null;
+  try {
+    // Find or create contact so inbound is always linkable
+    var { data: earlyContact } = await supabase.from('contacts')
+      .select('id').eq('tenant_id', tenantId).ilike('email', senderEmail).limit(1).maybeSingle();
+    if (earlyContact) {
+      earlyContactId = earlyContact.id;
+    } else {
+      var { data: newContact } = await supabase.from('contacts').insert({
+        tenant_id: tenantId, email: senderEmail,
+        first_name: senderName || senderEmail.split('@')[0],
+        status: 'active', source: 'inbound_email',
+      }).select('id').single();
+      if (newContact) earlyContactId = newContact.id;
+    }
+    // Find or create conversation
+    if (earlyContactId) {
+      var { data: earlyConv } = await supabase.from('conversations')
+        .select('id').eq('tenant_id', tenantId).eq('contact_id', earlyContactId).eq('channel', 'email')
+        .limit(1).maybeSingle();
+      if (earlyConv) {
+        earlyConversationId = earlyConv.id;
+        await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1 }).eq('id', earlyConversationId);
+      } else {
+        var { data: newConv } = await supabase.from('conversations').insert({
+          tenant_id: tenantId, contact_id: earlyContactId, channel: 'email',
+          status: 'active', subject: subject, last_message_at: new Date().toISOString(), unread_count: 1,
+        }).select('id').single();
+        if (newConv) earlyConversationId = newConv.id;
+      }
+    }
+    // Insert inbound message
+    if (earlyConversationId) {
+      await supabase.from('messages').insert({
+        tenant_id: tenantId, conversation_id: earlyConversationId, contact_id: earlyContactId,
+        channel: 'email', direction: 'inbound', sender_type: 'contact',
+        body: emailBody.substring(0, 10000), subject: subject, status: 'delivered',
+        metadata: { source: 'resend_inbound', message_id: messageId || null, from: senderEmail, to: recipientEmail },
+      });
+      console.log('[email-concierge] Early inbound message persisted — conv:', earlyConversationId, 'contact:', earlyContactId);
+    }
+  } catch (earlyErr) {
+    console.error('[email-concierge] Early persist error (non-fatal):', earlyErr.message);
+  }
+
   // ── 4. Couple resolution ──────────────────────────────────────────────
   var { data: contact } = await supabase.from('contacts')
     .select('id, first_name, last_name, email')
@@ -231,7 +278,7 @@ module.exports = async function handler(req, res) {
     .ilike('email', senderEmail)
     .limit(1).maybeSingle();
 
-  var contactId = contact ? contact.id : null;
+  var contactId = contact ? contact.id : (earlyContactId || null);
   var weddingId = null;
 
   if (contactId) {
@@ -332,19 +379,14 @@ module.exports = async function handler(req, res) {
       var { data: convState } = await supabase.from('conversations')
         .select('concierge_paused').eq('id', conversationId).maybeSingle();
       if (convState && convState.concierge_paused) {
-        console.log('[email-concierge] Concierge paused for conversation:', conversationId, '— persisting inbound only');
-        await supabase.from('messages').insert({
-          tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-          channel: 'email', direction: 'inbound', sender_type: 'contact',
-          body: emailBody.substring(0, 10000), status: 'delivered',
-        }).then(function() {}).catch(function() {});
+        console.log('[email-concierge] Concierge paused for conversation:', conversationId, '— early persist already handled inbound');
         return res.status(200).json({ ok: true, action: 'concierge_paused', conversation_id: conversationId });
       }
     } catch (e) { /* concierge_paused column may not exist yet */ }
   }
 
-  // ── 6. Persist inbound message ────────────────────────────────────────
-  if (conversationId) {
+  // ── 6. Persist inbound message (skip if early persist already handled) ──
+  if (conversationId && !earlyConversationId) {
     try {
       var { error: inboundMsgErr } = await supabase.from('messages').insert({
         tenant_id: tenantId,
