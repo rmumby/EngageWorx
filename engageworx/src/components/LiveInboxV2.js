@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { useTranslation } from 'react-i18next';
 import { DEMO_CONVERSATIONS } from '../demoFixtures';
-import { ChatThread, ChatInput } from './chat';
+import { ChatThread, ChatInput, MessageBubble } from './chat';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 function dedupConversations(convos, contactMap, msgMap) {
@@ -400,6 +400,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [selectMode, setSelectMode] = useState(false);
   const [selectedConvIds, setSelectedConvIds] = useState([]);
   const [bulkActing, setBulkActing] = useState(false);
+  const [kbModal, setKbModal] = useState(null); // { outboundMsg, inboundMsg, title, question, answer }
+  const [kbSaving, setKbSaving] = useState(false);
+  const [kbToast, setKbToast] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   useEffect(function() {
     if (!isSPorCSP || !supabase || !resolvedTenantId) return;
@@ -535,6 +538,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
               text: m.body || '',
+              subject: m.subject || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
               read: true,
@@ -1486,8 +1490,47 @@ useEffect(function() {
                   read: msg.read,
                   isHtml: isHtml,
                 },
+                _raw: msg,
               };
             })}
+            renderMessage={function(msg, idx) {
+              // Only augment outbound human messages (not AI) that have a preceding inbound
+              if (msg.role !== 'agent' || (msg.metadata && msg.metadata.botName)) return undefined;
+              var rawMsgs = selectedConv.messages || [];
+              var rawIdx = rawMsgs.findIndex(function(m) { return m.id === msg.id; });
+              if (rawIdx < 0) return undefined;
+              // Walk backwards to find preceding inbound
+              var precedingInbound = null;
+              for (var pi = rawIdx - 1; pi >= 0; pi--) {
+                if (rawMsgs[pi].from === 'contact') { precedingInbound = rawMsgs[pi]; break; }
+              }
+              if (!precedingInbound) return undefined;
+              // Render default bubble + action row
+              var prev = idx > 0 ? null : null; // avatar grouping handled by ChatThread default
+              return (
+                <div key={msg.id}>
+                  <MessageBubble
+                    role={msg.role} content={msg.content} timestamp={msg.timestamp}
+                    metadata={msg.metadata} align={msg.align} colors={C}
+                    showAvatar={false} maxWidth={isMobile ? "85%" : "65%"}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '2px 8px 4px', opacity: 0.5, transition: 'opacity 0.15s' }}
+                    onMouseEnter={function(e) { e.currentTarget.style.opacity = '1'; }}
+                    onMouseLeave={function(e) { e.currentTarget.style.opacity = '0.5'; }}>
+                    <button onClick={function() {
+                      var title = precedingInbound.subject || selectedConv.subject || '';
+                      if (!title) { var firstLine = (precedingInbound.text || '').split('\n')[0].trim(); title = firstLine.length > 80 ? firstLine.substring(0, 77) + '...' : firstLine; }
+                      title = title.replace(/^Re:\s*/i, '').trim();
+                      setKbModal({ title: title, question: precedingInbound.text || '', answer: msg._raw.text || msg.content || '' });
+                    }} style={{
+                      background: 'none', border: 'none', color: C.muted || '#6B8BAE',
+                      cursor: 'pointer', fontSize: 11, fontWeight: 600, padding: '2px 6px',
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>📚 Add to KB</button>
+                  </div>
+                </div>
+              );
+            }}
             isTyping={selectedConv.isTyping}
             typingAvatar={selectedConv.contact.avatar}
             colors={C}
@@ -1840,6 +1883,76 @@ useEffect(function() {
               <button onClick={function() { setNewConvOpen(false); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "12px 20px", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Add to KB Modal */}
+      {kbModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={function() { if (!kbSaving) setKbModal(null); }}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 540, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>📚 Add to Knowledge Base</h3>
+              <button onClick={function() { setKbModal(null); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Title</label>
+            <input value={kbModal.title} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { title: e.target.value })); }}
+              maxLength={200} placeholder="e.g. Drinks package options"
+              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
+
+            <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Question (from customer)</label>
+            <textarea value={kbModal.question} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { question: e.target.value })); }}
+              rows={4} placeholder="The customer's original question..."
+              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 14 }} />
+
+            <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Answer (your reply)</label>
+            <textarea value={kbModal.answer} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { answer: e.target.value })); }}
+              rows={6} placeholder="Your answer that should be reused..."
+              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 18 }} />
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button disabled={kbSaving || !kbModal.title.trim() || !kbModal.answer.trim()} onClick={async function() {
+                setKbSaving(true);
+                try {
+                  var session = await supabase.auth.getSession();
+                  var jwt = session.data.session ? session.data.session.access_token : null;
+                  if (!jwt) { alert('Not authenticated'); setKbSaving(false); return; }
+                  var convTenant = selectedConv.tenant_id || resolvedTenantId;
+                  // Determine surface from tenant's chatbot_configs
+                  var surface = 'wedding_concierge';
+                  try {
+                    var cfgRes = await supabase.from('chatbot_configs').select('surface').eq('tenant_id', convTenant).in('surface', ['wedding_concierge', 'helpdesk']).limit(1).maybeSingle();
+                    if (cfgRes.data) surface = cfgRes.data.surface;
+                  } catch (_) {}
+                  var content = 'Q: ' + kbModal.question.trim() + '\n\nA: ' + kbModal.answer.trim();
+                  var res = await fetch('/api/kb-articles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+                    body: JSON.stringify({ tenant_id: convTenant, title: kbModal.title.trim(), content: content, surface: surface }),
+                  });
+                  var data = await res.json();
+                  if (!res.ok) { alert('Error: ' + (data.error || 'Failed')); setKbSaving(false); return; }
+                  setKbModal(null);
+                  setKbToast('Added — Aria will use this in future replies.');
+                  setTimeout(function() { setKbToast(null); }, 4000);
+                } catch (err) { alert('Error: ' + err.message); }
+                setKbSaving(false);
+              }} style={{
+                flex: 1, background: C.primary || '#00C9FF', border: 'none', borderRadius: 8,
+                padding: '12px', color: '#000', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif", opacity: (kbSaving || !kbModal.title.trim() || !kbModal.answer.trim()) ? 0.5 : 1,
+              }}>{kbSaving ? 'Saving...' : '📚 Add to Knowledge Base'}</button>
+              <button onClick={function() { setKbModal(null); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '12px 20px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KB Toast */}
+      {kbToast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", zIndex: 1200, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+          {kbToast}
         </div>
       )}
 

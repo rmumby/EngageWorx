@@ -8,7 +8,8 @@
 
 var { createClient } = require('@supabase/supabase-js');
 
-var ALLOWED_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier'];
+var ALLOWED_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier', 'helpdesk'];
+var HELPDESK_SURFACES = ['helpdesk'];
 
 function getSupabase() {
   return createClient(
@@ -63,18 +64,22 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     var tenantId2 = body.tenant_id;
     if (!tenantId2) return res.status(400).json({ error: 'tenant_id required' });
-    if (!body.title) return res.status(400).json({ error: 'title required' });
-    if (!body.content) return res.status(400).json({ error: 'content required' });
-    var postSurface = body.surface || 'wedding_concierge';
-    if (ALLOWED_SURFACES.indexOf(postSurface) === -1) return res.status(400).json({ error: 'Invalid surface. Allowed: ' + ALLOWED_SURFACES.join(', ') });
+    if (!body.title || body.title.trim().length > 200) return res.status(400).json({ error: 'title required (max 200 chars)' });
+    if (!body.content || body.content.trim().length > 10000) return res.status(400).json({ error: 'content required (max 10000 chars)' });
     var auth2 = await verifyAuth(supabase, req, tenantId2, { requireAdmin: true });
     if (auth2.error) return res.status(auth2.status).json({ error: auth2.error });
-    var { data: article, error: insertErr } = await supabase.from('wedding_kb_articles').insert({
-      tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(),
-      surface: postSurface, is_published: body.is_published !== false, source_document_id: null,
-    }).select('*').single();
+    // Derive surface from tenant's chatbot_configs — don't trust client value
+    var { data: tenantCfg } = await supabase.from('chatbot_configs').select('surface')
+      .eq('tenant_id', tenantId2).in('surface', ALLOWED_SURFACES).limit(1).maybeSingle();
+    var postSurface = tenantCfg ? tenantCfg.surface : 'wedding_concierge';
+    var isHelpdesk = HELPDESK_SURFACES.indexOf(postSurface) !== -1;
+    var tableName = isHelpdesk ? 'helpdesk_kb_articles' : 'wedding_kb_articles';
+    var insertRow = isHelpdesk
+      ? { tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(), category: body.category || null, published: true, created_by: auth2.user.id }
+      : { tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(), surface: postSurface, is_published: true, source_document_id: null };
+    var { data: article, error: insertErr } = await supabase.from(tableName).insert(insertRow).select('*').single();
     if (insertErr) return res.status(500).json({ error: insertErr.message });
-    console.log('[kb-articles] Created:', { id: article.id, title: article.title, tenant: tenantId2 });
+    console.log('[kb-articles] Created:', { id: article.id, title: article.title, tenant: tenantId2, table: tableName });
     return res.status(200).json({ article: article });
   }
 

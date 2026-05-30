@@ -5,6 +5,104 @@ Update as items are completed (mark Status: Done with completion date) or closed
 
 ---
 
+## PLATFORM-AI-KNOWLEDGE-FEEDBACK-LOOP (P1)
+
+Origin: Darren/Michelle at Delamere May 29 — manually answering the same questions
+across couples is wasted effort. The AI doesn't carry knowledge from one couple's
+exchange to another's.
+
+Core problem: each new couple's question goes through the AI fresh. No mechanism for
+"we already answered this brilliantly for couple A — reuse that for couple B."
+
+Investigation findings (2026-05-29):
+- wedding_kb_articles IS populated (28 articles for Delamere, ~9.5K chars total)
+- Retrieval IS wired up: wedding-concierge.js loads all published KB articles and
+  injects into system prompt as full-context (not top-k semantic search)
+- Current approach: full injection works at 28 articles but won't scale past ~50
+- System prompt is strong (7K chars, Cheshire voice, scope limits, escalation rules)
+- Gap is KB CONTENT (no cross-couple patterns) and CAPTURE WORKFLOW (no way for
+  Darren to promote a good reply into a KB article from Live Inbox)
+
+PHASE 1 — Retrieval upgrade (current: full injection → target: semantic top-k):
+- Embed KB articles via text-embedding-3-small (or equivalent)
+- On inbound: embed question, retrieve top-k relevant articles
+- Include retrieved articles in prompt context instead of all articles
+- Scales to 500+ articles per tenant without prompt bloat
+
+PHASE 2 — Knowledge capture workflow (highest impact, build first):
+- Live Inbox: "Add to KB" action on any sent message
+- Pre-fills modal with Q (inbound) + A (outbound) as draft KB article
+- Darren edits title/content, confirms → inserts wedding_kb_articles row
+- Auto-suggest "FAQ candidate" when same question pattern recurs across couples
+- Bulk KB seeding via document upload (FAQ doc, venue handbook)
+
+PHASE 3 — KB management UI:
+- Admin view to browse, edit, deactivate KB articles
+- Usage stats: retrieval frequency, question types, AI confidence
+- Version control for article edits
+
+PHASE 4 — Quality improvement loop:
+- Capture manual overrides/corrections as improvement signals
+- Use corrections to update KB articles or flag low-quality retrievals
+- Every human correction makes AI better for next couple
+
+Generalises to non-wedding tenants — same RAG loop for helpdesk surface.
+Delamere is the test case: Darren is willing, use case is concrete, 28 articles
+already seeded.
+
+Supersedes: PLATFORM-DELAMERE-CONCIERGE-INTELLIGENCE-UPGRADE (fold in here)
+
+**Found**: 2026-05-29 during Delamere concierge intelligence investigation
+**Priority**: P1 — make-or-break for AI ROI in customer eyes
+**Status**: Open — Phase 1 confirmed working (full injection), Phase 2 is next build
+**Sequencing**: Phase 2 first (capture workflow delivers 80% of value), then Phase 1
+upgrade (semantic retrieval), then Phases 3-4
+
+---
+
+## PLATFORM-SA-OVERVIEW-DATA-WIRING (P1)
+
+SA Platform Overview shows misleading data — first screen SAs see on login:
+- Tenant list: query has race/auth-resolve bug, returns empty ("No tenants yet"
+  despite 13+ tenants). useLiveData runs before isSuperAdmin resolves.
+- Stat cards: totalMessages, totalRevenue, totalCampaigns hardcoded to 0 in
+  useLiveData (lines 153-155). Never wired to real queries. Only activeCustomers
+  has a real count (but fails when tenant list is empty).
+- Channel Usage: hardcoded placeholder percentages (42/24/18/8/5/3) with no
+  demoMode guard. Renders in live mode as if real. RCS at 5% with zero RCS
+  implementation. Most misleading element.
+- Tenant Comparison: implemented but starved — maps customer.stats.revenue which
+  doesn't exist on liveTenants objects.
+
+Fix sequence:
+1. IMMEDIATE: hide Channel Usage when !demoMode (fake data on live screen)
+2. Fix tenant list race: ensure useLiveData re-fetches after auth resolves
+3. Wire totalMessages: aggregate from messages table
+4. Wire activeCustomers: standalone count, not dependent on tenant list loading
+5. DEFERRED: revenue wiring (Stripe integration), campaign count, Tenant Comparison
+
+Root cause: screens built with stub data and never wired to production. Missing
+build-step: verification that features show real data, not scaffolding.
+
+**Found**: 2026-05-30 during SA Platform Overview investigation
+**Priority**: P1 — SA's primary dashboard is non-functional in live mode
+**Status**: Open — CSPPortal confirmed clean (separate audit), SA-only issue
+
+---
+
+## PLATFORM-KB-ADD-BUTTON-MOBILE-UX (P3)
+
+"Add to KB" button uses opacity-on-hover for visibility. On touch devices with no
+hover state, behavior may be either always-50% (too subtle) or always-100% (too
+prominent). Verify on mobile after first deploy, adjust if needed. Acceptable
+trade-off for v1 since admin use of Live Inbox is largely desktop.
+
+**Found**: 2026-05-30 during KB feedback loop build
+**Priority**: P3 — cosmetic, desktop-primary feature
+**Status**: Open — verify post-deploy on mobile
+
+---
+
 ## PLATFORM-SA-TENANT-DRILLDOWN-CONTEXT (P1)
 
 When SA "View Portal" drills into a tenant, some components query the SA's home tenant 
@@ -274,6 +372,204 @@ blocked-stage error UI or the Pipeline view.
 **Found**: 2026-05-28 during Phase 1 Part B review
 **Priority**: P3 — works today, friction only at scale
 **Status**: Open
+
+---
+
+## PLATFORM-LIGHT-MODE-LOGO-ASSETS (P2)
+
+White-on-transparent logo PNGs (uploaded via brand_logo_url) vanish on light backgrounds.
+BrandLogo.jsx correctly handles text-logo and default EngageWorx paths (fixed in PR #62),
+but the image-logo path passes the PNG through as-is — no theme awareness.
+
+46 Labs is the first concrete tenant hitting this — white-on-transparent logo designed
+for dark mode has low/no contrast on light backgrounds.
+
+Two-path solution:
+- Per-tenant: upload two assets (logo_light_url, logo_dark_url) on tenants branding
+  fields. BrandLogo.jsx picks based on isDark from ThemeContext.
+- Fallback: if only one asset uploaded, use it for both (current behavior preserved)
+- UI: branding settings page gains "Logo for light mode" upload field with help text
+  explaining when to use it ("Upload a dark-colored version of your logo for use on
+  light/white backgrounds")
+- Schema: add brand_logo_light_url column to tenants table (nullable, no migration
+  impact — existing tenants keep current behavior)
+
+Decision pending: 46 Labs Wednesday call — whether they want platform-level fix or
+just upload a second asset manually as interim.
+
+**Found**: 2026-05-28 during light-mode theming fix (PR #62)
+**Updated**: 2026-05-30 — upgraded P3→P2 after 46 Labs feedback confirmed real impact
+**Priority**: P2 — 46 Labs actively affected, blocks their light-mode rollout
+**Status**: Open — waiting on 46 Labs decision (platform fix vs manual asset upload)
+
+---
+
+## PLATFORM-LOGO-SUBTITLE-THEME-AWARE (P3)
+
+"PARTNER PORTAL" subtitle text (or similar tenant-configured subtitle) rendered in a
+hardcoded color that vanishes in dark mode for 46 Labs. Same class of bug as the
+text-logo fix in PR #62 — needs isDark conditional on the subtitle color.
+
+Audit: find where subtitle text is rendered in BrandLogo.jsx or the portal header
+component. Apply same pattern as PR #62: isDark ? '#fff' : '#111827' (or appropriate
+muted variant for subtitles).
+
+May be in BrandLogo.jsx (if subtitle is part of the logo component) or in the
+CSPPortal/CustomerPortal header layout. Quick grep for "PARTNER PORTAL" or
+subtitle-related rendering will locate it.
+
+**Found**: 2026-05-30 during 46 Labs light-mode review
+**Priority**: P3 — cosmetic, same fix pattern as PR #62
+**Status**: Open
+
+---
+
+## PLATFORM-INBOUND-EMAIL-REGRESSION-AUDIT (P1)
+
+hello@engwx.com worked end-to-end on May 5 via email-inbound.js (SendGrid Inbound
+Parse path). Delamere onboarding introduced email-inbound-concierge.js (Resend path)
+and silently re-routed inbound infrastructure. Old path broke (SendGrid trial expired,
+MX pointing at dead mx.sendgrid.net, Google Workspace routing rule forwarding to
+ai@parse.engwx.com which also points at dead SendGrid). No alerts fired. Bug went
+undetected for 24 days until Friday May 29.
+
+ROOT CAUSE: no monitoring on primary inbound paths, no integration tests for the
+platform's own public address, no change-review process that flagged adding a new
+handler should preserve the existing one's behavior.
+
+ACTIONS:
+1. Integration test: daily external email to hello@engwx.com, verify AI reply arrives,
+   alert on failure (cron + Resend send + webhook check)
+2. Code review checklist: "does this change touch a working production path?" —
+   add to CLAUDE.md build principles
+3. Audit other shared handlers for tenant-specific assumptions that broke generality
+   (email-inbound-concierge.js assumed wedding_concierge surface — now fixed in PR #64,
+   but pattern may exist elsewhere)
+4. Clean up stale DNS: parse.engwx.com and track.engwx.com MX still point at dead
+   SendGrid. Google Workspace routing rule for ai@parse.engwx.com should be disabled
+   now that hello@inbound.engwx.com path is live.
+
+**Found**: 2026-05-29 during hello@engwx.com inbound investigation
+**Priority**: P1 — monitoring gap, not a current outage (fixed in PRs #64/#65)
+**Status**: Open — monitoring + cleanup actions pending
+
+---
+
+## PLATFORM-CONCIERGE-HELPDESK-AI-REPLY (P1)
+
+Helpdesk-surface tenants routed through email-inbound-concierge.js hit "No wedding
+for sender" and never get an AI reply. The handler's post-resolution logic assumes
+wedding_concierge surface: requires weddingId to proceed to AI, falls back to
+unrecognised_sender_ticket without it.
+
+Need to branch post-resolution logic by matchedSurface:
+- wedding_concierge: existing flow (require wedding, couple resolution)
+- helpdesk: skip wedding lookup entirely, go straight to AI with the tenant's
+  helpdesk system_prompt. Contact resolution still applies (find-or-create).
+
+Architectural change — the handler currently interleaves wedding-specific logic
+throughout steps 4-8. Clean separation needed. Fresh-session work.
+
+**Found**: 2026-05-29 during hello@engwx.com inbound fix
+**Priority**: P1 — blocks AI auto-reply for all non-wedding tenants using this path
+**Status**: Open — persistence fix shipped (PR #65), AI reply path deferred
+
+---
+
+## PLATFORM-MANUAL-AUTH-USER-CREATION-BROKEN (P1)
+
+Creating an auth user via direct SQL with all five layers present (auth.users,
+auth.identities, user_profiles, tenant_members, tenants) — matching an existing working
+user's shape exactly — still produces "Database error querying schema" on sign-in.
+
+The normal signup flow does additional steps that manual SQL creation misses. Suspects:
+- A trigger on auth.users INSERT that sets up additional GoTrue state (sessions table,
+  refresh tokens, MFA factors, or similar)
+- RLS policies that require a specific auth context set during the real signup flow
+- PostgREST schema cache not recognizing the manually-created user
+- auth.users columns with NOT NULL defaults that the real signup path populates but
+  our INSERT skipped (phone, banned_until, deleted_at, etc.)
+
+Debug approach (tomorrow):
+1. Check GoTrue logs for the specific schema-query failure text
+2. Compare ALL columns of auth.users between the new user and Phillip (not just the
+   ones we checked — dump the full row diff)
+3. Check auth.sessions, auth.refresh_tokens, auth.mfa_factors for rows that exist
+   for working users but not the new one
+4. Test: create a user via the Supabase Admin API (not SQL) and compare
+
+Affects: SA's ability to verify tenant views, manual user provisioning, debugging
+onboarding issues. Likely related to PLATFORM-PASSWORD-RESET-EMAIL-DELIVERY and
+PLATFORM-SA-VIEW-AS-USER.
+
+rob+46labs@engwx.com user left in place — do not mutate further until root cause found.
+
+**Found**: 2026-05-28 during 46 Labs admin login attempt
+**Priority**: P1 — blocks tenant view verification
+**Status**: Open — debug tomorrow with GoTrue logs
+
+---
+
+## PLATFORM-PASSWORD-RESET-EMAIL-DELIVERY (P1)
+
+Password reset emails not arriving. Confirmed broken for Gmail recipients; broader scope
+unknown. Rob spent an hour cycling through Supabase dashboard reset, direct reset links,
+and standard forgot-password flow — no email delivered in any case. Workaround: created
+auth users directly via SQL with pre-set passwords to bypass the email path entirely.
+
+Investigate:
+- Resend delivery logs (bounces, deferrals, blocks)
+- Sender reputation for the sending domain
+- SPF/DKIM/DMARC alignment for auth emails (may differ from transactional emails)
+- Whether Supabase auth emails route through the same Resend pipeline as sendTenantEmail
+- Gmail-specific: check if auth emails land in spam or are silently rejected
+
+Affects all tenant onboarding — new users invited via the platform can't set their
+password if reset emails don't arrive.
+
+**Found**: 2026-05-28 during 46 Labs admin login attempt
+**Priority**: P1 — blocks tenant onboarding and password recovery for all users
+**Status**: Open
+
+---
+
+## PLATFORM-SA-VIEW-AS-USER (P2)
+
+SA needs a one-click "log in as this tenant user" capability for verification. Currently
+requires manually creating a separate auth account via SQL (what we did for 46 Labs on
+2026-05-28). The SA-drilldown view is unreliable for tenant-perspective testing (profile
+prop = SA's profile, useAuth() returns SA identity, Settings userRole = 'superadmin' —
+see drilldown context bug audit).
+
+Build: SA-side button on TenantManagement that creates a time-limited impersonation
+session — real tenant auth context, correct profile, correct useAuth(), correct RLS.
+Options: (a) Supabase admin generateLink for the tenant user + auto-redirect,
+(b) synthetic JWT with tenant user claims, (c) service-role session swap. Design
+discussion needed — security implications of each approach differ.
+
+**Found**: 2026-05-28 during 46 Labs verification fire drill
+**Priority**: P2 — quality-of-life for SA verification; workaround exists (manual SQL)
+**Status**: Open
+
+---
+
+## PLATFORM-BUTTON-COMPONENT-CONSOLIDATION (P3)
+
+65 files contain inline-styled buttons with linear-gradient backgrounds (~164 occurrences).
+No shared Button component exists. Created src/components/ui/Button.jsx (variants:
+primary/secondary/ghost/danger, brand_primary from BrandingContext, WCAG auto-contrast
+text). First migration pass covers tenant-facing portal components. Long tail of
+non-tenant-facing surfaces (LandingPage 36 gradients, EngageWorxDemo 9, etc.) remains
+inline-styled.
+
+Scope: migrate remaining inline button styles to shared Button component across all
+portal surfaces. LandingPage explicitly excluded (marketing visual identity, not
+tenant-facing).
+
+**Found**: 2026-05-28 during 46 Labs gradient removal request
+**Priority**: P3 — functional today, but inline styles create drift and inconsistency
+**Status**: In progress — Button.jsx created, ActionBoard migrated, remaining portal
+components in flight
 
 ---
 
