@@ -60,6 +60,71 @@ upgrade (semantic retrieval), then Phases 3-4
 
 ---
 
+## PLATFORM-ISSUE-CAPTURE-INTERFACE (P1)
+
+SA users (and eventually tenant admins) need a low-friction way to flag bugs and
+observations in realtime while using the platform. Current workflow: describe in
+Claude chat session, hope it gets captured to BACKLOG.md. Fragmented across sessions,
+no persistence, no triage, no tracking.
+
+Phase 1 — Capture (build first):
+- Floating "Flag this" button visible to SA users (bottom-right, unobtrusive)
+- Quick-capture modal: one-line description, optional screenshot (clipboard paste),
+  severity selector (bug/observation/idea)
+- Auto-captured context: current URL/page, tenant_id (if in drilldown), user_id,
+  timestamp, browser info
+- Posts to new `platform_issues` table: id, description, screenshot_url, severity,
+  status (new/triaged/in-progress/fixed), priority, assigned_to, context jsonb,
+  created_by, created_at, updated_at
+- Simple SA Issues dashboard: list view, status filters, priority sort, click to
+  expand detail. Accessible from SA nav sidebar.
+
+Phase 2 — AI-assisted triage:
+- On issue creation, Claude suggests priority based on description + context
+- Duplicate detection: find existing issues with similar description
+- Propose which backlog item or PR to pair with
+
+Phase 3 — Coordinator integration:
+- Link issues to PRs (issue_id on commits/PRs)
+- Track fix-then-verify cycle: issue → PR → deploy → verify → close
+- Tenant admin version: tenant-scoped issues visible to their admin, escalatable
+  to platform level
+
+Replaces BACKLOG.md as the primary issue tracking mechanism for platform bugs
+discovered during live usage. BACKLOG.md continues for strategic/architectural items.
+
+**Found**: 2026-05-30 — Rob recognizing real-time discovery during platform usage
+produces fragmented capture across chat sessions
+**Priority**: P1 — meta-productivity: every other P1 fix benefits from better capture
+**Status**: Open — Phase 1 is the next build after KB feature ships
+
+---
+
+## PLATFORM-STRATEGIC-PLAN-MAINTENANCE (P2)
+
+May 27 handoff doc described 6-PR surface refactor (PRs 2-6 planned). Friday's
+hot-fix to email-inbound-concierge.js for hello@engwx.com partially completed
+PR 4's scope tactically (hardcoded CONCIERGE_SURFACES array instead of DB lookup
+against tenant_ai_surfaces table from PR #46). Strategic plan wasn't updated.
+
+Pattern: tactical P0/P1 fixes obsoleting strategic plans without formal update,
+causing drift between "what's planned" and "what's actually built."
+
+Mitigation:
+- After any hot-fix that touches a system on a planned refactor path, update the
+  strategic plan or close the relevant planned item
+- Handoff docs are living documents, not static snapshots
+- When a backlog item is partially addressed by emergency work, update its status
+  to reflect what's done vs remaining (not just "Open")
+- Surface refactor current state: PR #46 (schema) done, PR 4 (handler generics)
+  partially done via PRs #64/#66, PRs 2/3/5/6 untouched
+
+**Found**: 2026-05-30 during Sunday morning state check
+**Priority**: P2 — process improvement, not blocking
+**Status**: Open — update handoff doc and surface refactor plan to reflect current state
+
+---
+
 ## PLATFORM-SA-OVERVIEW-DATA-WIRING (P1)
 
 SA Platform Overview shows misleading data — first screen SAs see on login:
@@ -87,6 +152,27 @@ build-step: verification that features show real data, not scaffolding.
 **Found**: 2026-05-30 during SA Platform Overview investigation
 **Priority**: P1 — SA's primary dashboard is non-functional in live mode
 **Status**: Open — CSPPortal confirmed clean (separate audit), SA-only issue
+
+---
+
+## PLATFORM-KB-BUTTON-AI-REPLY-FILTER (P3 — verify)
+
+Report: "Add to KB" button renders on AI-generated replies. Investigation shows
+the filter IS implemented (line 1498: returns undefined when msg.metadata.botName
+is truthy). DB confirms clean split: sender_type='bot' for AI (39 msgs),
+sender_type='agent' for human (2 msgs). isBot flag maps correctly.
+
+Code logic appears correct. If observed in browser, likely an edge case:
+- A message with unexpected sender_type (not 'bot' or 'agent')
+- A message where sender_type was null/missing at insert time
+
+Action: verify in browser on Delamere conversations. If the button appears on a
+message that has the AI Assistant label, inspect that message's sender_type in DB.
+If code is working correctly, close as verified.
+
+**Found**: 2026-05-30 during KB feature review
+**Priority**: P3 — filter logic is implemented, needs browser verification only
+**Status**: Open — verify post-deploy
 
 ---
 
@@ -570,6 +656,24 @@ tenant-facing).
 **Priority**: P3 — functional today, but inline styles create drift and inconsistency
 **Status**: In progress — Button.jsx created, ActionBoard migrated, remaining portal
 components in flight
+
+---
+
+## PLATFORM-MIGRATION-FILE-DUPLICATES (P3)
+
+Migrations 018, 019, 020, 021 each have two files with same sequence numbers but
+different content. Originally flagged in May 27 handoff doc. PR #50 renumbered
+duplicates to 032-035 but the underlying issue (which file in each pair is canonical)
+was not resolved — just renamed to avoid filename collisions.
+
+Cleanup needed: for each pair, identify the canonical migration (the one that was
+actually applied to production), remove the orphan, document which was kept and why.
+Risk: confusion when reviewing migration history or building a new migration runner.
+Not breaking anything — both files exist, only one was applied per pair.
+
+**Found**: 2026-05-27 during migration audit, re-flagged 2026-05-30
+**Priority**: P3 — not breaking, technical debt
+**Status**: Open
 
 ---
 
