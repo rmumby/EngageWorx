@@ -2979,7 +2979,7 @@ var spNavBase = [
                           {expanded && (
                             <div style={{ padding: '0 14px 14px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10, fontSize: 12 }}>
-                                <div><span style={{ color: '#556677' }}>Reporter:</span> <span style={{ color: '#ccc' }}>{issue.reporter ? (issue.reporter.full_name || issue.reporter.email) : 'Unknown'}</span></div>
+                                <div><span style={{ color: '#556677' }}>Reporter:</span> <span style={{ color: '#ccc' }}>SA</span></div>
                                 <div><span style={{ color: '#556677' }}>URL:</span> <span style={{ color: '#ccc' }}>{issue.url_context || '—'}</span></div>
                                 <div><span style={{ color: '#556677' }}>Screen:</span> <span style={{ color: '#ccc' }}>{issue.screen_label || '—'}</span></div>
                                 <div><span style={{ color: '#556677' }}>Tenant:</span> <span style={{ color: '#ccc' }}>{issue.tenant_context_id || '—'}</span></div>
