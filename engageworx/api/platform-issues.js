@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
     var auth = await verifySA(supabase, req);
     if (auth.error) return res.status(auth.status).json({ error: auth.error });
     var query = supabase.from('platform_issues')
-      .select('*, reporter:reporter_user_id(email, full_name)')
+      .select('*')
       .order('created_at', { ascending: false });
     if (req.query.status) query = query.eq('status', req.query.status);
     if (req.query.category) query = query.eq('category', req.query.category);
