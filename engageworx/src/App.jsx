@@ -234,6 +234,94 @@ function StatCard({ label, value, sub, color, icon }) {
   );
 }
 
+// ─── SA Flag Button (extracted for use in SP shell + drilldown) ──────────────
+function SAFlagButton({ supabase, screenLabel, tenantContextId, onViewIssues }) {
+  var [flagOpen, setFlagOpen] = useState(false);
+  var [flagDesc, setFlagDesc] = useState('');
+  var [flagCat, setFlagCat] = useState('');
+  var [flagNotes, setFlagNotes] = useState('');
+  var [flagSaving, setFlagSaving] = useState(false);
+  var [flagToast, setFlagToast] = useState(null);
+  return (<>
+    <button onClick={function() { setFlagOpen(true); }} title="Flag an issue on this screen"
+      style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, width: 48, height: 48, borderRadius: '50%', background: 'rgba(99,102,241,0.9)', border: '2px solid rgba(99,102,241,0.4)', color: '#fff', fontSize: 20, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s' }}
+      onMouseEnter={function(e) { e.currentTarget.style.transform = 'scale(1.1)'; }}
+      onMouseLeave={function(e) { e.currentTarget.style.transform = 'scale(1)'; }}
+    >🚩</button>
+    {flagOpen && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onClick={function() { if (!flagSaving) setFlagOpen(false); }}>
+        <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 460, maxWidth: '90vw', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>🚩 Flag an Issue</h3>
+            <button onClick={function() { setFlagOpen(false); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer' }}>✕</button>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px', marginBottom: 14, fontSize: 11, color: '#556677' }}>
+            <div>Page: <span style={{ color: '#8899aa' }}>{screenLabel}</span></div>
+            <div>URL: <span style={{ color: '#8899aa' }}>{window.location.pathname}</span></div>
+            {tenantContextId && <div>Tenant: <span style={{ color: '#8899aa' }}>{tenantContextId}</span></div>}
+            <div>Time: <span style={{ color: '#8899aa' }}>{new Date().toLocaleString()}</span></div>
+          </div>
+          <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>What's wrong? *</label>
+          <input value={flagDesc} onChange={function(e) { setFlagDesc(e.target.value); }} maxLength={500} placeholder="Brief description of the issue..."
+            style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} autoFocus />
+          <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Category</label>
+          <select value={flagCat} onChange={function(e) { setFlagCat(e.target.value); }}
+            style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, marginBottom: 14 }}>
+            <option value="">Select...</option>
+            <option value="visual">🎨 Visual</option>
+            <option value="functional">⚙️ Functional</option>
+            <option value="data">📊 Data</option>
+            <option value="copy">✏️ Copy</option>
+            <option value="accessibility">♿ Accessibility</option>
+            <option value="other">📌 Other</option>
+          </select>
+          <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Notes (optional)</label>
+          <textarea value={flagNotes} onChange={function(e) { setFlagNotes(e.target.value); }} rows={3} placeholder="Additional context, steps to reproduce..."
+            style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 18 }} />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button disabled={flagSaving || !flagDesc.trim()} onClick={async function() {
+              setFlagSaving(true);
+              try {
+                var s = await supabase.auth.getSession();
+                var jwt = s.data.session ? s.data.session.access_token : null;
+                var res = await fetch('/api/platform-issues', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+                  body: JSON.stringify({
+                    description: flagDesc.trim(),
+                    category: flagCat || null,
+                    notes: flagNotes.trim() || null,
+                    url_context: window.location.pathname,
+                    screen_label: screenLabel,
+                    tenant_context_id: tenantContextId || null,
+                  }),
+                });
+                if (!res.ok) { var err = await res.json(); alert('Error: ' + (err.error || 'Failed')); setFlagSaving(false); return; }
+                setFlagOpen(false); setFlagDesc(''); setFlagCat(''); setFlagNotes('');
+                setFlagToast(true);
+                setTimeout(function() { setFlagToast(null); }, 4000);
+              } catch (err) { alert('Error: ' + err.message); }
+              setFlagSaving(false);
+            }} style={{
+              flex: 1, background: '#6366f1', border: 'none', borderRadius: 8,
+              padding: '12px', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+              fontFamily: "'DM Sans', sans-serif", opacity: (flagSaving || !flagDesc.trim()) ? 0.5 : 1,
+            }}>{flagSaving ? 'Saving...' : '🚩 Flag It'}</button>
+            <button onClick={function() { setFlagOpen(false); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '12px 20px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )}
+    {flagToast && (
+      <div style={{ position: 'fixed', bottom: 80, right: 24, background: '#10b981', color: '#fff', padding: '10px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", zIndex: 2200, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', cursor: 'pointer' }}
+        onClick={function() { if (onViewIssues) onViewIssues(); setFlagToast(null); }}>
+        Captured — <span style={{ textDecoration: 'underline' }}>view issues</span>
+      </div>
+    )}
+  </>);
+}
+
 // ─── SUPER ADMIN VIEW (Service Provider) ─────────────────────────────────────
 function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, liveStats }) {
   const sp = TENANTS.serviceProvider;
@@ -2313,12 +2401,17 @@ var spNavBase = [
       if (drillDownTenantData.colors && drillDownTenantData.colors.primary) drillColors['--color-primary'] = drillDownTenantData.colors.primary;
       if (drillDownTenantData.colors && drillDownTenantData.colors.accent) drillColors['--color-accent'] = drillDownTenantData.colors.accent;
     }
+    var drillTenantName = drillDownTenantData ? (drillDownTenantData.name || drillDownTenantData.company || 'Tenant') : 'Tenant';
     return (
       <div style={Object.assign({ width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', overflow: 'visible' }, drillColors)}>
         {breadcrumb}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'visible' }}>
           {inner}
         </div>
+        {isSuperAdmin && (
+          <SAFlagButton supabase={supabase} screenLabel={'drilldown: ' + drillTenantName} tenantContextId={drillDownTenant}
+            onViewIssues={function() { setDrillDownStack([]); setSpPage('platform-issues'); }} />
+        )}
       </div>
     );
   }
@@ -3020,100 +3113,10 @@ var spNavBase = [
       </div>
 
       {/* Floating "Flag this" button — SA only */}
-      {isSuperAdmin && spPage !== 'platform-issues' && (() => {
-        function FlagButton() {
-          var [flagOpen, setFlagOpen] = useState(false);
-          var [flagDesc, setFlagDesc] = useState('');
-          var [flagCat, setFlagCat] = useState('');
-          var [flagNotes, setFlagNotes] = useState('');
-          var [flagSaving, setFlagSaving] = useState(false);
-          var [flagToast, setFlagToast] = useState(null);
-          return (<>
-            <button onClick={function() { setFlagOpen(true); }} title="Flag an issue on this screen"
-              style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2000, width: 48, height: 48, borderRadius: '50%', background: 'rgba(99,102,241,0.9)', border: '2px solid rgba(99,102,241,0.4)', color: '#fff', fontSize: 20, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s' }}
-              onMouseEnter={function(e) { e.currentTarget.style.transform = 'scale(1.1)'; }}
-              onMouseLeave={function(e) { e.currentTarget.style.transform = 'scale(1)'; }}
-            >🚩</button>
-            {flagOpen && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onClick={function() { if (!flagSaving) setFlagOpen(false); }}>
-                <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 460, maxWidth: '90vw', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>🚩 Flag an Issue</h3>
-                    <button onClick={function() { setFlagOpen(false); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer' }}>✕</button>
-                  </div>
-
-                  <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 10px', marginBottom: 14, fontSize: 11, color: '#556677' }}>
-                    <div>Page: <span style={{ color: '#8899aa' }}>{spPage}</span></div>
-                    <div>URL: <span style={{ color: '#8899aa' }}>{window.location.pathname}</span></div>
-                    {drillDownTenant && <div>Tenant: <span style={{ color: '#8899aa' }}>{drillDownTenant}</span></div>}
-                    <div>Time: <span style={{ color: '#8899aa' }}>{new Date().toLocaleString()}</span></div>
-                  </div>
-
-                  <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>What's wrong? *</label>
-                  <input value={flagDesc} onChange={function(e) { setFlagDesc(e.target.value); }} maxLength={500} placeholder="Brief description of the issue..."
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} autoFocus />
-
-                  <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Category</label>
-                  <select value={flagCat} onChange={function(e) { setFlagCat(e.target.value); }}
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, marginBottom: 14 }}>
-                    <option value="">Select...</option>
-                    <option value="visual">🎨 Visual</option>
-                    <option value="functional">⚙️ Functional</option>
-                    <option value="data">📊 Data</option>
-                    <option value="copy">✏️ Copy</option>
-                    <option value="accessibility">♿ Accessibility</option>
-                    <option value="other">📌 Other</option>
-                  </select>
-
-                  <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Notes (optional)</label>
-                  <textarea value={flagNotes} onChange={function(e) { setFlagNotes(e.target.value); }} rows={3} placeholder="Additional context, steps to reproduce..."
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 18 }} />
-
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button disabled={flagSaving || !flagDesc.trim()} onClick={async function() {
-                      setFlagSaving(true);
-                      try {
-                        var s = await supabase.auth.getSession();
-                        var jwt = s.data.session ? s.data.session.access_token : null;
-                        var res = await fetch('/api/platform-issues', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
-                          body: JSON.stringify({
-                            description: flagDesc.trim(),
-                            category: flagCat || null,
-                            notes: flagNotes.trim() || null,
-                            url_context: window.location.pathname,
-                            screen_label: spPage,
-                            tenant_context_id: drillDownTenant || null,
-                          }),
-                        });
-                        if (!res.ok) { var err = await res.json(); alert('Error: ' + (err.error || 'Failed')); setFlagSaving(false); return; }
-                        setFlagOpen(false); setFlagDesc(''); setFlagCat(''); setFlagNotes('');
-                        setFlagToast(true);
-                        setTimeout(function() { setFlagToast(null); }, 4000);
-                      } catch (err) { alert('Error: ' + err.message); }
-                      setFlagSaving(false);
-                    }} style={{
-                      flex: 1, background: '#6366f1', border: 'none', borderRadius: 8,
-                      padding: '12px', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-                      fontFamily: "'DM Sans', sans-serif", opacity: (flagSaving || !flagDesc.trim()) ? 0.5 : 1,
-                    }}>{flagSaving ? 'Saving...' : '🚩 Flag It'}</button>
-                    <button onClick={function() { setFlagOpen(false); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '12px 20px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>Cancel</button>
-                  </div>
-                </div>
-              </div>
-            )}
-            {flagToast && (
-              <div style={{ position: 'fixed', bottom: 80, right: 24, background: '#10b981', color: '#fff', padding: '10px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", zIndex: 2200, boxShadow: '0 4px 16px rgba(0,0,0,0.3)', cursor: 'pointer' }}
-                onClick={function() { setSpPage('platform-issues'); setFlagToast(null); }}>
-                Captured — <span style={{ textDecoration: 'underline' }}>view issues</span>
-              </div>
-            )}
-          </>);
-        }
-        return <FlagButton />;
-      })()}
+      {isSuperAdmin && spPage !== 'platform-issues' && (
+        <SAFlagButton supabase={supabase} screenLabel={spPage} tenantContextId={drillDownTenant || null}
+          onViewIssues={function() { setSpPage('platform-issues'); }} />
+      )}
     </div>
   );
 }
