@@ -88,6 +88,11 @@ module.exports = async function handler(req, res) {
       if (body2.severity !== null && VALID_SEVERITIES.indexOf(body2.severity) === -1) return res.status(400).json({ error: 'Invalid severity' });
       updates.severity = body2.severity;
     }
+    if (body2.category !== undefined) {
+      var VALID_CATEGORIES_PUT = ['visual', 'functional', 'data', 'copy', 'accessibility', 'architecture', 'other'];
+      if (body2.category !== null && VALID_CATEGORIES_PUT.indexOf(body2.category) === -1) return res.status(400).json({ error: 'Invalid category' });
+      updates.category = body2.category;
+    }
     if (body2.notes !== undefined) updates.notes = body2.notes;
     var { data: updated, error: updateErr } = await supabase.from('platform_issues').update(updates).eq('id', body2.id).select('*').single();
     if (updateErr) return res.status(500).json({ error: updateErr.message });

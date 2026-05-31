@@ -123,6 +123,28 @@ RLS changes for Phase 2:
 - Tenant admin UPDATE: tenant_notes column only on their own issues
 - SA policy unchanged (sees everything via platform_issues directly)
 
+Phase 2.5 — AI-assisted triage (P1, sequence after Phase 2 ships):
+- "AI Triage" button on Platform Issues page (SA-only)
+- Processes all status='new' issues with Claude
+- Suggestion review view: proposed severity, category refinement, theme grouping,
+  related-issue links per issue
+- Per-issue: accept / reject / edit suggestion. Batch-apply on commit.
+- New endpoint: /api/platform-issues/triage-suggestions
+- Claude prompt sees all open issues for context (theme detection needs comparison)
+- Severity rubric: P1=blocks user, P2=degrades experience, P3=polish/cosmetic
+- Themes proposed only when 2+ issues share clear pattern
+- Structured output: { issue_id, suggested_severity, suggested_category, theme_tag,
+  related_issue_ids, reasoning_brief }
+- Rob remains final reviewer — AI proposes, human disposes
+- Uses platform Anthropic API key (existing config_encrypted pattern)
+- Timing: week of June 8, after Phase 2 ships
+
+Phase 2.5 later phases (NOT in initial build):
+- Phase 3: Weekly pattern detection across all issues, theme consolidation
+- Phase 4: Fix pairing — when issue marked in_progress, AI suggests bundle candidates
+- Phase 5: DO NOT BUILD. Fully automated triage replaces human judgment in
+  customer-trust decisions. Defer indefinitely.
+
 Phase 3 — CSP access (deferred until CSP-side flagging is meaningful):
 - CSP admins see all issues for downstream tenants
 - "is CSP admin?" role check (entity_tier or similar)
@@ -138,6 +160,35 @@ Phase 4 — AI-assisted triage (deferred):
 **Priority**: P1 — path from internal bug tracker to customer feedback channel
 **Status**: Phase 1 complete (SP shell + drilldown). Phase 2 scoped, Monday design,
 mid-week build.
+
+---
+
+## PLATFORM-ISSUE-CAPTURE-PHASE-1-POLISH (P2)
+
+Real usage on May 31 surfaced Phase 1 gaps. Address before Phase 2 build Tuesday.
+
+Fixed already:
+- Category editing missing from inline triage (PR #71)
+- Drilldown render gap — SAFlagButton extracted + rendered in drilldown (PR #70)
+- Architecture category added (PR #71)
+
+Still to verify/address Monday morning:
+- FlagButton suppression on Platform Issues page — confirm working after deploy
+- Architecture category propagation — verify deploy/cache strategy (was showing
+  old dropdown on first load, resolved via hard refresh)
+- 30-minute deliberate end-to-end walkthrough as a normal user:
+  flag → toast → navigate to issues → expand → triage → filter → verify
+- Capture any remaining rough edges via the interface itself
+- Single Phase 1 hardening PR before Phase 2 work starts
+
+Pattern note: "use the tool to find tool bugs" is the right approach but should
+be deliberate (scheduled walkthrough) not opportunistic (finding bugs while doing
+other work). Schedule 30 min Monday morning.
+
+**Found**: 2026-05-31 during first real usage session
+**Priority**: P2 — quality gate before Phase 2 build
+**Status**: Open — Monday morning polish pass
+**Timing**: Monday AM, before Phase 2 kickoff
 
 ---
 
