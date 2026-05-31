@@ -62,41 +62,119 @@ upgrade (semantic retrieval), then Phases 3-4
 
 ## PLATFORM-ISSUE-CAPTURE-INTERFACE (P1)
 
-SA users (and eventually tenant admins) need a low-friction way to flag bugs and
-observations in realtime while using the platform. Current workflow: describe in
-Claude chat session, hope it gets captured to BACKLOG.md. Fragmented across sessions,
-no persistence, no triage, no tracking.
+Phase 1 COMPLETE (PRs #68/#69/#70): SA floating 🚩 button, capture modal with
+auto-context, Platform Issues page with filters + inline triage,
+api/platform-issues.js, platform_issues table with SA-only RLS. SAFlagButton
+extracted as reusable component, renders in SP shell + tenant drilldown.
+Live in production 2026-05-30/31.
 
-Phase 1 — Capture (build first):
-- Floating "Flag this" button visible to SA users (bottom-right, unobtrusive)
-- Quick-capture modal: one-line description, optional screenshot (clipboard paste),
-  severity selector (bug/observation/idea)
-- Auto-captured context: current URL/page, tenant_id (if in drilldown), user_id,
-  timestamp, browser info
-- Posts to new `platform_issues` table: id, description, screenshot_url, severity,
-  status (new/triaged/in-progress/fixed), priority, assigned_to, context jsonb,
-  created_by, created_at, updated_at
-- Simple SA Issues dashboard: list view, status filters, priority sort, click to
-  expand detail. Accessible from SA nav sidebar.
+RENDER CONDITION MATRIX (source of truth for all phases):
+- SA + SP shell → render, no tenant context (Phase 1 DONE)
+- SA + tenant drilldown → render, capture drilled tenant UUID (Phase 1 DONE, PR #70)
+- Tenant admin + their own portal → render, capture their tenant_id (Phase 2)
+- CSP admin + CSP dashboard → render, capture CSP tenant UUID (Phase 3)
+- CSP admin + tenant drilldown → render, capture drilled tenant UUID (Phase 3)
+- Anyone else → don't render
 
-Phase 2 — AI-assisted triage:
-- On issue creation, Claude suggests priority based on description + context
-- Duplicate detection: find existing issues with similar description
-- Propose which backlog item or PR to pair with
+Phase 2 — Tenant admin access (scope refined Rob May 31, build mid-week):
 
-Phase 3 — Coordinator integration:
-- Link issues to PRs (issue_id on commits/PRs)
-- Track fix-then-verify cycle: issue → PR → deploy → verify → close
-- Tenant admin version: tenant-scoped issues visible to their admin, escalatable
-  to platform level
+Capture:
+- Floating 🚩 button visible to tenant admins (role check on tenant_members)
+- Modal scoped to their tenant — tenant_context_id auto-set from session
+- Tenant categories (simpler): broken / confusing / missing feature / looks wrong
+- Design render-condition alongside role detection so Phase 3 reuses cleanly
 
-Replaces BACKLOG.md as the primary issue tracking mechanism for platform bugs
-discovered during live usage. BACKLOG.md continues for strategic/architectural items.
+Tenant visibility ("My Feedback" or "Reported Issues" — label TBD):
+- Tenant Portal sidebar item for their submissions
+- List view: description, category, status badge, created_at
+- Expanded view: full description, status, public_notes (SA-written), their
+  own append history
+- Can append additional context (timestamp-prefixed, append-only)
+- Notification email on status → fixed/wontfix via Resend
+- Per-tenant notification toggle in settings (default ON)
 
-**Found**: 2026-05-30 — Rob recognizing real-time discovery during platform usage
-produces fragmented capture across chat sessions
-**Priority**: P1 — meta-productivity: every other P1 fix benefits from better capture
-**Status**: Open — Phase 1 is the next build after KB feature ships
+What tenants DON'T see:
+- Other tenants' issues (RLS)
+- Severity column (SA-internal triage)
+- internal_notes (SA working notes)
+- reporter_user_id
+
+Schema refinement — split notes into three fields:
+- internal_notes (text) — SA working notes, never visible to tenant
+- public_notes (text) — SA-written updates visible to tenant ("Resolved in
+  update June 3rd", "Investigating with engineering")
+- tenant_notes (text) — tenant's own append-only context, timestamp-prefixed
+Migration: rename existing 'notes' → 'internal_notes', add public_notes +
+tenant_notes columns (nullable, no breaking change)
+
+SA triage UI refinement:
+- Two note areas in expanded issue: "Internal Notes" (default) + "Public Update"
+- Default to internal (most notes are working notes)
+- "Add public update" action explicitly writes to public_notes
+- Optional "Send notification" checkbox when writing public update — fires email
+  to tenant admin with the update text
+
+RLS changes for Phase 2:
+- Tenant admin SELECT via view (tenant_visible_issues): exposes description,
+  category, status, public_notes, tenant_notes, created_at, updated_at.
+  Excludes: severity, internal_notes, reporter_user_id.
+  WHERE tenant_context_id = their tenant_members.tenant_id
+- Tenant admin INSERT: WITH CHECK tenant_context_id = their tenant_members.tenant_id
+- Tenant admin UPDATE: tenant_notes column only on their own issues
+- SA policy unchanged (sees everything via platform_issues directly)
+
+Phase 3 — CSP access (deferred until CSP-side flagging is meaningful):
+- CSP admins see all issues for downstream tenants
+- "is CSP admin?" role check (entity_tier or similar)
+- CSP dashboard + CSP drilldown both render button
+- CSP drilldown may render same as SA drilldown but with CSP-scoped RLS query
+- Can add notes/triage suggestions, cannot see other CSPs' tenants
+
+Phase 4 — AI-assisted triage (deferred):
+- Claude suggests priority based on description + context
+- Duplicate detection, backlog item linking
+
+**Found**: 2026-05-30
+**Priority**: P1 — path from internal bug tracker to customer feedback channel
+**Status**: Phase 1 complete (SP shell + drilldown). Phase 2 scoped, Monday design,
+mid-week build.
+
+---
+
+## PLATFORM-AI-CHATBOT-MODULE-IA-CONSOLIDATION (P2)
+
+AI Chatbot module configuration is scattered across multiple locations. Observed
+Sunday May 31 (3 platform_issues rows filed):
+
+1. Knowledge Base management exists in both AI Chatbot module AND Settings —
+   should consolidate into AI Chatbot
+2. Escalation Rules live in Settings — should move into AI Chatbot (chatbot
+   behavior config, not general settings)
+3. AI Chatbot > Analytics tab is blank — either wire up with chatbot-specific
+   metrics (resolution rate, escalation rate, response time, KB hit rate) or remove
+
+Underlying principle: "AI Chatbot module should own ALL chatbot configuration."
+Tenant admins shouldn't hunt across Settings to configure their bot.
+
+Scope:
+- Audit ALL AI-Chatbot-related config surfaces across the platform
+- Identify canonical location for each (probably AI Chatbot module for most)
+- Plan migration that doesn't break existing user flows (redirects from old
+  Settings paths to new AI Chatbot paths)
+- One coherent PR that consolidates
+
+Sub-decisions needed:
+- Shared infrastructure config (channel_configs, signatures) — probably stays in
+  Settings since those affect more than just the chatbot
+- Does Analytics tab make sense as chatbot-specific KPIs? Or remove and rely on
+  Global Analytics?
+- Should "Knowledge Base" be a top-level nav item separate from AI Chatbot?
+  Or always nested?
+
+**Found**: 2026-05-31 during Sunday morning platform walkthrough
+**Priority**: P2 — IA quality, not blocking functionality
+**Status**: Open — post-Phase-2 issue capture, likely next week
+**Timing**: After PLATFORM-ISSUE-CAPTURE Phase 2 ships
 
 ---
 
