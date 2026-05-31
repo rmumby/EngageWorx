@@ -274,6 +274,7 @@ function SAFlagButton({ supabase, screenLabel, tenantContextId, onViewIssues }) 
             <option value="data">📊 Data</option>
             <option value="copy">✏️ Copy</option>
             <option value="accessibility">♿ Accessibility</option>
+            <option value="architecture">🏗️ Architecture</option>
             <option value="other">📌 Other</option>
           </select>
           <label style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Notes (optional)</label>
@@ -3038,7 +3039,7 @@ var spNavBase = [
             }
             var sevColors = { P1: '#ef4444', P2: '#f59e0b', P3: '#6b7280' };
             var statusColors = { 'new': '#3b82f6', triaged: '#8b5cf6', in_progress: '#f59e0b', fixed: '#10b981', wontfix: '#6b7280', duplicate: '#6b7280' };
-            var catLabels = { visual: '🎨', functional: '⚙️', data: '📊', copy: '✏️', accessibility: '♿', other: '📌' };
+            var catLabels = { visual: '🎨', functional: '⚙️', data: '📊', copy: '✏️', accessibility: '♿', architecture: '🏗️', other: '📌' };
             return (
               <div style={{ padding: '32px 40px', maxWidth: 1000 }}>
                 <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: '0 0 8px' }}>🚩 Platform Issues</h1>
@@ -3049,7 +3050,7 @@ var spNavBase = [
                   })}
                   <select value={catFilter} onChange={function(e) { setCatFilter(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', color: '#fff', fontSize: 11 }}>
                     <option value="">All categories</option>
-                    {['visual', 'functional', 'data', 'copy', 'accessibility', 'other'].map(function(c) { return <option key={c} value={c}>{catLabels[c]} {c}</option>; })}
+                    {['visual', 'functional', 'data', 'copy', 'accessibility', 'architecture', 'other'].map(function(c) { return <option key={c} value={c}>{catLabels[c]} {c}</option>; })}
                   </select>
                   <select value={sevFilter} onChange={function(e) { setSevFilter(e.target.value); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', color: '#fff', fontSize: 11 }}>
                     <option value="">All severities</option>

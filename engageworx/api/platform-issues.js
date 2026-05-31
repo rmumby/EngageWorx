@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
     var body = req.body || {};
     if (!body.description || body.description.trim().length === 0) return res.status(400).json({ error: 'description required' });
     if (body.description.trim().length > 500) return res.status(400).json({ error: 'description max 500 chars' });
-    var VALID_CATEGORIES = ['visual', 'functional', 'data', 'copy', 'accessibility', 'other'];
+    var VALID_CATEGORIES = ['visual', 'functional', 'data', 'copy', 'accessibility', 'architecture', 'other'];
     if (body.category && VALID_CATEGORIES.indexOf(body.category) === -1) return res.status(400).json({ error: 'Invalid category' });
     var row = {
       reporter_user_id: auth2.user.id,
