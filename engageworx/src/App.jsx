@@ -3092,6 +3092,13 @@ var spNavBase = [
                                     {['P1', 'P2', 'P3'].map(function(s) { return <option key={s} value={s}>{s}</option>; })}
                                   </select>
                                 </div>
+                                <div>
+                                  <label style={{ color: '#556677', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Category</label>
+                                  <select value={issue.category || ''} onChange={function(e) { updateIssue(issue.id, 'category', e.target.value || null); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '4px 8px', color: '#fff', fontSize: 12 }}>
+                                    <option value="">—</option>
+                                    {['visual', 'functional', 'data', 'copy', 'accessibility', 'architecture', 'other'].map(function(c) { return <option key={c} value={c}>{catLabels[c]} {c}</option>; })}
+                                  </select>
+                                </div>
                               </div>
                               {issue.notes && <div style={{ marginTop: 10, color: '#aabbcc', fontSize: 12, whiteSpace: 'pre-wrap', background: 'rgba(0,0,0,0.2)', borderRadius: 6, padding: 10 }}>{issue.notes}</div>}
                               <div style={{ marginTop: 10 }}>
@@ -3114,7 +3121,7 @@ var spNavBase = [
       </div>
 
       {/* Floating "Flag this" button — SA only */}
-      {isSuperAdmin && spPage !== 'platform-issues' && (
+      {isSuperAdmin && (
         <SAFlagButton supabase={supabase} screenLabel={spPage} tenantContextId={drillDownTenant || null}
           onViewIssues={function() { setSpPage('platform-issues'); }} />
       )}
