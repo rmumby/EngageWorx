@@ -202,15 +202,16 @@ async function parseFormBody(req) {
 }
 
 // ─── SEND SMS ─────────────────────────────────────────────────────────────
-async function sendSMS(to, body, from) {
+async function sendSMS(to, body, from, opts) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken  = process.env.TWILIO_AUTH_TOKEN;
   const fromNumber = from || process.env.TWILIO_PHONE_NUMBER;
   const auth = Buffer.from(accountSid + ':' + authToken).toString('base64');
   const params = new URLSearchParams();
   params.append('To', to);
-  if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
-    params.append('MessagingServiceSid', process.env.TWILIO_MESSAGING_SERVICE_SID);
+  var msSid = (opts && opts.messagingServiceSid) || process.env.TWILIO_MESSAGING_SERVICE_SID;
+  if (msSid) {
+    params.append('MessagingServiceSid', msSid);
   } else {
     params.append('From', fromNumber);
   }
@@ -505,6 +506,13 @@ module.exports = async function handler(req, res) {
         return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
       }
 
+      // Load tenant SMS channel_config for outbound routing (messaging service SID)
+      var tenantSmsConfig = null;
+      try {
+        var ccResult = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', tenantId).eq('channel', 'sms').maybeSingle();
+        if (ccResult.data) tenantSmsConfig = ccResult.data.config_encrypted;
+      } catch (e) { /* non-fatal */ }
+
       // 2. Classify message type
       const upperBody = (Body || '').trim().toUpperCase();
       const optOutWords = ['STOP','STOPALL','UNSUBSCRIBE','CANCEL','END','QUIT','OPTOUT','REVOKE'];
@@ -621,7 +629,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
               });
               smsResult = { data: await waRes.json(), ok: waRes.ok };
             } else {
-              smsResult = await sendSMS(From, aiReply, To);
+              smsResult = await sendSMS(From, aiReply, To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
             }
             console.log('[AI] Reply result:', JSON.stringify(smsResult.data));
 
