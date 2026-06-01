@@ -26,6 +26,7 @@ module.exports = async function handler(req, res) {
   var companyName = body.companyName || '';
   var plan = body.plan || 'growth';
   var isDemo = body.is_demo === true;
+  // Sandbox endpoint: is_sandbox = !isDemo (mutual exclusion with is_demo)
 
   if (!email || !password || !companyName) {
     return res.status(400).json({ error: 'Missing required fields: email, password, companyName' });
@@ -81,7 +82,7 @@ module.exports = async function handler(req, res) {
       slug: slug,
       plan: plan,
       status: 'trial',
-      is_sandbox: true,
+      is_sandbox: !isDemo,
       is_demo: isDemo,
       onboarding_completed: isDemo ? true : false,
     }).select().single();

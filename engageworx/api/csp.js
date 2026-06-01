@@ -221,6 +221,10 @@ module.exports = async function handler(req, res) {
     var plan = req.body.plan || 'starter';
     var isSandbox = req.body.is_sandbox === true;
     var isDemo = req.body.is_demo === true;
+    // Enforce mutual exclusion: sandbox and demo cannot both be true
+    if (isSandbox && isDemo) {
+      return res.status(400).json({ error: 'A tenant cannot be both sandbox and demo. Choose one.' });
+    }
 
     if (!cspTenantId || !email || !password || !companyName) {
       return res.status(400).json({ error: 'Missing required fields: csp_tenant_id, email, password, company_name' });
