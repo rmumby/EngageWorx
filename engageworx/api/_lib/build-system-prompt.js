@@ -53,8 +53,10 @@ async function buildSystemPrompt(opts) {
   }
 
   // 3. Compose layers
-  // (a) Platform base prompt
-  if (platform.platform_base_prompt) {
+  // (a) Platform base prompt — tenant system_prompt overrides if populated
+  if (tenant && tenant.system_prompt && tenant.system_prompt.trim()) {
+    sections.push(tenant.system_prompt);
+  } else if (platform.platform_base_prompt) {
     sections.push(platform.platform_base_prompt);
   }
 
