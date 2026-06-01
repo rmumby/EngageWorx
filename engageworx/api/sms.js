@@ -529,13 +529,26 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       const now = new Date().toISOString();
       const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
 
-      // 4. Save inbound message
+      // 3b. Detect MMS (photo/media attachments)
+      var numMedia = parseInt(req.body.NumMedia || '0', 10);
+      var mediaUrls = [];
+      if (numMedia > 0) {
+        for (var mi = 0; mi < numMedia; mi++) {
+          var url = req.body['MediaUrl' + mi];
+          var contentType = req.body['MediaContentType' + mi];
+          if (url) mediaUrls.push({ url: url, content_type: contentType || 'unknown' });
+        }
+        console.log('[SMS] MMS detected:', { numMedia: numMedia, mediaUrls: mediaUrls.map(function(m) { return m.url; }) });
+      }
+
+      // 4. Save inbound message (with media_urls if MMS)
       try {
         const msgInsert = await supabase.from('messages').insert({
           tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-          direction: 'inbound', channel: channel, body: Body, status: 'delivered',
+          direction: 'inbound', channel: channel, body: Body || (numMedia > 0 ? '[Photo]' : ''), status: 'delivered',
           sender_type: 'contact', provider_message_id: MessageSid,
-          metadata: { from: From, to: To }, created_at: now,
+          media_urls: mediaUrls.length > 0 ? mediaUrls.map(function(m) { return m.url; }) : null,
+          metadata: { from: From, to: To, numMedia: numMedia, mediaUrls: mediaUrls }, created_at: now,
         });
         if (msgInsert.error) console.error('[SMS] Message insert error:', msgInsert.error.message);
         else console.log('[SMS] Inbound message saved successfully');
@@ -605,6 +618,29 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       notifyInbound(supabase, tenantId, From, Body).catch(function(err) {
         console.error('[Notify] Error:', err.message);
       });
+
+      // 8e. MMS photo handling — acknowledge + flag for human review (skip AI)
+      if (numMedia > 0 && messageType === 'inbound') {
+        console.log('[SMS] MMS photo received — acknowledging and flagging for review:', { from: From, tenant: tenantId, media: mediaUrls.length });
+        try {
+          await sendSMS(From, 'Thank you for your photo! Our team will review it and get back to you shortly to let you know if you\'re a candidate.', To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
+          // Save acknowledgment as outbound message
+          await supabase.from('messages').insert({
+            tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+            direction: 'outbound', channel: channel, body: 'Thank you for your photo! Our team will review it and get back to you shortly to let you know if you\'re a candidate.',
+            status: 'sent', sender_type: 'bot', metadata: { from: To, to: From, mms_ack: true }, created_at: new Date().toISOString(),
+          });
+          console.log('[SMS] MMS acknowledgment sent to', From);
+        } catch (mmsErr) { console.error('[SMS] MMS ack error:', mmsErr.message); }
+        // Flag conversation for human review via unread_count
+        try {
+          await supabase.from('conversations').update({
+            unread_count: 1, updated_at: new Date().toISOString(),
+          }).eq('id', conversationId);
+          console.log('[SMS] Conversation flagged for photo review:', conversationId);
+        } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
+        return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+      }
 
       // 9. AI auto-response
       if (messageType === 'inbound') {
