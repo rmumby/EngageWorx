@@ -938,6 +938,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     const chosen = contacts.filter(c => selectedContacts.includes(c.id));
     const primary = chosen.find(c => c.id === mergePrimaryId);
     if (!primary) return;
+    // Cross-tenant guard: all selected contacts must share the same tenant_id
+    var mergeTenantId = primary.tenant_id;
+    var crossTenant = chosen.find(c => c.tenant_id && c.tenant_id !== mergeTenantId);
+    if (crossTenant) { alert('Cannot merge contacts from different tenants.'); setMerging(false); return; }
     const losers = chosen.filter(c => c.id !== mergePrimaryId).map(c => c.id);
     if (losers.length === 0) { setShowMerge(false); return; }
     const merged = mergedPreview();
@@ -965,6 +969,20 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
       await reassign('calls', 'contact_id');
 
       await supabase.from('contacts').delete().in('id', losers);
+
+      // Audit log: contact merged
+      try {
+        await supabase.rpc('log_audit_event', {
+          p_action: 'contact.merged',
+          p_resource_type: 'contacts',
+          p_tenant_id: mergeTenantId,
+          p_user_id: null,
+          p_resource_id: mergePrimaryId,
+          p_details: { absorbed_ids: losers },
+          p_ip_address: null,
+          p_user_agent: null,
+        });
+      } catch (_) {}
 
       setContacts(prev => prev.filter(c => !losers.includes(c.id)).map(c => c.id === mergePrimaryId ? Object.assign({}, c, {
         firstName: merged.firstName, lastName: merged.lastName, email: merged.email,

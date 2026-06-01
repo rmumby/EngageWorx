@@ -35,9 +35,34 @@ module.exports = async function handler(req, res) {
 
   var supabase = getSupabase();
 
+  // Auth: get operator from JWT
+  var authHeader = req.headers.authorization || '';
+  var token = authHeader.replace('Bearer ', '');
+  var operatorId = null;
+  if (token) {
+    try {
+      var { data: { user: authUser } } = await supabase.auth.getUser(token);
+      if (authUser) operatorId = authUser.id;
+    } catch (_) {}
+  }
+
   try {
-    var t = await supabase.from('tenants').select('id, name').eq('id', tenantId).maybeSingle();
+    var t = await supabase.from('tenants').select('id, name, brand_name').eq('id', tenantId).maybeSingle();
     if (!t.data) return res.status(404).json({ error: 'tenant not found' });
+
+    // Guard: block adding users to SP tenant who aren't already SP members
+    var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+    if (tenantId === SP_TENANT_ID && body.confirm_sp_add !== true) {
+      var existingProfile = await supabase.from('user_profiles').select('id').ilike('email', email).maybeSingle();
+      var alreadySPMember = false;
+      if (existingProfile.data) {
+        var spMemberCheck = await supabase.from('tenant_members').select('id').eq('user_id', existingProfile.data.id).eq('tenant_id', SP_TENANT_ID).maybeSingle();
+        alreadySPMember = !!(spMemberCheck.data);
+      }
+      if (!alreadySPMember) {
+        return res.status(400).json({ error: 'Adding external users to the platform tenant requires confirm_sp_add:true', code: 'SP_ADD_GUARD' });
+      }
+    }
 
     var prof = await supabase.from('user_profiles').select('id, email, tenant_id').ilike('email', email).maybeSingle();
     var userId = prof.data && prof.data.id;
@@ -70,10 +95,10 @@ module.exports = async function handler(req, res) {
         console.error('[invite-member] Auth error:', authErr.message);
         return res.status(400).json({ error: 'Auth user creation failed: ' + authErr.message });
       }
-      // Create user_profiles row
+      // Create user_profiles row (tenant_id stored as TEXT — explicit String cast)
       if (userId) {
         await supabase.from('user_profiles').upsert({
-          id: userId, email: email, tenant_id: tenantId, role: role, full_name: fullName,
+          id: userId, email: email, tenant_id: String(tenantId), role: role, full_name: fullName,
         }, { onConflict: 'id' });
         console.log('👤 User created:', userId, email, fullName);
       }
@@ -97,6 +122,23 @@ module.exports = async function handler(req, res) {
     } else {
       await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenantId, role: role, status: 'active', joined_at: new Date().toISOString() });
     }
+
+    // Audit log: member added or role changed
+    try {
+      var auditAction = alreadyMember ? null : (existingMember.data ? 'member.role_changed' : 'member.added');
+      if (auditAction) {
+        await supabase.rpc('log_audit_event', {
+          p_action: auditAction,
+          p_resource_type: 'tenant_members',
+          p_tenant_id: tenantId,
+          p_user_id: operatorId,
+          p_resource_id: userId,
+          p_details: { role: role, email: email, invited: invited },
+          p_ip_address: null,
+          p_user_agent: null,
+        });
+      }
+    } catch (auditErr) { console.warn('[invite-member] Audit log error (non-fatal):', auditErr.message); }
 
     // Send welcome email to new team members
     var welcomeEmailSent = false;
