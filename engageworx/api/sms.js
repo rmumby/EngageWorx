@@ -529,26 +529,45 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       const now = new Date().toISOString();
       const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
 
-      // 3b. Detect MMS (photo/media attachments)
+      // 3b. Detect MMS and download media to Storage
       var numMedia = parseInt(req.body.NumMedia || '0', 10);
-      var mediaUrls = [];
+      var storagePaths = [];
       if (numMedia > 0) {
+        var twilioAuth = Buffer.from((process.env.TWILIO_ACCOUNT_SID || '') + ':' + (process.env.TWILIO_AUTH_TOKEN || '')).toString('base64');
+        var extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4' };
         for (var mi = 0; mi < numMedia; mi++) {
-          var url = req.body['MediaUrl' + mi];
-          var contentType = req.body['MediaContentType' + mi];
-          if (url) mediaUrls.push({ url: url, content_type: contentType || 'unknown' });
+          var twilioUrl = req.body['MediaUrl' + mi];
+          var contentType = req.body['MediaContentType' + mi] || 'image/jpeg';
+          if (!twilioUrl) continue;
+          var ext = extMap[contentType] || 'jpg';
+          var mediaSid = twilioUrl.split('/').pop() || ('media_' + mi);
+          var storagePath = tenantId + '/conversations/' + conversationId + '/' + MessageSid + '-' + mediaSid + '.' + ext;
+          try {
+            // Download from Twilio
+            var dlRes = await fetch(twilioUrl, { headers: { 'Authorization': 'Basic ' + twilioAuth } });
+            if (!dlRes.ok) throw new Error('Twilio download ' + dlRes.status);
+            var buf = Buffer.from(await dlRes.arrayBuffer());
+            // Upload to Supabase Storage
+            var { error: upErr } = await supabase.storage.from('tenant-photos').upload(storagePath, buf, { contentType: contentType, upsert: true });
+            if (upErr) throw new Error('Storage upload: ' + upErr.message);
+            storagePaths.push(storagePath);
+            console.log('[SMS] MMS media saved to Storage:', storagePath, '(' + buf.length + ' bytes)');
+          } catch (dlErr) {
+            console.error('[SMS] MMS download/upload failed, falling back to Twilio URL:', dlErr.message);
+            storagePaths.push(twilioUrl); // Fallback: store Twilio URL
+          }
         }
-        console.log('[SMS] MMS detected:', { numMedia: numMedia, mediaUrls: mediaUrls.map(function(m) { return m.url; }) });
+        console.log('[SMS] MMS processed:', { numMedia: numMedia, storagePaths: storagePaths });
       }
 
-      // 4. Save inbound message (with media_urls if MMS)
+      // 4. Save inbound message (with storage paths if MMS)
       try {
         const msgInsert = await supabase.from('messages').insert({
           tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
           direction: 'inbound', channel: channel, body: Body || (numMedia > 0 ? '[Photo]' : ''), status: 'delivered',
           sender_type: 'contact', provider_message_id: MessageSid,
-          media_urls: mediaUrls.length > 0 ? mediaUrls.map(function(m) { return m.url; }) : null,
-          metadata: { from: From, to: To, numMedia: numMedia, mediaUrls: mediaUrls }, created_at: now,
+          media_urls: storagePaths.length > 0 ? storagePaths : null,
+          metadata: { from: From, to: To, numMedia: numMedia }, created_at: now,
         });
         if (msgInsert.error) console.error('[SMS] Message insert error:', msgInsert.error.message);
         else console.log('[SMS] Inbound message saved successfully');

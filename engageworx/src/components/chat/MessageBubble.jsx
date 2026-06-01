@@ -38,6 +38,7 @@ export default function MessageBubble({
     read,
     isHtml,
     botName,
+    mediaUrls,
   } = metadata;
 
   const isUser = role === "user";
@@ -139,6 +140,21 @@ export default function MessageBubble({
           )}
           {isAssistant && botName && (
             <div style={{ color: primary, fontSize: 9, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>🤖 {botName}</div>
+          )}
+          {mediaUrls && mediaUrls.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: content ? 8 : 0 }}>
+              {mediaUrls.map(function(url, idx) {
+                return (
+                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{ display: "block", lineHeight: 0 }}>
+                    <img src={url} alt="Attachment" style={{
+                      maxWidth: 240, maxHeight: 320, borderRadius: 10,
+                      objectFit: "cover", cursor: "pointer",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                    }} />
+                  </a>
+                );
+              })}
+            </div>
           )}
           {isHtml
             ? <div style={{ whiteSpace: "normal", padding: "4px 0", overflowX: "auto", maxWidth: "100%", display: "block", width: "100%" }} dangerouslySetInnerHTML={{ __html: content }} />

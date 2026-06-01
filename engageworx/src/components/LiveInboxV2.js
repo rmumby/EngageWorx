@@ -532,13 +532,37 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         var data = result.data;
         console.log('📩 Loaded', (data || []).length, 'messages for conversation', convId);
         if (data && data.length > 0) {
+          // Generate signed URLs for any media_urls that are Storage paths (not http URLs)
+          var signedUrlCache = {};
+          for (var si = 0; si < data.length; si++) {
+            var mediaArr = data[si].media_urls;
+            if (mediaArr && mediaArr.length > 0 && supabase) {
+              for (var sj = 0; sj < mediaArr.length; sj++) {
+                var path = mediaArr[sj];
+                if (path && !path.startsWith('http')) {
+                  try {
+                    var signResult = await supabase.storage.from('tenant-photos').createSignedUrl(path, 3600);
+                    if (signResult.data && signResult.data.signedUrl) signedUrlCache[path] = signResult.data.signedUrl;
+                  } catch (signErr) { /* fallback: path stays unsigned */ }
+                }
+              }
+            }
+          }
           var mapped = data.map(function(m) {
+            var resolvedMedia = null;
+            if (m.media_urls && m.media_urls.length > 0) {
+              resolvedMedia = m.media_urls.map(function(p) {
+                if (p && p.startsWith('http')) return p;
+                return signedUrlCache[p] || null;
+              }).filter(Boolean);
+            }
             return {
               id: m.id,
               from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
-              text: m.body || '',
+              text: (resolvedMedia && resolvedMedia.length > 0 && (m.body === '[Photo]' || !m.body)) ? '' : (m.body || ''),
               subject: m.subject || '',
+              mediaUrls: resolvedMedia,
               time: m.created_at ? new Date(m.created_at) : new Date(),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
               read: true,
@@ -1489,6 +1513,7 @@ useEffect(function() {
                   delivered: msg.delivered,
                   read: msg.read,
                   isHtml: isHtml,
+                  mediaUrls: msg.mediaUrls || null,
                 },
                 _raw: msg,
               };
