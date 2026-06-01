@@ -618,6 +618,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
                 from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
                 text: m.body || '',
+                mediaUrls: m.media_urls || null,
                 time: m.created_at ? new Date(m.created_at) : new Date(),
                 agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
                 read: true, delivered: true,
@@ -647,10 +648,36 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           }
           setConversations(assembled);
 
-          // Also refresh selected conversation messages
+          // Also refresh selected conversation messages (resolve signed URLs for media)
           if (selectedConv) {
             var selMsgs = mMap[selectedConv.id];
             if (selMsgs && selMsgs.length > (selectedConv.messages || []).length) {
+              // Resolve signed URLs for any media in new messages
+              var hasMedia = selMsgs.some(function(m) { return m.mediaUrls && m.mediaUrls.length > 0 && m.mediaUrls[0] && !m.mediaUrls[0].startsWith('http'); });
+              if (hasMedia && supabase) {
+                try {
+                  var sess = await supabase.auth.getSession();
+                  var jwt = sess.data.session ? sess.data.session.access_token : null;
+                  if (jwt) {
+                    for (var pm = 0; pm < selMsgs.length; pm++) {
+                      if (selMsgs[pm].mediaUrls) {
+                        var resolved = [];
+                        for (var pi = 0; pi < selMsgs[pm].mediaUrls.length; pi++) {
+                          var mp = selMsgs[pm].mediaUrls[pi];
+                          if (mp && !mp.startsWith('http')) {
+                            try {
+                              var sr = await fetch('/api/media-url?path=' + encodeURIComponent(mp) + '&expiry=3600', { headers: { 'Authorization': 'Bearer ' + jwt } });
+                              var sd = await sr.json();
+                              resolved.push(sd.signedUrl || null);
+                            } catch (_) { resolved.push(null); }
+                          } else { resolved.push(mp); }
+                        }
+                        selMsgs[pm].mediaUrls = resolved.filter(Boolean);
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
               setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { messages: selMsgs }) : prev; });
             }
           }
