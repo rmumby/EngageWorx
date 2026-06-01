@@ -169,10 +169,10 @@ async function reactivateArchivedLeadsForContact(supabase, phone, email) {
 }
 
 // ─── INBOUND NOTIFICATION ─────────────────────────────────────
-async function notifyInboundSendGrid(contactName, channel, messagePreview, inboundTenantId) {
+async function notifyInboundSendGrid(contactName, channel, messagePreview, inboundTenantId, supabaseClient) {
   try {
     var { notifyTenantAdmins: _notifySMS3 } = require('./_lib/notify-tenant-admins');
-    await _notifySMS3(supabase, inboundTenantId || null, 'sms_unknown_sender', { contact: contactName, channel: channel }, {
+    await _notifySMS3(supabaseClient || getSupabase(), inboundTenantId || null, 'sms_unknown_sender', { contact: contactName, channel: channel }, {
       subject: 'New ' + channel + ' from ' + (contactName || 'Unknown'),
       html: '<h3>Inbound ' + channel + ' Message</h3>' +
         '<p><b>Contact:</b> ' + (contactName || 'Unknown') + '</p>' +
@@ -633,14 +633,14 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       // 9. Notify inbound (non-blocking)
       var contactDisplayName = From;
       try { var cn = await supabase.from('contacts').select('first_name, last_name').eq('id', contactId).single(); if (cn.data) contactDisplayName = [cn.data.first_name, cn.data.last_name].filter(Boolean).join(' ') || From; } catch(e) {}
-      notifyInboundSendGrid(contactDisplayName, channel.toUpperCase(), Body, tenantId).catch(function() {});
+      notifyInboundSendGrid(contactDisplayName, channel.toUpperCase(), Body, tenantId, supabase).catch(function() {});
       notifyInbound(supabase, tenantId, From, Body).catch(function(err) {
         console.error('[Notify] Error:', err.message);
       });
 
       // 8e. MMS photo handling — acknowledge + flag for human review (skip AI)
       if (numMedia > 0 && messageType === 'inbound') {
-        console.log('[SMS] MMS photo received — acknowledging and flagging for review:', { from: From, tenant: tenantId, media: mediaUrls.length });
+        console.log('[SMS] MMS photo received — acknowledging and flagging for review:', { from: From, tenant: tenantId, media: storagePaths.length });
         try {
           await sendSMS(From, 'Thank you for your photo! Our team will review it and get back to you shortly to let you know if you\'re a candidate.', To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
           // Save acknowledgment as outbound message
