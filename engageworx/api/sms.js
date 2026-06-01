@@ -428,7 +428,15 @@ module.exports = async function handler(req, res) {
       }
     }
     try {
-      const result = await sendSMS(to, body, from);
+      // Load tenant's messaging service SID if tenant_id provided
+      var sendMsSid = undefined;
+      if (tenant_id) {
+        try {
+          var ccSend = await getSupabase().from('channel_configs').select('config_encrypted').eq('tenant_id', tenant_id).eq('channel', 'sms').maybeSingle();
+          if (ccSend.data && ccSend.data.config_encrypted) sendMsSid = ccSend.data.config_encrypted.twilio_messaging_service_sid;
+        } catch (_) {}
+      }
+      const result = await sendSMS(to, body, from, { messagingServiceSid: sendMsSid });
       if (!result.ok) return res.status(result.status).json({ error: result.data.message, code: result.data.code });
       return res.status(200).json({ success: true, messageSid: result.data.sid, status: result.data.status });
     } catch (err) {

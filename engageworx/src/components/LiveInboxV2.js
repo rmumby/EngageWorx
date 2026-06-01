@@ -409,30 +409,25 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     (async function() { try { var r = await supabase.from('tenants').select('brand_name, name').eq('id', resolvedTenantId).maybeSingle(); if (r.data) setTenantBrandName(r.data.brand_name || r.data.name || ''); } catch(e) {} })();
   }, [resolvedTenantId, isSPorCSP, supabase]);
   // Load real team members for the resolved tenant (used by Reassign dropdown + bottom bar)
-  // Two-step query: tenant_members first, then user_profiles batch lookup.
-  // The embedded join syntax user_profiles(...) fails silently when FK path is ambiguous.
+  // Uses /api/team/list (service role) to bypass user_profiles RLS restrictions.
   useEffect(function() {
     if (!supabase || !resolvedTenantId || demoMode) { setTeamMembers([]); return; }
     (async function() {
       try {
-        // Step 1: Get active team members for this tenant
-        var tmResult = await supabase.from('tenant_members').select('user_id, role')
-          .eq('tenant_id', resolvedTenantId).eq('status', 'active').in('role', ['admin', 'agent', 'superadmin']);
-        var tmRows = tmResult.data || [];
-        if (tmRows.length === 0) { setTeamMembers([]); return; }
+        var sess = await supabase.auth.getSession();
+        var jwt = sess.data.session ? sess.data.session.access_token : null;
+        if (!jwt) { setTeamMembers([]); return; }
+        var tmRes = await fetch('/api/team/list?tenant_id=' + resolvedTenantId, {
+          headers: { 'Authorization': 'Bearer ' + jwt }
+        });
+        var tmData = await tmRes.json();
+        var rawMembers = tmData.members || tmData || [];
+        if (!Array.isArray(rawMembers)) { setTeamMembers([]); return; }
 
-        // Step 2: Batch load user_profiles for those user_ids
-        var userIds = tmRows.map(function(m) { return m.user_id; });
-        var upResult = await supabase.from('user_profiles').select('id, full_name, email, avatar_url')
-          .in('id', userIds);
-        var profileMap = {};
-        (upResult.data || []).forEach(function(p) { profileMap[p.id] = p; });
-
-        var members = tmRows.map(function(m) {
-          var p = profileMap[m.user_id] || {};
-          var name = p.full_name || p.email || 'Unknown';
+        var members = rawMembers.filter(function(m) { return m.status === 'active'; }).map(function(m) {
+          var name = m.displayName || m.displayEmail || 'Unknown';
           var initials = name.split(' ').map(function(w) { return (w || '')[0]; }).filter(Boolean).join('').slice(0, 2).toUpperCase();
-          return { id: m.user_id, name: name, avatar: initials, avatarUrl: p.avatar_url, role: m.role };
+          return { id: m.user_id, name: name, avatar: initials, role: m.role };
         });
         setTeamMembers(members);
         // Enrich assignedTo on existing conversations with real names
@@ -1075,7 +1070,7 @@ useEffect(function() {
             body: JSON.stringify({
               to: selectedConv.contact.phone,
               body: messageBody,
-              tenantId: selectedConv.tenant_id || currentTenantId,
+              tenant_id: selectedConv.tenant_id || currentTenantId,
             }),
           });
         } catch (smsErr) {
