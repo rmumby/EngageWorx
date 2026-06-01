@@ -32,8 +32,18 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: email, password, companyName' });
   }
 
+  // Auth: get operator from JWT (for audit log)
+  var operatorId = null;
+  var authHeader = req.headers.authorization || '';
+  var opToken = authHeader.replace('Bearer ', '');
+  if (opToken) {
+    try { var { data: { user: opUser } } = await supabase.auth.getUser(opToken); if (opUser) operatorId = opUser.id; } catch (_) {}
+  }
+
   try {
-    // Step 1: Create auth user
+    // Step 1: Create auth user (or resolve existing)
+    var userId = null;
+    var existingUser = false;
     var authResult = await supabase.auth.admin.createUser({
       email: email,
       password: password,
@@ -41,31 +51,22 @@ module.exports = async function handler(req, res) {
       user_metadata: { full_name: fullName, company_name: companyName },
     });
 
-    var userId = null;
     if (authResult.error) {
-      // User might already exist
       if (authResult.error.message.includes('already') || authResult.error.message.includes('exists')) {
-        // Look up existing user
-        var listResult = await supabase.auth.admin.listUsers();
-        var existingUser = (listResult.data && listResult.data.users)
-          ? listResult.data.users.find(function(u) { return u.email === email; })
-          : null;
-        if (existingUser) {
-          userId = existingUser.id;
+        // Existing user — resolve via user_profiles (not listUsers)
+        var profLookup = await supabase.from('user_profiles').select('id').ilike('email', email).maybeSingle();
+        if (profLookup.data && profLookup.data.id) {
+          userId = profLookup.data.id;
+          existingUser = true;
+          console.log('[create-sandbox] Existing user found via user_profiles:', userId, email);
         } else {
-          return res.status(400).json({ error: 'User exists but could not be found: ' + authResult.error.message });
+          return res.status(400).json({ error: 'Auth user exists but no profile row — orphaned account. Contact support.', code: 'ORPHANED_AUTH_USER' });
         }
       } else {
         return res.status(400).json({ error: 'Auth error: ' + authResult.error.message });
       }
     } else {
       userId = authResult.data.user.id;
-    }
-
-    // Step 2: Check if user already has a tenant
-    var memberCheck = await supabase.from('tenant_members').select('tenant_id').eq('user_id', userId).limit(1);
-    if (memberCheck.data && memberCheck.data.length > 0) {
-      return res.status(400).json({ error: 'User already has a tenant: ' + memberCheck.data[0].tenant_id });
     }
 
     // Step 3: Create tenant
@@ -101,30 +102,57 @@ module.exports = async function handler(req, res) {
       try { var { seedDemoTenant } = require('./_lib/seed-demo-tenant'); await seedDemoTenant(tenant.id, supabase); } catch (e) { console.warn('[create-sandbox] Demo seed error:', e.message); }
     }
 
-    // Step 4: Link user to tenant
-    var memberResult = await supabase.from('tenant_members').insert({
-      user_id: userId,
-      tenant_id: tenant.id,
-      role: 'admin',
-      status: 'active',
-    });
-
-    if (memberResult.error) {
-      return res.status(500).json({ error: 'Member link failed: ' + memberResult.error.message });
+    // Step 4: Link user to tenant (idempotent — guard against dupes)
+    var existingLink = await supabase.from('tenant_members').select('id').eq('user_id', userId).eq('tenant_id', tenant.id).maybeSingle();
+    if (!existingLink.data) {
+      var memberResult = await supabase.from('tenant_members').insert({
+        user_id: userId,
+        tenant_id: tenant.id,
+        role: 'admin',
+        status: 'active',
+        joined_at: new Date().toISOString(),
+      });
+      if (memberResult.error) {
+        return res.status(500).json({ error: 'Member link failed: ' + memberResult.error.message });
+      }
     }
 
-    // Step 4b: Create user profile (required for auth flow)
+    // Step 4b: Create/update user profile (tenant_id is TEXT — explicit cast)
     try {
       await supabase.from('user_profiles').upsert({
         id: userId,
         email: email,
-        tenant_id: tenant.id,
+        tenant_id: String(tenant.id),
         role: 'admin',
         company_name: companyName,
         full_name: fullName,
-      });
+      }, { onConflict: 'id' });
     } catch (profileErr) {
       console.error('[Sandbox] Profile create error:', profileErr.message);
+    }
+
+    // Step 4c: Audit log
+    try {
+      await supabase.rpc('log_audit_event', {
+        p_action: 'member.added',
+        p_resource_type: 'tenant_members',
+        p_tenant_id: tenant.id,
+        p_user_id: operatorId,
+        p_resource_id: userId,
+        p_details: { role: 'admin', email: email, via: existingUser ? 'sandbox_existing_user' : 'sandbox_new_user' },
+        p_ip_address: null,
+        p_user_agent: null,
+      });
+    } catch (auditErr) { console.warn('[create-sandbox] Audit log error (non-fatal):', auditErr.message); }
+
+    // Step 4d: For existing users, trigger password reset so they can access the sandbox
+    if (existingUser) {
+      try {
+        await supabase.auth.admin.updateUserById(userId, { password: password });
+        console.log('[create-sandbox] Password updated for existing user:', email);
+      } catch (pwErr) {
+        console.warn('[create-sandbox] Password update for existing user failed (non-fatal):', pwErr.message);
+      }
     }
 
     // Step 5: Queue notification (no email, no credentials in payload)
