@@ -532,21 +532,34 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         var data = result.data;
         console.log('📩 Loaded', (data || []).length, 'messages for conversation', convId);
         if (data && data.length > 0) {
-          // Generate signed URLs for any media_urls that are Storage paths (not http URLs)
+          // Generate signed URLs via server-side endpoint (service role bypasses RLS)
           var signedUrlCache = {};
+          var pathsToSign = [];
           for (var si = 0; si < data.length; si++) {
             var mediaArr = data[si].media_urls;
-            if (mediaArr && mediaArr.length > 0 && supabase) {
+            if (mediaArr && mediaArr.length > 0) {
               for (var sj = 0; sj < mediaArr.length; sj++) {
                 var path = mediaArr[sj];
-                if (path && !path.startsWith('http')) {
-                  try {
-                    var signResult = await supabase.storage.from('tenant-photos').createSignedUrl(path, 3600);
-                    if (signResult.data && signResult.data.signedUrl) signedUrlCache[path] = signResult.data.signedUrl;
-                  } catch (signErr) { /* fallback: path stays unsigned */ }
-                }
+                if (path && !path.startsWith('http') && !signedUrlCache[path]) pathsToSign.push(path);
               }
             }
+          }
+          if (pathsToSign.length > 0 && supabase) {
+            try {
+              var sess = await supabase.auth.getSession();
+              var jwt = sess.data.session ? sess.data.session.access_token : null;
+              if (jwt) {
+                for (var sp = 0; sp < pathsToSign.length; sp++) {
+                  try {
+                    var signRes = await fetch('/api/media-url?path=' + encodeURIComponent(pathsToSign[sp]) + '&expiry=3600', {
+                      headers: { 'Authorization': 'Bearer ' + jwt }
+                    });
+                    var signData = await signRes.json();
+                    if (signData.signedUrl) signedUrlCache[pathsToSign[sp]] = signData.signedUrl;
+                  } catch (signErr) { console.warn('[LiveInbox] Signed URL error for', pathsToSign[sp], signErr.message); }
+                }
+              }
+            } catch (sessErr) { console.warn('[LiveInbox] Session error for signed URLs:', sessErr.message); }
           }
           var mapped = data.map(function(m) {
             var resolvedMedia = null;
