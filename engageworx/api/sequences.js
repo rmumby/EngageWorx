@@ -106,9 +106,11 @@ function validateNoPlaceholders(text) {
 async function personaliseMessage(template, lead, tenantName) {
   var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName);
+  console.log('[DIAG] personaliseMessage entered, process.version:', process.version, 'at:', new Date().toISOString());
   var controller = new AbortController();
-  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+  var timeoutId = setTimeout(function() { console.log('[DIAG] abort fired at:', new Date().toISOString()); controller.abort(); }, 30000);
   try {
+    console.log('[DIAG] before fetch at:', new Date().toISOString());
     var res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
@@ -122,6 +124,7 @@ async function personaliseMessage(template, lead, tenantName) {
       }),
     });
     clearTimeout(timeoutId);
+    console.log('[DIAG] fetch returned, status:', res.status, 'at:', new Date().toISOString());
     if (!res.ok) {
       console.warn('[Sequences] Personalisation API error:', res.status, '— falling back to template');
       return mergePlaceholders(template, lead, tenantName);
@@ -131,12 +134,16 @@ async function personaliseMessage(template, lead, tenantName) {
     return text ? text.text.trim() : mergePlaceholders(template, lead, tenantName);
   } catch (e) {
     clearTimeout(timeoutId);
+    console.warn('[DIAG] caught:', e.name, e.message, 'at:', new Date().toISOString());
     console.warn('[Sequences] Personalisation failed (' + e.message + ') — falling back to template');
-    return mergePlaceholders(template, lead, tenantName);
+    var fallbackResult = mergePlaceholders(template, lead, tenantName);
+    console.log('[DIAG] fallback returned at:', new Date().toISOString());
+    return fallbackResult;
   }
 }
 
 async function sendStep(supabase, step, lead, tenant) {
+  console.log('[DIAG] sendStep entered:', { lead_id: lead.id, step: step.step_number, channel: step.channel, ai_personalise: step.ai_personalise, at: new Date().toISOString() });
   // Guard: refuse to send email to a lead with no email address
   if (step.channel === 'email' && (!lead.email || !lead.email.trim())) {
     console.error('[Sequences] Send skipped — lead has no email:', { lead_id: lead.id, tenant_id: tenant.id, sequence_id: step.sequence_id, step: step.step_number });
@@ -536,7 +543,9 @@ async function processDueSteps(supabase) {
         send_attempts: (enrolment.send_attempts || 0) + 1,
       }).eq('id', enrolment.id);
 
+      console.log('[DIAG] before sendStep for', enrolment.id, 'at:', new Date().toISOString());
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
+      console.log('[DIAG] sendStep returned for', enrolment.id, ':', JSON.stringify(sent ? { refused: sent.refused, skipped: sent.skipped } : 'truthy'), 'at:', new Date().toISOString());
 
       if (sent && sent.refused) {
         var refusedReason = sent.missing.join(', ');
