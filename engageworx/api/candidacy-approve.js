@@ -155,9 +155,12 @@ module.exports = async function handler(req, res) {
     });
   } catch (_) {}
 
-  // Update conversation state: resume auto-response
+  // Update conversation state per verdict
+  // approved → AI auto-send resumes, distinct from never-gated
+  // rejected → terminal, AI suppressed, manual messages still send (D3)
+  var newState = verdict === 'approved' ? 'approved' : 'rejected';
   await supabase.from('conversations').update({
-    candidacy_state: 'auto',
+    candidacy_state: newState,
     updated_at: new Date().toISOString(),
   }).eq('id', conversationId);
 

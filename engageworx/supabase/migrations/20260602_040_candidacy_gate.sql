@@ -11,4 +11,4 @@ ALTER TABLE chatbot_configs ADD COLUMN IF NOT EXISTS candidacy_reject_template T
 -- 'awaiting_candidacy_approval' = photo received, waiting for human verdict
 -- 'auto' = normal AI auto-response mode (explicitly set after approval)
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS candidacy_state TEXT
-  CHECK (candidacy_state IS NULL OR candidacy_state IN ('auto', 'awaiting_candidacy_approval'));
+  CHECK (candidacy_state IS NULL OR candidacy_state IN ('auto', 'awaiting_candidacy_approval', 'approved', 'rejected'));
