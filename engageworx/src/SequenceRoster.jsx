@@ -238,8 +238,8 @@ export default function SequenceRoster({ C, currentTenantId }) {
                                   return (
                                     <span
                                       title={tooltip}
-                                      onClick={e.status === 'error' && e.last_error ? function() { alert('Error: ' + e.last_error + (e.last_error_at ? '\n\nAt: ' + new Date(e.last_error_at).toLocaleString() : '')); } : undefined}
-                                      style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: norm.color + '22', color: norm.color, border: '1px solid ' + norm.color + '44', cursor: e.status === 'error' ? 'pointer' : 'default' }}>{norm.display}{e.status === 'error' ? ' ⓘ' : ''}</span>
+                                      onClick={e.last_error ? function() { alert('Error: ' + e.last_error + (e.last_error_at ? '\n\nAt: ' + new Date(e.last_error_at).toLocaleString() : '') + '\n\nAttempts: ' + (e.send_attempts || 0)); } : undefined}
+                                      style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, background: norm.color + '22', color: norm.color, border: '1px solid ' + norm.color + '44', cursor: e.last_error ? 'pointer' : 'default' }}>{norm.display}{e.last_error ? ' ⚠' : ''}</span>
                                   );
                                 })()}
                               </td>

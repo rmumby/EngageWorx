@@ -396,13 +396,26 @@ async function processDueSteps(supabase) {
   var errors = 0;
   var platformErrors = {}; // { 'tenantId:pattern': { tenantId, sequenceId, error, count } }
 
-  var fiveMinAgo = new Date(Date.now() - 5 * 60000).toISOString();
+  // Stale-lock reclaim: clear processing_started_at on orphans older than 10 minutes
+  // Threshold safely exceeds the 15-min cron interval — in-flight runs are never reclaimed
+  var tenMinAgo = new Date(Date.now() - 10 * 60000).toISOString();
+  try {
+    var { data: staleOrphans } = await supabase.from('lead_sequences')
+      .select('id').eq('status', 'active').not('processing_started_at', 'is', null)
+      .lt('processing_started_at', tenMinAgo);
+    if (staleOrphans && staleOrphans.length > 0) {
+      var staleIds = staleOrphans.map(function(o) { return o.id; });
+      await supabase.from('lead_sequences').update({ processing_started_at: null }).in('id', staleIds);
+      console.warn('[Sequences] Reclaimed', staleIds.length, 'stale locks:', staleIds);
+    }
+  } catch (reclaimErr) { console.warn('[Sequences] Stale-lock reclaim error:', reclaimErr.message); }
+
   var enrolmentsRes = await supabase
     .from('lead_sequences')
     .select('*, leads(*), sequences(*)')
     .eq('status', 'active')
     .lte('next_step_at', now)
-    .or('processing_started_at.is.null,processing_started_at.lt.' + fiveMinAgo);
+    .is('processing_started_at', null);
 
   var enrolments = enrolmentsRes.data;
 
@@ -536,10 +549,13 @@ async function processDueSteps(supabase) {
       }
 
       if (sent) {
-        // Track send in sent_emails
+        // Track send in sent_emails + lead_sequence_events
         try {
           await supabase.from('sent_emails').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, to_email: (lead.email || '').toLowerCase(), subject: step.subject || '', source: 'sequence', sequence_id: sequence.id });
         } catch (trackErr) { console.warn('[Sequences] sent_emails track error:', trackErr.message); }
+        try {
+          await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'sent', reason: 'Step ' + nextStepNumber + ' sent to ' + (lead.email || 'unknown') });
+        } catch (_) {}
         var nextStepRes = await supabase
           .from('sequence_steps')
           .select('delay_days')
@@ -588,6 +604,10 @@ async function processDueSteps(supabase) {
         send_attempts: (enrolment.send_attempts || 0) + 1,
         processing_started_at: null,
       }).eq('id', enrolment.id);
+
+      try {
+        await supabase.from('lead_sequence_events').insert({ tenant_id: sequence ? sequence.tenant_id : null, lead_id: lead ? lead.id : null, sequence_id: sequence ? sequence.id : null, event_type: 'error', reason: (sendError.message || 'Unknown').substring(0, 500) });
+      } catch (_) {}
 
       // Detect platform-level infrastructure errors (vs per-contact errors)
       var platformPattern = isPlatformError(sendError.message);
