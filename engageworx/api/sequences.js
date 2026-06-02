@@ -551,7 +551,14 @@ async function processDueSteps(supabase) {
         var refusedReason = sent.missing.join(', ');
         var isMetaLanguageBlock = refusedReason.indexOf('ai_meta_language_blocked') !== -1;
         var refusedStatus = isMetaLanguageBlock ? 'paused' : 'error';
-        await supabase.from('lead_sequences').update({ status: refusedStatus, error_message: refusedReason, last_error: refusedReason, last_error_at: new Date().toISOString(), processing_started_at: null }).eq('id', enrolment.id);
+        var refusedUpdate = { status: refusedStatus, last_error: refusedReason, last_error_at: new Date().toISOString(), processing_started_at: null };
+        var refusedResult = await supabase.from('lead_sequences').update(refusedUpdate).eq('id', enrolment.id);
+        if (refusedResult.error) {
+          // Write failed — do NOT treat as resolved. Leave lock set for reclaim retry.
+          console.error('[Sequences] REFUSED UPDATE FAILED — will retry via reclaim:', refusedResult.error.message, { id: enrolment.id, attempted_update: refusedUpdate });
+          errors++;
+          continue;
+        }
         console.log('[Sequences] Enrollment', enrolment.id, refusedStatus + ':', refusedReason);
         errors++;
         continue;
@@ -623,13 +630,18 @@ async function processDueSteps(supabase) {
           nextStepAt = d.toISOString();
         }
 
-        await supabase.from('lead_sequences').update({
+        var advanceResult = await supabase.from('lead_sequences').update({
           current_step: nextStepNumber,
           next_step_at: nextStepAt,
           status: nextStepAt ? 'active' : 'completed',
           completed_at: nextStepAt ? null : now,
           processing_started_at: null,
         }).eq('id', enrolment.id);
+        if (advanceResult.error) {
+          console.error('[Sequences] ADVANCE UPDATE FAILED — will retry via reclaim:', advanceResult.error.message, { id: enrolment.id });
+          errors++;
+          continue;
+        }
 
         await supabase.from('leads').update({
           last_activity_at: now,
@@ -642,12 +654,15 @@ async function processDueSteps(supabase) {
       console.error('[Sequences] Step send failed for enrolment ' + enrolment.id + ':', sendError.message);
 
       // send_attempts already incremented before sendStep — don't double-count
-      await supabase.from('lead_sequences').update({
+      var errorResult = await supabase.from('lead_sequences').update({
         status: 'error',
         last_error: (sendError.message || 'Unknown error').substring(0, 500),
         last_error_at: new Date().toISOString(),
         processing_started_at: null,
       }).eq('id', enrolment.id);
+      if (errorResult.error) {
+        console.error('[Sequences] ERROR UPDATE FAILED — will retry via reclaim:', errorResult.error.message, { id: enrolment.id });
+      }
 
       try {
         await supabase.from('lead_sequence_events').insert({ tenant_id: sequence ? sequence.tenant_id : null, lead_id: lead ? lead.id : null, sequence_id: sequence ? sequence.id : null, event_type: 'error', reason: (sendError.message || 'Unknown').substring(0, 500) });
