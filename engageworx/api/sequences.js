@@ -104,17 +104,30 @@ function validateNoPlaceholders(text) {
 }
 
 async function personaliseMessage(template, lead, tenantName) {
+  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName);
   try {
-    var AnthropicSdk = require('@anthropic-ai/sdk');
-    var anthropic = new (AnthropicSdk.default || AnthropicSdk)({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
-    var res = await anthropic.messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 300,
-      system: 'You are personalising an outreach message. Replace [FirstName] with the lead first name, [Company] with their company, [Platform] with ' + (tenantName || 'EngageWorx') + '. Keep the message natural and genuine. Return only the personalised message text, no explanation.',
-      messages: [{ role: 'user', content: 'Template: ' + template + '\n\nLead name: ' + (lead.name || '') + '\nLead company: ' + (lead.company || '') + '\nLead type: ' + (lead.type || '') }]
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+      signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 300,
+        temperature: 0.7,
+        system: 'You are personalising an outreach message. Replace [FirstName] with the lead first name, [Company] with their company, [Platform] with ' + (tenantName || 'EngageWorx') + '. Keep the message natural and genuine. Return only the personalised message text, no explanation.',
+        messages: [{ role: 'user', content: 'Template: ' + template + '\n\nLead name: ' + (lead.name || '') + '\nLead company: ' + (lead.company || '') + '\nLead type: ' + (lead.type || '') }],
+      }),
     });
-    return res.content[0].text.trim();
+    if (!res.ok) {
+      console.warn('[Sequences] Personalisation API error:', res.status, '— falling back to template');
+      return mergePlaceholders(template, lead, tenantName);
+    }
+    var data = await res.json();
+    var text = (data.content || []).find(function(b) { return b.type === 'text'; });
+    return text ? text.text.trim() : mergePlaceholders(template, lead, tenantName);
   } catch (e) {
+    console.warn('[Sequences] Personalisation failed (' + e.message + ') — falling back to template');
     return mergePlaceholders(template, lead, tenantName);
   }
 }
@@ -498,8 +511,26 @@ async function processDueSteps(supabase) {
         } catch (guardErr) { console.warn('[Sequences] Guard check error:', guardErr.message); }
       }
 
-      // Acquire in-flight lock — prevents re-processing if Vercel kills the function mid-send
-      await supabase.from('lead_sequences').update({ processing_started_at: new Date().toISOString() }).eq('id', enrolment.id);
+      // Poison pill: if send_attempts >= 3, stop retrying — terminal failure
+      var MAX_SEND_ATTEMPTS = 3;
+      if ((enrolment.send_attempts || 0) >= MAX_SEND_ATTEMPTS) {
+        await supabase.from('lead_sequences').update({
+          status: 'failed', processing_started_at: null,
+          last_error: 'Max send attempts (' + MAX_SEND_ATTEMPTS + ') exceeded — stopped retrying',
+          last_error_at: new Date().toISOString(),
+        }).eq('id', enrolment.id);
+        try { await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'failed', reason: 'Max send attempts exceeded (' + (enrolment.send_attempts || 0) + ')' }); } catch (_) {}
+        console.error('[Sequences] Enrollment', enrolment.id, 'permanently failed after', enrolment.send_attempts, 'attempts');
+        errors++;
+        continue;
+      }
+
+      // Acquire lock + increment send_attempts BEFORE sendStep
+      // If the process dies mid-send, send_attempts is already recorded
+      await supabase.from('lead_sequences').update({
+        processing_started_at: new Date().toISOString(),
+        send_attempts: (enrolment.send_attempts || 0) + 1,
+      }).eq('id', enrolment.id);
 
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
 
@@ -597,11 +628,11 @@ async function processDueSteps(supabase) {
     } catch (sendError) {
       console.error('[Sequences] Step send failed for enrolment ' + enrolment.id + ':', sendError.message);
 
+      // send_attempts already incremented before sendStep — don't double-count
       await supabase.from('lead_sequences').update({
         status: 'error',
         last_error: (sendError.message || 'Unknown error').substring(0, 500),
         last_error_at: new Date().toISOString(),
-        send_attempts: (enrolment.send_attempts || 0) + 1,
         processing_started_at: null,
       }).eq('id', enrolment.id);
 
