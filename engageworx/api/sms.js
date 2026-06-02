@@ -380,7 +380,7 @@ module.exports = async function handler(req, res) {
 
   // ─── SEND ───────────────────────────────────────────────────────────────
   if (action === 'send') {
-    const { to, body, from, tenant_id } = req.body;
+    const { to, body, from, tenant_id, conversation_id } = req.body;
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken  = process.env.TWILIO_AUTH_TOKEN;
@@ -438,6 +438,17 @@ module.exports = async function handler(req, res) {
       }
       const result = await sendSMS(to, body, from, { messagingServiceSid: sendMsSid });
       if (!result.ok) return res.status(result.status).json({ error: result.data.message, code: result.data.code });
+      // Human send clears candidacy gate (D3: manual messages always send + resume auto)
+      if (conversation_id) {
+        try {
+          var sb = getSupabase();
+          var { data: convCheck } = await sb.from('conversations').select('candidacy_state').eq('id', conversation_id).maybeSingle();
+          if (convCheck && convCheck.candidacy_state === 'awaiting_candidacy_approval') {
+            await sb.from('conversations').update({ candidacy_state: 'auto', updated_at: new Date().toISOString() }).eq('id', conversation_id);
+            try { await sb.rpc('log_audit_event', { p_action: 'candidacy.resumed_by_human', p_resource_type: 'conversations', p_tenant_id: tenant_id, p_user_id: null, p_resource_id: conversation_id, p_details: {}, p_ip_address: null, p_user_agent: null }); } catch (_) {}
+          }
+        } catch (_) {}
+      }
       return res.status(200).json({ success: true, messageSid: result.data.sid, status: result.data.status });
     } catch (err) {
       console.error('Send SMS error:', err);
@@ -646,27 +657,73 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         console.error('[Notify] Error:', err.message);
       });
 
-      // 8e. MMS photo handling — acknowledge + flag for human review (skip AI)
+      // 8e. Candidacy gate: MMS on gated tenant → ack + hold for human verdict
+      // Gate OFF: no MMS interception — photo saved at step 4, flows to AI at step 9
       if (numMedia > 0 && messageType === 'inbound') {
-        console.log('[SMS] MMS photo received — acknowledging and flagging for review:', { from: From, tenant: tenantId, media: storagePaths.length });
+        var candidacyGateEnabled = false;
         try {
-          await sendSMS(From, 'Thank you for your photo! Our team will review it and get back to you shortly to let you know if you\'re a candidate.', To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
-          // Save acknowledgment as outbound message
-          await supabase.from('messages').insert({
-            tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-            direction: 'outbound', channel: channel, body: 'Thank you for your photo! Our team will review it and get back to you shortly to let you know if you\'re a candidate.',
-            status: 'sent', sender_type: 'bot', metadata: { from: To, to: From, mms_ack: true }, created_at: new Date().toISOString(),
-          });
-          console.log('[SMS] MMS acknowledgment sent to', From);
-        } catch (mmsErr) { console.error('[SMS] MMS ack error:', mmsErr.message); }
-        // Flag conversation for human review via unread_count
+          var gateCheck = await supabase.from('chatbot_configs').select('candidacy_gate_enabled, candidacy_ack_template')
+            .eq('tenant_id', tenantId).limit(1).maybeSingle();
+          if (gateCheck.data && gateCheck.data.candidacy_gate_enabled === true) candidacyGateEnabled = true;
+        } catch (_) {}
+
+        if (candidacyGateEnabled) {
+          // Skip if already awaiting (second photo while in gate)
+          try {
+            var currentConvState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
+            if (currentConvState.data && currentConvState.data.candidacy_state === 'awaiting_candidacy_approval') {
+              console.log('[SMS] MMS received while already awaiting candidacy approval — photo saved, no re-ack:', conversationId);
+              return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+            }
+          } catch (_) {}
+
+          // Ack message: config template > AI-generated holding ack > (never hardcoded)
+          var ackMessage = null;
+          if (gateCheck.data && gateCheck.data.candidacy_ack_template) {
+            ackMessage = gateCheck.data.candidacy_ack_template;
+          } else {
+            // AI-generated holding ack — constrained: acknowledge photo, set expectation, MUST NOT assess
+            try {
+              var ackReply = await getAIReply(supabase, tenantId,
+                '[SYSTEM: The patient just sent a smile photo. Generate a brief, warm acknowledgment (1-2 sentences). ' +
+                'Tell them you received their photo and someone from the team will review it shortly. ' +
+                'Do NOT assess candidacy, do NOT mention pricing, do NOT make any clinical statement. ' +
+                'Just acknowledge receipt and set expectation of a follow-up.]', channel);
+              if (ackReply) ackMessage = ackReply;
+            } catch (_) {}
+          }
+          if (!ackMessage) ackMessage = 'Got your photo — someone from our team will take a look and follow up with you shortly.';
+
+          console.log('[SMS] Candidacy gate MMS:', { from: From, tenant: tenantId, media: storagePaths.length });
+          try {
+            await sendSMS(From, ackMessage, To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
+            await supabase.from('messages').insert({
+              tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+              direction: 'outbound', channel: channel, body: ackMessage,
+              status: 'sent', sender_type: 'bot', metadata: { from: To, to: From, mms_ack: true, candidacy_gate: true }, created_at: new Date().toISOString(),
+            });
+          } catch (mmsErr) { console.error('[SMS] MMS ack error:', mmsErr.message); }
+
+          // Flip state to awaiting
+          try {
+            await supabase.from('conversations').update({
+              candidacy_state: 'awaiting_candidacy_approval', unread_count: 1, updated_at: new Date().toISOString(),
+            }).eq('id', conversationId);
+          } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
+          return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+        }
+        // Gate OFF: fall through to step 9 (AI auto-response handles MMS like any inbound)
+      }
+
+      // 8f. Candidacy gate: suppress AI auto-response while awaiting human verdict
+      if (messageType === 'inbound' && conversationId) {
         try {
-          await supabase.from('conversations').update({
-            unread_count: 1, updated_at: new Date().toISOString(),
-          }).eq('id', conversationId);
-          console.log('[SMS] Conversation flagged for photo review:', conversationId);
-        } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
-        return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+          var convState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
+          if (convState.data && convState.data.candidacy_state === 'awaiting_candidacy_approval') {
+            console.log('[SMS] AI auto-response suppressed — conversation awaiting candidacy approval:', conversationId);
+            return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+          }
+        } catch (_) {}
       }
 
       // 9. AI auto-response

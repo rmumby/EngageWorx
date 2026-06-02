@@ -77,6 +77,7 @@ function dedupConversations(convos, contactMap, msgMap) {
       subject: conv.subject || '',
       tenant_id: conv.tenant_id,
       contact_id: conv.contact_id,
+      candidacy_state: conv.candidacy_state || null,
     };
   });
 }
@@ -1071,6 +1072,7 @@ useEffect(function() {
               to: selectedConv.contact.phone,
               body: messageBody,
               tenant_id: selectedConv.tenant_id || currentTenantId,
+              conversation_id: selectedConv.id,
             }),
           });
         } catch (smsErr) {
@@ -1599,6 +1601,48 @@ useEffect(function() {
             dateSeparator={t('inbox.today')}
             style={{ padding: isMobile ? "12px 10px" : "20px 24px" }}
           />
+
+          {/* Candidacy Approval Bar */}
+          {selectedConv.candidacy_state === 'awaiting_candidacy_approval' && (() => {
+            function CandidacyBar() {
+              var [verdictMsg, setVerdictMsg] = useState('');
+              var [sending, setSending] = useState(false);
+              async function submitVerdict(verdict) {
+                setSending(true);
+                try {
+                  var s = await supabase.auth.getSession();
+                  var jwt = s.data.session ? s.data.session.access_token : null;
+                  var r = await fetch('/api/candidacy-approve', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+                    body: JSON.stringify({ conversation_id: selectedConv.id, verdict: verdict, message: verdictMsg.trim() || undefined }),
+                  });
+                  var d = await r.json();
+                  if (d.success) { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { candidacy_state: 'auto' }) : prev; }); }
+                  else { alert('Error: ' + (d.error || 'Failed')); }
+                } catch (e) { alert('Error: ' + e.message); }
+                setSending(false);
+              }
+              return (
+                <div style={{ borderTop: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.08)', padding: '12px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 13 }}>Photo received — awaiting candidacy verdict</span>
+                  </div>
+                  <textarea value={verdictMsg} onChange={function(e) { setVerdictMsg(e.target.value); }} rows={2}
+                    placeholder="Message to patient (or leave blank for default)..."
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none', marginBottom: 8 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button disabled={sending} onClick={function() { submitVerdict('approved'); }}
+                      style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: sending ? 0.5 : 1 }}>
+                      {sending ? 'Sending...' : 'Approve'}</button>
+                    <button disabled={sending} onClick={function() { submitVerdict('rejected'); }}
+                      style={{ background: '#ef4444', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: sending ? 0.5 : 1 }}>
+                      {sending ? 'Sending...' : 'Reject'}</button>
+                  </div>
+                </div>
+              );
+            }
+            return <CandidacyBar />;
+          })()}
 
           {/* Compose Area */}
           <div style={{ padding: isMobile ? "10px 10px 16px" : "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: isMobile ? (C.bg || "#080d1a") : "rgba(0,0,0,0.1)", ...(isMobile ? { position: "sticky", bottom: 0, zIndex: 5 } : {}) }}>
