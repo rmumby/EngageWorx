@@ -106,11 +106,13 @@ function validateNoPlaceholders(text) {
 async function personaliseMessage(template, lead, tenantName) {
   var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName);
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
   try {
     var res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
-      signal: AbortSignal.timeout(30000),
+      signal: controller.signal,
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 300,
@@ -119,6 +121,7 @@ async function personaliseMessage(template, lead, tenantName) {
         messages: [{ role: 'user', content: 'Template: ' + template + '\n\nLead name: ' + (lead.name || '') + '\nLead company: ' + (lead.company || '') + '\nLead type: ' + (lead.type || '') }],
       }),
     });
+    clearTimeout(timeoutId);
     if (!res.ok) {
       console.warn('[Sequences] Personalisation API error:', res.status, '— falling back to template');
       return mergePlaceholders(template, lead, tenantName);
@@ -127,6 +130,7 @@ async function personaliseMessage(template, lead, tenantName) {
     var text = (data.content || []).find(function(b) { return b.type === 'text'; });
     return text ? text.text.trim() : mergePlaceholders(template, lead, tenantName);
   } catch (e) {
+    clearTimeout(timeoutId);
     console.warn('[Sequences] Personalisation failed (' + e.message + ') — falling back to template');
     return mergePlaceholders(template, lead, tenantName);
   }
