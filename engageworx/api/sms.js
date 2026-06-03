@@ -549,14 +549,15 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       const conversationId = await findOrCreateConversation(supabase, tenantId, contactId, From, channel);
 
       // 3b. Detect MMS and download media to Storage
-      var numMedia = parseInt(req.body.NumMedia || '0', 10);
+      // Read from twilioBody (parsed webhook), NOT req.body (may be unparsed)
+      var numMedia = parseInt(twilioBody.NumMedia || '0', 10);
       var storagePaths = [];
       if (numMedia > 0) {
         var twilioAuth = Buffer.from((process.env.TWILIO_ACCOUNT_SID || '') + ':' + (process.env.TWILIO_AUTH_TOKEN || '')).toString('base64');
         var extMap = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4' };
         for (var mi = 0; mi < numMedia; mi++) {
-          var twilioUrl = req.body['MediaUrl' + mi];
-          var contentType = req.body['MediaContentType' + mi] || 'image/jpeg';
+          var twilioUrl = twilioBody['MediaUrl' + mi];
+          var contentType = twilioBody['MediaContentType' + mi] || 'image/jpeg';
           if (!twilioUrl) continue;
           var ext = extMap[contentType] || 'jpg';
           var mediaSid = twilioUrl.split('/').pop() || ('media_' + mi);
@@ -659,13 +660,20 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
 
       // 8e. Candidacy gate: MMS on gated tenant → ack + hold for human verdict
       // Gate OFF: no MMS interception — photo saved at step 4, flows to AI at step 9
+      console.log('[GATE] decision:', { numMedia: numMedia, messageType: messageType, tenantId: tenantId, conversationId: conversationId, twilioNumMedia: twilioBody.NumMedia });
       if (numMedia > 0 && messageType === 'inbound') {
         var candidacyGateEnabled = false;
+        var candidacyStateRead = null;
         try {
           var gateCheck = await supabase.from('chatbot_configs').select('candidacy_gate_enabled, candidacy_ack_template')
             .eq('tenant_id', tenantId).limit(1).maybeSingle();
           if (gateCheck.data && gateCheck.data.candidacy_gate_enabled === true) candidacyGateEnabled = true;
         } catch (_) {}
+        try {
+          var stateRead = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
+          candidacyStateRead = stateRead.data ? stateRead.data.candidacy_state : 'QUERY_EMPTY';
+        } catch (_) { candidacyStateRead = 'QUERY_ERROR'; }
+        console.log('[GATE] evaluated:', { candidacyGateEnabled: candidacyGateEnabled, candidacyState: candidacyStateRead, branch: candidacyGateEnabled ? 'GATE_ON' : 'GATE_OFF_FALLTHROUGH' });
 
         if (candidacyGateEnabled) {
           // Skip if already awaiting (second photo while in gate)
