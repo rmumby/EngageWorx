@@ -438,17 +438,8 @@ module.exports = async function handler(req, res) {
       }
       const result = await sendSMS(to, body, from, { messagingServiceSid: sendMsSid });
       if (!result.ok) return res.status(result.status).json({ error: result.data.message, code: result.data.code });
-      // Human send clears candidacy gate (D3: manual messages always send + resume auto)
-      if (conversation_id) {
-        try {
-          var sb = getSupabase();
-          var { data: convCheck } = await sb.from('conversations').select('candidacy_state').eq('id', conversation_id).maybeSingle();
-          if (convCheck && convCheck.candidacy_state === 'awaiting_candidacy_approval') {
-            await sb.from('conversations').update({ candidacy_state: 'auto', updated_at: new Date().toISOString() }).eq('id', conversation_id);
-            try { await sb.rpc('log_audit_event', { p_action: 'candidacy.resumed_by_human', p_resource_type: 'conversations', p_tenant_id: tenant_id, p_user_id: null, p_resource_id: conversation_id, p_details: {}, p_ip_address: null, p_user_agent: null }); } catch (_) {}
-          }
-        } catch (_) {}
-      }
+      // D3: manual/human-authored outbound always sends, NEVER changes candidacy_state.
+      // State changes only via explicit approve/reject actions in candidacy-approve.js.
       return res.status(200).json({ success: true, messageSid: result.data.sid, status: result.data.status });
     } catch (err) {
       console.error('Send SMS error:', err);
