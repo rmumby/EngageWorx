@@ -112,18 +112,9 @@ module.exports = async function handler(req, res) {
     messageBody = 'Thank you for your photo. Based on what we can see, we\'d recommend coming in for an in-person evaluation so we can give you the best recommendation. Would you like to schedule a visit?';
   }
 
-  // Leak guard: discard if operator-speak present in any patient-facing text
-  var OPERATOR_MARKERS = ['i don\'t have access', 'knowledge base', 'qualification rubric', 'i need the', 'i appreciate the setup', 'i cannot', 'i\'m unable', 'as an ai'];
-  var msgLower = messageBody.toLowerCase();
-  for (var ogi = 0; ogi < OPERATOR_MARKERS.length; ogi++) {
-    if (msgLower.indexOf(OPERATOR_MARKERS[ogi]) !== -1) {
-      console.warn('[candidacy-approve] Verdict leaked operator-speak, falling back:', OPERATOR_MARKERS[ogi]);
-      messageBody = verdict === 'approved'
-        ? 'Great news — based on your photo, you look like a great candidate! Would you like to book a consultation?'
-        : 'Thank you for your photo. We\'d recommend an in-person evaluation for the best recommendation. Would you like to schedule a visit?';
-      break;
-    }
-  }
+  // No leak guard here — this is the human-approved send path.
+  // Mila's edited/approved text sends verbatim. Leak guard lives
+  // only on auto-generated draft content (sms.js draft insert).
 
   // Send verdict SMS
   try {
