@@ -522,7 +522,7 @@ module.exports = async function handler(req, res) {
           to: To, from: From, messageSid: req.body.MessageSid || req.body.SmsSid,
           timestamp: new Date().toISOString()
         });
-        return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+        res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
       }
 
       // Load tenant SMS channel_config for outbound routing (messaging service SID)
@@ -681,7 +681,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
             var currentConvState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
             if (currentConvState.data && currentConvState.data.candidacy_state === 'awaiting_candidacy_approval') {
               console.log('[SMS] MMS received while already awaiting candidacy approval — photo saved, no re-ack:', conversationId);
-              return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+              res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
             }
           } catch (_) {}
 
@@ -718,7 +718,34 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
               candidacy_state: 'awaiting_candidacy_approval', unread_count: 1, updated_at: new Date().toISOString(),
             }).eq('id', conversationId);
           } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
-          return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+
+          // Insert pending_approval verdict draft for the approver
+          try {
+            var draftBody = null;
+            // Use approve template from config if set
+            if (gateCheck.data && gateCheck.data.candidacy_approve_template) {
+              draftBody = gateCheck.data.candidacy_approve_template;
+            } else {
+              // AI-generated draft — brief, warm, sets expectation of next step
+              try {
+                draftBody = await getAIReply(supabase, tenantId,
+                  '[SYSTEM: A patient sent a smile photo for candidacy screening. Write a brief approval message (2-3 sentences) ' +
+                  'telling them they appear to be a great candidate, mention the price if it is in the knowledge base, and ask if they are local or want to book. ' +
+                  'Do NOT make a clinical assessment. Keep it warm and conversational.]', channel);
+              } catch (_) {}
+            }
+            if (!draftBody) draftBody = 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
+            await supabase.from('messages').insert({
+              tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+              direction: 'outbound', channel: channel, body: draftBody,
+              status: 'pending_approval', sender_type: 'bot',
+              metadata: { candidacy_draft: true, from: To, to: From },
+              created_at: new Date().toISOString(),
+            });
+            console.log('[SMS] Candidacy verdict draft created for conversation:', conversationId);
+          } catch (draftErr) { console.error('[SMS] Draft creation error:', draftErr.message); }
+
+          res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
         }
         // Gate OFF: fall through to step 9 (AI auto-response handles MMS like any inbound)
       }
@@ -729,7 +756,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
           var convState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
           if (convState.data && convState.data.candidacy_state === 'awaiting_candidacy_approval') {
             console.log('[SMS] AI auto-response suppressed — conversation awaiting candidacy approval:', conversationId);
-            return res.status(200).type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+            res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
           }
         } catch (_) {}
       }
