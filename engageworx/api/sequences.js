@@ -67,10 +67,11 @@ function resolveContactFields(lead) {
   };
 }
 
-function mergePlaceholders(text, lead, tenantName) {
+function mergePlaceholders(text, lead, tenantName, ctx) {
   if (!text) return text;
   var f = resolveContactFields(lead);
   var platform = tenantName || 'EngageWorx';
+  var extra = ctx || {};
 
   var map = {
     'firstname': f.firstName, 'first_name': f.firstName, 'first name': f.firstName,
@@ -79,13 +80,23 @@ function mergePlaceholders(text, lead, tenantName) {
     'company': f.company, 'company_name': f.company,
     'email': f.email,
     'platform': platform,
+    // Meeting / calendar link — fallback chain from context
+    'calendly_link': extra.calendlyLink || null,
+    'meeting_link': extra.calendlyLink || null,
+    'calendar_link': extra.calendlyLink || null,
+    'booking_link': extra.calendlyLink || null,
+    // Sender identity
+    'your name': extra.senderName || null,
+    'sender_name': extra.senderName || null,
+    'sender name': extra.senderName || null,
+    'my name': extra.senderName || null,
   };
 
   var result = text;
   // Replace {placeholder}, [Placeholder], and {{placeholder}} patterns
   result = result.replace(/\{([^{}]+)\}|{{([^}]+)}}|\[([^\]]+)\]/gi, function(match, single, double, bracket) {
     var key = (single || double || bracket || '').trim().toLowerCase();
-    if (map[key] !== undefined) return map[key];
+    if (map[key] !== undefined && map[key] !== null) return map[key];
     return match; // leave unrecognized for validation to catch
   });
 
@@ -103,9 +114,9 @@ function validateNoPlaceholders(text) {
   return remaining;
 }
 
-async function personaliseMessage(template, lead, tenantName) {
+async function personaliseMessage(template, lead, tenantName, mergeCtx) {
   var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName);
+  if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName, mergeCtx);
   console.log('[DIAG] personaliseMessage entered, process.version:', process.version, 'at:', new Date().toISOString());
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { console.log('[DIAG] abort fired at:', new Date().toISOString()); controller.abort(); }, 30000);
@@ -127,23 +138,41 @@ async function personaliseMessage(template, lead, tenantName) {
     console.log('[DIAG] fetch returned, status:', res.status, 'at:', new Date().toISOString());
     if (!res.ok) {
       console.warn('[Sequences] Personalisation API error:', res.status, '— falling back to template');
-      return mergePlaceholders(template, lead, tenantName);
+      return mergePlaceholders(template, lead, tenantName, mergeCtx);
     }
     var data = await res.json();
     var text = (data.content || []).find(function(b) { return b.type === 'text'; });
-    return text ? text.text.trim() : mergePlaceholders(template, lead, tenantName);
+    return text ? text.text.trim() : mergePlaceholders(template, lead, tenantName, mergeCtx);
   } catch (e) {
     clearTimeout(timeoutId);
     console.warn('[DIAG] caught:', e.name, e.message, 'at:', new Date().toISOString());
     console.warn('[Sequences] Personalisation failed (' + e.message + ') — falling back to template');
-    var fallbackResult = mergePlaceholders(template, lead, tenantName);
+    var fallbackResult = mergePlaceholders(template, lead, tenantName, mergeCtx);
     console.log('[DIAG] fallback returned at:', new Date().toISOString());
     return fallbackResult;
   }
 }
 
-async function sendStep(supabase, step, lead, tenant) {
+async function sendStep(supabase, step, lead, tenant, sequence) {
   console.log('[DIAG] sendStep entered:', { lead_id: lead.id, step: step.step_number, channel: step.channel, ai_personalise: step.ai_personalise, at: new Date().toISOString() });
+
+  // Build merge context: calendly link fallback chain + sender name
+  var seq = sequence || {};
+  var mergeCtx = {
+    calendlyLink: seq.meeting_link || (tenant && tenant.calendly_url) || (tenant && tenant.welcome_email_calendly) || (tenant && tenant.welcome_email_onboarding_link) || null,
+    senderName: (tenant && tenant.name) || null,
+  };
+  // Resolve sender name from user_profiles if available (the tenant admin / sequence owner)
+  if (supabase && tenant && tenant.id) {
+    try {
+      var ownerRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', tenant.id).eq('role', 'admin').eq('status', 'active').limit(1).maybeSingle();
+      if (ownerRes.data) {
+        var profileRes = await supabase.from('user_profiles').select('full_name').eq('id', ownerRes.data.user_id).maybeSingle();
+        if (profileRes.data && profileRes.data.full_name) mergeCtx.senderName = profileRes.data.full_name;
+      }
+    } catch (_) {}
+  }
+
   // Guard: refuse to send email to a lead with no email address
   if (step.channel === 'email' && (!lead.email || !lead.email.trim())) {
     console.error('[Sequences] Send skipped — lead has no email:', { lead_id: lead.id, tenant_id: tenant.id, sequence_id: step.sequence_id, step: step.step_number });
@@ -159,10 +188,10 @@ async function sendStep(supabase, step, lead, tenant) {
   var hasRealCompany = leadCompany && leadCompany.indexOf('@') === -1;
   var hasPersonalisableData = hasRealName || hasRealCompany;
   var body = (step.ai_personalise && hasPersonalisableData)
-    ? await personaliseMessage(step.body_template, lead, tenant.name)
-    : mergePlaceholders(step.body_template, lead, tenant.name);
+    ? await personaliseMessage(step.body_template, lead, tenant.name, mergeCtx)
+    : mergePlaceholders(step.body_template, lead, tenant.name, mergeCtx);
 
-  var subject = mergePlaceholders(step.subject || 'Following up from ' + (tenant.name || 'EngageWorx'), lead, tenant.name);
+  var subject = mergePlaceholders(step.subject || 'Following up from ' + (tenant.name || 'EngageWorx'), lead, tenant.name, mergeCtx);
 
   // Track merge info
   var fallbacksUsed = [];
@@ -171,7 +200,7 @@ async function sendStep(supabase, step, lead, tenant) {
 
   // Safety: run mergePlaceholders on AI-personalised output too (AI may leave tokens)
   if (step.ai_personalise) {
-    body = mergePlaceholders(body, lead, tenant.name);
+    body = mergePlaceholders(body, lead, tenant.name, mergeCtx);
   }
 
   // Validate — refuse to send if unmerged placeholders remain
@@ -493,7 +522,7 @@ async function processDueSteps(supabase) {
         }
       }
 
-      var tenantRes = await supabase.from('tenants').select('id, name, email_tracking_domain').eq('id', sequence.tenant_id).single();
+      var tenantRes = await supabase.from('tenants').select('id, name, email_tracking_domain, calendly_url, welcome_email_calendly, welcome_email_onboarding_link').eq('id', sequence.tenant_id).single();
       var tenant = tenantRes.data;
 
       // Backfill lead name if missing — derive from email
@@ -544,7 +573,7 @@ async function processDueSteps(supabase) {
       }).eq('id', enrolment.id);
 
       console.log('[DIAG] before sendStep for', enrolment.id, 'at:', new Date().toISOString());
-      var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' });
+      var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' }, sequence);
       console.log('[DIAG] sendStep returned for', enrolment.id, ':', JSON.stringify(sent ? { refused: sent.refused, skipped: sent.skipped } : 'truthy'), 'at:', new Date().toISOString());
 
       if (sent && sent.refused) {
