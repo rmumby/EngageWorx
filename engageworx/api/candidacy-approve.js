@@ -159,11 +159,20 @@ module.exports = async function handler(req, res) {
     });
   } catch (_) {}
 
-  // Update conversation state: resume auto-response
+  // Update conversation state per verdict
+  // approved → AI resumes, distinct from never-gated (no re-queue on second photo)
+  // rejected → terminal, AI suppressed, manual messages still send (D3)
+  var newState = verdict === 'approved' ? 'approved' : 'rejected';
   await supabase.from('conversations').update({
-    candidacy_state: 'auto',
+    candidacy_state: newState,
     updated_at: new Date().toISOString(),
   }).eq('id', conversationId);
+
+  // Resolve the pending_approval draft (superseded by the verdict message sent above)
+  try {
+    await supabase.from('messages').update({ status: 'cancelled' })
+      .eq('conversation_id', conversationId).eq('status', 'pending_approval');
+  } catch (_) {}
 
   // Audit log
   try {
@@ -184,6 +193,6 @@ module.exports = async function handler(req, res) {
     verdict: verdict,
     conversation_id: conversationId,
     message_sent: true,
-    candidacy_state: 'auto',
+    candidacy_state: newState,
   });
 };
