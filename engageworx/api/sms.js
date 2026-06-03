@@ -719,22 +719,23 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
             }).eq('id', conversationId);
           } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
 
-          // Insert pending_approval verdict draft for the approver
+          // Insert pending_approval verdict draft (Phase 1: templated only, no live AI)
           try {
-            var draftBody = null;
-            // Use approve template from config if set
-            if (gateCheck.data && gateCheck.data.candidacy_approve_template) {
-              draftBody = gateCheck.data.candidacy_approve_template;
-            } else {
-              // AI-generated draft — brief, warm, sets expectation of next step
-              try {
-                draftBody = await getAIReply(supabase, tenantId,
-                  '[SYSTEM: A patient sent a smile photo for candidacy screening. Write a brief approval message (2-3 sentences) ' +
-                  'telling them they appear to be a great candidate, mention the price if it is in the knowledge base, and ask if they are local or want to book. ' +
-                  'Do NOT make a clinical assessment. Keep it warm and conversational.]', channel);
-              } catch (_) {}
+            // Template → static safe default. No AI generation (Vision is Phase 1.5).
+            var draftBody = (gateCheck.data && gateCheck.data.candidacy_approve_template)
+              || 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
+
+            // Leak guard: discard if operator-speak leaked into template/fallback
+            var OPERATOR_MARKERS = ['i don\'t have access', 'knowledge base', 'qualification rubric', 'i need the', 'i appreciate the setup', 'i cannot', 'i\'m unable', 'as an ai'];
+            var draftLower = draftBody.toLowerCase();
+            for (var lgi = 0; lgi < OPERATOR_MARKERS.length; lgi++) {
+              if (draftLower.indexOf(OPERATOR_MARKERS[lgi]) !== -1) {
+                console.warn('[SMS] Verdict draft leaked operator-speak, falling back to safe default:', OPERATOR_MARKERS[lgi]);
+                draftBody = 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
+                break;
+              }
             }
-            if (!draftBody) draftBody = 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
+
             await supabase.from('messages').insert({
               tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
               direction: 'outbound', channel: channel, body: draftBody,
