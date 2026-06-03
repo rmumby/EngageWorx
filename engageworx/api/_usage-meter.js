@@ -30,10 +30,12 @@ async function logAiUsage(supabase, params) {
       feature: params.feature || null,
     });
     if (params.tenant_id) {
-      await supabase.rpc('increment_tenant_counter', { p_tenant_id: params.tenant_id, p_column: 'ai_interactions_used', p_amount: 1 }).catch(function() {
-        // Fallback if RPC not present: fetch-and-update
+      try {
+        var rpcRes = await supabase.rpc('increment_tenant_counter', { p_tenant_id: params.tenant_id, p_column: 'ai_interactions_used', p_amount: 1 });
+        if (rpcRes.error) incrementTenantCounter(supabase, params.tenant_id, 'ai_interactions_used', 1);
+      } catch (_) {
         incrementTenantCounter(supabase, params.tenant_id, 'ai_interactions_used', 1);
-      });
+      }
     }
   } catch (e) { console.warn('[usage] logAiUsage error:', e.message); }
 }
