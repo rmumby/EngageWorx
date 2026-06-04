@@ -600,6 +600,55 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         }).eq('id', conversationId);
       }
 
+      // 5b. Contact enrichment: Haiku extraction for name, email, concerns, urgency (D2)
+      // Skip on empty/media-only body. Awaited (~1-2s, within Twilio's 15s timeout).
+      if (Body && Body.trim().length >= 3 && contactId) {
+        try {
+          var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+          if (ANTHROPIC_KEY) {
+            var exController = new AbortController();
+            var exTimeoutId = setTimeout(function() { exController.abort(); }, 15000);
+            var exRes = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01' },
+              signal: exController.signal,
+              body: JSON.stringify({
+                model: 'claude-haiku-4-5', max_tokens: 150, temperature: 0,
+                system: 'Extract contact information from this SMS message. Return ONLY valid JSON: {"first_name":null,"last_name":null,"email":null,"stated_concerns":null,"urgency_signal":null}. first_name/last_name = the person\'s actual name if they stated it. email = an email address if they shared one. stated_concerns = what they want help with (e.g. "composite bonding", "pricing question"). urgency_signal = any time pressure (e.g. "wedding next month", "traveling this week"). Return null for any field not explicitly stated. Do NOT invent or guess. Do NOT extract greetings, common words, or partial phrases as names.',
+                messages: [{ role: 'user', content: Body.trim() }],
+              }),
+            });
+            clearTimeout(exTimeoutId);
+            if (exRes.ok) {
+              var exData = await exRes.json();
+              var exText = (exData.content || []).find(function(b) { return b.type === 'text'; });
+              if (exText) {
+                var jsonMatch = (exText.text || '').match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  var extracted = JSON.parse(jsonMatch[0]);
+                  var { data: curContact } = await supabase.from('contacts').select('first_name, last_name, email, custom_fields').eq('id', contactId).maybeSingle();
+                  if (curContact) {
+                    var enrichUpdates = {};
+                    if (extracted.first_name && !curContact.first_name) enrichUpdates.first_name = extracted.first_name;
+                    if (extracted.last_name && !curContact.last_name) enrichUpdates.last_name = extracted.last_name;
+                    if (extracted.email && !curContact.email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(extracted.email)) {
+                      enrichUpdates.email = extracted.email.toLowerCase();
+                    }
+                    var cf = curContact.custom_fields || {};
+                    if (extracted.stated_concerns && !cf.stated_concerns) { cf.stated_concerns = extracted.stated_concerns; enrichUpdates.custom_fields = cf; }
+                    if (extracted.urgency_signal && !cf.urgency_signal) { cf.urgency_signal = extracted.urgency_signal; enrichUpdates.custom_fields = cf; }
+                    if (Object.keys(enrichUpdates).length > 0) {
+                      await supabase.from('contacts').update(enrichUpdates).eq('id', contactId).eq('tenant_id', tenantId);
+                      console.log('[SMS] Contact enriched:', contactId, Object.keys(enrichUpdates));
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (enrichErr) { /* non-fatal */ }
+      }
+
       // 6. Auto-create pipeline lead for SP tenant
       try {
         if (tenantId === (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387')) {
