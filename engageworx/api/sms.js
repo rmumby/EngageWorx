@@ -665,7 +665,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         var candidacyGateEnabled = false;
         var candidacyStateRead = null;
         try {
-          var gateCheck = await supabase.from('chatbot_configs').select('candidacy_gate_enabled, candidacy_ack_template')
+          var gateCheck = await supabase.from('chatbot_configs').select('candidacy_gate_enabled, candidacy_ack_template, candidacy_approve_template, candidacy_reject_template')
             .eq('tenant_id', tenantId).limit(1).maybeSingle();
           if (gateCheck.data && gateCheck.data.candidacy_gate_enabled === true) candidacyGateEnabled = true;
         } catch (_) {}
@@ -676,14 +676,24 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         console.log('[GATE] evaluated:', { candidacyGateEnabled: candidacyGateEnabled, candidacyState: candidacyStateRead, branch: candidacyGateEnabled ? 'GATE_ON' : 'GATE_OFF_FALLTHROUGH' });
 
         if (candidacyGateEnabled) {
-          // Skip if already awaiting (second photo while in gate)
+          // Gate fires ONLY on NULL or 'auto'. All other states are no-ops:
+          // awaiting → already gated, no re-ack, early return
+          // approved → already cleared, skip gate, fall through to AI at step 9
+          // rejected → terminal, early return (step 8f suppresses AI)
+          var skipGate = false;
           try {
             var currentConvState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
-            if (currentConvState.data && currentConvState.data.candidacy_state === 'awaiting_candidacy_approval') {
-              console.log('[SMS] MMS received while already awaiting candidacy approval — photo saved, no re-ack:', conversationId);
+            var curState = currentConvState.data ? currentConvState.data.candidacy_state : null;
+            if (curState === 'awaiting_candidacy_approval' || curState === 'rejected') {
+              console.log('[SMS] MMS received, candidacy state:', curState, '— no re-gate:', conversationId);
               res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
             }
+            if (curState === 'approved') {
+              console.log('[SMS] MMS on approved conversation — skipping gate, flowing to AI:', conversationId);
+              skipGate = true;
+            }
           } catch (_) {}
+          if (!skipGate) {
 
           // Ack message: config template > AI-generated holding ack > (never hardcoded)
           var ackMessage = null;
@@ -747,6 +757,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
           } catch (draftErr) { console.error('[SMS] Draft creation error:', draftErr.message); }
 
           res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+          } // end if (!skipGate) — approved falls through to step 9
         }
         // Gate OFF: fall through to step 9 (AI auto-response handles MMS like any inbound)
       }
