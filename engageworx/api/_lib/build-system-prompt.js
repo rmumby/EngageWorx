@@ -88,6 +88,9 @@ async function buildSystemPrompt(opts) {
     }
   }
 
+  // (c.7) Contact collection — soft ask for name + email early
+  sections.push('CONTACT COLLECTION: Early in the conversation, naturally ask for the person\'s name and email address. Weave it into your greeting or first substantive reply — for example, "And what\'s your name?" or "What\'s the best email to reach you at?" This is a soft ask: if they don\'t provide it, continue the conversation normally. Never block or repeat the ask if ignored. Once they share their name, use it naturally in subsequent messages.');
+
   // (d) Business context
   var businessInfo = tenant && tenant.knowledge_base;
   if (businessInfo) {
