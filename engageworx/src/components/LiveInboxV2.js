@@ -644,8 +644,13 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           }
           setConversations(assembled);
 
-          // Also refresh selected conversation messages (resolve signed URLs for media)
+          // Refresh selected conversation: messages + candidacy_state + unread
           if (selectedConv) {
+            // Update candidacy_state from the freshly assembled conversation list
+            var freshConv = assembled.find(function(c) { return c.id === selectedConv.id; });
+            if (freshConv && freshConv.candidacy_state !== selectedConv.candidacy_state) {
+              setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { candidacy_state: freshConv.candidacy_state }) : prev; });
+            }
             var selMsgs = mMap[selectedConv.id];
             if (selMsgs && selMsgs.length > (selectedConv.messages || []).length) {
               // Resolve signed URLs for any media in new messages
@@ -679,7 +684,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           }
         } catch (e) { /* silent poll error */ }
       })();
-    }, 15000);
+    }, 10000);
     return function() { clearInterval(pollInterval); };
   }, [demoMode, supabase, currentTenantId, viewLevel, scopeOwnOnly]);
   useEffect(() => {}, [demoMode, selectedConv?.id, inboxTab]);
