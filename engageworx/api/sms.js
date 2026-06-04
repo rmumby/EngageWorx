@@ -819,33 +819,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
             }).eq('id', conversationId);
           } catch (flagErr) { console.error('[SMS] Flag error:', flagErr.message); }
 
-          // Insert pending_approval verdict draft (Phase 1: templated only, no live AI)
-          try {
-            // Template → static safe default. No AI generation (Vision is Phase 1.5).
-            var draftBody = (gateCheck.data && gateCheck.data.candidacy_approve_template)
-              || 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
-
-            // Leak guard: discard if operator-speak leaked into template/fallback
-            var OPERATOR_MARKERS = ['i don\'t have access', 'knowledge base', 'qualification rubric', 'i need the', 'i appreciate the setup', 'i cannot', 'i\'m unable', 'as an ai'];
-            var draftLower = draftBody.toLowerCase();
-            for (var lgi = 0; lgi < OPERATOR_MARKERS.length; lgi++) {
-              if (draftLower.indexOf(OPERATOR_MARKERS[lgi]) !== -1) {
-                console.warn('[SMS] Verdict draft leaked operator-speak, falling back to safe default:', OPERATOR_MARKERS[lgi]);
-                draftBody = 'Based on your photo, you look like a great candidate! Would you like to book a consultation?';
-                break;
-              }
-            }
-
-            await supabase.from('messages').insert({
-              tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-              direction: 'outbound', channel: channel, body: draftBody,
-              status: 'pending_approval', sender_type: 'bot',
-              metadata: { candidacy_draft: true, from: To, to: From },
-              created_at: new Date().toISOString(),
-            });
-            console.log('[SMS] Candidacy verdict draft created for conversation:', conversationId);
-          } catch (draftErr) { console.error('[SMS] Draft creation error:', draftErr.message); }
-
+          // Beta-simple: no draft row. Buttons send templates directly.
           res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
           } // end if (!skipGate) — approved falls through to step 9
         }

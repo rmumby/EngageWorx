@@ -1622,7 +1622,7 @@ useEffect(function() {
                     body: JSON.stringify({ conversation_id: selectedConv.id, verdict: verdict, message: verdictMsg.trim() || undefined }),
                   });
                   var d = await r.json();
-                  if (d.success) { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { candidacy_state: 'auto' }) : prev; }); }
+                  if (d.success) { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { candidacy_state: d.candidacy_state || (verdict === 'approved' ? 'approved' : 'rejected') }) : prev; }); }
                   else { alert('Error: ' + (d.error || 'Failed')); }
                 } catch (e) { alert('Error: ' + e.message); }
                 setSending(false);

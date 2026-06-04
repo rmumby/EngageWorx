@@ -98,18 +98,17 @@ module.exports = async function handler(req, res) {
     if (pn) fromNumber = pn.number;
   } catch (_) {}
 
-  // Build verdict message: user-provided > config template > generic default
+  // Build verdict message: user textarea > locked templates
   var messageBody;
-  if (body.message && body.message.trim()) {
+  if (verdict === 'rejected') {
+    // Verbatim reject — no customization, no appending
+    messageBody = 'Unfortunately, you\'re not a good candidate.';
+  } else if (body.message && body.message.trim()) {
     messageBody = body.message.trim();
-  } else if (verdict === 'approved' && config && config.candidacy_approve_template) {
+  } else if (config && config.candidacy_approve_template) {
     messageBody = config.candidacy_approve_template;
-  } else if (verdict === 'rejected' && config && config.candidacy_reject_template) {
-    messageBody = config.candidacy_reject_template;
-  } else if (verdict === 'approved') {
-    messageBody = 'Great news — based on your photo, you look like a great candidate! Would you like to book a consultation?';
   } else {
-    messageBody = 'Thank you for your photo. Based on what we can see, we\'d recommend coming in for an in-person evaluation so we can give you the best recommendation. Would you like to schedule a visit?';
+    messageBody = 'Great news — based on your photo, you look like a great candidate for composite bonding! It\'s $2,500 for up to 10 teeth and we offer payment plans. Are you local to Miami, or would you be flying in for the procedure?';
   }
 
   // No leak guard here — this is the human-approved send path.
@@ -160,19 +159,13 @@ module.exports = async function handler(req, res) {
   } catch (_) {}
 
   // Update conversation state per verdict
-  // approved → AI resumes, distinct from never-gated (no re-queue on second photo)
-  // rejected → terminal, AI suppressed, manual messages still send (D3)
   var newState = verdict === 'approved' ? 'approved' : 'rejected';
-  await supabase.from('conversations').update({
-    candidacy_state: newState,
-    updated_at: new Date().toISOString(),
-  }).eq('id', conversationId);
-
-  // Resolve the pending_approval draft (superseded by the verdict message sent above)
-  try {
-    await supabase.from('messages').update({ status: 'cancelled' })
-      .eq('conversation_id', conversationId).eq('status', 'pending_approval');
-  } catch (_) {}
+  var convUpdate = { candidacy_state: newState, updated_at: new Date().toISOString() };
+  // Reject → also resolve the conversation
+  if (verdict === 'rejected') {
+    convUpdate.status = 'resolved';
+  }
+  await supabase.from('conversations').update(convUpdate).eq('id', conversationId);
 
   // Audit log
   try {
