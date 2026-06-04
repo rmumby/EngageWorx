@@ -228,10 +228,11 @@ async function sendSMS(to, body, from, opts) {
 }
 
 // ─── AI REPLY ─────────────────────────────────────────────────────────────
-async function getAIReply(supabase, tenantId, message, channel) {
+async function getAIReply(supabase, tenantId, message, channel, opts) {
   try {
     var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { console.log('[AI] No Anthropic key'); return null; }
+    var extra = opts || {};
 
     var channelsActive = ['sms', 'whatsapp', 'email'];
     if (tenantId) {
@@ -247,6 +248,46 @@ async function getAIReply(supabase, tenantId, message, channel) {
 
     var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase });
 
+    // Append state-specific instructions
+    if (extra.candidacyState === 'approved') {
+      systemPrompt += '\n\n--- CURRENT STATE: APPROVED CANDIDATE ---\n' +
+        'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. ' +
+        'Your job now is to collect their contact information: ask for their full name, then their best phone number. ' +
+        'Be warm and brief. Once you have both, say thanks and that the team will call to schedule.';
+    }
+    if (extra.hasPhoto) {
+      systemPrompt += '\n\nIMPORTANT: This person has already sent a photo. Do NOT ask for a photo again.';
+    }
+
+    // Build messages array with conversation history
+    var aiMessages = [];
+    if (extra.conversationId && supabase) {
+      try {
+        var { data: historyMsgs } = await supabase.from('messages').select('direction, body, sender_type')
+          .eq('conversation_id', extra.conversationId)
+          .order('created_at', { ascending: true }).limit(20);
+        if (historyMsgs && historyMsgs.length > 0) {
+          for (var hi = 0; hi < historyMsgs.length; hi++) {
+            var hm = historyMsgs[hi];
+            if (!hm.body || !hm.body.trim()) continue;
+            var role = (hm.direction === 'inbound') ? 'user' : 'assistant';
+            // Avoid consecutive same-role messages (API requirement)
+            if (aiMessages.length > 0 && aiMessages[aiMessages.length - 1].role === role) {
+              aiMessages[aiMessages.length - 1].content += '\n' + hm.body;
+            } else {
+              aiMessages.push({ role: role, content: hm.body });
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    // Append current inbound as the final user message
+    if (aiMessages.length === 0 || aiMessages[aiMessages.length - 1].role !== 'user') {
+      aiMessages.push({ role: 'user', content: message });
+    } else {
+      aiMessages[aiMessages.length - 1].content += '\n' + message;
+    }
+
     var claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -259,7 +300,7 @@ async function getAIReply(supabase, tenantId, message, channel) {
         max_tokens: 160,
         temperature: (chatbotResult && chatbotResult.data && chatbotResult.data.temperature !== null) ? chatbotResult.data.temperature : 0.7,
         system: systemPrompt,
-        messages: [{ role: 'user', content: message }],
+        messages: aiMessages,
       }),
     });
 
@@ -811,21 +852,48 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         // Gate OFF: fall through to step 9 (AI auto-response handles MMS like any inbound)
       }
 
-      // 8f. Candidacy gate: suppress AI auto-response while awaiting human verdict
+      // 8f. Load conversation state + photo presence for AI branching
+      var convCandidacyState = null;
+      var convStatus = null;
+      var convResolutionReason = null;
+      var convHasPhoto = false;
       if (messageType === 'inbound' && conversationId) {
         try {
-          var convState = await supabase.from('conversations').select('candidacy_state').eq('id', conversationId).maybeSingle();
-          if (convState.data && convState.data.candidacy_state === 'awaiting_candidacy_approval') {
-            console.log('[SMS] AI auto-response suppressed — conversation awaiting candidacy approval:', conversationId);
-            res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+          var convStateRes = await supabase.from('conversations').select('candidacy_state, status').eq('id', conversationId).maybeSingle();
+          if (convStateRes.data) {
+            convCandidacyState = convStateRes.data.candidacy_state;
+            convStatus = convStateRes.data.status;
           }
+        } catch (_) {}
+        // Check if any inbound message in this conversation has media
+        try {
+          var { data: photoCheck } = await supabase.from('messages')
+            .select('id').eq('conversation_id', conversationId).eq('direction', 'inbound')
+            .not('media_urls', 'is', null).limit(1);
+          if (photoCheck && photoCheck.length > 0) convHasPhoto = true;
         } catch (_) {}
       }
 
-      // 9. AI auto-response
+      // Suppress: awaiting verdict OR rejected (post-reject silence)
+      if (messageType === 'inbound' && conversationId) {
+        if (convCandidacyState === 'awaiting_candidacy_approval') {
+          console.log('[SMS] AI suppressed — awaiting candidacy approval:', conversationId);
+          res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+        }
+        if (convCandidacyState === 'rejected' || (convStatus === 'resolved' && convResolutionReason === 'rejected')) {
+          console.log('[SMS] AI suppressed — rejected/resolved:', conversationId);
+          res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+        }
+      }
+
+      // 9. AI auto-response (state-aware)
       if (messageType === 'inbound') {
         try {
-          var aiReply = await getAIReply(supabase, tenantId, Body, channel);
+          var aiReply = await getAIReply(supabase, tenantId, Body, channel, {
+            candidacyState: convCandidacyState,
+            hasPhoto: convHasPhoto,
+            conversationId: conversationId,
+          });
           if (aiReply) {
             console.log('[AI] Sending reply to', From, 'via', channel, ':', aiReply);
             var smsResult;
