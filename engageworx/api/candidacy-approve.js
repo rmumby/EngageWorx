@@ -98,11 +98,10 @@ module.exports = async function handler(req, res) {
     if (pn) fromNumber = pn.number;
   } catch (_) {}
 
-  // Build verdict message: user textarea > locked templates
+  // Build verdict message: user textarea > config template > fallback
   var messageBody;
   if (verdict === 'rejected') {
-    // Verbatim reject — no customization, no appending
-    messageBody = 'Unfortunately, you\'re not a good candidate.';
+    messageBody = (config && config.candidacy_reject_template) || 'Unfortunately, you\'re not a good candidate.';
   } else if (body.message && body.message.trim()) {
     messageBody = body.message.trim();
   } else if (config && config.candidacy_approve_template) {
