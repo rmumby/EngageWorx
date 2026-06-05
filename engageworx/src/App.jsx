@@ -174,7 +174,7 @@ const TENANTS = {
     name: "EngageWorx",
     logo: "EW",
     role: "superadmin",
-    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", divider: "rgba(255,255,255,0.2)", text: "#E8F4FD", muted: "#6B8BAE" },
     customers: ["acme", "retailco", "finserv"],
     stats: { totalMessages: 1284712, totalRevenue: 892450, activeCustomers: 3, totalCampaigns: 87 },
   },
@@ -1781,7 +1781,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     logo: (dbTenantName || "??").substring(0, 2).toUpperCase(),
     role: "customer",
     brand: { primary: "#00C9FF", secondary: "#E040FB", name: dbTenantName || "" },
-    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", text: "#E8F4FD", muted: "#6B8BAE" },
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", divider: "rgba(255,255,255,0.2)", text: "#E8F4FD", muted: "#6B8BAE" },
     stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
     channels: ["SMS", "Email"],
   };
@@ -2725,7 +2725,7 @@ var spNavBase = [
       {isMobile && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: "border-box", background: C.bg, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: "border-box", background: C.bg, borderRight: `1px solid ${C.divider}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
         {/* Header */}
         <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
           {sidebarCollapsed ? (

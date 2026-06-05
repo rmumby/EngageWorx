@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import './themes/tokens.css';
 
 var DARK = {
-  bg: '#000000', surface: '#0a0a0a', border: 'rgba(255,255,255,0.12)',
+  bg: '#000000', surface: '#0a0a0a', border: 'rgba(255,255,255,0.12)', divider: 'rgba(255,255,255,0.2)',
   text: '#E8F4FD', muted: '#6B8BAE',
   primary: '#00C9FF', accent: '#E040FB',
   inputBg: 'rgba(0,0,0,0.3)', inputBorder: 'rgba(255,255,255,0.1)',
@@ -13,7 +13,7 @@ var DARK = {
 };
 
 var LIGHT = {
-  bg: '#f9fafb', surface: '#ffffff', border: '#d1d5db',
+  bg: '#f9fafb', surface: '#ffffff', border: '#d1d5db', divider: '#cbd5e1',
   text: '#111827', muted: '#4b5563',
   primary: '#0077B6', accent: '#7C3AED',
   inputBg: '#ffffff', inputBorder: '#d1d5db',
@@ -433,6 +433,16 @@ export function ThemeProvider({ children }) {
     ` }} />
   ) : null;
 
+  var darkModeCSS = (isDark && isPortalHost) ? (
+    <style dangerouslySetInnerHTML={{ __html: `
+      /* ═══ DARK MODE — PERSISTENT SCROLLBAR ═══ */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); }
+      ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
+    ` }} />
+  ) : null;
+
   // JS-based light mode override — catches React compiled inline styles
   // ONLY runs on portal (not marketing site engwx.com)
   useEffect(function() {
@@ -526,6 +536,7 @@ export function ThemeProvider({ children }) {
   return (
     <ThemeContext.Provider value={{ theme: theme, isDark: isDark, mode: mode, preference: preference, toggleTheme: toggleTheme, setThemeMode: setThemeMode }}>
       {lightModeCSS}
+      {darkModeCSS}
       {children}
     </ThemeContext.Provider>
   );
@@ -541,7 +552,7 @@ export function getThemedColors(portalColors, themeObj) {
   return Object.assign({}, portalColors, {
     bg: LIGHT.bg,
     surface: LIGHT.surface,
-    border: LIGHT.border,
+    border: LIGHT.border, divider: LIGHT.divider,
     text: LIGHT.text,
     muted: LIGHT.muted,
     inputBg: LIGHT.inputBg,
