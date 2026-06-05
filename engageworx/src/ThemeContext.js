@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import './themes/tokens.css';
 
 var DARK = {
-  bg: '#080d1a', surface: '#0d1425', border: '#182440',
+  bg: '#000000', surface: '#0a0a0a', border: 'rgba(255,255,255,0.12)',
   text: '#E8F4FD', muted: '#6B8BAE',
   primary: '#00C9FF', accent: '#E040FB',
   inputBg: 'rgba(0,0,0,0.3)', inputBorder: 'rgba(255,255,255,0.1)',
@@ -201,6 +201,8 @@ export function ThemeProvider({ children }) {
       /* Main dark backgrounds → light */
       [style*="background: #080d1a"], [style*="background:#080d1a"],
       [style*="background: rgb(8, 13, 26)"],
+      [style*="background: #000000"], [style*="background:#000000"],
+      [style*="background: rgb(0, 0, 0)"],
       [style*="background: #050810"], [style*="background:#050810"],
       [style*="background: #0c0a10"], [style*="background: #080d10"],
       [style*="background: #0a0810"]
@@ -209,6 +211,7 @@ export function ThemeProvider({ children }) {
       /* Surface/panel backgrounds → white */
       [style*="background: #0d1425"], [style*="background:#0d1425"],
       [style*="background: rgb(13, 20, 37)"],
+      [style*="background: #0a0a0a"], [style*="background:#0a0a0a"],
       [style*="background: #0d1220"], [style*="background:#0d1220"],
       [style*="background: #141018"], [style*="background: #0d1518"],
       [style*="background: #110e1c"]
@@ -236,6 +239,7 @@ export function ThemeProvider({ children }) {
 
       /* ═══ BORDERS ═══ */
       [style*="border: 1px solid #182440"], [style*="border-color: #182440"],
+      [style*="border: 1px solid #1a1a1a"], [style*="border-color: #1a1a1a"],
       [style*="border: 1px solid #1a2540"], [style*="border-color: #1a2540"]
       { border-color: #e5e7eb !important; }
 
