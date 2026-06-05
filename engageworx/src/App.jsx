@@ -2725,7 +2725,7 @@ var spNavBase = [
       {isMobile && sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: "border-box", background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: "border-box", background: C.bg, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: sidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: "fixed", height: "100vh", zIndex: 100, transform: isMobile && !sidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
         {/* Header */}
         <div style={{ marginBottom: 32, paddingLeft: sidebarCollapsed ? 0 : 8, textAlign: sidebarCollapsed ? "center" : "left" }}>
           {sidebarCollapsed ? (
@@ -2751,11 +2751,11 @@ var spNavBase = [
               width: "100%", display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 12,
               justifyContent: sidebarCollapsed ? "center" : "flex-start",
               padding: sidebarCollapsed ? "11px 0" : "11px 12px", borderRadius: 9, border: "none",
-              background: spPage === item.id ? (isDark ? 'rgba(255,255,255,0.1)' : `${C.primary}22`) : "transparent",
-              color: spPage === item.id ? (isDark ? '#ffffff' : C.primary) : (isDark ? 'rgba(255,255,255,0.7)' : C.muted),
+              background: spPage === item.id ? (isDark ? `${C.primary}18` : `${C.primary}22`) : "transparent",
+              color: spPage === item.id ? C.primary : C.muted,
               cursor: "pointer", fontSize: sidebarCollapsed ? 20 : 14, fontWeight: spPage === item.id ? 700 : 400,
               marginBottom: 4, textAlign: sidebarCollapsed ? "center" : "left",
-              borderLeft: spPage === item.id ? (isDark ? '3px solid rgba(255,255,255,0.4)' : `3px solid ${C.primary}`) : "3px solid transparent",
+              borderLeft: spPage === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
               transition: "all 0.2s",
             }}>
               <span style={{ fontSize: sidebarCollapsed ? 20 : 17 }}>{item.icon}</span>
