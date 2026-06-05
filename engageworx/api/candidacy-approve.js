@@ -61,14 +61,18 @@ module.exports = async function handler(req, res) {
 
   // Load chatbot config for templated verdict messages
   var { data: config } = await supabase.from('chatbot_configs')
-    .select('candidacy_approve_template, candidacy_reject_template')
+    .select('candidacy_approve_template, candidacy_reject_template, candidacy_name_ask_template')
     .eq('tenant_id', tenantId).limit(1).maybeSingle();
 
-  // Load contact phone for SMS
+  // Load contact for phone + name check
   var contactPhone = null;
+  var contactHasName = false;
   if (conv.contact_id) {
-    var { data: contact } = await supabase.from('contacts').select('phone, mobile_phone').eq('id', conv.contact_id).maybeSingle();
-    if (contact) contactPhone = contact.phone || contact.mobile_phone;
+    var { data: contact } = await supabase.from('contacts').select('phone, mobile_phone, first_name').eq('id', conv.contact_id).maybeSingle();
+    if (contact) {
+      contactPhone = contact.phone || contact.mobile_phone;
+      contactHasName = !!(contact.first_name && contact.first_name.trim());
+    }
   }
   // Fallback: get phone from conversation's last inbound message metadata
   if (!contactPhone) {
@@ -158,13 +162,53 @@ module.exports = async function handler(req, res) {
   } catch (_) {}
 
   // Update conversation state per verdict
-  var newState = verdict === 'approved' ? 'approved' : 'rejected';
-  var convUpdate = { candidacy_state: newState, updated_at: new Date().toISOString() };
-  // Reject → also resolve the conversation
-  if (verdict === 'rejected') {
-    convUpdate.status = 'resolved';
+  if (verdict === 'approved') {
+    if (contactHasName) {
+      // Name already known — complete capture immediately via RPC
+      try {
+        await supabase.rpc('complete_candidate_capture', {
+          p_tenant_id: tenantId, p_contact_id: conv.contact_id,
+          p_conversation_id: conversationId, p_phone: contactPhone,
+        });
+      } catch (rpcErr) { console.error('[candidacy-approve] RPC error:', rpcErr.message); }
+    } else {
+      // Name unknown — send name-ask proactively, then transition to capture state
+      var nameAskBody = (config && config.candidacy_name_ask_template) || 'Could you share your name so we can get you set up?';
+      try {
+        var naParams = new URLSearchParams();
+        naParams.append('To', contactPhone);
+        if (tenantMsSid) { naParams.append('MessagingServiceSid', tenantMsSid); }
+        else if (fromNumber) { naParams.append('From', fromNumber); }
+        else { naParams.append('From', process.env.TWILIO_PHONE_NUMBER || '+17869827800'); }
+        naParams.append('Body', nameAskBody);
+        var naRes = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json', {
+          method: 'POST',
+          headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: naParams.toString(),
+        });
+        if (!naRes.ok) { console.error('[candidacy-approve] Name-ask SMS failed:', await naRes.json()); }
+        else { console.log('[candidacy-approve] Name-ask SMS sent to', contactPhone); }
+      } catch (naErr) { console.error('[candidacy-approve] Name-ask SMS error:', naErr.message); }
+      // Persist name-ask to conversation
+      try {
+        await supabase.from('messages').insert({
+          tenant_id: tenantId, conversation_id: conversationId, contact_id: conv.contact_id,
+          direction: 'outbound', channel: conv.channel || 'sms',
+          body: nameAskBody, status: 'sent', sender_type: 'bot',
+          metadata: { candidacy_name_ask: true }, created_at: new Date().toISOString(),
+        });
+      } catch (_) {}
+      await supabase.from('conversations').update({
+        candidacy_state: 'awaiting_candidate_name', updated_at: new Date().toISOString(),
+      }).eq('id', conversationId);
+    }
+  } else {
+    // Rejected → resolve
+    await supabase.from('conversations').update({
+      candidacy_state: 'rejected', status: 'resolved', updated_at: new Date().toISOString(),
+    }).eq('id', conversationId);
   }
-  await supabase.from('conversations').update(convUpdate).eq('id', conversationId);
+  var newState = verdict === 'approved' ? (contactHasName ? 'candidate_complete' : 'awaiting_candidate_name') : 'rejected';
 
   // Audit log
   try {

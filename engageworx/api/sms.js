@@ -249,11 +249,17 @@ async function getAIReply(supabase, tenantId, message, channel, opts) {
     var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase });
 
     // Append state-specific instructions
-    if (extra.candidacyState === 'approved') {
-      systemPrompt += '\n\n--- CURRENT STATE: APPROVED CANDIDATE ---\n' +
-        'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. ' +
-        'Your job now is to collect their contact information: ask for their full name, then their best phone number. ' +
-        'Be warm and brief. Once you have both, say thanks and that the team will call to schedule.';
+    if (extra.candidacyState === 'awaiting_candidate_name') {
+      var nameAskCopy = extra.nameAskTemplate || 'Could you share your name so we can get you set up?';
+      systemPrompt += '\n\n--- CURRENT STATE: APPROVED CANDIDATE — NAME CAPTURE ---\n' +
+        'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. Do NOT ask for a phone number. ' +
+        'Your ONLY task: ask for their name. Use this wording as your guide (adapt naturally to the conversation): "' + nameAskCopy + '" ' +
+        'Once they share their name, thank them warmly and let them know the team will be in touch to schedule.';
+    }
+    if (extra.candidacyState === 'candidate_complete') {
+      systemPrompt += '\n\n--- CURRENT STATE: CANDIDATE COMPLETE ---\n' +
+        'This person is an approved, captured candidate. Their info is recorded. ' +
+        'If they message, respond helpfully and briefly. Do NOT re-collect info. Do NOT ask for a photo.';
     }
     if (extra.hasPhoto) {
       systemPrompt += '\n\nIMPORTANT: This person has already sent a photo. Do NOT ask for a photo again.';
@@ -778,8 +784,8 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
               console.log('[SMS] MMS received, candidacy state:', curState, '— no re-gate:', conversationId);
               res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
             }
-            if (curState === 'approved') {
-              console.log('[SMS] MMS on approved conversation — skipping gate, flowing to AI:', conversationId);
+            if (curState === 'approved' || curState === 'awaiting_candidate_name' || curState === 'candidate_complete') {
+              console.log('[SMS] MMS on post-approval conversation — skipping gate, flowing to AI:', conversationId);
               skipGate = true;
             }
           } catch (_) {}
@@ -860,13 +866,38 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
         }
       }
 
+      // 8g. Name-capture completion check: step 5b may have extracted the name already
+      if (messageType === 'inbound' && convCandidacyState === 'awaiting_candidate_name' && contactId) {
+        try {
+          var { data: capContact } = await supabase.from('contacts').select('first_name, phone').eq('id', contactId).maybeSingle();
+          if (capContact && capContact.first_name && capContact.first_name.trim()) {
+            // Name captured — complete via RPC (tags + state transition)
+            await supabase.rpc('complete_candidate_capture', {
+              p_tenant_id: tenantId, p_contact_id: contactId,
+              p_conversation_id: conversationId, p_phone: capContact.phone || From,
+            });
+            convCandidacyState = 'candidate_complete';
+            console.log('[SMS] Name captured, candidate complete:', contactId);
+          }
+        } catch (capErr) { console.error('[SMS] Name-capture check error:', capErr.message); }
+      }
+
       // 9. AI auto-response (state-aware)
       if (messageType === 'inbound') {
         try {
+          // Load name-ask template if in name-capture state
+          var nameAskTemplate = null;
+          if (convCandidacyState === 'awaiting_candidate_name') {
+            try {
+              var { data: nameConfig } = await supabase.from('chatbot_configs').select('candidacy_name_ask_template').eq('tenant_id', tenantId).limit(1).maybeSingle();
+              if (nameConfig) nameAskTemplate = nameConfig.candidacy_name_ask_template;
+            } catch (_) {}
+          }
           var aiReply = await getAIReply(supabase, tenantId, Body, channel, {
             candidacyState: convCandidacyState,
             hasPhoto: convHasPhoto,
             conversationId: conversationId,
+            nameAskTemplate: nameAskTemplate,
           });
           if (aiReply) {
             console.log('[AI] Sending reply to', From, 'via', channel, ':', aiReply);
