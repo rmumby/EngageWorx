@@ -23,6 +23,7 @@ import MasterAgentPortal from './MasterAgentPortal';
 import HierarchyView from './HierarchyView';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
+import { contrastRatio, suggestSimilarReadable } from './themes/contrast';
 import { useTranslation } from 'react-i18next';
 import FlowBuilder from './FlowBuilder';
 import Settings from './Settings';
@@ -1810,6 +1811,9 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   }, [tenantId]);
   const effectiveColors = dbColors ? Object.assign({}, tenant.colors, dbColors) : tenant.colors;
   const C = getThemedColors(effectiveColors, cpTheme.theme);
+  // Contrast guard: 3:1 minimum for non-default brand colors (WCAG large-text / non-text UI)
+  // Platform default #00C9FF passes through unguarded to preserve the approved SP-matching cyan
+  const brandHighlight = C.primary === '#00C9FF' || contrastRatio(C.primary, C.bg) >= 3 ? C.primary : suggestSimilarReadable(C.primary, C.bg);
   const [page, setPage] = useState("dashboard");
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -1892,14 +1896,14 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif" }}>
       {cpIsMobile && !cpSidebarOpen && (
-        <button onClick={() => setCpSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.surface, border: "1px solid " + C.border, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>☰</button>
+        <button onClick={() => setCpSidebarOpen(true)} style={{ position: "fixed", top: 12, left: 12, zIndex: 200, background: C.bg, border: "1px solid " + C.divider, borderRadius: 8, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 20, lineHeight: 1 }}>☰</button>
       )}
       {cpIsMobile && cpSidebarOpen && (
         <div onClick={() => setCpSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 99 }} />
       )}
-      <div style={{ width: cpSidebarCollapsed ? 64 : 220, background: C.surface, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", padding: cpSidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
+      <div style={{ width: cpSidebarCollapsed ? 64 : 220, background: C.bg, borderRight: `1px solid ${C.divider}`, display: "flex", flexDirection: "column", padding: cpSidebarCollapsed ? "24px 8px" : "24px 16px", flexShrink: 0, position: cpIsMobile ? "fixed" : "relative", height: cpIsMobile ? "100vh" : "auto", zIndex: 100, transform: cpIsMobile && !cpSidebarOpen ? "translateX(-100%)" : "translateX(0)", transition: "all 0.25s ease", overflow: "hidden" }}>
         {onBack && (
-          <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + "10", border: "1px solid " + C.primary + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
+          <div onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, cursor: "pointer", color: brandHighlight, fontSize: 12, fontWeight: 600, marginBottom: 12, background: brandHighlight + "10", border: "1px solid " + brandHighlight + "22", justifyContent: cpSidebarCollapsed ? "center" : "flex-start" }}>
             <span>←</span>
             {!cpSidebarCollapsed && <span>{t('nav.backToPlatform')}</span>}
           </div>
@@ -1907,13 +1911,13 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         <div style={{ marginBottom: 28, paddingLeft: cpSidebarCollapsed ? 0 : 8, textAlign: cpSidebarCollapsed ? "center" : "left" }}>
           {cpSidebarCollapsed ? (
             <div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{(tenant.brand.name || "").substring(0, 2)}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: brandHighlight }}>{(tenant.brand.name || "").substring(0, 2)}</div>
               <div style={{ marginTop: 8, textAlign: 'center' }}><PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" /></div>
             </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{tenant.brand.name}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: brandHighlight }}>{tenant.brand.name}</div>
                 <PlatformUpdatesBell userId={cpAuth && cpAuth.user ? cpAuth.user.id : null} audience="tenant" />
               </div>
             </>
@@ -1925,11 +1929,11 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
               width: "100%", display: "flex", alignItems: "center", gap: cpSidebarCollapsed ? 0 : 10,
               justifyContent: cpSidebarCollapsed ? "center" : "flex-start",
               padding: cpSidebarCollapsed ? "10px 0" : "10px 12px", borderRadius: 8, border: "none",
-              background: page === item.id ? `${C.primary}22` : "transparent",
-              color: page === item.id ? C.primary : C.muted,
+              background: page === item.id ? `${brandHighlight}22` : "transparent",
+              color: page === item.id ? brandHighlight : C.muted,
               cursor: "pointer", fontSize: 13, fontWeight: page === item.id ? 700 : 400,
               marginBottom: 3, textAlign: "left",
-              borderLeft: page === item.id ? `3px solid ${C.primary}` : "3px solid transparent",
+              borderLeft: page === item.id ? `3px solid ${brandHighlight}` : "3px solid transparent",
             }}>
               <span style={{ fontSize: 16 }}>{item.icon}</span>
               {!cpSidebarCollapsed && item.label}
