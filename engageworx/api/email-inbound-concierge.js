@@ -18,6 +18,75 @@ function getSupabase() {
   );
 }
 
+// ── Shared wrap + dispatch + persist ────────────────────────────────────
+// Used by both auto_send (inline) and Approve & Send (Phase 2, via API).
+// Takes body-only HTML (bodyContent) and wraps with header + signature at send time.
+async function wrapAndDispatch(supabase, opts) {
+  var tenantId = opts.tenantId;
+  var tenantName = opts.tenantName;
+  var conversationId = opts.conversationId;
+  var contactId = opts.contactId;
+  var senderEmail = opts.senderEmail;
+  var recipientEmail = opts.recipientEmail;
+  var tenantSenderEmail = opts.tenantSenderEmail;
+  var replySubject = opts.replySubject;
+  var cleanBody = opts.cleanBody;
+  var bodyContent = opts.bodyContent;
+
+  // Wrap in flush-left body div
+  var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0;color:#1e293b;font-size:15px;line-height:1.75;">' + bodyContent + '</div>';
+
+  // Resolve signature
+  var sigInfo = { fromName: tenantName || 'Team', signatureHtml: '', closingLine: '' };
+  try {
+    sigInfo = await getSignature(supabase, { tenantId: tenantId, fromEmail: tenantSenderEmail || recipientEmail, isFirstTouch: false, closingKind: 'none' });
+  } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
+
+  // Brand header
+  var brandColor = '#1e293b';
+  try {
+    var { data: brandData } = await supabase.from('tenants').select('brand_primary').eq('id', tenantId).maybeSingle();
+    if (brandData && brandData.brand_primary) brandColor = brandData.brand_primary;
+  } catch (e) {}
+  var headerHtml = '<div style="border-bottom:3px solid ' + brandColor + ';padding:0 0 10px;margin:0 0 16px;">' +
+    '<span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:' + brandColor + ';">' + (tenantName || '') + '</span></div>';
+
+  // Compose: header + body + signature
+  var signatureBlock = sigInfo.signatureHtml ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;">' + sigInfo.signatureHtml + '</div>' : '';
+  var replyHtml = headerHtml + bodyHtml + signatureBlock;
+
+  // Dispatch
+  try {
+    var sendResult = await sendTenantEmail(supabase, {
+      tenant_id: tenantId, to: senderEmail,
+      from: tenantSenderEmail || recipientEmail,
+      from_name: sigInfo.fromName || tenantName || 'Team',
+      subject: replySubject, html: replyHtml, text: cleanBody,
+      reply_to: recipientEmail,
+    });
+    if (sendResult.blocked) {
+      console.error('[email-concierge] Reply BLOCKED:', sendResult.block_reason);
+    } else {
+      console.log('[email-concierge] Reply sent:', sendResult.message_id || sendResult.method || 'ok');
+    }
+  } catch (sendErr) {
+    console.error('[email-concierge] Reply send failed:', sendErr.message);
+  }
+
+  // Persist outbound message
+  if (conversationId) {
+    try {
+      await supabase.from('messages').insert({
+        tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+        channel: 'email', direction: 'outbound', sender_type: 'bot',
+        body: cleanBody, status: 'delivered',
+      });
+    } catch (outErr) {
+      console.error('[email-concierge] Outbound message persist error:', outErr.message);
+    }
+  }
+}
+
 function stripHtml(html) {
   if (!html) return '';
   return html
@@ -207,7 +276,7 @@ module.exports = async function handler(req, res) {
   var matchedSurface = null;
   for (var si = 0; si < CONCIERGE_SURFACES.length; si++) {
     var { data: cfgCheck } = await supabase.from('chatbot_configs')
-      .select('id, channels_active')
+      .select('id, channels_active, ai_reply_mode')
       .eq('tenant_id', tenantId)
       .eq('surface', CONCIERGE_SURFACES[si])
       .maybeSingle();
@@ -455,7 +524,14 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, action: 'empty_body_skipped' });
   }
 
-  console.log('[email-concierge] Calling Anthropic — messages count: 1, user msg length:', userMessage.length, 'wedding:', weddingId ? 'yes' : 'no');
+  // Check ai_reply_mode (off → skip AI entirely, inbound is already persisted)
+  var aiReplyMode = (chatbotConfig && chatbotConfig.ai_reply_mode) || 'auto_send';
+  if (aiReplyMode === 'off') {
+    console.log('[email-concierge] ai_reply_mode=off — skipping AI, inbound persisted:', conversationId);
+    return res.status(200).json({ ok: true, action: 'ai_off' });
+  }
+
+  console.log('[email-concierge] Calling Anthropic — messages count: 1, user msg length:', userMessage.length, 'wedding:', weddingId ? 'yes' : 'no', 'mode:', aiReplyMode);
 
   var aiResult;
   try {
@@ -513,76 +589,38 @@ module.exports = async function handler(req, res) {
   }
   cleanBody = strippedLines.join('\n').trim();
 
-  // ── 8. Send reply email with signature ─────────────────────────────────
+  // ── 8. Convert markdown → HTML (always, regardless of mode) ─────────
   var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
   var bodyContent = markdownToHtml(cleanBody);
 
-  // Wrap in flush-left body div (no side padding — matches quoted email alignment)
-  var bodyHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0;color:#1e293b;font-size:15px;line-height:1.75;">' + bodyContent + '</div>';
-
-  // Resolve fromName for the From header. Skip template signature (AI body includes its own sign-off).
-  var sigInfo = { fromName: tenantName || 'Team', signatureHtml: '', closingLine: '' };
-  try {
-    sigInfo = await getSignature(supabase, { tenantId: tenantId, fromEmail: tenantSenderEmail || recipientEmail, isFirstTouch: false, closingKind: 'none' });
-  } catch (sigErr) { console.warn('[email-concierge] Signature resolve error:', sigErr.message); }
-
-  // Header: tenant branding bar (logo-free, just name + accent line)
-  var brandColor = '#1e293b';
-  try {
-    var { data: brandData } = await supabase.from('tenants').select('brand_primary').eq('id', tenantId).maybeSingle();
-    if (brandData && brandData.brand_primary) brandColor = brandData.brand_primary;
-  } catch (e) {}
-  var headerHtml = '<div style="border-bottom:3px solid ' + brandColor + ';padding:0 0 10px;margin:0 0 16px;">' +
-    '<span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:' + brandColor + ';">' + (tenantName || '') + '</span>' +
-    '</div>';
-
-  // Compose: header + body + signature (if configured). No closingLine (AI body has its own sign-off).
-  var signatureBlock = sigInfo.signatureHtml ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;">' + sigInfo.signatureHtml + '</div>' : '';
-  var replyHtml = headerHtml + bodyHtml + signatureBlock;
-  var replyText = cleanBody;
-
-  try {
-    var sendResult = await sendTenantEmail(supabase, {
-      tenant_id: tenantId,
-      to: senderEmail,
-      from: tenantSenderEmail || recipientEmail,
-      from_name: sigInfo.fromName || tenantName || 'Team',
-      subject: replySubject,
-      html: replyHtml,
-      text: replyText,
-      reply_to: recipientEmail,
-    });
-    if (sendResult.blocked) {
-      console.error('[email-concierge] Reply BLOCKED by filter:', sendResult.block_reason, 'pattern:', sendResult.matched_pattern);
-    } else {
-      console.log('[email-concierge] Reply sent:', sendResult.message_id || sendResult.method || 'ok');
-    }
-  } catch (sendErr) {
-    console.error('[email-concierge] Reply send failed:', sendErr.message);
-    // Don't fail the webhook — email is already ingested
-  }
-
-  // ── 9. Persist outbound message ───────────────────────────────────────
-  if (conversationId) {
+  // ── 8b. Branch on ai_reply_mode ───────────────────────────────────────
+  if (aiReplyMode === 'draft_review') {
+    // Draft mode: store body-only HTML for human review in Live Inbox.
+    // Wrap + signature applied at send time (Approve & Send) to guarantee
+    // byte-identical formatting with auto_send path.
     try {
-      var { error: outboundMsgErr } = await supabase.from('messages').insert({
-        tenant_id: tenantId,
-        conversation_id: conversationId,
-        contact_id: contactId,
-        channel: 'email',
-        direction: 'outbound',
-        sender_type: 'bot',
-        body: cleanBody,
-        status: 'delivered',
+      await supabase.rpc('save_ai_draft', {
+        p_tenant_id: tenantId,
+        p_conversation_id: conversationId,
+        p_body: cleanBody,
+        p_html: bodyContent,
+        p_channel: 'email',
       });
-      if (outboundMsgErr) {
-        console.error('[email-concierge] Outbound message insert error:', outboundMsgErr.message, '| code:', outboundMsgErr.code, '| detail:', outboundMsgErr.details, '| conv:', conversationId);
-      } else {
-        console.log('[email-concierge] Outbound message persisted to conversation:', conversationId);
-      }
-    } catch (outErr) {
-      console.error('[email-concierge] Outbound message insert threw:', outErr.message);
+      console.log('[email-concierge] Draft saved for review:', conversationId);
+    } catch (draftErr) {
+      console.error('[email-concierge] Draft save error:', draftErr.message);
     }
+    // Skip dispatch — draft surfaces in Live Inbox for Approve & Send
+  } else {
+    // auto_send: wrap + dispatch + persist (reusable by Approve & Send in Phase 2)
+    await wrapAndDispatch(supabase, {
+      tenantId: tenantId, tenantName: tenantName,
+      conversationId: conversationId, contactId: contactId,
+      senderEmail: senderEmail, recipientEmail: recipientEmail,
+      tenantSenderEmail: tenantSenderEmail,
+      replySubject: replySubject,
+      cleanBody: cleanBody, bodyContent: bodyContent,
+    });
   }
 
   // ── 10. Prefix routing ────────────────────────────────────────────────
