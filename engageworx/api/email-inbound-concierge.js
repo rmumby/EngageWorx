@@ -544,7 +544,7 @@ module.exports = async function handler(req, res) {
     }
     // Skip dispatch — draft surfaces in Live Inbox for Approve & Send
   } else {
-    // auto_send: wrap + dispatch + persist (reusable by Approve & Send in Phase 2)
+    // auto_send: wrap + dispatch + persist
     await wrapAndDispatch(supabase, {
       tenantId: tenantId, tenantName: tenantName,
       conversationId: conversationId, contactId: contactId,
@@ -553,6 +553,12 @@ module.exports = async function handler(req, res) {
       replySubject: replySubject,
       cleanBody: cleanBody, bodyContent: bodyContent,
     });
+    // Transition to 'waiting' after auto-send
+    if (conversationId) {
+      try {
+        await supabase.from('conversations').update({ status: 'waiting', updated_at: new Date().toISOString() }).eq('id', conversationId);
+      } catch (_) {}
+    }
   }
 
   // ── 10. Prefix routing ────────────────────────────────────────────────

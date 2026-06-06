@@ -41,6 +41,8 @@ async function wrapAndDispatch(supabase, opts) {
   var replyHtml = headerHtml + bodyHtml + signatureBlock;
 
   // Dispatch
+  var sendOk = false;
+  var sentAt = new Date().toISOString();
   try {
     var sendResult = await sendTenantEmail(supabase, {
       tenant_id: tenantId, to: senderEmail,
@@ -52,10 +54,12 @@ async function wrapAndDispatch(supabase, opts) {
     if (sendResult.blocked) {
       console.error('[wrapAndDispatch] Reply BLOCKED:', sendResult.block_reason);
     } else {
+      sendOk = true;
       console.log('[wrapAndDispatch] Reply sent:', sendResult.message_id || sendResult.method || 'ok');
     }
   } catch (sendErr) {
     console.error('[wrapAndDispatch] Reply send failed:', sendErr.message);
+    throw sendErr;
   }
 
   // Persist outbound message
@@ -64,12 +68,15 @@ async function wrapAndDispatch(supabase, opts) {
       await supabase.from('messages').insert({
         tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
         channel: 'email', direction: 'outbound', sender_type: 'bot',
-        body: cleanBody, status: 'delivered',
+        body: cleanBody, status: sendOk ? 'delivered' : 'failed',
+        sent_at: sendOk ? sentAt : null,
       });
     } catch (outErr) {
       console.error('[wrapAndDispatch] Outbound message persist error:', outErr.message);
     }
   }
+
+  return { sent: sendOk, sentAt: sentAt };
 }
 
 module.exports = { wrapAndDispatch: wrapAndDispatch };

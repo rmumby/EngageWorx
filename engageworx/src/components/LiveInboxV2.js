@@ -346,7 +346,11 @@ function DraftCard({ convId, draftHtml: initialHtml, draftChannel, draftGenerate
       });
       var d = await r.json();
       if (d.success) {
-        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { ai_draft_status: 'none', ai_draft_html: null, ai_draft_body: null }) : prev; });
+        var newDraftStatus = action === 'approve' ? 'sent' : 'none';
+        var newConvStatus = action === 'approve' ? 'waiting' : undefined;
+        var updates = { ai_draft_status: newDraftStatus, ai_draft_html: null, ai_draft_body: null };
+        if (newConvStatus) updates.status = newConvStatus;
+        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, updates) : prev; });
       } else { alert('Error: ' + (d.error || 'Failed')); }
     } catch (e) { alert('Error: ' + e.message); }
     setDraftAction(null);
@@ -1567,10 +1571,12 @@ useEffect(function() {
                    var rpcResult = await supabase.rpc('assign_conversation', { p_conversation_id: rpcConvId, p_assignee_id: rpcAssigneeId });
                    if (rpcResult.error) throw rpcResult.error;
                  }
+                 var isAi = assigneeId === 'ai_bot';
+                 var assignee = isAi ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : convTeamMembers.find(function(m) { return m.id === assigneeId; }) || null;
+                 setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: assignee, ai_assigned: isAi, assigned_agent_id: isAi ? null : assigneeId }) : prev; });
                  setConversations(function(prev) { return prev.map(function(c) {
                    if (c.id !== selectedConv.id) return c;
-                   var assignee = assigneeId === 'ai_bot' ? { id: 'bot', name: 'AI Bot', avatar: '🤖' } : convTeamMembers.find(function(m) { return m.id === assigneeId; }) || null;
-                   return Object.assign({}, c, { assignedTo: assignee });
+                   return Object.assign({}, c, { assignedTo: assignee, ai_assigned: isAi, assigned_agent_id: isAi ? null : assigneeId });
                  }); });
                } catch (err) {
                  var msg = (err && err.message) || 'Unknown error';
@@ -1834,7 +1840,7 @@ useEffect(function() {
               {[
                 { label: "Status", value: selectedConv.status.charAt(0).toUpperCase() + selectedConv.status.slice(1), color: selectedConv.status === "urgent" ? "#FF3B30" : selectedConv.status === "active" ? "#00E676" : selectedConv.status === "waiting" ? "#FFD600" : "#6B8BAE" },
                 { label: "Priority", value: selectedConv.priority.charAt(0).toUpperCase() + selectedConv.priority.slice(1), color: selectedConv.priority === "high" ? "#FF3B30" : selectedConv.priority === "medium" ? "#FFD600" : "#00E676" },
-                { label: "Agent", value: selectedConv.assignedTo?.name || "Unassigned", color: "rgba(255,255,255,0.5)" },
+                { label: "Agent", value: selectedConv.ai_assigned ? "AI" : (selectedConv.assignedTo?.name || "Unassigned"), color: selectedConv.ai_assigned ? C.primary : "rgba(255,255,255,0.5)" },
                 { label: "Messages", value: (selectedConv.messages || []).length, color: "rgba(255,255,255,0.5)" },
                 { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "rgba(255,255,255,0.5)" },
               ].map((item, i) => (

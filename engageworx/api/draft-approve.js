@@ -159,10 +159,15 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Send failed — draft preserved for retry', detail: sendErr.message });
   }
 
-  // Clear draft only after successful send
+  // Mark draft as sent (terminal — preserves audit trail) and transition to 'waiting'
   try {
-    await supabase.rpc('clear_ai_draft', { p_tenant_id: tenantId, p_conversation_id: conversationId });
-  } catch (rpcErr) { console.error('[draft-approve] clear_ai_draft error:', rpcErr.message); }
+    await supabase.from('conversations').update({
+      ai_draft_status: 'sent',
+      ai_draft_generated_at: null,
+      status: 'waiting',
+      updated_at: new Date().toISOString(),
+    }).eq('id', conversationId).eq('tenant_id', tenantId);
+  } catch (stateErr) { console.error('[draft-approve] state transition error:', stateErr.message); }
 
   console.log('[draft-approve] Approved and sent:', conversationId);
   return res.status(200).json({ success: true, action: 'approve', conversation_id: conversationId, message_sent: true });
