@@ -113,6 +113,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   // AI Reply Mode (per-surface, stored on chatbot_configs.ai_reply_mode)
   const [aiReplyMode, setAiReplyMode] = useState('auto_send');
   const [surfaceConfigId, setSurfaceConfigId] = useState(null); // PK of the active surface's chatbot_configs row
+  const [tenantSurfaces, setTenantSurfaces] = useState([]); // [{id, surface, label}] loaded from chatbot_configs
 
   // Candidacy Messages state
   const [candidacyEnabled, setCandidacyEnabled] = useState(false);
@@ -141,6 +142,30 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       } catch (e) {}
     })();
   }, [currentTenantId, demoMode, sigSurface]);
+
+  // Load tenant's chatbot_configs surfaces for Reply Mode tabs
+  useEffect(() => {
+    if (!currentTenantId || demoMode) return;
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        var { data } = await supabase.from('chatbot_configs').select('id, surface').eq('tenant_id', currentTenantId);
+        if (data && data.length > 0) {
+          var SURFACE_LABELS = { wedding_concierge: 'Concierge', wedding_enquiry: 'Enquiry', wedding_supplier: 'Supplier', helpdesk: 'Helpdesk' };
+          var surfaces = data.map(function(row) {
+            return { id: row.id, surface: row.surface, label: SURFACE_LABELS[row.surface] || row.surface };
+          });
+          setTenantSurfaces(surfaces);
+          // Default sigSurface to first routable surface if current isn't in list
+          var surfaceIds = surfaces.map(function(s) { return s.surface; });
+          if (surfaceIds.indexOf(sigSurface) === -1 && surfaces.length > 0) {
+            var firstRoutable = surfaces.find(function(s) { return ROUTABLE_INBOUND_SURFACES.indexOf(s.surface) !== -1; });
+            setSigSurface(firstRoutable ? firstRoutable.surface : surfaces[0].surface);
+          }
+        }
+      } catch (e) {}
+    })();
+  }, [currentTenantId, demoMode]);
 
   // loadEscalationRules removed — managed via Settings → Escalation Rules tab
 
@@ -490,8 +515,10 @@ saveAIConfig(newSources);
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>{t('aiChatbot.replyMode.title')}</h3>
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>{t('aiChatbot.replyMode.description')}</div>
                     <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
-                      {SIG_SURFACES.filter(function(s) { return ROUTABLE_INBOUND_SURFACES.indexOf(s.id) !== -1; }).map(function(s) {
-                        return <button key={s.id} onClick={function() { setSigSurface(s.id); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: sigSurface === s.id ? (C.primary + "22") : "transparent", color: sigSurface === s.id ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}</button>;
+                      {tenantSurfaces.map(function(s) {
+                        var isRoutable = ROUTABLE_INBOUND_SURFACES.indexOf(s.surface) !== -1;
+                        var isActive = sigSurface === s.surface;
+                        return <button key={s.surface} onClick={isRoutable ? function() { setSigSurface(s.surface); } : undefined} disabled={!isRoutable} title={!isRoutable ? 'Not yet active — coming soon' : ''} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: isRoutable ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: "inherit", opacity: isRoutable ? 1 : 0.4, background: isActive && isRoutable ? (C.primary + "22") : "transparent", color: isActive && isRoutable ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}{!isRoutable ? ' ·\u00A0soon' : ''}</button>;
                       })}
                     </div>
                     <div style={{ display: 'grid', gap: 12 }}>
