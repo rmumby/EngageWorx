@@ -878,6 +878,27 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
             });
             convCandidacyState = 'candidate_complete';
             console.log('[SMS] Name captured, candidate complete:', contactId);
+
+            // Send completion template verbatim, then go quiet
+            var completeBody = null;
+            try {
+              var { data: completeConfig } = await supabase.from('chatbot_configs')
+                .select('candidacy_complete_template').eq('tenant_id', tenantId).limit(1).maybeSingle();
+              if (completeConfig) completeBody = completeConfig.candidacy_complete_template;
+            } catch (_) {}
+            if (!completeBody) completeBody = 'Thanks! Our team will be in touch to get you scheduled.';
+            try {
+              await sendSMS(From, completeBody, To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
+              await supabase.from('messages').insert({
+                tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+                direction: 'outbound', channel: channel, body: completeBody,
+                status: 'sent', sender_type: 'bot',
+                metadata: { candidacy_complete: true }, created_at: new Date().toISOString(),
+              });
+              console.log('[SMS] Completion template sent to', From);
+            } catch (compErr) { console.error('[SMS] Completion send error:', compErr.message); }
+            // Go quiet — skip AI auto-response
+            res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
           }
         } catch (capErr) { console.error('[SMS] Name-capture check error:', capErr.message); }
       }

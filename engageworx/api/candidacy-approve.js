@@ -111,7 +111,7 @@ module.exports = async function handler(req, res) {
   } else if (config && config.candidacy_approve_template) {
     messageBody = config.candidacy_approve_template;
   } else {
-    messageBody = 'Great news — based on your photo, you look like a great candidate for composite bonding! It\'s $2,500 for up to 10 teeth and we offer payment plans. Are you local to Miami, or would you be flying in for the procedure?';
+    messageBody = 'Great news — you look like a great candidate! Can I get your name so we can get you set up?';
   }
 
   // No leak guard here — this is the human-approved send path.
@@ -172,32 +172,8 @@ module.exports = async function handler(req, res) {
         });
       } catch (rpcErr) { console.error('[candidacy-approve] RPC error:', rpcErr.message); }
     } else {
-      // Name unknown — send name-ask proactively, then transition to capture state
-      var nameAskBody = (config && config.candidacy_name_ask_template) || 'Could you share your name so we can get you set up?';
-      try {
-        var naParams = new URLSearchParams();
-        naParams.append('To', contactPhone);
-        if (tenantMsSid) { naParams.append('MessagingServiceSid', tenantMsSid); }
-        else if (fromNumber) { naParams.append('From', fromNumber); }
-        else { naParams.append('From', process.env.TWILIO_PHONE_NUMBER || '+17869827800'); }
-        naParams.append('Body', nameAskBody);
-        var naRes = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json', {
-          method: 'POST',
-          headers: { 'Authorization': 'Basic ' + auth, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: naParams.toString(),
-        });
-        if (!naRes.ok) { console.error('[candidacy-approve] Name-ask SMS failed:', await naRes.json()); }
-        else { console.log('[candidacy-approve] Name-ask SMS sent to', contactPhone); }
-      } catch (naErr) { console.error('[candidacy-approve] Name-ask SMS error:', naErr.message); }
-      // Persist name-ask to conversation
-      try {
-        await supabase.from('messages').insert({
-          tenant_id: tenantId, conversation_id: conversationId, contact_id: conv.contact_id,
-          direction: 'outbound', channel: conv.channel || 'sms',
-          body: nameAskBody, status: 'sent', sender_type: 'bot',
-          metadata: { candidacy_name_ask: true }, created_at: new Date().toISOString(),
-        });
-      } catch (_) {}
+      // Name unknown — approval template already includes the name-ask copy;
+      // transition to capture state and let the candidate's reply trigger extraction
       await supabase.from('conversations').update({
         candidacy_state: 'awaiting_candidate_name', updated_at: new Date().toISOString(),
       }).eq('id', conversationId);
