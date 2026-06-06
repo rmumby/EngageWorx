@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import { ChatThread, ChatInput } from "./components/chat";
+import { Toggle, Card } from './components/ui';
 // EscalationRulesConfig removed — escalation rules now managed via Settings → Escalation Rules tab
 import KBArticleEditor from "./admin/KBArticleEditor";
 var CD = require('./lib/candidacyDefaults');
+var { ROUTABLE_INBOUND_SURFACES } = require('./lib/routableSurfaces');
 
 var LANGUAGE_OPTIONS = [
   { id: 'en_auto', name: 'English (auto-detect non-English)' },
@@ -60,6 +63,7 @@ const DEMO_CONVERSATIONS = [
 // Real analytics will query conversations + messages tables scoped by tenant_id.
 
 export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, onNavigate }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("configure");
   const [selectedPersonality, setSelectedPersonality] = useState("friendly");
   const [selectedLanguage, setSelectedLanguage] = useState("en_auto");
@@ -106,6 +110,10 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [sigSaving, setSigSaving] = useState(false);
   const [sigSaved, setSigSaved] = useState(false);
 
+  // AI Reply Mode (per-surface, stored on chatbot_configs.ai_reply_mode)
+  const [aiReplyMode, setAiReplyMode] = useState('auto_send');
+  const [surfaceConfigId, setSurfaceConfigId] = useState(null); // PK of the active surface's chatbot_configs row
+
   // Candidacy Messages state
   const [candidacyEnabled, setCandidacyEnabled] = useState(false);
   const [candidacyAck, setCandidacyAck] = useState('');
@@ -120,14 +128,16 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
-        var { data } = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).eq('surface', sigSurface).maybeSingle();
-        if (!data) { var fallback = await supabase.from('chatbot_configs').select('email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply').eq('tenant_id', currentTenantId).limit(1).maybeSingle(); data = fallback.data; }
+        var { data } = await supabase.from('chatbot_configs').select('id, email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply, ai_reply_mode').eq('tenant_id', currentTenantId).eq('surface', sigSurface).maybeSingle();
+        if (!data) { var fallback = await supabase.from('chatbot_configs').select('id, email_from_name, email_signature_first, email_signature_reply, email_team_from_name, email_team_signature_first, email_team_signature_reply, ai_reply_mode').eq('tenant_id', currentTenantId).limit(1).maybeSingle(); data = fallback.data; }
+        setSurfaceConfigId((data && data.id) || null);
         setSigFromName((data && data.email_from_name) || '');
         setSigFirst((data && data.email_signature_first) || '');
         setSigReply((data && data.email_signature_reply) || '');
         setTeamSigFromName((data && data.email_team_from_name) || '');
         setTeamSigFirst((data && data.email_team_signature_first) || '');
         setTeamSigReply((data && data.email_team_signature_reply) || '');
+        setAiReplyMode((data && data.ai_reply_mode) || 'auto_send');
       } catch (e) {}
     })();
   }, [currentTenantId, demoMode, sigSurface]);
@@ -242,8 +252,13 @@ if (existing.data) {
         email_team_from_name: teamSigFromName || null,
         email_team_signature_first: teamSigFirst || null,
         email_team_signature_reply: teamSigReply || null,
+        ai_reply_mode: aiReplyMode,
       };
-      await supabase.from('chatbot_configs').update(sigUpdate).eq('tenant_id', currentTenantId).eq('surface', sigSurface);
+      if (surfaceConfigId) {
+        await supabase.from('chatbot_configs').update(sigUpdate).eq('id', surfaceConfigId);
+      } else {
+        await supabase.from('chatbot_configs').update(sigUpdate).eq('tenant_id', currentTenantId).eq('surface', sigSurface).limit(1);
+      }
       setBotName(aiConfig.agentName);
       setConfigSaved(true);
       setSigSaved(true);
@@ -470,6 +485,37 @@ saveAIConfig(newSources);
                       <span style={{ color: C.muted, fontSize: 11 }}>Used across all channels — voice, WhatsApp, SMS, and email</span>
                     </div>
                   </div>
+
+                  <Card style={{ borderColor: C.border, background: C.surface }}>
+                    <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>{t('aiChatbot.replyMode.title')}</h3>
+                    <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>{t('aiChatbot.replyMode.description')}</div>
+                    <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+                      {SIG_SURFACES.filter(function(s) { return ROUTABLE_INBOUND_SURFACES.indexOf(s.id) !== -1; }).map(function(s) {
+                        return <button key={s.id} onClick={function() { setSigSurface(s.id); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: sigSurface === s.id ? (C.primary + "22") : "transparent", color: sigSurface === s.id ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}</button>;
+                      })}
+                    </div>
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      <Toggle
+                        checked={aiReplyMode !== 'off'}
+                        onChange={function(on) { setAiReplyMode(on ? 'draft_review' : 'off'); }}
+                        label={t('aiChatbot.replyMode.masterLabel')}
+                        description={t('aiChatbot.replyMode.masterDescription')}
+                      />
+                      {aiReplyMode !== 'off' && (
+                        <Toggle
+                          checked={aiReplyMode === 'draft_review'}
+                          onChange={function(on) { setAiReplyMode(on ? 'draft_review' : 'auto_send'); }}
+                          label={t('aiChatbot.replyMode.reviewLabel')}
+                          description={t('aiChatbot.replyMode.reviewDescription')}
+                        />
+                      )}
+                    </div>
+                    <div style={{ color: C.muted, fontSize: 12, marginTop: 12, fontStyle: 'italic' }}>
+                      {aiReplyMode === 'off' && t('aiChatbot.replyMode.summaryOff')}
+                      {aiReplyMode === 'auto_send' && t('aiChatbot.replyMode.summaryAutoSend')}
+                      {aiReplyMode === 'draft_review' && t('aiChatbot.replyMode.summaryDraftReview')}
+                    </div>
+                  </Card>
 
                   <div style={card}>
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>

@@ -54,6 +54,19 @@
     "today": "Hoy",
     "live": "En vivo"
   },
+  "aiChatbot": {
+    "replyMode": {
+      "title": "Modo de respuesta IA",
+      "description": "Controla cómo la IA gestiona los correos entrantes para esta superficie.",
+      "masterLabel": "Respuesta automática IA",
+      "masterDescription": "Generar respuestas IA a los correos entrantes",
+      "reviewLabel": "Revisar antes de enviar",
+      "reviewDescription": "Retener los borradores IA para aprobación humana en la Bandeja de Entrada",
+      "summaryOff": "La IA no responderá a los correos entrantes. Los mensajes se guardan en la bandeja.",
+      "summaryAutoSend": "La IA genera y envía respuestas automáticamente — sin revisión humana.",
+      "summaryDraftReview": "La IA redacta una respuesta y la retiene para tu aprobación antes de enviar."
+    }
+  },
   "common": {
     "save": "Guardar",
     "cancel": "Cancelar",

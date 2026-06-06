@@ -54,6 +54,19 @@
     "today": "Dzisiaj",
     "live": "Na żywo"
   },
+  "aiChatbot": {
+    "replyMode": {
+      "title": "Tryb odpowiedzi AI",
+      "description": "Kontroluj, jak AI obsługuje przychodzące e-maile dla tej powierzchni.",
+      "masterLabel": "Automatyczna odpowiedź AI",
+      "masterDescription": "Generuj odpowiedzi AI na przychodzące e-maile",
+      "reviewLabel": "Przeglądaj przed wysłaniem",
+      "reviewDescription": "Wstrzymuj wersje robocze AI do zatwierdzenia w Skrzynce Odbiorczej",
+      "summaryOff": "AI nie będzie odpowiadać na przychodzące e-maile. Wiadomości są zapisywane w skrzynce.",
+      "summaryAutoSend": "AI generuje i wysyła odpowiedzi automatycznie — bez przeglądu.",
+      "summaryDraftReview": "AI tworzy wersję roboczą i wstrzymuje ją do zatwierdzenia przed wysłaniem."
+    }
+  },
   "common": {
     "save": "Zapisz",
     "cancel": "Anuluj",

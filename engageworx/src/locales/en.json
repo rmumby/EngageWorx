@@ -54,6 +54,19 @@
     "today": "Today",
     "live": "Live"
   },
+  "aiChatbot": {
+    "replyMode": {
+      "title": "AI Reply Mode",
+      "description": "Control how the AI handles inbound emails for this surface.",
+      "masterLabel": "AI auto-reply",
+      "masterDescription": "Generate AI responses to inbound emails",
+      "reviewLabel": "Review before sending",
+      "reviewDescription": "Hold AI drafts for human approval in Live Inbox",
+      "summaryOff": "AI will not respond to inbound emails. Messages are still saved to the inbox.",
+      "summaryAutoSend": "AI generates and sends replies automatically — no human review.",
+      "summaryDraftReview": "AI drafts a reply and holds it for your approval before sending."
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
