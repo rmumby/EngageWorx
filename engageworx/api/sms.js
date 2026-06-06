@@ -246,13 +246,13 @@ async function getAIReply(supabase, tenantId, message, channel, opts) {
       return null;
     }
 
-    var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase });
+    var systemPrompt = await buildSystemPrompt({ tenantId: tenantId, channel: 'sms', supabase: supabase, candidacyState: extra.candidacyState });
 
     // Append state-specific instructions
     if (extra.candidacyState === 'awaiting_candidate_name') {
       var nameAskCopy = extra.nameAskTemplate || 'Could you share your name so we can get you set up?';
       systemPrompt += '\n\n--- CURRENT STATE: APPROVED CANDIDATE — NAME CAPTURE ---\n' +
-        'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. Do NOT ask for a phone number. ' +
+        'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. Do NOT ask for a phone number. Do NOT ask for an email address. ' +
         'Your ONLY task: ask for their name. Use this wording as your guide (adapt naturally to the conversation): "' + nameAskCopy + '" ' +
         'Once they share their name, thank them warmly and let them know the team will be in touch to schedule.';
     }
