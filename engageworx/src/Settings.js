@@ -8,7 +8,6 @@ import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
 import PolandCarrierCard from './PolandCarrierCard';
 import BrandingEditor from './BrandingEditor';
-import EscalationRulesSettings from './admin/EscalationRulesSettings';
 import KBArticleEditor from './admin/KBArticleEditor';
 import PipelineStageEditor from './admin/PipelineStageEditor';
 import GmailConnect from './GmailConnect';
@@ -1999,7 +1998,12 @@ return (<div>
         <BrandingEditor tenantId={resolvedTenantId || currentTenantId} C={C} />
       )}
       {activeTab === "escalation" && (
-        <EscalationRulesSettings tenantId={resolvedTenantId || currentTenantId} C={C} />
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>↗️</div>
+          <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 8px" }}>Escalation Rules have moved</h2>
+          <p style={{ color: C.muted, fontSize: 13, marginBottom: 4 }}>Escalation rules now live in <strong style={{ color: C.text }}>AI Chatbot → Escalation Rules</strong>, alongside persona and AI settings.</p>
+          <p style={{ color: C.muted, fontSize: 12 }}>Navigate to AI Chatbot in the sidebar to manage your rules and use the AI Wizard.</p>
+        </div>
       )}
       {activeTab === "knowledge-base" && (
         <KBArticleEditor tenantId={resolvedTenantId || currentTenantId} C={C} />

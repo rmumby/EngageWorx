@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ChatThread, ChatInput } from "./components/chat";
 import { Toggle, Card } from './components/ui';
-// EscalationRulesConfig removed — escalation rules now managed via Settings → Escalation Rules tab
+import EscalationRulesSettings from './admin/EscalationRulesSettings';
+import EscalationRulesConfig from './EscalationRulesConfig';
 import KBArticleEditor from "./admin/KBArticleEditor";
 var CD = require('./lib/candidacyDefaults');
 var { ROUTABLE_INBOUND_SURFACES } = require('./lib/routableSurfaces');
@@ -91,7 +92,8 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [previewInput, setPreviewInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [selectedDemo, setSelectedDemo] = useState(null);
-  // Escalation state removed — managed via Settings → Escalation Rules tab
+  const [escWizardOpen, setEscWizardOpen] = useState(false);
+  const [escWizardEditRule, setEscWizardEditRule] = useState(null);
 
 
   // Email signatures (per-surface, stored on chatbot_configs)
@@ -794,13 +796,49 @@ saveAIConfig(newSources);
             </div>
           )}
 
-          {/* ESCALATION RULES TAB — redirects to Settings → Escalation Rules */}
+          {/* ESCALATION RULES TAB */}
           {activeTab === "escalation" && (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🚨</div>
-              <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 8px" }}>Escalation Rules</h2>
-              <p style={{ color: C.muted, fontSize: 13, marginBottom: 20 }}>Escalation rules have moved to Settings for a better experience with multi-action support, test mode, and conversation pausing.</p>
-              <button onClick={function() { if (onNavigate) onNavigate('settings'); }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>Go to Settings → Escalation Rules</button>
+            <div>
+              {escWizardOpen ? (
+                <div>
+                  <button onClick={function() { setEscWizardOpen(false); setEscWizardEditRule(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 12, padding: 0 }}>← Back to rules list</button>
+                  <EscalationRulesConfig
+                    tenantId={currentTenantId}
+                    colors={C}
+                    initialConfig={escWizardEditRule || null}
+                    initialNLDescription={escWizardEditRule ? escWizardEditRule.description : null}
+                    onSave={async function(nlSummary, structuredConfig) {
+                      try {
+                        var { supabase } = await import('./supabaseClient');
+                        var session = await supabase.auth.getSession();
+                        var token = session.data?.session?.access_token || '';
+                        var rulePayload = Object.assign({}, structuredConfig, { tenant_id: currentTenantId, description: nlSummary });
+                        var method = escWizardEditRule && escWizardEditRule.id ? 'PUT' : 'POST';
+                        if (escWizardEditRule && escWizardEditRule.id) rulePayload.id = escWizardEditRule.id;
+                        await fetch('/api/escalation-rules', {
+                          method: method,
+                          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                          body: JSON.stringify(rulePayload),
+                        });
+                      } catch (e) { console.error('[EscalationWizard] save error:', e.message); }
+                      setEscWizardOpen(false);
+                      setEscWizardEditRule(null);
+                    }}
+                    onCancel={function() { setEscWizardOpen(false); setEscWizardEditRule(null); }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <div>
+                      <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Escalation Rules</h2>
+                      <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the AI should hand off to a human, notify your team, or pause the conversation</p>
+                    </div>
+                    <button onClick={function() { setEscWizardOpen(true); setEscWizardEditRule(null); }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ AI Wizard</button>
+                  </div>
+                  <EscalationRulesSettings tenantId={currentTenantId} C={C} />
+                </div>
+              )}
             </div>
           )}
 
