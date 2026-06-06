@@ -6,6 +6,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { buildSystemPrompt } = require('./_lib/build-system-prompt');
 const { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
+const CD = require('../src/lib/candidacyDefaults');
 
 function getSupabase() {
   return createClient(
@@ -250,7 +251,7 @@ async function getAIReply(supabase, tenantId, message, channel, opts) {
 
     // Append state-specific instructions
     if (extra.candidacyState === 'awaiting_candidate_name') {
-      var nameAskCopy = extra.nameAskTemplate || 'Could you share your name so we can get you set up?';
+      var nameAskCopy = extra.nameAskTemplate || CD.CANDIDACY_NAME_ASK;
       systemPrompt += '\n\n--- CURRENT STATE: APPROVED CANDIDATE — NAME CAPTURE ---\n' +
         'This person has been approved as a candidate. Do NOT greet them as new. Do NOT ask for a photo. Do NOT ask for a phone number. Do NOT ask for an email address. ' +
         'Your ONLY task: ask for their name. Use this wording as your guide (adapt naturally to the conversation): "' + nameAskCopy + '" ' +
@@ -806,7 +807,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
               if (ackReply) ackMessage = ackReply;
             } catch (_) {}
           }
-          if (!ackMessage) ackMessage = 'Got your photo — someone from our team will take a look and follow up with you shortly.';
+          if (!ackMessage) ackMessage = CD.CANDIDACY_ACK;
 
           console.log('[SMS] Candidacy gate MMS:', { from: From, tenant: tenantId, media: storagePaths.length });
           try {
@@ -867,40 +868,45 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       }
 
       // 8g. Name-capture completion check: step 5b may have extracted the name already
+      // When name is found, ALWAYS early-return — never fall through to AI.
       if (messageType === 'inbound' && convCandidacyState === 'awaiting_candidate_name' && contactId) {
+        var capName = null;
         try {
           var { data: capContact } = await supabase.from('contacts').select('first_name, phone').eq('id', contactId).maybeSingle();
-          if (capContact && capContact.first_name && capContact.first_name.trim()) {
-            // Name captured — complete via RPC (tags + state transition)
+          if (capContact && capContact.first_name && capContact.first_name.trim()) capName = capContact.first_name;
+        } catch (capReadErr) { console.error('[SMS] Name-capture read error:', capReadErr.message); }
+
+        if (capName) {
+          // 1. Tag + state transition via RPC
+          try {
             await supabase.rpc('complete_candidate_capture', {
               p_tenant_id: tenantId, p_contact_id: contactId,
-              p_conversation_id: conversationId, p_phone: capContact.phone || From,
+              p_conversation_id: conversationId, p_phone: From,
             });
-            convCandidacyState = 'candidate_complete';
-            console.log('[SMS] Name captured, candidate complete:', contactId);
+          } catch (rpcErr) { console.error('[SMS] complete_candidate_capture RPC error:', rpcErr.message); }
 
-            // Send completion template verbatim, then go quiet
-            var completeBody = null;
-            try {
-              var { data: completeConfig } = await supabase.from('chatbot_configs')
-                .select('candidacy_complete_template').eq('tenant_id', tenantId).limit(1).maybeSingle();
-              if (completeConfig) completeBody = completeConfig.candidacy_complete_template;
-            } catch (_) {}
-            if (!completeBody) completeBody = 'Thanks! Our team will be in touch to get you scheduled.';
-            try {
-              await sendSMS(From, completeBody, To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
-              await supabase.from('messages').insert({
-                tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-                direction: 'outbound', channel: channel, body: completeBody,
-                status: 'sent', sender_type: 'bot',
-                metadata: { candidacy_complete: true }, created_at: new Date().toISOString(),
-              });
-              console.log('[SMS] Completion template sent to', From);
-            } catch (compErr) { console.error('[SMS] Completion send error:', compErr.message); }
-            // Go quiet — skip AI auto-response
-            res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
-          }
-        } catch (capErr) { console.error('[SMS] Name-capture check error:', capErr.message); }
+          // 2. Send completion template verbatim
+          var completeBody = null;
+          try {
+            var { data: completeConfig } = await supabase.from('chatbot_configs')
+              .select('candidacy_complete_template').eq('tenant_id', tenantId).limit(1).maybeSingle();
+            if (completeConfig) completeBody = completeConfig.candidacy_complete_template;
+          } catch (_) {}
+          if (!completeBody) completeBody = CD.CANDIDACY_COMPLETE;
+          try {
+            await sendSMS(From, completeBody, To, { messagingServiceSid: tenantSmsConfig && tenantSmsConfig.twilio_messaging_service_sid });
+            await supabase.from('messages').insert({
+              tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
+              direction: 'outbound', channel: channel, body: completeBody,
+              status: 'sent', sender_type: 'bot',
+              metadata: { candidacy_complete: true }, created_at: new Date().toISOString(),
+            });
+          } catch (compErr) { console.error('[SMS] Completion send error:', compErr.message); }
+
+          // 3. Go quiet — unconditional early-return, AI never takes a turn
+          console.log('[SMS] Name captured (' + capName + '), candidate complete:', contactId);
+          res.setHeader('Content-Type', 'text/xml'); return res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+        }
       }
 
       // 9. AI auto-response (state-aware)

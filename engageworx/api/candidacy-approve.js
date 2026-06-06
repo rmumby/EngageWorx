@@ -3,6 +3,7 @@
 // Sends templated SMS to the patient, resumes AI auto-response.
 
 var { createClient } = require('@supabase/supabase-js');
+var CD = require('../src/lib/candidacyDefaults');
 
 function getSupabase() {
   return createClient(
@@ -105,13 +106,13 @@ module.exports = async function handler(req, res) {
   // Build verdict message: user textarea > config template > fallback
   var messageBody;
   if (verdict === 'rejected') {
-    messageBody = (config && config.candidacy_reject_template) || 'Unfortunately, you\'re not a good candidate.';
+    messageBody = (config && config.candidacy_reject_template) || CD.CANDIDACY_REJECT;
   } else if (body.message && body.message.trim()) {
     messageBody = body.message.trim();
   } else if (config && config.candidacy_approve_template) {
     messageBody = config.candidacy_approve_template;
   } else {
-    messageBody = 'Great news — you look like a great candidate! Can I get your name so we can get you set up?';
+    messageBody = CD.CANDIDACY_APPROVE;
   }
 
   // No leak guard here — this is the human-approved send path.

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ChatThread, ChatInput } from "./components/chat";
 // EscalationRulesConfig removed — escalation rules now managed via Settings → Escalation Rules tab
 import KBArticleEditor from "./admin/KBArticleEditor";
+var CD = require('./lib/candidacyDefaults');
 
 var LANGUAGE_OPTIONS = [
   { id: 'en_auto', name: 'English (auto-detect non-English)' },
@@ -105,6 +106,14 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
   const [sigSaving, setSigSaving] = useState(false);
   const [sigSaved, setSigSaved] = useState(false);
 
+  // Candidacy Messages state
+  const [candidacyEnabled, setCandidacyEnabled] = useState(false);
+  const [candidacyAck, setCandidacyAck] = useState('');
+  const [candidacyApprove, setCandidacyApprove] = useState('');
+  const [candidacyReject, setCandidacyReject] = useState('');
+  const [candidacyNameAsk, setCandidacyNameAsk] = useState('');
+  const [candidacyComplete, setCandidacyComplete] = useState('');
+
   // Load signature fields for the selected surface
   useEffect(() => {
     if (!currentTenantId || demoMode) return;
@@ -134,7 +143,7 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
         // Load from chatbot_configs first (primary source for bot name/prompt/kb)
         var cbBotName = null;
         try {
-          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, temperature, language').eq('tenant_id', currentTenantId).maybeSingle();
+          var cbR = await supabase.from('chatbot_configs').select('bot_name, system_prompt, knowledge_base, personality_preset, temperature, language, candidacy_gate_enabled, candidacy_ack_template, candidacy_approve_template, candidacy_reject_template, candidacy_name_ask_template, candidacy_complete_template').eq('tenant_id', currentTenantId).maybeSingle();
           var cbKnowledgeBase = null;
           if (cbR.data) {
             if (cbR.data.bot_name) { cbBotName = cbR.data.bot_name; setBotName(cbR.data.bot_name); }
@@ -143,6 +152,13 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
             if (cbR.data.personality_preset) setSelectedPersonality(cbR.data.personality_preset);
             if (cbR.data.temperature !== null && cbR.data.temperature !== undefined) setTemperature(cbR.data.temperature);
             if (cbR.data.language) setSelectedLanguage(cbR.data.language);
+            // Candidacy fields
+            if (cbR.data.candidacy_gate_enabled) setCandidacyEnabled(true);
+            if (cbR.data.candidacy_ack_template) setCandidacyAck(cbR.data.candidacy_ack_template);
+            if (cbR.data.candidacy_approve_template) setCandidacyApprove(cbR.data.candidacy_approve_template);
+            if (cbR.data.candidacy_reject_template) setCandidacyReject(cbR.data.candidacy_reject_template);
+            if (cbR.data.candidacy_name_ask_template) setCandidacyNameAsk(cbR.data.candidacy_name_ask_template);
+            if (cbR.data.candidacy_complete_template) setCandidacyComplete(cbR.data.candidacy_complete_template);
           }
         } catch (e) {}
         // Load channel configs for per-channel settings
@@ -205,7 +221,17 @@ if (existing.data) {
         personality_preset: selectedPersonality,
         temperature: presetObj ? presetObj.temp : temperature,
         language: selectedLanguage,
+        // Candidacy fields — empty string saves as NULL (code falls back to shared defaults)
+        candidacy_gate_enabled: candidacyEnabled,
+        candidacy_ack_template: candidacyAck.trim() || null,
+        candidacy_approve_template: candidacyApprove.trim() || null,
+        candidacy_reject_template: candidacyReject.trim() || null,
+        candidacy_name_ask_template: candidacyNameAsk.trim() || null,
+        candidacy_complete_template: candidacyComplete.trim() || null,
       };
+      // TODO: migrate the whole chatbot_configs save to a SECURITY DEFINER RPC
+      // scoped to auth.uid(). Currently safe via RLS (WITH CHECK defaults to USING),
+      // but a raw client upsert with tenant_id in the payload is not ideal long-term.
       console.log('[AIChatbot] saving chatbot_configs:', JSON.stringify(cbPayload));
       await supabase.from('chatbot_configs').upsert(cbPayload, { onConflict: 'tenant_id' });
       // Also persist signatures for the selected surface
@@ -370,6 +396,7 @@ saveAIConfig(newSources);
             {[
               { id: "configure", label: "Agent Settings", icon: "⚙️" },
               { id: "personality", label: "Personality", icon: "🎭" },
+              { id: "candidacy", label: "Candidacy", icon: "📋" },
               { id: "knowledge", label: "Knowledge Base", icon: "📚" },
               { id: "escalation", label: "Escalation Rules", icon: "↗️" },
               { id: "analytics", label: "Analytics", icon: "📊" },
@@ -588,8 +615,81 @@ saveAIConfig(newSources);
                 )}
                 <div>
                   <label style={label}>System Prompt</label>
-                  <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={4} style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }} />
+                  <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)} rows={18} style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: 12 }} />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* CANDIDACY TAB */}
+          {activeTab === "candidacy" && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Candidacy Messages</h2>
+                <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Configure the photo screening flow and templated messages sent during candidacy evaluation</p>
+              </div>
+
+              <div style={card}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: candidacyEnabled ? 24 : 0 }}>
+                  <div>
+                    <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Enable Candidacy Gate</h3>
+                    <p style={{ color: C.muted, fontSize: 12, margin: "4px 0 0" }}>When enabled, inbound photos trigger a review flow before the AI responds</p>
+                  </div>
+                  <div onClick={function() { setCandidacyEnabled(!candidacyEnabled); }} style={{ width: 44, height: 24, borderRadius: 12, background: candidacyEnabled ? C.primary : "rgba(255,255,255,0.15)", position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0 }}>
+                    <div style={{ width: 20, height: 20, borderRadius: 10, background: "#fff", position: "absolute", top: 2, left: candidacyEnabled ? 22 : 2, transition: "left 0.2s" }} />
+                  </div>
+                </div>
+
+                {candidacyEnabled && (
+                <div style={{ display: "grid", gap: 20 }}>
+                  <div>
+                    <h4 style={{ color: C.text, margin: "0 0 12px", fontSize: 14, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 8 }}>Photo & Verdict</h4>
+                    <div style={{ display: "grid", gap: 16 }}>
+                      {[
+                        { label: 'Photo Acknowledgment', value: candidacyAck, setter: setCandidacyAck, placeholder: CD.CANDIDACY_ACK, desc: 'Sent when a photo is received, before human review' },
+                        { label: 'Approval + Name Ask', value: candidacyApprove, setter: setCandidacyApprove, placeholder: CD.CANDIDACY_APPROVE, desc: 'Sent when the candidate is approved — include a name request' },
+                        { label: 'Rejection', value: candidacyReject, setter: setCandidacyReject, placeholder: CD.CANDIDACY_REJECT, desc: 'Sent when the candidate is not a fit' },
+                      ].map(function(field) {
+                        var len = (field.value || '').length;
+                        var segs = len > 0 ? Math.ceil(len / 160) : 0;
+                        return (
+                          <div key={field.label}>
+                            <label style={label}>{field.label}</label>
+                            <textarea value={field.value} onChange={function(e) { field.setter(e.target.value); }} placeholder={field.placeholder} rows={3} style={Object.assign({}, inputStyle, { resize: "vertical", lineHeight: 1.6, opacity: candidacyEnabled ? 1 : 0.4 })} />
+                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                              <span style={{ color: C.muted, fontSize: 11 }}>{field.desc}</span>
+                              <span style={{ color: C.muted, fontSize: 11, flexShrink: 0 }}>{len > 0 ? len + ' chars \u00B7 ~' + segs + ' SMS' : 'Using default'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 style={{ color: C.text, margin: "0 0 12px", fontSize: 14, borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 8 }}>Name Capture</h4>
+                    <div style={{ display: "grid", gap: 16 }}>
+                      {[
+                        { label: 'Name Re-ask', value: candidacyNameAsk, setter: setCandidacyNameAsk, placeholder: CD.CANDIDACY_NAME_ASK, desc: 'AI uses this as a guide when the candidate\u2019s reply didn\u2019t include a name' },
+                        { label: 'Completion', value: candidacyComplete, setter: setCandidacyComplete, placeholder: CD.CANDIDACY_COMPLETE, desc: 'Sent verbatim after the candidate\u2019s name is captured' },
+                      ].map(function(field) {
+                        var len = (field.value || '').length;
+                        var segs = len > 0 ? Math.ceil(len / 160) : 0;
+                        return (
+                          <div key={field.label}>
+                            <label style={label}>{field.label}</label>
+                            <textarea value={field.value} onChange={function(e) { field.setter(e.target.value); }} placeholder={field.placeholder} rows={3} style={Object.assign({}, inputStyle, { resize: "vertical", lineHeight: 1.6, opacity: candidacyEnabled ? 1 : 0.4 })} />
+                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                              <span style={{ color: C.muted, fontSize: 11 }}>{field.desc}</span>
+                              <span style={{ color: C.muted, fontSize: 11, flexShrink: 0 }}>{len > 0 ? len + ' chars \u00B7 ~' + segs + ' SMS' : 'Using default'}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+                )}
               </div>
             </div>
           )}
