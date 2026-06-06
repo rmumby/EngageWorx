@@ -570,11 +570,12 @@ https://portal.engwx.com/api/sms?action=webhook
             process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY
           );
 
-          // Find tenant by stripe customer ID and suspend
+          // Find tenant by stripe customer ID and suspend (skip sandbox/eval tenants)
           await supabase
             .from('tenants')
             .update({ status: 'suspended', updated_at: new Date().toISOString() })
-            .eq('stripe_customer_id', sub.customer);
+            .eq('stripe_customer_id', sub.customer)
+            .not('is_sandbox', 'is', true);
           break;
         }
 
