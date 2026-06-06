@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from "react";
 import { useTranslation } from 'react-i18next';
 import { DEMO_CONVERSATIONS } from '../demoFixtures';
 import { ChatThread, ChatInput, MessageBubble } from './chat';
+import { Button, Badge, Card, RichEditor } from './ui';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 function dedupConversations(convos, contactMap, msgMap) {
@@ -78,6 +79,11 @@ function dedupConversations(convos, contactMap, msgMap) {
       tenant_id: conv.tenant_id,
       contact_id: conv.contact_id,
       candidacy_state: conv.candidacy_state || null,
+      ai_draft_status: conv.ai_draft_status || 'none',
+      ai_draft_html: conv.ai_draft_html || null,
+      ai_draft_body: conv.ai_draft_body || null,
+      ai_draft_channel: conv.ai_draft_channel || null,
+      ai_draft_generated_at: conv.ai_draft_generated_at || null,
     };
   });
 }
@@ -321,6 +327,51 @@ function timeAgo(date) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ─── DRAFT CARD (hoisted — stable across polls, state resets per conversation via key) ──
+function DraftCard({ convId, draftHtml: initialHtml, draftChannel, draftGeneratedAt, supabase, setSelectedConv, C, isMobile }) {
+  var [draftHtml, setDraftHtml] = useState(initialHtml || '');
+  var [draftAction, setDraftAction] = useState(null);
+  async function handleDraftAction(action) {
+    setDraftAction(action);
+    try {
+      var s = await supabase.auth.getSession();
+      var jwt = s.data.session ? s.data.session.access_token : null;
+      var payload = { conversation_id: convId, action: action };
+      if (action === 'approve') payload.edited_html = draftHtml;
+      var r = await fetch('/api/draft-approve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+        body: JSON.stringify(payload),
+      });
+      var d = await r.json();
+      if (d.success) {
+        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { ai_draft_status: 'none', ai_draft_html: null, ai_draft_body: null }) : prev; });
+      } else { alert('Error: ' + (d.error || 'Failed')); }
+    } catch (e) { alert('Error: ' + e.message); }
+    setDraftAction(null);
+  }
+  var genTime = draftGeneratedAt ? new Date(draftGeneratedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+  return (
+    <Card style={{ margin: isMobile ? '8px 10px' : '12px 24px', borderColor: C.border, background: C.surface }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Badge variant="semantic">AI DRAFT</Badge>
+          <span style={{ color: C.muted, fontSize: 11 }}>Review before sending{genTime ? ' · generated ' + genTime : ''}</span>
+        </div>
+        <span style={{ color: C.muted, fontSize: 11 }}>via {draftChannel || 'Email'}</span>
+      </div>
+      <RichEditor value={draftHtml} onChange={setDraftHtml} placeholder="Draft content..." />
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+        <Button variant="outline" onClick={function() { handleDraftAction('discard'); }} disabled={!!draftAction}>
+          {draftAction === 'discard' ? 'Discarding...' : 'Discard'}
+        </Button>
+        <Button variant="accent" onClick={function() { handleDraftAction('approve'); }} disabled={!!draftAction}>
+          {draftAction === 'approve' ? 'Sending...' : 'Approve & Send'}
+        </Button>
+      </div>
+    </Card>
+  );
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -1144,6 +1195,8 @@ useEffect(function() {
     if (filterStatus === "all") {
       if (hideResolved && conv.status === "resolved") return false;
       if (conv.status === "spam") return false;
+    } else if (filterStatus === "drafts") {
+      if (conv.ai_draft_status !== 'pending') return false;
     } else if (filterStatus !== "all" && conv.status !== filterStatus) return false;
     if (filterTag !== "all" && !conv.contact.tags.includes(filterTag)) return false;
     if (searchQuery) {
@@ -1241,6 +1294,7 @@ useEffect(function() {
               { id: "active", label: t('inbox.active'), count: activeCount },
               { id: "waiting", label: t('inbox.waiting'), count: waitingCount },
               { id: "urgent", label: t('inbox.urgent'), count: conversations.filter(c => c.status === "urgent").length },
+              { id: "drafts", label: t('inbox.drafts'), count: conversations.filter(c => c.ai_draft_status === 'pending').length },
               { id: "resolved", label: t('inbox.resolved'), count: conversations.filter(c => c.status === "resolved").length },
               { id: "spam", label: t('inbox.spam'), count: conversations.filter(c => c.status === "spam").length },
             ].map(f => (
@@ -1318,6 +1372,7 @@ useEffect(function() {
                     </div>
                     <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                       {conv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
+                      {conv.ai_draft_status === 'pending' && <span style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>AI DRAFT</span>}
                       {conv.contact.tags.slice(0, 2).map(t => (
                         <span key={t} style={{ background: `${TAG_COLORS[t] || "#6B8BAE"}15`, color: TAG_COLORS[t] || "#6B8BAE", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 600 }}>{t}</span>
                       ))}
@@ -1606,6 +1661,21 @@ useEffect(function() {
             dateSeparator={t('inbox.today')}
             style={{ padding: isMobile ? "12px 10px" : "20px 24px" }}
           />
+
+          {/* AI Draft Card */}
+          {selectedConv.ai_draft_status === 'pending' && selectedConv.ai_draft_html && (
+            <DraftCard
+              key={selectedConv.id}
+              convId={selectedConv.id}
+              draftHtml={selectedConv.ai_draft_html}
+              draftChannel={selectedConv.ai_draft_channel}
+              draftGeneratedAt={selectedConv.ai_draft_generated_at}
+              supabase={supabase}
+              setSelectedConv={setSelectedConv}
+              C={C}
+              isMobile={isMobile}
+            />
+          )}
 
           {/* Candidacy Approval Bar */}
           {selectedConv.candidacy_state === 'awaiting_candidacy_approval' && (() => {

@@ -38,6 +38,7 @@
     "urgent": "Pilne",
     "resolved": "Rozwiązane",
     "spam": "Spam",
+    "drafts": "Wersje robocze",
     "conversations": "konwersacji",
     "online": "online",
     "selectConversation": "Wybierz konwersację",

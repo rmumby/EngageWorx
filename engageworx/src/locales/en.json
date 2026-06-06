@@ -38,6 +38,7 @@
     "urgent": "Urgent",
     "resolved": "Resolved",
     "spam": "Spam",
+    "drafts": "Drafts",
     "conversations": "conversations",
     "online": "online",
     "selectConversation": "Select a conversation",
