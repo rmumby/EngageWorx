@@ -18,6 +18,7 @@
  *   botName?,      — label shown inside assistant bubbles
  * }
  */
+var { markdownToHtml, sanitizeHtml, sanitizeEmailHtml } = require('../../lib/markdownToHtml');
 export default function MessageBubble({
   role,
   content,
@@ -157,8 +158,10 @@ export default function MessageBubble({
             </div>
           )}
           {isHtml
-            ? <div style={{ whiteSpace: "normal", padding: "4px 0", overflowX: "auto", maxWidth: "100%", display: "block", width: "100%" }} dangerouslySetInnerHTML={{ __html: content }} />
-            : content}
+            ? <div style={{ whiteSpace: "normal", padding: "4px 0", overflowX: "auto", maxWidth: "100%", display: "block", width: "100%" }} dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(content) }} />
+            : (isAssistant || role === 'agent')
+              ? <div style={{ whiteSpace: "normal", padding: "4px 0" }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(markdownToHtml(content || '')) }} />
+              : content}
         </div>
       </div>
 
