@@ -167,6 +167,8 @@ module.exports = async function handler(req, res) {
       status: 'waiting',
       updated_at: new Date().toISOString(),
     }).eq('id', conversationId).eq('tenant_id', tenantId);
+    console.warn('[status-audit] conv=' + conversationId + ' status=waiting via=draft-approve');
+    try { await supabase.from('debug_logs').insert({ endpoint: 'draft-approve', action: 'status-audit', payload: { conv_id: conversationId, prev_status: null, new_status: 'waiting', via: 'draft-approve' } }); } catch (_) {}
   } catch (stateErr) { console.error('[draft-approve] state transition error:', stateErr.message); }
 
   console.log('[draft-approve] Approved and sent:', conversationId);

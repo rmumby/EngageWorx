@@ -68,9 +68,9 @@ function dedupConversations(convos, contactMap, msgMap) {
       channel: (conv.channel || 'email').toLowerCase(),
       messages: allMsgs,
       status: conv.status || 'active',
-      assignedTo: conv.ai_assigned ? { id: 'bot', name: 'AI Assistant', avatar: '🤖' } : (conv.assigned_agent_id ? { id: conv.assigned_agent_id, name: 'Agent', avatar: '👤' } : null),
+      assignedTo: conv.ai_assigned === true ? { id: 'bot', name: 'AI Assistant', avatar: '🤖' } : (conv.assigned_agent_id ? { id: conv.assigned_agent_id, name: 'Agent', avatar: '👤' } : null),
       assigned_agent_id: conv.assigned_agent_id || null,
-      ai_assigned: conv.ai_assigned || false,
+      ai_assigned: conv.ai_assigned === true,
       unread: totalUnread,
       lastActivity: conv.last_message_at ? new Date(conv.last_message_at) : new Date(),
       isTyping: false,
@@ -488,8 +488,8 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
         setTeamMembers(members);
         // Enrich assignedTo on existing conversations with real names
         setConversations(function(prev) { return prev.map(function(c) {
+          if (c.ai_assigned === true) return Object.assign({}, c, { assignedTo: { id: 'bot', name: 'AI Assistant', avatar: '🤖' } });
           if (!c.assigned_agent_id) return c;
-          if (c.ai_assigned) return Object.assign({}, c, { assignedTo: { id: 'bot', name: 'AI Bot', avatar: '🤖' } });
           var member = members.find(function(m) { return m.id === c.assigned_agent_id; });
           if (member) return Object.assign({}, c, { assignedTo: { id: member.id, name: member.name, avatar: member.avatar } });
           return c;
@@ -690,14 +690,24 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
 
-          // Preserve locally-read state for opened conversations
-          var openedIds = openedConvIdsRef.current;
-          if (openedIds.size > 0) {
-            assembled = assembled.map(function(c) {
-              return openedIds.has(c.id) ? Object.assign({}, c, { unread: 0 }) : c;
+          // Watchdog: detect poll overwriting 'waiting' with stale 'active' (temporary — remove after 2 weeks)
+          setConversations(function(prev) {
+            prev.forEach(function(old) {
+              var fresh = assembled.find(function(a) { return a.id === old.id; });
+              if (fresh && old.status === 'waiting' && fresh.status === 'active') {
+                console.warn('[status-audit] CLOBBER conv=' + old.id + ' waiting→active via=poll-refresh — possible race with draft-approve');
+                try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-clobber', payload: { conv_id: old.id, prev_status: 'waiting', new_status: 'active', via: 'poll-refresh' } }); } catch (_) {}
+              }
             });
-          }
-          setConversations(assembled);
+            // Preserve locally-read state for opened conversations
+            var openedIds = openedConvIdsRef.current;
+            if (openedIds.size > 0) {
+              return assembled.map(function(c) {
+                return openedIds.has(c.id) ? Object.assign({}, c, { unread: 0 }) : c;
+              });
+            }
+            return assembled;
+          });
 
           // Refresh selected conversation: messages + candidacy_state + unread
           if (selectedConv) {
@@ -916,12 +926,24 @@ useEffect(function() {
 
   async function bulkUpdateStatus(newStatus) {
     if (selectedConvIds.length === 0) return;
+    // Guard: skip conversations with pending AI drafts when resolving
+    var idsToUpdate = selectedConvIds;
+    if (newStatus === 'resolved') {
+      var pendingDraftIds = conversations.filter(function(c) { return selectedConvIds.indexOf(c.id) > -1 && c.ai_draft_status === 'pending'; }).map(function(c) { return c.id; });
+      if (pendingDraftIds.length > 0) {
+        idsToUpdate = selectedConvIds.filter(function(id) { return pendingDraftIds.indexOf(id) === -1; });
+        alert(pendingDraftIds.length + ' conversation(s) skipped — they have pending AI drafts. Approve or discard before resolving.');
+        if (idsToUpdate.length === 0) return;
+      }
+    }
     setBulkActing(true);
     try {
       if (!demoMode && supabase) {
-        await supabase.from('conversations').update({ status: newStatus }).in('id', selectedConvIds);
+        console.warn('[status-audit] convs=' + idsToUpdate.join(',') + ' status=' + newStatus + ' via=bulk-update');
+        try { for (var bi = 0; bi < idsToUpdate.length; bi++) { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: idsToUpdate[bi], prev_status: null, new_status: newStatus, via: 'bulk-update' } }); } } catch (_) {}
+        await supabase.from('conversations').update({ status: newStatus }).in('id', idsToUpdate);
       }
-      setConversations(function(prev) { return prev.map(function(c) { return selectedConvIds.indexOf(c.id) > -1 ? Object.assign({}, c, { status: newStatus }) : c; }); });
+      setConversations(function(prev) { return prev.map(function(c) { return idsToUpdate.indexOf(c.id) > -1 ? Object.assign({}, c, { status: newStatus }) : c; }); });
       setSelectedConvIds([]);
       setSelectMode(false);
     } catch (e) { alert('Bulk update error: ' + e.message); }
@@ -1003,6 +1025,7 @@ useEffect(function() {
         direction: 'outbound', sender_type: 'agent',
         body: newConvBody.trim(), status: 'delivered',
         metadata: fromEmail ? { from_email: fromEmail } : null,
+        sent_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       });
       // Send via channel API
@@ -1112,6 +1135,7 @@ useEffect(function() {
         status: 'delivered',
         sender_type: 'agent',
         metadata: (selectedConv.channel === 'email' && fromEmail) ? { from_email: fromEmail } : null,
+        sent_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       });
       if (insertResult.error) { console.error('Message insert error:', insertResult.error.message); throw insertResult.error; }
@@ -1119,8 +1143,10 @@ useEffect(function() {
       // Update conversation
       await supabase.from('conversations').update({
         last_message_at: new Date().toISOString(),
-        status: 'active',
+        status: 'waiting',
       }).eq('id', selectedConv.id);
+      console.warn('[status-audit] conv=' + selectedConv.id + ' status=waiting via=handleSendLive');
+      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'waiting', via: 'handleSendLive' } }); } catch (_) {}
 
       // Send via API based on channel
       if (selectedConv.channel === 'sms' && selectedConv.contact?.phone) {
@@ -1858,7 +1884,13 @@ useEffect(function() {
                 {[
                   { label: selectedConv.status === 'resolved' ? "Reopen" : "Resolve", icon: selectedConv.status === 'resolved' ? "🔄" : "✅", action: function() {
                     var newStatus = selectedConv.status === 'resolved' ? 'active' : 'resolved';
+                    if (newStatus === 'resolved' && selectedConv.ai_draft_status === 'pending') {
+                      alert('This conversation has a pending AI draft. Approve & Send or Discard it before resolving.');
+                      return;
+                    }
                     if (supabase) {
+                      console.warn('[status-audit] conv=' + selectedConv.id + ' status=' + newStatus + ' via=resolve-button');
+                      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'resolve-button' } }); } catch (_) {}
                       var updateQuery = supabase.from('conversations').update({ status: newStatus });
                       if (selectedConv.contact_id) {
                         updateQuery = updateQuery.eq('contact_id', selectedConv.contact_id).eq('channel', selectedConv.channel).eq('tenant_id', selectedConv.tenant_id);
@@ -1875,10 +1907,14 @@ useEffect(function() {
                   { label: selectedConv.priority === 'high' ? "Un-Urgent" : "Mark Urgent", icon: selectedConv.priority === 'high' ? "⬇️" : "🔴", action: function() {
                     var newPriority = selectedConv.priority === 'high' ? 'normal' : 'high';
                     var newStatus = newPriority === 'high' ? 'urgent' : 'active';
-                    if (supabase) supabase.from('conversations').update({ priority: newPriority, status: newStatus }).eq('id', selectedConv.id).then(function() {
-                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { priority: newPriority, status: newStatus }) : prev; });
-                      setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
-                    });
+                    if (supabase) {
+                      console.warn('[status-audit] conv=' + selectedConv.id + ' status=' + newStatus + ' via=mark-urgent');
+                      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'mark-urgent' } }); } catch (_) {}
+                      supabase.from('conversations').update({ priority: newPriority, status: newStatus }).eq('id', selectedConv.id).then(function() {
+                        setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { priority: newPriority, status: newStatus }) : prev; });
+                        setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
+                      });
+                    }
                   }},
                   { label: "Assign to AI", icon: "🤖", action: async function() {
                     if (!supabase) return;
@@ -1904,10 +1940,14 @@ useEffect(function() {
                   }},
                   { label: "Block", icon: "🚫", action: function() {
                     if (window.confirm('Block this contact? They will no longer be able to message you.')) {
-                      if (supabase) supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
-                        setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
-                        setSelectedConv(null);
-                      });
+                      if (supabase) {
+                        console.warn('[status-audit] conv=' + selectedConv.id + ' status=blocked via=block-button');
+                        try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'blocked', via: 'block-button' } }); } catch (_) {}
+                        supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
+                          setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                          setSelectedConv(null);
+                        });
+                      }
                     }
                   }},
                   { label: "Block Sender", icon: "🛡️", action: function(e) {
@@ -1928,6 +1968,8 @@ useEffect(function() {
                       }
                     });
                     // 2. Resolve all conversations for this contact
+                    console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-sender contact=' + (contactId || 'none'));
+                    try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-sender', contact_id: contactId || null } }); } catch (_) {}
                     if (contactId) {
                       supabase.from('conversations').update({ status: 'resolved' }).eq('contact_id', contactId).eq('tenant_id', tId);
                     } else {

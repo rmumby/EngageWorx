@@ -249,7 +249,9 @@ module.exports = async function handler(req, res) {
         .limit(1).maybeSingle();
       if (earlyConv) {
         earlyConversationId = earlyConv.id;
-        await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1 }).eq('id', earlyConversationId);
+        await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1, status: 'active' }).eq('id', earlyConversationId);
+        console.warn('[status-audit] conv=' + earlyConversationId + ' status=active via=inbound-early-reply');
+        try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'status-audit', payload: { conv_id: earlyConversationId, prev_status: null, new_status: 'active', via: 'inbound-early-reply' } }); } catch (_) {}
       } else {
         var { data: newConv } = await supabase.from('conversations').insert({
           tenant_id: tenantId, contact_id: earlyContactId, channel: 'email',
@@ -346,7 +348,10 @@ module.exports = async function handler(req, res) {
         var { error: convUpdateErr } = await supabase.from('conversations').update({
           last_message_at: new Date().toISOString(),
           unread_count: 1,
+          status: 'active',
         }).eq('id', conversationId);
+        console.warn('[status-audit] conv=' + conversationId + ' status=active via=inbound-reply');
+        try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'status-audit', payload: { conv_id: conversationId, prev_status: null, new_status: 'active', via: 'inbound-reply' } }); } catch (_) {}
         if (convUpdateErr) {
           console.error('[email-concierge] Conversation update error:', convUpdateErr.message, '| code:', convUpdateErr.code, '| conv:', conversationId);
         }
@@ -557,6 +562,8 @@ module.exports = async function handler(req, res) {
     if (conversationId) {
       try {
         await supabase.from('conversations').update({ status: 'waiting', updated_at: new Date().toISOString() }).eq('id', conversationId);
+        console.warn('[status-audit] conv=' + conversationId + ' status=waiting via=auto-send');
+        try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'status-audit', payload: { conv_id: conversationId, prev_status: null, new_status: 'waiting', via: 'auto-send' } }); } catch (_) {}
       } catch (_) {}
     }
   }
