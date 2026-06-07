@@ -1037,7 +1037,7 @@ useEffect(function() {
         try { await fetch(smsEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(smsPayload) }); } catch (e) {}
       }
       if (newConvChannel === 'email' && recipient) {
-        try { await fetch('/api/send-digest-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, subject: 'Hello from ' + (contactName || 'us'), body: newConvBody.trim(), from: fromEmail || undefined }) }); } catch (e) {}
+        try { await fetch('/api/send-digest-reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: recipient, subject: 'Hello from ' + (contactName || 'us'), body: newConvBody.trim(), tenant_id: resolvedTenantId, conversation_id: convId }) }); } catch (e) {}
       }
       if (newConvChannel === 'whatsapp' && recipient) {
         try {
@@ -1174,7 +1174,8 @@ useEffect(function() {
               to: selectedConv.contact.email,
               subject: selectedConv.subject ? 'Re: ' + selectedConv.subject : 'Re: your message',
               body: messageBody,
-              from: fromEmail || undefined,
+              tenant_id: selectedConv.tenant_id || currentTenantId,
+              conversation_id: selectedConv.id,
             }),
           });
         } catch (emailErr) {
