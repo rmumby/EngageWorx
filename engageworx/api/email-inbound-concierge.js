@@ -35,6 +35,31 @@ function stripHtml(html) {
     .trim();
 }
 
+// Conservative quoted-reply stripping — known client markers only.
+// Cuts at the earliest high-confidence quote marker (Gmail/Apple Mail "On … wrote:",
+// Outlook "-----Original Message-----", Outlook "From:…\nSent:…" header block, or the
+// Outlook underscore divider). Returns the new reply only. Returns the FULL text
+// untouched when no marker is found (fresh email) or when stripping would leave
+// nothing — the caller also retains the full raw body in metadata as a fallback,
+// so the customer's actual words are never lost even if this over-strips.
+function stripQuotedReply(text) {
+  if (!text) return text;
+  var markers = [
+    /^On\b.*\bwrote:[ \t]*$/m,                 // Gmail / Apple Mail "On <date> … wrote:"
+    /^-{2,}\s*Original Message\s*-{2,}/mi,      // Outlook "-----Original Message-----"
+    /^From:[ \t].+\r?\n(Sent|Date):[ \t]/mi,    // Outlook reply header block
+    /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
+  ];
+  var cutAt = -1;
+  for (var i = 0; i < markers.length; i++) {
+    var m = text.match(markers[i]);
+    if (m && typeof m.index === 'number' && (cutAt === -1 || m.index < cutAt)) cutAt = m.index;
+  }
+  if (cutAt === -1) return text;                // no quote marker → fresh email, untouched
+  var stripped = text.slice(0, cutAt).trim();
+  return stripped.length > 0 ? stripped : text; // never lose the customer's words
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
 
@@ -102,6 +127,8 @@ module.exports = async function handler(req, res) {
   var rawText = fullEmail.text || '';
   var rawHtml = fullEmail.html || '';
   var emailBody = rawText.trim() || stripHtml(rawHtml);
+  // Bug C: store only the new reply in message.body; full raw body retained in metadata.raw_body.
+  var replyBody = stripQuotedReply(emailBody);
   var inReplyTo = null;
   var headersArr = Array.isArray(fullEmail.headers) ? fullEmail.headers : [];
   if (headersArr.length > 0) {
@@ -265,8 +292,8 @@ module.exports = async function handler(req, res) {
       await supabase.from('messages').insert({
         tenant_id: tenantId, conversation_id: earlyConversationId, contact_id: earlyContactId,
         channel: 'email', direction: 'inbound', sender_type: 'contact',
-        body: emailBody.substring(0, 10000), subject: subject, status: 'delivered',
-        metadata: { source: 'resend_inbound', message_id: messageId || null, from: senderEmail, to: recipientEmail },
+        body: replyBody.substring(0, 10000), subject: subject, status: 'delivered',
+        metadata: { source: 'resend_inbound', message_id: messageId || null, from: senderEmail, to: recipientEmail, raw_body: emailBody.substring(0, 10000) },
       });
       console.log('[email-concierge] Early inbound message persisted — conv:', earlyConversationId, 'contact:', earlyContactId);
     }
@@ -402,8 +429,9 @@ module.exports = async function handler(req, res) {
         channel: 'email',
         direction: 'inbound',
         sender_type: 'contact',
-        body: emailBody.substring(0, 10000),
+        body: replyBody.substring(0, 10000),
         status: 'delivered',
+        metadata: { source: 'resend_inbound', message_id: messageId || null, raw_body: emailBody.substring(0, 10000) },
       });
       if (inboundMsgErr) {
         console.error('[email-concierge] Inbound message insert error:', inboundMsgErr.message, '| code:', inboundMsgErr.code, '| detail:', inboundMsgErr.details, '| conv:', conversationId);
@@ -445,7 +473,10 @@ module.exports = async function handler(req, res) {
   // ── 7. Call AI concierge ──────────────────────────────────────────────
 
   // Guard: if body is empty after all extraction, don't call Anthropic
-  var userMessage = (emailBody || '').substring(0, 5000).trim();
+  // Feed only the new reply to the AI — prior turns come from conversation history
+  // (loaded inside generateConciergeResponse), not the quoted chain. replyBody is
+  // never empty when emailBody is non-empty, so the empty-body guard below still holds.
+  var userMessage = (replyBody || '').substring(0, 5000).trim();
   if (!userMessage) {
     console.warn('[email-concierge] Empty body — skipping AI, creating empty-content ticket');
     try {
