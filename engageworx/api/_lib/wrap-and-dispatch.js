@@ -75,6 +75,10 @@ async function wrapAndDispatch(supabase, opts) {
         sender_type: opts.senderType || 'bot',
         body: cleanBody, status: sendOk ? 'delivered' : 'failed',
         sent_at: sendOk ? sentAt : null,
+        // Write created_at explicitly (UTC ISO) — matches manual sends. Omitting it
+        // lets the DB default now() store a session-tz-naive value, which renders ~2h
+        // off in the client vs manual messages. (P2: AI timestamp tz mismatch.)
+        created_at: sentAt,
         metadata: opts.senderMeta || null,
       });
     } catch (outErr) {
