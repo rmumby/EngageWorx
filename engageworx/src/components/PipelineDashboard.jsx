@@ -685,7 +685,8 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   const [showActions, setShowActions] = useState(false);
   const [hideDormant, setHideDormant] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
-  const [viewMode, setViewMode] = useState('active'); // 'active' | 'prospects' | 'archived'
+  const [viewMode, setViewMode] = useState('pipeline'); // 'pipeline' (unified lead→active) | 'archived'
+  const [showClosed, setShowClosed] = useState(false);  // toggle: append closed_won/closed_lost columns
   const [groupBy, setGroupBy] = useState('stage'); // 'stage' | 'company'
   const [validateOpen, setValidateOpen] = useState(false);
   const [validateBusy, setValidateBusy] = useState(null);
@@ -761,16 +762,17 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   });
 
   const filtered = sortedLeads.filter(l => {
-    // 4-way view driven by stage_type: active / prospects (lead stage) / closed / archived
+    // Unified pipeline (lead→active funnel) + a separate archived view. Closed stages
+    // (closed_won/closed_lost) appear only when the Show-closed toggle is on.
     var st = resolveStageType(l, STAGES);
     if (viewMode === 'archived') { if (!l.archived) return false; }
-    else if (viewMode === 'closed') { if (l.archived || (st !== 'closed_won' && st !== 'closed_lost')) return false; }
-    else if (viewMode === 'prospects') { if (l.archived || st !== 'lead') return false; }
-    else { // 'active'
+    else { // 'pipeline'
       if (l.archived) return false;
-      if (st !== 'active') return false;
+      var isClosed = (st === 'closed_won' || st === 'closed_lost');
+      if (isClosed && !showClosed) return false;
     }
-    if (hideDormant && resolveStageKey(l, STAGES) === 'closed_lost') return false;
+    // hideDormant hides closed_lost — but an explicit Show-closed overrides it.
+    if (hideDormant && !showClosed && resolveStageKey(l, STAGES) === 'closed_lost') return false;
     if (filterType !== "All" && l.type !== filterType) return false;
     if (search) {
       var q = search.toLowerCase();
@@ -784,6 +786,21 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   var hot       = leads.filter(l => l.urgency === "Hot").length;
   var stale     = leads.filter(function(l) { return daysSince(l.last_action_at) >= STALE_DAYS && resolveStageKey(l, STAGES) !== 'closed_lost'; }).length;
   var overdue   = leads.filter(l => l.next_action_date && new Date(l.next_action_date) < new Date()).length;
+
+  // Unified board columns: lead + active stages always; closed appended only when toggled.
+  // STAGES is already tenant-scoped and display_order-ordered, so the lead stage is first.
+  var boardStages = (viewMode === 'archived') ? STAGES : STAGES.filter(function(s) {
+    if (s.stage_type === 'lead' || s.stage_type === 'active') return true;
+    return (s.stage_type === 'closed_won' || s.stage_type === 'closed_lost') && showClosed;
+  });
+  var closedWonCount  = leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'closed_won'; }).length;
+  var closedLostCount = leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'closed_lost'; }).length;
+  var wonStage  = STAGES.find(function(s) { return s.stage_type === 'closed_won'; });
+  var lostStage = STAGES.find(function(s) { return s.stage_type === 'closed_lost'; });
+  // Tenant-specific closed-stage labels (no hardcoded names), with live counts on the toggle.
+  var closedToggleLabel = (showClosed ? '▾ Hide closed' : '▸ Show closed')
+    + ' (' + ((wonStage && wonStage.label) || 'Won') + ' ' + closedWonCount
+    + ' · ' + ((lostStage && lostStage.label) || 'Lost') + ' ' + closedLostCount + ')';
 
   var today = new Date().toISOString().split("T")[0];
   var todayActions = leads.filter(l => l.next_action_date && l.next_action_date <= today);
@@ -824,10 +841,8 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
             <button onClick={()=>setHideDormant(!hideDormant)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:600,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#8899aa" }}>{hideDormant?"Show Dormant":"Hide Dormant"}</button>
             <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
               {[
-                { id: "active",    label: "✅ Active",    count: leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'active'; }).length },
-                { id: "prospects", label: "📥 Prospects", count: leads.filter(function(l) { return !l.archived && resolveStageType(l, STAGES) === 'lead'; }).length },
-                { id: "closed",    label: "🏁 Closed",    count: leads.filter(function(l) { var st = resolveStageType(l, STAGES); return st === 'closed_won' || st === 'closed_lost'; }).length },
-                { id: "archived",  label: "📦 Archived",  count: leads.filter(l => l.archived).length },
+                { id: "pipeline", label: "📊 Pipeline", count: leads.filter(function(l) { var st = resolveStageType(l, STAGES); return !l.archived && (st === 'lead' || st === 'active'); }).length },
+                { id: "archived", label: "📦 Archived", count: leads.filter(l => l.archived).length },
               ].map((tab, i) => (
                 <button key={tab.id} onClick={() => { setViewMode(tab.id); setShowArchived(tab.id === 'archived'); }} style={{
                   padding: "5px 12px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
@@ -837,6 +852,9 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
                 }}>{tab.label} ({tab.count})</button>
               ))}
             </div>
+            {viewMode === 'pipeline' && (
+              <button onClick={() => setShowClosed(!showClosed)} style={{ padding:"5px 10px",borderRadius:"5px",fontSize:"11px",fontWeight:700,cursor:"pointer",border:"1px solid rgba(255,255,255,0.08)",background: showClosed ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.03)", color: showClosed ? "#a5b4fc" : "#8899aa" }}>{closedToggleLabel}</button>
+            )}
             <div style={{ display: "inline-flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)", marginLeft: 4 }}>
               {[{ id: 'stage', label: '📋 Stage' }, { id: 'company', label: '🏢 Company' }].map(function(g, i) {
                 return <button key={g.id} onClick={function() { setGroupBy(g.id); }} style={{
@@ -964,7 +982,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
         })()
       ) : (
         <div style={{ display:"flex",overflowX:"auto",padding:"20px 16px",gap:"12px",minHeight:"calc(100vh - 300px)",background:bg }}>
-          {STAGES.map(stage => {
+          {boardStages.map(stage => {
             var sl = filtered.filter(function(l) { return resolveStageKey(l, STAGES) === stage.id; });
             return (
               <div key={stage.id} style={{ minWidth:"220px",maxWidth:"220px",flexShrink:0 }}>
