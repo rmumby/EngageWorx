@@ -127,7 +127,9 @@ function groupCallsByNumber(callData) {
       contact: { name: callerNum, phone: callerNum, email: '', company: '', avatar: '\ud83d\udcde', channel: 'voice', tags: hasVoicemail ? ['Voicemail'] : [] },
       channel: 'voice',
       messages: allCallMsgs,
-      status: 'active',
+      // P2 call-resolve: derive status from the underlying calls — a fully-resolved
+      // (all 'completed') call group reads as 'resolved' so it stays out of the active list.
+      status: calls.every(function(c) { return c.status === 'completed'; }) ? 'resolved' : 'active',
       assignedTo: null,
       unread: calls.filter(function(c) { return c.status !== 'completed'; }).length,
       lastActivity: latestCall.started_at ? new Date(latestCall.started_at) : new Date(),
@@ -531,6 +533,10 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   }, [selectedConv && selectedConv.tenant_id, supabase, demoMode, resolvedTenantId, teamMembers]);
   const composeRef = useRef(null);
   const openedConvIdsRef = useRef(new Set());
+  // Keep a ref of teamMembers so the poll interval (a stale closure) can re-enrich
+  // assignedTo with real agent names — otherwise reassignments visually revert on poll.
+  const teamMembersRef = useRef([]);
+  useEffect(function() { teamMembersRef.current = teamMembers; }, [teamMembers]);
 
   // Load sender email options — admin sees all, reps see only their own
   var currentUserId = userProfile && userProfile.id;
@@ -698,6 +704,18 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             assembled = assembled.concat(pollCalls);
             assembled.sort(function(a, b) { return b.lastActivity - a.lastActivity; });
           } catch (e) { /* silent */ }
+
+          // P2 reassign: re-enrich assignedTo with real team-member names. The poll
+          // rebuild (dedup) sets a generic 'Agent' label; without this the team-load
+          // effect's enrichment is lost on every poll and reassignments visually revert.
+          var membersForEnrich = teamMembersRef.current || [];
+          if (membersForEnrich.length > 0) {
+            assembled = assembled.map(function(c) {
+              if (c.ai_assigned === true || !c.assigned_agent_id) return c;
+              var mem = membersForEnrich.find(function(m) { return m.id === c.assigned_agent_id; });
+              return mem ? Object.assign({}, c, { assignedTo: { id: mem.id, name: mem.name, avatar: mem.avatar } }) : c;
+            });
+          }
 
           // Watchdog: detect poll overwriting 'waiting' with stale 'active' (temporary — remove after 2 weeks)
           setConversations(function(prev) {
@@ -950,7 +968,17 @@ useEffect(function() {
       if (!demoMode && supabase) {
         console.warn('[status-audit] convs=' + idsToUpdate.join(',') + ' status=' + newStatus + ' via=bulk-update');
         try { for (var bi = 0; bi < idsToUpdate.length; bi++) { logDebug(supabase, 'status-audit', { conv_id: idsToUpdate[bi], prev_status: null, new_status: newStatus, via: 'bulk-update' }); } } catch (_) {}
-        await supabase.from('conversations').update({ status: newStatus }).in('id', idsToUpdate);
+        var bulkCallIds = idsToUpdate.filter(function(id) { return typeof id === 'string' && id.indexOf('call_') === 0; });
+        var bulkConvIds = idsToUpdate.filter(function(id) { return !(typeof id === 'string' && id.indexOf('call_') === 0); });
+        // Call "conversations" live in the calls table, not conversations — resolve there.
+        if (bulkCallIds.length > 0 && newStatus === 'resolved') {
+          await supabase.from('calls').update({ status: 'completed' }).in('id', bulkCallIds.map(function(id) { return id.replace('call_', ''); }));
+        }
+        if (bulkConvIds.length > 0) {
+          // Bug A polish: bulk reopen bumps last_message_at so reactivated threads sort to top.
+          var bulkPayload = newStatus === 'active' ? { status: newStatus, last_message_at: new Date().toISOString() } : { status: newStatus };
+          await supabase.from('conversations').update(bulkPayload).in('id', bulkConvIds);
+        }
       }
       setConversations(function(prev) { return prev.map(function(c) { return idsToUpdate.indexOf(c.id) > -1 ? Object.assign({}, c, { status: newStatus }) : c; }); });
       setSelectedConvIds([]);
@@ -1901,6 +1929,22 @@ useEffect(function() {
                     if (supabase) {
                       console.warn('[status-audit] conv=' + selectedConv.id + ' status=' + newStatus + ' via=resolve-button');
                       logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'resolve-button' });
+                      // P2 call-resolve: call "conversations" (id 'call_<uuid>', contact_id null) don't
+                      // exist in the conversations table — persist to the calls table instead, else the
+                      // update no-ops and the next poll re-surfaces the call as unread.
+                      if (String(selectedConv.id).indexOf('call_') === 0) {
+                        var callStatus = newStatus === 'resolved' ? 'completed' : 'in-progress';
+                        var callQ = supabase.from('calls').update({ status: callStatus }).eq('tenant_id', selectedConv.tenant_id);
+                        callQ = (selectedConv.contact && selectedConv.contact.phone)
+                          ? callQ.eq('from_number', selectedConv.contact.phone)
+                          : callQ.eq('id', String(selectedConv.id).replace('call_', ''));
+                        callQ.then(function() {
+                          setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus, unread: newStatus === 'resolved' ? 0 : c.unread }) : c; }); });
+                          if (newStatus === 'resolved') { setSelectedConv(null); }
+                          else { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; }); }
+                        });
+                        return;
+                      }
                       // Bug A: reopening (resolved→active) must re-surface the thread. The active
                       // list sorts by last_message_at desc, so bump it to now on reopen — otherwise
                       // the thread returns at its stale timestamp and stays buried at the bottom.
