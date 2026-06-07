@@ -88,6 +88,15 @@ function dedupConversations(convos, contactMap, msgMap) {
   });
 }
 
+// Fire-and-forget diagnostic log via the log_debug SECURITY DEFINER RPC (migration 051).
+// IMPORTANT: supabase query builders are lazy — the .then() is what actually sends the
+// request (a bare insert/rpc never fires). Errors are swallowed; logging must never
+// affect the UI path.
+function logDebug(supabase, action, payload) {
+  if (!supabase) return;
+  try { supabase.rpc('log_debug', { p_endpoint: 'LiveInboxV2', p_action: action, p_payload: payload }).then(function () {}, function () {}); } catch (_) {}
+}
+
 function groupCallsByNumber(callData) {
   var callsByNumber = {};
   callData.forEach(function(call) {
@@ -696,7 +705,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               var fresh = assembled.find(function(a) { return a.id === old.id; });
               if (fresh && old.status === 'waiting' && fresh.status === 'active') {
                 console.warn('[status-audit] CLOBBER conv=' + old.id + ' waiting→active via=poll-refresh — possible race with draft-approve');
-                try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-clobber', payload: { conv_id: old.id, prev_status: 'waiting', new_status: 'active', via: 'poll-refresh' } }); } catch (_) {}
+                logDebug(supabase, 'status-clobber', { conv_id: old.id, prev_status: 'waiting', new_status: 'active', via: 'poll-refresh' });
               }
             });
             // Preserve locally-read state for opened conversations
@@ -940,7 +949,7 @@ useEffect(function() {
     try {
       if (!demoMode && supabase) {
         console.warn('[status-audit] convs=' + idsToUpdate.join(',') + ' status=' + newStatus + ' via=bulk-update');
-        try { for (var bi = 0; bi < idsToUpdate.length; bi++) { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: idsToUpdate[bi], prev_status: null, new_status: newStatus, via: 'bulk-update' } }); } } catch (_) {}
+        try { for (var bi = 0; bi < idsToUpdate.length; bi++) { logDebug(supabase, 'status-audit', { conv_id: idsToUpdate[bi], prev_status: null, new_status: newStatus, via: 'bulk-update' }); } } catch (_) {}
         await supabase.from('conversations').update({ status: newStatus }).in('id', idsToUpdate);
       }
       setConversations(function(prev) { return prev.map(function(c) { return idsToUpdate.indexOf(c.id) > -1 ? Object.assign({}, c, { status: newStatus }) : c; }); });
@@ -1146,7 +1155,7 @@ useEffect(function() {
         status: 'waiting',
       }).eq('id', selectedConv.id);
       console.warn('[status-audit] conv=' + selectedConv.id + ' status=waiting via=handleSendLive');
-      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'waiting', via: 'handleSendLive' } }); } catch (_) {}
+      logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'waiting', via: 'handleSendLive' });
 
       // Send via API based on channel
       if (selectedConv.channel === 'sms' && selectedConv.contact?.phone) {
@@ -1891,15 +1900,20 @@ useEffect(function() {
                     }
                     if (supabase) {
                       console.warn('[status-audit] conv=' + selectedConv.id + ' status=' + newStatus + ' via=resolve-button');
-                      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'resolve-button' } }); } catch (_) {}
-                      var updateQuery = supabase.from('conversations').update({ status: newStatus });
+                      logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'resolve-button' });
+                      // Bug A: reopening (resolved→active) must re-surface the thread. The active
+                      // list sorts by last_message_at desc, so bump it to now on reopen — otherwise
+                      // the thread returns at its stale timestamp and stays buried at the bottom.
+                      var reopenTs = new Date().toISOString();
+                      var statusPayload = newStatus === 'active' ? { status: newStatus, last_message_at: reopenTs } : { status: newStatus };
+                      var updateQuery = supabase.from('conversations').update(statusPayload);
                       if (selectedConv.contact_id) {
                         updateQuery = updateQuery.eq('contact_id', selectedConv.contact_id).eq('channel', selectedConv.channel).eq('tenant_id', selectedConv.tenant_id);
                       } else {
                         updateQuery = updateQuery.eq('id', selectedConv.id);
                       }
                       updateQuery.then(function() {
-                        setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }) : c; }); });
+                        setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { status: newStatus }, newStatus === 'active' ? { lastActivity: new Date(reopenTs) } : {}) : c; }); });
                         if (newStatus === 'resolved') { setSelectedConv(null); }
                         else { setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { status: newStatus }) : prev; }); }
                       });
@@ -1910,7 +1924,7 @@ useEffect(function() {
                     var newStatus = newPriority === 'high' ? 'urgent' : 'active';
                     if (supabase) {
                       console.warn('[status-audit] conv=' + selectedConv.id + ' status=' + newStatus + ' via=mark-urgent');
-                      try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'mark-urgent' } }); } catch (_) {}
+                      logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: newStatus, via: 'mark-urgent' });
                       supabase.from('conversations').update({ priority: newPriority, status: newStatus }).eq('id', selectedConv.id).then(function() {
                         setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { priority: newPriority, status: newStatus }) : prev; });
                         setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { priority: newPriority, status: newStatus }) : c; }); });
@@ -1943,7 +1957,7 @@ useEffect(function() {
                     if (window.confirm('Block this contact? They will no longer be able to message you.')) {
                       if (supabase) {
                         console.warn('[status-audit] conv=' + selectedConv.id + ' status=blocked via=block-button');
-                        try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'blocked', via: 'block-button' } }); } catch (_) {}
+                        logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'blocked', via: 'block-button' });
                         supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
                           setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
                           setSelectedConv(null);
@@ -1970,7 +1984,7 @@ useEffect(function() {
                     });
                     // 2. Resolve all conversations for this contact
                     console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-sender contact=' + (contactId || 'none'));
-                    try { supabase.from('debug_logs').insert({ endpoint: 'LiveInboxV2', action: 'status-audit', payload: { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-sender', contact_id: contactId || null } }); } catch (_) {}
+                    logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-sender', contact_id: contactId || null });
                     if (contactId) {
                       supabase.from('conversations').update({ status: 'resolved' }).eq('contact_id', contactId).eq('tenant_id', tId);
                     } else {
