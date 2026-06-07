@@ -65,11 +65,17 @@ async function wrapAndDispatch(supabase, opts) {
   // Persist outbound message
   if (conversationId) {
     try {
+      // sender_type defaults to 'bot' (auto_send). Human-driven callers (e.g.
+      // draft-approve's Approve & Send) pass senderType:'agent' so the persisted
+      // message is attributed to the logged-in human, not the AI. senderMeta
+      // retains provenance (e.g. approving user id, origin path).
       await supabase.from('messages').insert({
         tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId,
-        channel: 'email', direction: 'outbound', sender_type: 'bot',
+        channel: 'email', direction: 'outbound',
+        sender_type: opts.senderType || 'bot',
         body: cleanBody, status: sendOk ? 'delivered' : 'failed',
         sent_at: sendOk ? sentAt : null,
+        metadata: opts.senderMeta || null,
       });
     } catch (outErr) {
       console.error('[wrapAndDispatch] Outbound message persist error:', outErr.message);

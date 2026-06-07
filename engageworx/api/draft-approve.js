@@ -153,6 +153,8 @@ module.exports = async function handler(req, res) {
       tenantSenderEmail: tenantSenderEmail,
       replySubject: replySubject,
       cleanBody: cleanBody, bodyContent: bodyContent,
+      // Human approved & sent — attribute to the logged-in human, not the AI.
+      senderType: 'agent', senderMeta: { approved_by_user_id: user.id, via: 'draft-approve' },
     });
   } catch (sendErr) {
     console.error('[draft-approve] wrapAndDispatch failed:', sendErr.message);
