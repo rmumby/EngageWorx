@@ -333,14 +333,11 @@ async function getAIReply(supabase, tenantId, message, channel, opts) {
 // ─── FIND OR CREATE CONTACT ────────────────────────────────────────────────
 async function findOrCreateContact(supabase, tenantId, phone) {
   if (!tenantId) return null;
+  // Tenant-scoped, race-safe find-or-create via RPC (migration 052).
   try {
-    const { data: existing } = await supabase.from('contacts').select('id').eq('tenant_id', tenantId).or('phone.eq.' + phone + ',mobile.eq.' + phone).single();
-    if (existing && existing.id) return existing.id;
-    const { data: created } = await supabase.from('contacts').insert({
-      tenant_id: tenantId, phone: phone, source: 'inbound_sms', status: 'active',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    }).select('id').single();
-    return created ? created.id : null;
+    const { data, error } = await supabase.rpc('find_or_create_contact', { p_tenant_id: tenantId, p_phone: phone, p_source: 'inbound_sms' });
+    if (error) { console.error('[Contact] find_or_create_contact rpc error:', error.message); return null; }
+    return data || null;
   } catch (err) {
     console.error('[Contact] findOrCreate error:', err.message);
     return null;
@@ -351,8 +348,22 @@ async function findOrCreateContact(supabase, tenantId, phone) {
 async function findOrCreateConversation(supabase, tenantId, contactId, fromPhone, channel) {
   channel = channel || 'sms';
   if (!tenantId || !contactId) return null;
+  // SMS: reattach to ANY existing thread (regardless of status) or create — via RPC
+  // (one SMS thread per tenant+contact; migration 053). Replaces the status-gated
+  // find-or-create that spawned a new thread whenever the prior one was resolved.
+  if (channel === 'sms') {
+    try {
+      const { data, error } = await supabase.rpc('upsert_sms_conversation', { p_tenant_id: tenantId, p_contact_id: contactId, p_from_phone: fromPhone });
+      if (error) { console.error('[Conversation] upsert_sms_conversation rpc error:', error.message); return null; }
+      return data || null;
+    } catch (err) {
+      console.error('[Conversation] sms findOrCreate error:', err.message);
+      return null;
+    }
+  }
+  // Non-SMS: existing status-gated find-or-create (email keeps multiple threads).
   try {
-    const { data: existing } = await supabase.from('conversations').select('id').eq('tenant_id', tenantId).eq('channel', channel).eq('contact_id', contactId).in('status', ['active', 'waiting', 'snoozed']).order('created_at', { ascending: false }).limit(1).single();
+    const { data: existing } = await supabase.from('conversations').select('id').eq('tenant_id', tenantId).eq('channel', channel).eq('contact_id', contactId).in('status', ['active', 'waiting', 'snoozed']).order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (existing && existing.id) return existing.id;
     const { data: created } = await supabase.from('conversations').insert({
       tenant_id: tenantId, contact_id: contactId, channel: channel, status: 'active',

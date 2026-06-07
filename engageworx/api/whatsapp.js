@@ -635,6 +635,7 @@ module.exports = async function handler(req, res) {
                       sender_type: 'bot',
                       body: aiReply,
                       status: 'sent',
+                      created_at: new Date().toISOString(),
                       provider_message_id: replyResult.data.sid,
                     });
                     if (outboundErr) console.error('[WhatsApp] AI reply save error:', outboundErr.message);

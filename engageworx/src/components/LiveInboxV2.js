@@ -992,7 +992,8 @@ useEffect(function() {
     var contactId = null;
     var contactName = '';
     if (newConvContact) {
-      contactId = newConvContact.id;
+      // Do NOT trust the picked contact's id directly — resolve via the tenant-scoped
+      // RPC below so a cross-tenant pick can't attach a foreign contact (item 1 / e0aa1f4f).
       contactName = ((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim();
       if (newConvChannel === 'email') recipient = newConvContact.email || '';
       else if (newConvChannel === 'whatsapp') recipient = newConvContact.whatsapp_number || newConvContact.mobile_phone || newConvContact.phone || '';
@@ -1005,28 +1006,21 @@ useEffect(function() {
     if (!newConvBody.trim()) { alert('Write a message.'); return; }
     setNewConvSending(true);
     try {
-      // Create or find contact if manual entry
+      // Resolve the contact via the tenant-scoped find_or_create_contact RPC (052) —
+      // ALWAYS (picker or manual), so compose can never attach a foreign-tenant contact
+      // to this tenant's conversation (item 1 / e0aa1f4f).
       if (!contactId && supabase) {
         var isEmail = recipient.indexOf('@') > 0;
-        console.log('[NewConv] finding/creating contact: recipient=' + recipient + ' isEmail=' + isEmail + ' tenantId=' + resolvedTenantId);
-        if (isEmail) {
-          var ec = await supabase.from('contacts').select('id, first_name, last_name').eq('email', recipient).eq('tenant_id', resolvedTenantId).maybeSingle();
-          if (ec.data) { contactId = ec.data.id; contactName = ((ec.data.first_name || '') + ' ' + (ec.data.last_name || '')).trim() || recipient; }
-          else {
-            var ins = await supabase.from('contacts').insert({ tenant_id: resolvedTenantId, email: recipient, first_name: recipient.split('@')[0], status: 'active' }).select('id').single();
-            if (ins.error) console.error('[NewConv] contact insert error:', ins.error.message);
-            if (ins.data) contactId = ins.data.id;
-          }
-        } else {
-          var pc = await supabase.from('contacts').select('id, first_name, last_name').eq('phone', recipient).eq('tenant_id', resolvedTenantId).maybeSingle();
-          if (pc.data) { contactId = pc.data.id; contactName = ((pc.data.first_name || '') + ' ' + (pc.data.last_name || '')).trim() || recipient; }
-          else {
-            var pins = await supabase.from('contacts').insert({ tenant_id: resolvedTenantId, phone: recipient, mobile_phone: recipient, first_name: recipient, status: 'active' }).select('id').single();
-            if (pins.error) console.error('[NewConv] contact insert error:', pins.error.message);
-            if (pins.data) contactId = pins.data.id;
-          }
-        }
-        console.log('[NewConv] contact resolved: id=' + contactId);
+        var fc = await supabase.rpc('find_or_create_contact', {
+          p_tenant_id: resolvedTenantId,
+          p_email: isEmail ? recipient : null,
+          p_phone: isEmail ? null : recipient,
+          p_first_name: contactName || null,
+          p_source: 'compose',
+        });
+        if (fc.error) console.error('[NewConv] find_or_create_contact rpc error:', fc.error.message);
+        if (fc.data) contactId = fc.data;
+        console.log('[NewConv] contact resolved (rpc): id=' + contactId);
       }
       // Find existing active conversation or create new one
       var existingConvId = null;

@@ -212,6 +212,7 @@ module.exports = async function handler(req, res) {
               status: 'sent',
               provider: 'meta',
               sender_type: 'bot',
+              created_at: new Date().toISOString(),
               metadata: { to: '+' + from, phone_number_id: phoneNumberId },
             });
 

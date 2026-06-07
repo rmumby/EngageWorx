@@ -278,6 +278,7 @@ async function sendStep(supabase, step, lead, tenant, sequence) {
           sender_type: 'bot',
           body: body,
           status: 'sent',
+          created_at: new Date().toISOString(),
           metadata: { reply_thread_id: seqThreadId, reply_to_address: seqReplyTo, source: 'sequence', sequence_id: step.sequence_id, step_number: step.step_number },
         });
       }

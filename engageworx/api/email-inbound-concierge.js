@@ -256,19 +256,12 @@ module.exports = async function handler(req, res) {
   var earlyContactId = null;
   var earlyConversationId = null;
   try {
-    // Find or create contact so inbound is always linkable
-    var { data: earlyContact } = await supabase.from('contacts')
-      .select('id').eq('tenant_id', tenantId).ilike('email', senderEmail).limit(1).maybeSingle();
-    if (earlyContact) {
-      earlyContactId = earlyContact.id;
-    } else {
-      var { data: newContact } = await supabase.from('contacts').insert({
-        tenant_id: tenantId, email: senderEmail,
-        first_name: senderName || senderEmail.split('@')[0],
-        status: 'active', source: 'inbound_email',
-      }).select('id').single();
-      if (newContact) earlyContactId = newContact.id;
-    }
+    // Find or create contact so inbound is always linkable — tenant-scoped, race-safe RPC (052).
+    var { data: fcContactId } = await supabase.rpc('find_or_create_contact', {
+      p_tenant_id: tenantId, p_email: senderEmail,
+      p_first_name: senderName || null, p_source: 'inbound_email',
+    });
+    if (fcContactId) earlyContactId = fcContactId;
     // Find or create conversation
     if (earlyContactId) {
       var { data: earlyConv } = await supabase.from('conversations')
