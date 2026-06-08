@@ -368,16 +368,22 @@ function DraftCard({ convId, draftHtml: initialHtml, draftChannel, draftGenerate
   }
   var genTime = draftGeneratedAt ? new Date(draftGeneratedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
   return (
-    <Card style={{ margin: isMobile ? '8px 10px' : '12px 24px', borderColor: C.border, background: C.surface }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+    <Card style={{
+      margin: isMobile ? '8px 10px' : '12px 24px', borderColor: C.border, background: C.surface,
+      // Bounded flex column capped to the viewport: only the draft body scrolls, the
+      // action row is a pinned footer that stays on screen for any draft length.
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      maxHeight: isMobile ? 'calc(100vh - 200px)' : 'calc(100vh - 240px)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Badge variant="semantic">AI DRAFT</Badge>
           <span style={{ color: C.muted, fontSize: 11 }}>Review before sending{genTime ? ' · generated ' + genTime : ''}</span>
         </div>
         <span style={{ color: C.muted, fontSize: 11 }}>via {draftChannel || 'Email'}</span>
       </div>
-      <RichEditor value={draftHtml} onChange={setDraftHtml} placeholder="Draft content..." />
-      <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+      <RichEditor value={draftHtml} onChange={setDraftHtml} placeholder="Draft content..." style={{ flex: 1, minHeight: 0 }} />
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end', flexShrink: 0 }}>
         <Button variant="outline" onClick={function() { handleDraftAction('discard'); }} disabled={!!draftAction}>
           {draftAction === 'discard' ? 'Discarding...' : 'Discard'}
         </Button>

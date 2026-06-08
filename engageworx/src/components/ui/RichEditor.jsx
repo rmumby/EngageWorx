@@ -26,7 +26,7 @@ function sanitizeEditorHtml(html) {
   return DOMPurify.sanitize(html, EDITOR_PURIFY_CONFIG);
 }
 
-export default function RichEditor({ value, onChange, placeholder, disabled, style }) {
+export default function RichEditor({ value, onChange, placeholder, disabled, style, maxHeight }) {
   var { theme, isDark } = useTheme();
   var editorRef = useRef(null);
   var internalUpdate = useRef(false);
@@ -76,10 +76,10 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
   var isEmpty = !value || value === '<br>' || value === '<div><br></div>';
 
   return (
-    <div style={Object.assign({ border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : '#d1d5db'), borderRadius: 10, overflow: 'hidden' }, style || {})}>
-      {/* Toolbar */}
+    <div style={Object.assign({ border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : '#d1d5db'), borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' }, style || {})}>
+      {/* Toolbar — pinned (never scrolls with the body) */}
       <div style={{
-        display: 'flex', gap: 2, padding: '4px 8px',
+        display: 'flex', gap: 2, padding: '4px 8px', flexShrink: 0,
         borderBottom: '1px solid ' + (isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb'),
         background: isDark ? 'rgba(255,255,255,0.02)' : '#f9fafb',
       }}>
@@ -97,14 +97,18 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
           }}
         >Link</button>
       </div>
-      {/* Editor */}
-      <div style={{ position: 'relative' }}>
+      {/* Editor — the only scrollable region; fills the bounded parent and scrolls
+          internally so long content never grows the box past its container. */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div
           ref={editorRef}
           contentEditable={!disabled}
           onInput={handleInput}
           style={{
-            minHeight: 120, padding: '10px 14px',
+            flex: 1, minHeight: 120, overflowY: 'auto', padding: '10px 14px',
+            // maxHeight is an optional standalone cap; when an ancestor bounds the
+            // height (flex column), flex:1 + overflowY already scroll long content.
+            ...(maxHeight ? { maxHeight: maxHeight } : {}),
             color: theme.text, fontSize: 14, lineHeight: 1.6,
             fontFamily: 'Georgia, serif',
             background: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff',
