@@ -36,6 +36,21 @@ function sanitizeHtml(html) {
   return cleaned;
 }
 
+// Derive a plaintext body from the HTML that is actually being sent, so the email's
+// text part and the sent-log body match the (possibly edited) HTML exactly.
+function htmlToText(html) {
+  if (!html) return '';
+  var t = String(html);
+  t = t.replace(/<\s*br\s*\/?>/gi, '\n');
+  t = t.replace(/<li[^>]*>/gi, '• ');
+  t = t.replace(/<\/\s*(p|div|li|ul|ol|h[1-6]|tr)\s*>/gi, '\n');
+  t = t.replace(/<[^>]+>/g, '');
+  t = t.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
+       .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+  t = t.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n').trim();
+  return t;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', PORTAL_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -86,12 +101,15 @@ module.exports = async function handler(req, res) {
   }
 
   // ── APPROVE & SEND ──
-  // Use edited HTML if provided, otherwise use the stored draft
-  // Server-side re-sanitize: don't trust client-side DOMPurify
+  // Single source of truth = the editor's contents at click time (edited_html), falling
+  // back to the stored draft only when the client sent no edit. Server-side re-sanitize:
+  // don't trust client-side DOMPurify.
   var rawBodyContent = body.edited_html || conv.ai_draft_html;
   var bodyContent = sanitizeHtml(rawBodyContent);
-  var cleanBody = conv.ai_draft_body;
   if (!bodyContent) return res.status(400).json({ error: 'No draft content to send' });
+  // Derive plaintext FROM the HTML being sent — never the stale stored ai_draft_body —
+  // so the email text part and the sent-log body reflect the agent's edits.
+  var cleanBody = htmlToText(bodyContent);
 
   // Load contact email for dispatch
   var contactEmail = null;
@@ -166,6 +184,10 @@ module.exports = async function handler(req, res) {
     await supabase.from('conversations').update({
       ai_draft_status: 'sent',
       ai_draft_generated_at: null,
+      // Clear the stored draft so it no longer holds the pre-edit content — the sent
+      // message in `messages` is now the source of truth for what was delivered.
+      ai_draft_body: null,
+      ai_draft_html: null,
       status: 'waiting',
       updated_at: new Date().toISOString(),
     }).eq('id', conversationId).eq('tenant_id', tenantId);

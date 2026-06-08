@@ -43,6 +43,8 @@ async function wrapAndDispatch(supabase, opts) {
   // Dispatch
   var sendOk = false;
   var sentAt = new Date().toISOString();
+  var providerName = null;
+  var providerMessageId = null;
   try {
     var sendResult = await sendTenantEmail(supabase, {
       tenant_id: tenantId, to: senderEmail,
@@ -55,7 +57,9 @@ async function wrapAndDispatch(supabase, opts) {
       console.error('[wrapAndDispatch] Reply BLOCKED:', sendResult.block_reason);
     } else {
       sendOk = true;
-      console.log('[wrapAndDispatch] Reply sent:', sendResult.message_id || sendResult.method || 'ok');
+      providerName = sendResult.method || null;
+      providerMessageId = sendResult.message_id || null;
+      console.log('[wrapAndDispatch] Reply sent:', providerMessageId || providerName || 'ok');
     }
   } catch (sendErr) {
     console.error('[wrapAndDispatch] Reply send failed:', sendErr.message);
@@ -75,11 +79,16 @@ async function wrapAndDispatch(supabase, opts) {
         sender_type: opts.senderType || 'bot',
         body: cleanBody, status: sendOk ? 'delivered' : 'failed',
         sent_at: sendOk ? sentAt : null,
+        // Capture the provider response id so delivery/troubleshooting can correlate
+        // the sent message with the provider's record (was previously null).
+        provider: providerName,
+        provider_message_id: providerMessageId,
         // Write created_at explicitly (UTC ISO) — matches manual sends. Omitting it
         // lets the DB default now() store a session-tz-naive value, which renders ~2h
         // off in the client vs manual messages. (P2: AI timestamp tz mismatch.)
         created_at: sentAt,
-        metadata: opts.senderMeta || null,
+        // Persist the actual sent body HTML so the sent log == what was delivered.
+        metadata: Object.assign({}, opts.senderMeta || {}, { html: bodyContent }),
       });
     } catch (outErr) {
       console.error('[wrapAndDispatch] Outbound message persist error:', outErr.message);
