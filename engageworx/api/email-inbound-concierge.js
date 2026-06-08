@@ -506,6 +506,19 @@ module.exports = async function handler(req, res) {
     });
   } catch (aiErr) {
     console.error('[email-concierge] AI error:', aiErr.message);
+    // P1 2c0c5b02 diagnostic: capture the real failure where we can read it (debug_logs),
+    // since handler console output only lands in Vercel logs. Remove once root cause is fixed.
+    try {
+      await supabase.from('debug_logs').insert({
+        endpoint: 'email-inbound-concierge', action: 'ai-error',
+        payload: {
+          conv_id: conversationId, tenant_id: tenantId, surface: matchedSurface,
+          wedding_id: weddingId, mode: aiReplyMode, user_msg_len: userMessage.length,
+          error: (aiErr && aiErr.message) || String(aiErr),
+          stack: aiErr && aiErr.stack ? aiErr.stack.substring(0, 600) : null,
+        },
+      });
+    } catch (_) {}
     return res.status(500).json({ error: 'AI generation failed' });
   }
 
@@ -560,16 +573,23 @@ module.exports = async function handler(req, res) {
     // Wrap + signature applied at send time (Approve & Send) to guarantee
     // byte-identical formatting with auto_send path.
     try {
-      await supabase.rpc('save_ai_draft', {
+      // P1 2c0c5b02 diagnostic: confirm we reach save_ai_draft and with which ids.
+      try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'draft-save-attempt', payload: { conv_id: conversationId, tenant_id: tenantId, body_len: (cleanBody || '').length, mode: aiReplyMode } }); } catch (_) {}
+      var { error: saveDraftErr } = await supabase.rpc('save_ai_draft', {
         p_tenant_id: tenantId,
         p_conversation_id: conversationId,
         p_body: cleanBody,
         p_html: bodyContent,
         p_channel: 'email',
       });
+      if (saveDraftErr) {
+        console.error('[email-concierge] save_ai_draft RPC error:', saveDraftErr.message);
+        try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'draft-save-rpc-error', payload: { conv_id: conversationId, error: saveDraftErr.message } }); } catch (_) {}
+      }
       console.log('[email-concierge] Draft saved for review:', conversationId);
     } catch (draftErr) {
       console.error('[email-concierge] Draft save error:', draftErr.message);
+      try { await supabase.from('debug_logs').insert({ endpoint: 'email-inbound-concierge', action: 'draft-save-threw', payload: { conv_id: conversationId, error: (draftErr && draftErr.message) || String(draftErr) } }); } catch (_) {}
     }
     // Skip dispatch — draft surfaces in Live Inbox for Approve & Send
   } else {
