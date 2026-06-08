@@ -54,7 +54,7 @@ export default function TenantKnowledgeDocuments({ tenantId, C }) {
     setViewArticles(doc);
     var { data } = await supabase
       .from('wedding_kb_articles')
-      .select('id, title, content, surface, is_published, created_at')
+      .select('id, title, content, surface, surfaces, is_published, created_at')
       .eq('source_document_id', doc.id)
       .order('created_at');
     setArticles(data || []);
@@ -162,7 +162,7 @@ export default function TenantKnowledgeDocuments({ tenantId, C }) {
                 <div key={a.id} style={{ padding: '12px 0', borderBottom: '1px solid ' + colors.border }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <div style={{ color: colors.text, fontWeight: 700, fontSize: 13 }}>{a.title}</div>
-                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: colors.primary + '20', color: colors.primary }}>{a.surface}</span>
+                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: colors.primary + '20', color: colors.primary }}>{(a.surfaces && a.surfaces.length ? a.surfaces : (a.surface ? [a.surface] : [])).join(', ')}</span>
                   </div>
                   <div style={{ color: colors.muted, fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{a.content.substring(0, 300)}{a.content.length > 300 ? '…' : ''}</div>
                 </div>

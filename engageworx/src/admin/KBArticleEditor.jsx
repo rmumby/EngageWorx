@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 
-var SURFACES = [
-  { id: 'wedding_concierge', label: 'Concierge' },
-  { id: 'wedding_enquiry', label: 'Enquiry' },
-  { id: 'wedding_supplier', label: 'Supplier' },
-];
+// Display labels only; the actual surface options are sourced from the tenant's
+// chatbot_configs (see tenantSurfaces below), not hardcoded here.
+var SURFACE_LABELS = { wedding_concierge: 'Concierge', wedding_enquiry: 'Enquiry', wedding_supplier: 'Supplier' };
+var DEFAULT_WEDDING_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier'];
+function surfaceLabelOf(id) { return SURFACE_LABELS[id] || id; }
 
 function sourceLabel(article) {
   if (article.source && article.source.filename) return 'From: ' + article.source.filename;
@@ -20,7 +20,8 @@ export default function KBArticleEditor({ tenantId, C }) {
   var [editId, setEditId] = useState(null);
   var [editTitle, setEditTitle] = useState('');
   var [editContent, setEditContent] = useState('');
-  var [editSurface, setEditSurface] = useState('wedding_concierge');
+  var [editSurfaces, setEditSurfaces] = useState(['wedding_concierge']);
+  var [tenantSurfaces, setTenantSurfaces] = useState([]); // [{id,label}] sourced from chatbot_configs
   var [editPublished, setEditPublished] = useState(true);
   var [saving, setSaving] = useState(false);
   var [error, setError] = useState('');
@@ -45,6 +46,41 @@ export default function KBArticleEditor({ tenantId, C }) {
 
   useEffect(function() { loadArticles(); }, [loadArticles]);
 
+  // Surface options come from the tenant's configured surfaces, not a hardcoded list.
+  useEffect(function() {
+    if (!tenantId) return;
+    (async function() {
+      try {
+        var { data } = await supabase.from('chatbot_configs').select('surface')
+          .eq('tenant_id', tenantId).in('surface', DEFAULT_WEDDING_SURFACES);
+        var ids = (data || []).map(function(r) { return r.surface; }).filter(function(v, i, a) { return a.indexOf(v) === i; });
+        if (ids.length === 0) ids = DEFAULT_WEDDING_SURFACES.slice();
+        setTenantSurfaces(ids.map(function(id) { return { id: id, label: surfaceLabelOf(id) }; }));
+      } catch (e) { setTenantSurfaces(DEFAULT_WEDDING_SURFACES.map(function(id) { return { id: id, label: surfaceLabelOf(id) }; })); }
+    })();
+  }, [tenantId]);
+
+  function toggleEditSurface(id) {
+    setEditSurfaces(function(prev) {
+      return prev.indexOf(id) !== -1 ? prev.filter(function(s) { return s !== id; }) : prev.concat([id]);
+    });
+  }
+
+  // Multi-surface checkbox group — options sourced from the tenant's configured surfaces.
+  function surfaceChecks() {
+    return (
+      <div>
+        <label style={labelStyle}>Surfaces * <span style={{ textTransform: 'none', fontWeight: 400, color: colors.muted }}>(article appears in each selected bot)</span></label>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {(tenantSurfaces.length ? tenantSurfaces : DEFAULT_WEDDING_SURFACES.map(function(id) { return { id: id, label: surfaceLabelOf(id) }; })).map(function(s) {
+            var on = editSurfaces.indexOf(s.id) !== -1;
+            return <button key={s.id} type="button" onClick={function() { toggleEditSurface(s.id); }} style={{ padding: '7px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: on ? colors.primary + '20' : 'transparent', color: on ? colors.primary : colors.muted, border: '1px solid ' + (on ? colors.primary + '55' : colors.border) }}>{on ? '✓ ' : ''}{s.label}</button>;
+          })}
+        </div>
+      </div>
+    );
+  }
+
   var sources = [];
   var sourceMap = {};
   articles.forEach(function(a) {
@@ -54,8 +90,8 @@ export default function KBArticleEditor({ tenantId, C }) {
     }
   });
 
-  function startEdit(article) { setEditId(article.id); setEditTitle(article.title); setEditContent(article.content); setEditSurface(article.surface); setEditPublished(article.is_published); setShowCreate(false); setError(''); }
-  function startCreate() { setEditId('_new'); setEditTitle(''); setEditContent(''); setEditSurface(filterSurface !== 'all' ? filterSurface : 'wedding_concierge'); setEditPublished(true); setShowCreate(true); setError(''); }
+  function startEdit(article) { setEditId(article.id); setEditTitle(article.title); setEditContent(article.content); setEditSurfaces(article.surfaces && article.surfaces.length ? article.surfaces.slice() : (article.surface ? [article.surface] : [])); setEditPublished(article.is_published); setShowCreate(false); setError(''); }
+  function startCreate() { setEditId('_new'); setEditTitle(''); setEditContent(''); setEditSurfaces(filterSurface !== 'all' ? [filterSurface] : [(tenantSurfaces[0] && tenantSurfaces[0].id) || 'wedding_concierge']); setEditPublished(true); setShowCreate(true); setError(''); }
   function cancelEdit() { setEditId(null); setShowCreate(false); setError(''); }
 
   async function getToken() { var s = await supabase.auth.getSession(); return s.data?.session?.access_token || ''; }
@@ -63,11 +99,12 @@ export default function KBArticleEditor({ tenantId, C }) {
   async function handleSave() {
     if (!editTitle.trim()) { setError('Title is required'); return; }
     if (!editContent.trim()) { setError('Content is required'); return; }
+    if (!editSurfaces.length) { setError('Select at least one surface'); return; }
     setError(''); setSaving(true);
     try {
       var token = await getToken();
       var isNew = editId === '_new';
-      var payload = isNew ? { tenant_id: tenantId, title: editTitle, content: editContent, surface: editSurface, is_published: editPublished } : { id: editId, title: editTitle, content: editContent, surface: editSurface, is_published: editPublished };
+      var payload = isNew ? { tenant_id: tenantId, title: editTitle, content: editContent, surfaces: editSurfaces, is_published: editPublished } : { id: editId, title: editTitle, content: editContent, surfaces: editSurfaces, is_published: editPublished };
       var resp = await fetch('/api/kb-articles', { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, body: JSON.stringify(payload) });
       var data = await resp.json();
       if (!resp.ok) throw new Error(data.error || 'Save failed');
@@ -114,7 +151,7 @@ export default function KBArticleEditor({ tenantId, C }) {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[{ id: 'all', label: 'All surfaces' }].concat(SURFACES).map(function(s) {
+        {[{ id: 'all', label: 'All surfaces' }].concat(tenantSurfaces).map(function(s) {
           var active = filterSurface === s.id;
           return <button key={s.id} onClick={function() { setFilterSurface(s.id); }} style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: active ? colors.primary + '20' : 'transparent', color: active ? colors.primary : colors.muted, border: '1px solid ' + (active ? colors.primary + '55' : colors.border) }}>{s.label}</button>;
         })}
@@ -136,10 +173,8 @@ export default function KBArticleEditor({ tenantId, C }) {
             <span style={{ color: colors.primary, fontSize: 13, fontWeight: 700 }}>New Article</span>
             <button onClick={cancelEdit} style={btnSec}>Cancel</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10, marginBottom: 10 }}>
-            <div><label style={labelStyle}>Title *</label><input value={editTitle} onChange={function(e) { setEditTitle(e.target.value); }} placeholder="e.g. Bar & Drinks Service" style={inputStyle} /></div>
-            <div><label style={labelStyle}>Surface</label><select value={editSurface} onChange={function(e) { setEditSurface(e.target.value); }} style={inputStyle}>{SURFACES.map(function(s) { return <option key={s.id} value={s.id}>{s.label}</option>; })}</select></div>
-          </div>
+          <div style={{ marginBottom: 10 }}><label style={labelStyle}>Title *</label><input value={editTitle} onChange={function(e) { setEditTitle(e.target.value); }} placeholder="e.g. Bar & Drinks Service" style={inputStyle} /></div>
+          <div style={{ marginBottom: 10 }}>{surfaceChecks()}</div>
           <div style={{ marginBottom: 10 }}><label style={labelStyle}>Content *</label><textarea value={editContent} onChange={function(e) { setEditContent(e.target.value); }} rows={8} placeholder="Article content the AI will use to answer questions..." style={Object.assign({}, inputStyle, { resize: 'vertical', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 })} /></div>
           {error && <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{error}</div>}
           <button onClick={handleSave} disabled={saving} style={{ background: colors.primary, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving...' : 'Create Article'}</button>
@@ -162,10 +197,8 @@ export default function KBArticleEditor({ tenantId, C }) {
               <div key={article.id} style={Object.assign({}, card, isEditing ? { border: '1px solid ' + colors.primary + '44' } : {})}>
                 {isEditing ? (
                   <div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10, marginBottom: 10 }}>
-                      <div><label style={labelStyle}>Title</label><input value={editTitle} onChange={function(e) { setEditTitle(e.target.value); }} style={inputStyle} /></div>
-                      <div><label style={labelStyle}>Surface</label><select value={editSurface} onChange={function(e) { setEditSurface(e.target.value); }} style={inputStyle}>{SURFACES.map(function(s) { return <option key={s.id} value={s.id}>{s.label}</option>; })}</select></div>
-                    </div>
+                    <div style={{ marginBottom: 10 }}><label style={labelStyle}>Title</label><input value={editTitle} onChange={function(e) { setEditTitle(e.target.value); }} style={inputStyle} /></div>
+                    <div style={{ marginBottom: 10 }}>{surfaceChecks()}</div>
                     <div style={{ marginBottom: 10 }}><label style={labelStyle}>Content</label><textarea value={editContent} onChange={function(e) { setEditContent(e.target.value); }} rows={10} style={Object.assign({}, inputStyle, { resize: 'vertical', fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6 })} /></div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                       <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: colors.text, fontSize: 12, cursor: 'pointer' }}><input type="checkbox" checked={editPublished} onChange={function() { setEditPublished(!editPublished); }} /> Published</label>
@@ -182,7 +215,9 @@ export default function KBArticleEditor({ tenantId, C }) {
                     <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={function() { startEdit(article); }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                         <span style={{ color: colors.text, fontWeight: 600, fontSize: 13 }}>{article.title}</span>
-                        <span style={{ padding: '1px 6px', borderRadius: 4, background: colors.primary + '15', color: colors.primary, fontSize: 9, fontWeight: 600 }}>{article.surface}</span>
+                        {(article.surfaces && article.surfaces.length ? article.surfaces : (article.surface ? [article.surface] : [])).map(function(sid) {
+                          return <span key={sid} style={{ padding: '1px 6px', borderRadius: 4, background: colors.primary + '15', color: colors.primary, fontSize: 9, fontWeight: 600 }}>{surfaceLabelOf(sid)}</span>;
+                        })}
                         {!article.is_published && <span style={{ padding: '1px 6px', borderRadius: 4, background: '#f59e0b20', color: '#f59e0b', fontSize: 9, fontWeight: 600 }}>Draft</span>}
                       </div>
                       <div style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>

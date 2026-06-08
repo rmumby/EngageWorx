@@ -60,10 +60,14 @@ async function generateConciergeResponse(supabase, opts) {
   if (!config) throw new Error('No chatbot config for tenant=' + tenantId + ' surface=' + surface);
 
   // 2. Load KB articles
+  // Surface-scoped retrieval: only articles tagged for THIS responder's surface
+  // (surfaces[] membership), not the legacy single `surface` column. This is the gate
+  // that stops e.g. enquiry-only pricing articles leaking into concierge drafts.
+  // `surface` here is the responding chatbot_config's surface (opts.surface), not a literal.
   var { data: kbArticles } = await supabase.from('wedding_kb_articles')
     .select('title, content')
     .eq('tenant_id', tenantId)
-    .eq('surface', surface)
+    .overlaps('surfaces', [surface])
     .eq('is_published', true)
     .order('created_at');
 

@@ -10,6 +10,18 @@ var { createClient } = require('@supabase/supabase-js');
 
 var ALLOWED_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier', 'helpdesk'];
 var HELPDESK_SURFACES = ['helpdesk'];
+// Surfaces valid for the wedding_kb_articles.surfaces[] array (helpdesk is a separate table).
+var WEDDING_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier'];
+// Validate + dedupe a client-supplied surfaces array; returns null if any value is invalid.
+function normalizeSurfaces(arr) {
+  if (!Array.isArray(arr)) return null;
+  var out = [];
+  for (var i = 0; i < arr.length; i++) {
+    if (WEDDING_SURFACES.indexOf(arr[i]) === -1) return null;
+    if (out.indexOf(arr[i]) === -1) out.push(arr[i]);
+  }
+  return out;
+}
 
 function getSupabase() {
   return createClient(
@@ -52,9 +64,9 @@ module.exports = async function handler(req, res) {
     var auth = await verifyAuth(supabase, req, tenantId);
     if (auth.error) return res.status(auth.status).json({ error: auth.error });
     var query = supabase.from('wedding_kb_articles')
-      .select('id, title, content, surface, is_published, source_document_id, created_at, updated_at, source:source_document_id(id, filename, status)')
+      .select('id, title, content, surface, surfaces, is_published, source_document_id, created_at, updated_at, source:source_document_id(id, filename, status)')
       .eq('tenant_id', tenantId).order('created_at', { ascending: false });
-    if (req.query.surface) query = query.eq('surface', req.query.surface);
+    if (req.query.surface) query = query.overlaps('surfaces', [req.query.surface]);
     if (req.query.source_document_id) query = query.eq('source_document_id', req.query.source_document_id);
     var { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -68,15 +80,24 @@ module.exports = async function handler(req, res) {
     if (!body.content || body.content.trim().length > 10000) return res.status(400).json({ error: 'content required (max 10000 chars)' });
     var auth2 = await verifyAuth(supabase, req, tenantId2, { requireAdmin: true });
     if (auth2.error) return res.status(auth2.status).json({ error: auth2.error });
-    // Derive surface from tenant's chatbot_configs — don't trust client value
+    // Multi-surface: client may send surfaces[] (one or more wedding surfaces). Validate
+    // against the fixed enum — don't trust the raw array. null = not supplied.
+    var reqSurfaces = body.surfaces !== undefined ? normalizeSurfaces(body.surfaces) : null;
+    if (body.surfaces !== undefined && (reqSurfaces === null || reqSurfaces.length === 0)) {
+      return res.status(400).json({ error: 'Invalid surfaces. Allowed: ' + WEDDING_SURFACES.join(', ') });
+    }
+    // Fallback surface from tenant's chatbot_configs when surfaces[] not supplied.
     var { data: tenantCfg } = await supabase.from('chatbot_configs').select('surface')
       .eq('tenant_id', tenantId2).in('surface', ALLOWED_SURFACES).limit(1).maybeSingle();
     var postSurface = tenantCfg ? tenantCfg.surface : 'wedding_concierge';
-    var isHelpdesk = HELPDESK_SURFACES.indexOf(postSurface) !== -1;
+    // Route to wedding table whenever surfaces[] were supplied; else route by derived surface.
+    var isHelpdesk = !reqSurfaces && HELPDESK_SURFACES.indexOf(postSurface) !== -1;
     var tableName = isHelpdesk ? 'helpdesk_kb_articles' : 'wedding_kb_articles';
+    // Write surfaces[] for wedding KB; the DB trigger keeps legacy `surface` coherent.
+    var fallbackSurfaces = [WEDDING_SURFACES.indexOf(postSurface) !== -1 ? postSurface : 'wedding_concierge'];
     var insertRow = isHelpdesk
       ? { tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(), category: body.category || null, published: true, created_by: auth2.user.id }
-      : { tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(), surface: postSurface, is_published: true, source_document_id: null };
+      : { tenant_id: tenantId2, title: body.title.trim(), content: body.content.trim(), surfaces: reqSurfaces || fallbackSurfaces, is_published: true, source_document_id: null };
     var { data: article, error: insertErr } = await supabase.from(tableName).insert(insertRow).select('*').single();
     if (insertErr) return res.status(500).json({ error: insertErr.message });
     console.log('[kb-articles] Created:', { id: article.id, title: article.title, tenant: tenantId2, table: tableName });
@@ -95,9 +116,15 @@ module.exports = async function handler(req, res) {
     if (body.title !== undefined) updates.title = body.title.trim();
     if (body.content !== undefined) updates.content = body.content.trim();
     if (body.is_published !== undefined) updates.is_published = body.is_published;
-    if (body.surface !== undefined) {
+    if (body.surfaces !== undefined) {
+      var putSurfaces = normalizeSurfaces(body.surfaces);
+      if (putSurfaces === null || putSurfaces.length === 0) return res.status(400).json({ error: 'Invalid surfaces. Allowed: ' + WEDDING_SURFACES.join(', ') });
+      updates.surfaces = putSurfaces;
+      updates.surface = putSurfaces[0]; // trigger only backfills `surface` when null on UPDATE — set it so legacy stays coherent
+    } else if (body.surface !== undefined) {
       if (ALLOWED_SURFACES.indexOf(body.surface) === -1) return res.status(400).json({ error: 'Invalid surface. Allowed: ' + ALLOWED_SURFACES.join(', ') });
       updates.surface = body.surface;
+      updates.surfaces = [body.surface];
     }
     var { data: updated, error: updateErr } = await supabase.from('wedding_kb_articles')
       .update(updates).eq('id', articleId).select('*').single();

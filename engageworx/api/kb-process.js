@@ -73,22 +73,31 @@ module.exports = async function handler(req, res) {
       throw new Error('No articles extracted from document');
     }
 
-    // Insert articles for each surface
-    var surfaces = doc.surfaces || ['concierge'];
+    // Normalize target surfaces to canonical wedding-surface ids. The upload UI tags
+    // documents with short ids ('concierge'); KB articles use full ids ('wedding_concierge'),
+    // which is what the surface-membership retrieval matches on.
+    var SURFACE_ALIAS = { concierge: 'wedding_concierge', enquiry: 'wedding_enquiry', supplier: 'wedding_supplier' };
+    var WEDDING_SURFACES = ['wedding_concierge', 'wedding_enquiry', 'wedding_supplier'];
+    var rawSurfaces = doc.surfaces || ['concierge'];
+    var docSurfaces = [];
+    for (var s = 0; s < rawSurfaces.length; s++) {
+      var full = SURFACE_ALIAS[rawSurfaces[s]] || rawSurfaces[s];
+      if (WEDDING_SURFACES.indexOf(full) !== -1 && docSurfaces.indexOf(full) === -1) docSurfaces.push(full);
+    }
+    if (docSurfaces.length === 0) docSurfaces = ['wedding_concierge'];
+    // One row per article, tagged with all target surfaces via surfaces[] (no more
+    // duplicate row-per-surface); the DB trigger keeps legacy `surface` coherent.
     var insertRows = [];
     for (var i = 0; i < articles.length; i++) {
-      var article = articles[i];
-      for (var j = 0; j < surfaces.length; j++) {
-        insertRows.push({
-          tenant_id: doc.tenant_id,
-          title: article.title,
-          content: article.content,
-          category: null,
-          surface: surfaces[j],
-          source_document_id: doc.id,
-          is_published: true,
-        });
-      }
+      insertRows.push({
+        tenant_id: doc.tenant_id,
+        title: articles[i].title,
+        content: articles[i].content,
+        category: null,
+        surfaces: docSurfaces,
+        source_document_id: doc.id,
+        is_published: true,
+      });
     }
 
     // Batch insert (Supabase handles arrays)
