@@ -832,17 +832,24 @@ module.exports = async function handler(req, res) {
     // never EW's prompt. Concierge gate = SAME signal as email-inbound-concierge.js.
     var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
     var personaSurface = null;
+    var personaReplyMode = 'auto_send';
     try {
       var GATE_SURFACES = ['wedding_concierge', 'helpdesk'];
       for (var gsi = 0; gsi < GATE_SURFACES.length; gsi++) {
-        var gcfg = await supabase.from('chatbot_configs').select('id, channels_active')
+        var gcfg = await supabase.from('chatbot_configs').select('id, channels_active, ai_reply_mode')
           .eq('tenant_id', resolvedTenantId).eq('surface', GATE_SURFACES[gsi]).maybeSingle();
-        if (gcfg.data && (gcfg.data.channels_active || []).includes('email')) { personaSurface = GATE_SURFACES[gsi]; break; }
+        if (gcfg.data && (gcfg.data.channels_active || []).includes('email')) {
+          personaSurface = GATE_SURFACES[gsi];
+          personaReplyMode = gcfg.data.ai_reply_mode || 'auto_send';
+          break;
+        }
       }
     } catch (e) { console.warn('[email-inbound] persona gate error:', e.message); }
 
     if (personaSurface === 'wedding_concierge') {
-      // Wedding concierge (Emma) — same responder as the Resend handler, sent AS THE TENANT.
+      // Wedding concierge (Emma) — same responder as the Resend handler. Respect the tenant's
+      // ai_reply_mode (read from the matched config above): draft_review → hold for human
+      // approval (no auto-send); auto modes → send AS THE TENANT.
       try {
         var cr = await generateConciergeResponse(supabase, {
           tenantId: resolvedTenantId, surface: 'wedding_concierge', weddingId: null,
@@ -850,7 +857,55 @@ module.exports = async function handler(req, res) {
           contactMeta: { name: senderName, email: senderEmail },
         });
         var emmaReply = cr && cr.response ? cr.response : null;
+        if (emmaReply && personaReplyMode === 'draft_review') {
+          // DRAFT MODE — persist as a pending draft for Live Inbox review (mirrors the Resend
+          // concierge draft_review flow). Contact + conversation must exist first, so resolve
+          // them here (the handler's own creation runs later) — all scoped to resolvedTenantId.
+          var draftContactId = null, draftConvId = null;
+          try {
+            var { data: dcId } = await supabase.rpc('find_or_create_contact', {
+              p_tenant_id: resolvedTenantId, p_email: senderEmail, p_first_name: senderName || null, p_source: 'inbound_email',
+            });
+            draftContactId = dcId || null;
+            if (draftContactId) {
+              var dEc = await supabase.from('conversations').select('id')
+                .eq('tenant_id', resolvedTenantId).eq('contact_id', draftContactId).eq('channel', 'email').limit(1).maybeSingle();
+              if (dEc.data) {
+                draftConvId = dEc.data.id;
+                await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1, status: 'active' }).eq('id', draftConvId);
+              } else {
+                var dNc = await supabase.from('conversations').insert({
+                  tenant_id: resolvedTenantId, contact_id: draftContactId, channel: 'email', status: 'active',
+                  subject: subject, last_message_at: new Date().toISOString(), unread_count: 1,
+                }).select('id').single();
+                if (dNc.data) draftConvId = dNc.data.id;
+              }
+            }
+            if (draftConvId) {
+              // Persist the couple's inbound so it's visible alongside the draft.
+              await supabase.from('messages').insert({
+                tenant_id: resolvedTenantId, conversation_id: draftConvId, contact_id: draftContactId,
+                channel: 'email', direction: 'inbound', sender_type: 'contact',
+                body: (emailBody || '').substring(0, 10000), subject: subject, status: 'delivered',
+                metadata: { source: 'sendgrid_inbound', from: senderEmail, to: toParticipants.map(function(p) { return p.email; }).join(', ') },
+              });
+              // Same RPC + semantics as the Resend draft_review path: body-only HTML; wrap +
+              // signature applied at Approve & Send (draft-approve → wrapAndDispatch).
+              await supabase.rpc('save_ai_draft', {
+                p_tenant_id: resolvedTenantId, p_conversation_id: draftConvId,
+                p_body: emmaReply, p_html: markdownToHtml(emmaReply), p_channel: 'email',
+              });
+              console.log('✅ [email-inbound] Wedding concierge DRAFT saved (draft_review) conv=' + draftConvId + ' tenant=' + resolvedTenantId + ' — NO auto-send');
+            } else {
+              console.error('[email-inbound] concierge draft: could not resolve conversation — draft not saved. tenant=' + resolvedTenantId);
+            }
+          } catch (dErr) { console.error('[email-inbound] concierge draft persist error:', dErr.message); }
+          // Self-contained, like the Resend concierge handler: stop here (no auto-send, no
+          // sales-pipeline processing for a wedding couple).
+          return res.status(200).json({ ok: true, action: 'concierge_draft_saved', conversation_id: draftConvId });
+        }
         if (emmaReply) {
+          // AUTO mode — send AS THE TENANT (Emma from the tenant's address + signature).
           var _sigE = require('./_email-signature');
           var sigE = await _sigE.getSignature(supabase, { tenantId: resolvedTenantId, fromEmail: null, isFirstTouch: false, closingKind: 'reply' });
           var emmaHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;">' + markdownToHtml(emmaReply) + '</div>';
