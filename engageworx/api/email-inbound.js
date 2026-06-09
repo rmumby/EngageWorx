@@ -9,6 +9,7 @@ var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { checkInboundBlock } = require('./_lib/blocklist');
+var { generateConciergeResponse } = require('./wedding-concierge');
 
 // Disable Vercel's default body parser — SendGrid sends multipart/form-data
 module.exports.config = { api: { bodyParser: false } };
@@ -823,50 +824,89 @@ module.exports = async function handler(req, res) {
     if (iemInsert.error) console.error('[Inbound] inbound_email_messages insert error:', iemInsert.error.message, iemInsert.error.details);
     var inboundEmailMsgId = iemInsert.data ? iemInsert.data.id : null;
 
-    // ── Generate AI reply ────────────────────────────────────────────────────
-    var aiReply = null;
-    try {
-      aiReply = await getAIReply(
-        'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody
-      );
-      console.log('✅ AI reply generated, length:', aiReply ? aiReply.length : 0);
-    } catch (aiErr) {
-      console.error('AI reply error:', aiErr.message);
-      aiReply = 'Thank you for reaching out to EngageWorx! Our team will get back to you shortly. In the meantime, feel free to explore the platform at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min.';
-    }
-
+    // ── Persona-by-tenant responder dispatch ─────────────────────────────────
+    // Persona is a function of the RESOLVED tenant, never the pipeline/provider. A wedding
+    // tenant gets Emma even when its mail lands on this (SendGrid) pipeline. The hardcoded
+    // EW sales prompt + EngageWorx signature is applied ONLY to EngageWorx; every other
+    // tenant is answered by ITS OWN configured persona (via analyzeAndActionEmail below),
+    // never EW's prompt. Concierge gate = SAME signal as email-inbound-concierge.js.
     var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
-
-    var htmlReply = aiReply.split('\n\n').map(function(p) {
-      return '<p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">' +
-        p.replace(/\n/g, '<br>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</p>';
-    }).join('') +
-    '<br><table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
-    '<tr><td style="padding-right:16px;vertical-align:top;">' +
-    '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:white;font-weight:bold;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div>' +
-    '</td><td style="vertical-align:top;">' +
-    '<div style="font-weight:bold;color:#222;font-size:14px;">EngageWorx Team</div>' +
-    '<div style="color:#777;font-size:12px;margin-top:2px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
-    '<div style="margin-top:4px;">' +
-    '📞 <a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> &nbsp;|&nbsp;' +
-    '🌐 <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a> &nbsp;|&nbsp;' +
-    '📅 <a href="https://calendly.com/rob-engwx/30min" style="color:#00C9FF;text-decoration:none;">Book a demo</a>' +
-    '</div></td></tr></table>';
-
-    // ── Send reply via sendTenantEmail (SP tenant) ─────────────────────────────
-    var spSendResult = null;
+    var personaSurface = null;
     try {
-      spSendResult = await sendTenantEmail(supabase, {
-        tenant_id: EW_TENANT_ID,
-        to: senderEmail,
-        subject: replySubject,
-        text: aiReply + '\n\n--\nEngageWorx Team\nengwx.com',
-        html: htmlReply,
-        conversation_id: conversationId || undefined,
-      });
-      console.log('✅ AI reply sent to:', senderEmail);
-    } catch (sendErr) {
-      console.error('[email-inbound] AI reply send error:', sendErr.message);
+      var GATE_SURFACES = ['wedding_concierge', 'helpdesk'];
+      for (var gsi = 0; gsi < GATE_SURFACES.length; gsi++) {
+        var gcfg = await supabase.from('chatbot_configs').select('id, channels_active')
+          .eq('tenant_id', resolvedTenantId).eq('surface', GATE_SURFACES[gsi]).maybeSingle();
+        if (gcfg.data && (gcfg.data.channels_active || []).includes('email')) { personaSurface = GATE_SURFACES[gsi]; break; }
+      }
+    } catch (e) { console.warn('[email-inbound] persona gate error:', e.message); }
+
+    if (personaSurface === 'wedding_concierge') {
+      // Wedding concierge (Emma) — same responder as the Resend handler, sent AS THE TENANT.
+      try {
+        var cr = await generateConciergeResponse(supabase, {
+          tenantId: resolvedTenantId, surface: 'wedding_concierge', weddingId: null,
+          conversationId: conversationId || null, userMessage: emailBody,
+          contactMeta: { name: senderName, email: senderEmail },
+        });
+        var emmaReply = cr && cr.response ? cr.response : null;
+        if (emmaReply) {
+          var _sigE = require('./_email-signature');
+          var sigE = await _sigE.getSignature(supabase, { tenantId: resolvedTenantId, fromEmail: null, isFirstTouch: false, closingKind: 'reply' });
+          var emmaHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;">' + markdownToHtml(emmaReply) + '</div>';
+          await sendTenantEmail(supabase, {
+            tenant_id: resolvedTenantId, to: senderEmail, subject: replySubject,
+            text: _sigE.composeTextBody(emmaReply, sigE.closingLine, sigE.fromName),
+            html: _sigE.composeHtmlBody(emmaHtml, sigE.closingLine, sigE.signatureHtml),
+            conversation_id: conversationId || undefined,
+          });
+          console.log('✅ [email-inbound] Wedding concierge (Emma) reply sent AS tenant', resolvedTenantId, 'to', senderEmail);
+        }
+      } catch (cErr) { console.error('[email-inbound] concierge dispatch error:', cErr.message); }
+    } else if (resolvedTenantId === EW_TENANT_ID) {
+      // EngageWorx sales AI — hardcoded EW persona + signature (EngageWorx ONLY).
+      var aiReply = null;
+      try {
+        aiReply = await getAIReply(
+          'Inbound email from: ' + (senderName || senderEmail) + '\nSubject: ' + subject + '\n\nMessage:\n' + emailBody
+        );
+        console.log('✅ AI reply generated, length:', aiReply ? aiReply.length : 0);
+      } catch (aiErr) {
+        console.error('AI reply error:', aiErr.message);
+        aiReply = 'Thank you for reaching out to EngageWorx! Our team will get back to you shortly. In the meantime, feel free to explore the platform at portal.engwx.com or book a demo at calendly.com/rob-engwx/30min.';
+      }
+      var htmlReply = aiReply.split('\n\n').map(function(p) {
+        return '<p style="margin:0 0 12px;font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">' +
+          p.replace(/\n/g, '<br>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</p>';
+      }).join('') +
+      '<br><table cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,sans-serif;font-size:13px;color:#555;">' +
+      '<tr><td style="padding-right:16px;vertical-align:top;">' +
+      '<div style="background:linear-gradient(135deg,#00C9FF,#E040FB);color:white;font-weight:bold;font-size:15px;padding:8px 12px;border-radius:6px;">EW</div>' +
+      '</td><td style="vertical-align:top;">' +
+      '<div style="font-weight:bold;color:#222;font-size:14px;">EngageWorx Team</div>' +
+      '<div style="color:#777;font-size:12px;margin-top:2px;">SMS · WhatsApp · Email · Voice · RCS</div>' +
+      '<div style="margin-top:4px;">' +
+      '📞 <a href="tel:+17869827800" style="color:#00C9FF;text-decoration:none;">+1 (786) 982-7800</a> &nbsp;|&nbsp;' +
+      '🌐 <a href="https://engwx.com" style="color:#00C9FF;text-decoration:none;">engwx.com</a> &nbsp;|&nbsp;' +
+      '📅 <a href="https://calendly.com/rob-engwx/30min" style="color:#00C9FF;text-decoration:none;">Book a demo</a>' +
+      '</div></td></tr></table>';
+      try {
+        await sendTenantEmail(supabase, {
+          tenant_id: EW_TENANT_ID,
+          to: senderEmail,
+          subject: replySubject,
+          text: aiReply + '\n\n--\nEngageWorx Team\nengwx.com',
+          html: htmlReply,
+          conversation_id: conversationId || undefined,
+        });
+        console.log('✅ AI reply sent to:', senderEmail);
+      } catch (sendErr) {
+        console.error('[email-inbound] AI reply send error:', sendErr.message);
+      }
+    } else {
+      // Any OTHER tenant — never send EW's sales reply. The per-tenant responder
+      // (analyzeAndActionEmail, below) answers with THIS tenant's configured persona.
+      console.log('[email-inbound] Tenant', resolvedTenantId, '(no concierge surface, not EngageWorx) — deferring to per-tenant responder; no EW reply sent.');
     }
 
     // ── Portal-user guard ─────────────────────────────────────────────────────
@@ -1090,7 +1130,11 @@ module.exports = async function handler(req, res) {
     tryQualifyProspect(senderEmail, emailBody, 'Email').catch(function() {});
 
     // ── AI Email Intelligence — Claude analysis + action ──────────────────────
-    analyzeAndActionEmail({ tenantId: resolvedTenantId, senderEmail: senderEmail, senderName: senderName, subject: subject, body: emailBody, conversationId: conversationId }).catch(function() {});
+    // Skip for wedding-concierge tenants: Emma already replied above, and the sales-pipeline
+    // actions (stage advance / sequence enrol / auto_reply) don't apply to a concierge tenant.
+    if (personaSurface !== 'wedding_concierge') {
+      analyzeAndActionEmail({ tenantId: resolvedTenantId, senderEmail: senderEmail, senderName: senderName, subject: subject, body: emailBody, conversationId: conversationId }).catch(function() {});
+    }
 
     // ── Notify admin via SendGrid ────────────────────────────────────────────
     notifyInboundSendGrid(senderName || senderEmail, 'Email', emailBody).catch(function() {});
