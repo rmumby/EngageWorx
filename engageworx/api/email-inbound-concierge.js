@@ -167,6 +167,28 @@ module.exports = async function handler(req, res) {
     }
   } catch (e) {}
 
+  // (a2) Match tenants.inbound_domain — dedicated inbound key (exact or subdomain),
+  // ahead of custom_domain/resend_domain. This is the authoritative destination mapping.
+  if (!tenantId && recipientDomain) {
+    var idParts = recipientDomain.split('.');
+    for (var idi = 0; idi <= idParts.length - 2; idi++) {
+      var idCand = idParts.slice(idi).join('.');
+      if (idCand.split('.').length < 2) continue;
+      try {
+        var { data: idMatch } = await supabase.from('tenants')
+          .select('id, name, brand_name, custom_domain, default_sender_email, resend_domain')
+          .ilike('inbound_domain', idCand).maybeSingle();
+        if (idMatch) {
+          tenantId = idMatch.id;
+          tenantName = idMatch.brand_name || idMatch.name;
+          tenantSenderEmail = idMatch.default_sender_email || (idMatch.resend_domain ? 'weddings@' + idMatch.resend_domain : null);
+          console.log('[email-concierge] Matched tenant:', idMatch.name, 'via inbound_domain:', idCand);
+          break;
+        }
+      } catch (e) { continue; }
+    }
+  }
+
   // (b) Progressive domain match: strip subdomains until custom_domain matches
   if (!tenantId && recipientDomain) {
     var domainParts = recipientDomain.split('.');
@@ -227,6 +249,17 @@ module.exports = async function handler(req, res) {
 
   if (!tenantId) {
     console.log('[email-concierge] No tenant for recipient:', recipientEmail, 'tried candidates for domain:', recipientDomain);
+    // Isolation fail-safe parity with email-inbound.js: log the unresolved destination.
+    // No attempted sender tenant here (concierge never sender-resolves) — bucket under the
+    // platform/SP tenant so the row satisfies NOT NULL and is auditable.
+    try {
+      await supabase.from('email_routing_violations').insert({
+        tenant_id: (process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
+        violation_type: 'inbound_destination_unresolved',
+        to_address: recipientEmail,
+        used_fallback: 'none',
+      });
+    } catch (_) {}
     return res.status(200).json({ ok: true, dropped: 'no_tenant_match' });
   }
 

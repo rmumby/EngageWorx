@@ -87,8 +87,9 @@ async function wrapAndDispatch(supabase, opts) {
         // lets the DB default now() store a session-tz-naive value, which renders ~2h
         // off in the client vs manual messages. (P2: AI timestamp tz mismatch.)
         created_at: sentAt,
-        // Persist the actual sent body HTML so the sent log == what was delivered.
-        metadata: Object.assign({}, opts.senderMeta || {}, { html: bodyContent }),
+        // Persist the actual sent body HTML so the sent log == what was delivered, and the
+        // from address used (observability — who sent as what).
+        metadata: Object.assign({}, opts.senderMeta || {}, { html: bodyContent, from_email: (tenantSenderEmail || recipientEmail) || null }),
       });
     } catch (outErr) {
       console.error('[wrapAndDispatch] Outbound message persist error:', outErr.message);

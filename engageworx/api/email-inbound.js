@@ -3,7 +3,7 @@
 // portal-user support routing, lead qualification/reactivation, sequence pausing.
 var { createClient } = require('@supabase/supabase-js');
 var { buildSystemPrompt } = require('./_lib/build-system-prompt');
-var { generateThreadId, makeReplyToAddress } = require('./_lib/reply-thread');
+var { generateThreadId, makeReplyToAddress, extractThreadId, resolveReplyThread } = require('./_lib/reply-thread');
 var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
@@ -161,6 +161,24 @@ async function resolveTenantByRecipient(toAddresses) {
     var addr = (toAddresses[i] || '').toLowerCase().trim();
     if (!addr) continue;
 
+    // (a0) Match against tenants.inbound_domain — dedicated inbound key (exact or subdomain).
+    // Highest priority: this is the authoritative destination→tenant mapping.
+    var d0 = addr.split('@')[1] || '';
+    if (d0) {
+      var p0 = d0.split('.');
+      for (var pi0 = 0; pi0 <= p0.length - 2; pi0++) {
+        var cand0 = p0.slice(pi0).join('.');
+        if (cand0.split('.').length < 2) continue;
+        try {
+          var idr = await supabase.from('tenants').select('id').ilike('inbound_domain', cand0).limit(1).maybeSingle();
+          if (idr.data) {
+            console.log('[Inbound] tenant matched by inbound_domain: ' + cand0 + ' tenant=' + idr.data.id);
+            return idr.data.id;
+          }
+        } catch (e) {}
+      }
+    }
+
     // (a) Match against inbound_email (highest priority — per-tenant inbound address)
     for (var j = 0; j < configs.length; j++) {
       var cfg = configs[j];
@@ -216,17 +234,24 @@ async function analyzeAndActionEmail(ctx) {
     var sender = (ctx.senderEmail || '').toLowerCase().trim();
     if (!sender) return;
 
-    // 1. Match: contact, lead, tenant
-    var match = { contactId: null, leadId: null, tenantId: null, leadStage: null };
+    // 1. Match: contact, lead, tenant. Tenant is AUTHORITATIVE from ctx.tenantId (resolved
+    // from the destination upstream). Contact/lead lookups are scoped to it so a cross-tenant
+    // sender match can never re-route the reply or leak another tenant's history. (When
+    // ctx.tenantId is absent — legacy callers — fall back to the prior sender resolution.)
+    var match = { contactId: null, leadId: null, tenantId: ctx.tenantId || null, leadStage: null };
     try {
-      var c = await supabase.from('contacts').select('id, tenant_id, pipeline_lead_id').ilike('email', sender).limit(1).maybeSingle();
-      if (c.data) { match.contactId = c.data.id; match.tenantId = c.data.tenant_id; match.leadId = c.data.pipeline_lead_id; }
+      var cq = supabase.from('contacts').select('id, tenant_id, pipeline_lead_id').ilike('email', sender);
+      if (ctx.tenantId) cq = cq.eq('tenant_id', ctx.tenantId);
+      var c = await cq.limit(1).maybeSingle();
+      if (c.data) { match.contactId = c.data.id; if (!match.tenantId) match.tenantId = c.data.tenant_id; match.leadId = c.data.pipeline_lead_id; }
     } catch(e) {}
     try {
       if (!match.leadId) {
-        var l = await supabase.from('leads').select('id, tenant_id, pipeline_stage_id').ilike('email', sender).limit(1).maybeSingle();
+        var lq = supabase.from('leads').select('id, tenant_id, pipeline_stage_id').ilike('email', sender);
+        if (ctx.tenantId) lq = lq.eq('tenant_id', ctx.tenantId);
+        var l = await lq.limit(1).maybeSingle();
         if (l.data) {
-          match.leadId = l.data.id; match.tenantId = match.tenantId || l.data.tenant_id;
+          match.leadId = l.data.id; if (!match.tenantId) match.tenantId = l.data.tenant_id;
           if (l.data.pipeline_stage_id) {
             var _lps = await supabase.from('pipeline_stages').select('stage_key').eq('id', l.data.pipeline_stage_id).maybeSingle();
             match.leadStage = (_lps.data && _lps.data.stage_key) || null;
@@ -683,14 +708,47 @@ module.exports = async function handler(req, res) {
     console.log('[Inbound] toParticipants:', toParticipants.map(function(p) { return p.email; }));
 
     // ── Resolve tenant: try recipient first (To: header), then sender ──────
-    var recipientTenantId = await resolveTenantByRecipient(toParticipants.map(function(p) { return p.email; }));
+    // ── ISOLATION FAIL-SAFE: resolve tenant from the DESTINATION only ──────────
+    // Priority: (1) our own reply-thread token in the To address (authoritative,
+    // destination-based), (2) recipient mapping (inbound_domain / inbound_email /
+    // from_email / custom_domain). NEVER fall back to the sender's tenant or a default
+    // tenant — an unknown destination must not be answered by a tenant the SENDER
+    // happens to exist in. (Breach: delamere-addressed mail handled by EngageWorx.)
+    var toEmails = toParticipants.map(function(p) { return p.email; });
+    var replyThreadTenantId = null, replyThreadConvId = null;
+    try {
+      for (var ti = 0; ti < toEmails.length; ti++) {
+        var tok = extractThreadId(toEmails[ti]);
+        if (tok) {
+          var rt = await resolveReplyThread(supabase, tok);
+          if (rt && rt.tenant_id) { replyThreadTenantId = rt.tenant_id; replyThreadConvId = rt.conversation_id || null; break; }
+        }
+      }
+    } catch (e) { console.warn('[Inbound] reply-thread resolve error:', e.message); }
+
+    var recipientTenantId = replyThreadTenantId || await resolveTenantByRecipient(toEmails);
+    // Resolved by sender ONLY for violation logging (which tenant it WOULD have leaked to).
+    // Never used for routing.
     var senderTenantId = await resolveTenantForSender(senderEmail);
-    console.log('[Inbound] tenant resolution: byRecipient=' + (recipientTenantId || 'none') + ' bySender=' + (senderTenantId || 'none'));
+    console.log('[Inbound] tenant resolution: byReplyToken=' + (replyThreadTenantId || 'none') + ' byRecipient=' + (recipientTenantId || 'none') + ' bySender(attempted-only)=' + (senderTenantId || 'none'));
+
+    if (!recipientTenantId) {
+      console.warn('🚫 [Inbound] Destination unresolved — quarantining (NO sender/default fallback). to=' + toEmails.join(', '));
+      try {
+        await supabase.from('email_routing_violations').insert({
+          tenant_id: senderTenantId || EW_TENANT_ID, // NOT NULL: record the tenant it would have leaked to
+          violation_type: 'inbound_destination_unresolved',
+          to_address: toEmails.join(', '),
+          used_fallback: senderTenantId ? ('would_route_sender_tenant:' + senderTenantId) : 'none',
+        });
+      } catch (logErr) { console.warn('[Inbound] violation log error:', logErr.message); }
+      return res.status(200).json({ skipped: true, reason: 'inbound_destination_unresolved' });
+    }
 
     // (d) Per-tenant blocklist check — shared matcher (api/_lib/blocklist): domain/subdomain,
     // '<local>@' pattern (e.g. noreply@), and full-address shapes, plus keyword-on-subject.
     // Rejects before any contact/conversation is created.
-    var blockCheckTenantId = recipientTenantId || senderTenantId;
+    var blockCheckTenantId = recipientTenantId; // destination-only (isolation fail-safe)
     if (blockCheckTenantId) {
       try {
         var tbRes = await supabase.from('tenants').select('blocked_domains, blocked_keywords').eq('id', blockCheckTenantId).maybeSingle();
@@ -705,7 +763,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Per-tenant spam filter ────────────────────────────────────────────────
-    var spamTenantId = recipientTenantId || senderTenantId;
+    var spamTenantId = recipientTenantId; // destination-only (isolation fail-safe)
     var spamCheck = await checkSpam(spamTenantId, senderEmail, subject);
     if (spamCheck.spam) {
       console.log('🚫 Spam detected:', spamCheck.matched, 'from:', senderEmail);
@@ -740,7 +798,7 @@ module.exports = async function handler(req, res) {
     }
 
     // ── Load tenant email config + apply signature stripping ─────────────────
-    var resolvedTenantId = recipientTenantId || senderTenantId || EW_TENANT_ID;
+    var resolvedTenantId = recipientTenantId; // destination-only — guaranteed non-null (unresolved already rejected above)
     var emailChannelConfig = {};
     try {
       var ecRes = await supabase.from('channel_configs').select('config_encrypted')
@@ -1032,7 +1090,7 @@ module.exports = async function handler(req, res) {
     tryQualifyProspect(senderEmail, emailBody, 'Email').catch(function() {});
 
     // ── AI Email Intelligence — Claude analysis + action ──────────────────────
-    analyzeAndActionEmail({ senderEmail: senderEmail, senderName: senderName, subject: subject, body: emailBody, conversationId: conversationId }).catch(function() {});
+    analyzeAndActionEmail({ tenantId: resolvedTenantId, senderEmail: senderEmail, senderName: senderName, subject: subject, body: emailBody, conversationId: conversationId }).catch(function() {});
 
     // ── Notify admin via SendGrid ────────────────────────────────────────────
     notifyInboundSendGrid(senderName || senderEmail, 'Email', emailBody).catch(function() {});
