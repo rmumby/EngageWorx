@@ -64,7 +64,7 @@ function dedupConversations(convos, contactMap, msgMap) {
       : (conv.unread_count || 0);
     return {
       id: conv.id,
-      contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [] },
+      contact: { name: name, phone: c ? c.phone || '' : '', email: c ? c.email || '' : '', company: c ? c.company || '' : '', avatar: initials, channel: conv.channel || 'email', tags: c ? c.tags || [] : [], is_blocked: c ? !!c.is_blocked : false },
       channel: (conv.channel || 'email').toLowerCase(),
       messages: allMsgs,
       status: conv.status || 'active',
@@ -676,7 +676,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var uniqueCIds = [...new Set(cIds)];
           var cMap = {};
           if (uniqueCIds.length > 0) {
-            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', uniqueCIds);
+            var cResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags, is_blocked').in('id', uniqueCIds);
             if (cResult.data) cResult.data.forEach(function(c) { cMap[c.id] = c; });
           }
           
@@ -834,7 +834,7 @@ useEffect(function() {
         const uniqueCIds = [...new Set(cIds)];
         var contactMap = {};
         if (uniqueCIds.length > 0) {
-          const { data: cData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', uniqueCIds);
+          const { data: cData } = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags, is_blocked').in('id', uniqueCIds);
           if (cData) cData.forEach(function(c) { contactMap[c.id] = c; });
         }
 
@@ -1101,7 +1101,7 @@ useEffect(function() {
           var reloadCIds = [...new Set(reloadConvos.map(function(c) { return c.contact_id; }).filter(Boolean))];
           var reloadContactMap = {};
           if (reloadCIds.length > 0) {
-            var reloadCResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags').in('id', reloadCIds);
+            var reloadCResult = await supabase.from('contacts').select('id, first_name, last_name, email, phone, mobile_phone, whatsapp_number, company, tags, is_blocked').in('id', reloadCIds);
             if (reloadCResult.data) reloadCResult.data.forEach(function(c) { reloadContactMap[c.id] = c; });
           }
           setConversations(dedupConversations(reloadConvos, reloadContactMap, null));
@@ -1614,6 +1614,7 @@ useEffect(function() {
                 <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 {!isMobile && <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>}
                 {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
+                {selectedConv.contact && selectedConv.contact.is_blocked && <span title="You won't send sequences or messages to this contact" style={{ background: "#64748b22", color: "#94a3b8", border: "1px solid #64748b55", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>BLOCKED</span>}
               </div>
               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.company}{!isMobile && (" · " + selectedConv.contact.phone)}</div>
             </div>
@@ -1997,15 +1998,28 @@ useEffect(function() {
                     setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: myAssignee, ai_assigned: false }) : prev; });
                     setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { assignedTo: myAssignee, ai_assigned: false }) : c; }); });
                   }},
-                  { label: "Block", icon: "🚫", action: async function() {
-                    // OUTBOUND suppression: mark the contact blocked (contacts.is_blocked) so
-                    // sequences / campaigns / AI auto-send skip them. Then resolve the thread.
+                  // OUTBOUND suppression toggle (contacts.is_blocked) — distinct from "Block
+                  // Sender" (inbound filter, lives in Settings). Block resolves the thread;
+                  // Unblock just clears the flag and stays put.
+                  { label: (selectedConv.contact && selectedConv.contact.is_blocked) ? "Unblock" : "Block",
+                    icon: (selectedConv.contact && selectedConv.contact.is_blocked) ? "✅" : "🚫",
+                    action: async function() {
+                    var isBlocked = !!(selectedConv.contact && selectedConv.contact.is_blocked);
                     var contactId = selectedConv.contact_id;
                     var tId = selectedConv.tenant_id || currentTenantId;
                     var who = (selectedConv.contact && (selectedConv.contact.name || selectedConv.contact.email)) || 'Contact';
-                    if (!contactId) { alert('No contact to block on this conversation.'); return; }
-                    if (!window.confirm('Block ' + who + "? They won't receive sequences or messages from you.")) return;
+                    if (!contactId) { alert('No contact on this conversation.'); return; }
                     if (!supabase) return;
+                    if (isBlocked) {
+                      var ru = await supabase.rpc('set_contact_blocked', { p_tenant_id: tId, p_contact_id: contactId, p_blocked: false });
+                      if (ru.error) { alert('Failed to unblock: ' + ru.error.message); return; }
+                      setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { contact: Object.assign({}, prev.contact, { is_blocked: false }) }) : prev; });
+                      setConversations(function(prev) { return prev.map(function(c) { return c.contact_id === contactId ? Object.assign({}, c, { contact: Object.assign({}, c.contact, { is_blocked: false }) }) : c; }); });
+                      setKbToast(who + ' unblocked — they can receive sequences and messages again.');
+                      setTimeout(function() { setKbToast(null); }, 4000);
+                      return;
+                    }
+                    if (!window.confirm('Block ' + who + "? They won't receive sequences or messages from you.")) return;
                     var r = await supabase.rpc('set_contact_blocked', { p_tenant_id: tId, p_contact_id: contactId, p_blocked: true });
                     if (r.error) { alert('Failed to block: ' + r.error.message); return; }
                     console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-contact');

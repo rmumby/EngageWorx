@@ -380,6 +380,7 @@ export default function ContactManager({ tenantId }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
+  const [blockedOnly, setBlockedOnly] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editContact, setEditContact] = useState(null);
@@ -493,7 +494,8 @@ export default function ContactManager({ tenantId }) {
     const matchesSearch = !search || [c.first_name, c.last_name, c.phone, c.email]
       .filter(Boolean).some(f => f.toLowerCase().includes(search.toLowerCase()));
     const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
-    return matchesSearch && matchesTag;
+    const matchesBlocked = !blockedOnly || c.is_blocked;
+    return matchesSearch && matchesTag && matchesBlocked;
   });
 
   const totalPages = Math.ceil(filtered.length / perPage);
@@ -603,6 +605,16 @@ export default function ContactManager({ tenantId }) {
               {allTags.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           )}
+          <button
+            onClick={() => { setBlockedOnly(v => !v); setPage(0); }}
+            title="Blocked contacts won't receive sequences or messages from you"
+            style={{
+              background: blockedOnly ? "#64748b22" : C.surface,
+              border: `1px solid ${blockedOnly ? "#64748b" : C.border}`,
+              borderRadius: 10, padding: "11px 14px", color: blockedOnly ? "#94a3b8" : C.text,
+              fontSize: 13, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >{blockedOnly ? "✓ Blocked" : "Blocked"}</button>
 
           {selected.size > 0 && (
             <button onClick={() => deleteContacts([...selected])} style={{
@@ -697,8 +709,9 @@ export default function ContactManager({ tenantId }) {
                             {(c.first_name?.[0] || c.phone?.[0] || "?").toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>
+                            <div style={{ color: C.text, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                               {[c.first_name, c.last_name].filter(Boolean).join(" ") || "—"}
+                              {c.is_blocked && <span title="You won't send sequences or messages to this contact" style={{ background: "#64748b22", color: "#94a3b8", border: "1px solid #64748b55", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>BLOCKED</span>}
                             </div>
                           </div>
                         </div>
