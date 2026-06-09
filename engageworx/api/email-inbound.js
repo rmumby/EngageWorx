@@ -8,6 +8,7 @@ var { checkEscalationTriggers } = require('./_lib/check-escalation-triggers');
 var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
+var { checkInboundBlock } = require('./_lib/blocklist');
 
 // Disable Vercel's default body parser — SendGrid sends multipart/form-data
 module.exports.config = { api: { bodyParser: false } };
@@ -200,17 +201,10 @@ async function checkSpam(tenantId, senderEmail, subject) {
   if (!tenantId) return { spam: false };
   try {
     var t = await supabase.from('tenants').select('blocked_domains, blocked_keywords').eq('id', tenantId).maybeSingle();
-    var domains = (t.data && Array.isArray(t.data.blocked_domains)) ? t.data.blocked_domains : [];
-    var keywords = (t.data && Array.isArray(t.data.blocked_keywords)) ? t.data.blocked_keywords : [];
-    var s = (senderEmail || '').toLowerCase();
-    var subj = (subject || '').toLowerCase();
-    for (var i = 0; i < domains.length; i++) {
-      var d = String(domains[i] || '').toLowerCase().trim();
-      if (d && s.indexOf(d) !== -1) return { spam: true, matched: 'domain:' + d };
-    }
-    for (var j = 0; j < keywords.length; j++) {
-      var k = String(keywords[j] || '').toLowerCase().trim();
-      if (k && subj.indexOf(k) !== -1) return { spam: true, matched: 'keyword:' + k };
+    if (t.data) {
+      // Shared matcher: domain/subdomain, '<local>@' pattern, full-address, + keyword-on-subject.
+      var blk = checkInboundBlock(senderEmail, subject, { domains: t.data.blocked_domains, keywords: t.data.blocked_keywords });
+      if (blk.blocked) return { spam: true, matched: blk.matched };
     }
   } catch (e) { console.warn('[Spam] check error:', e.message); }
   return { spam: false };
@@ -693,22 +687,18 @@ module.exports = async function handler(req, res) {
     var senderTenantId = await resolveTenantForSender(senderEmail);
     console.log('[Inbound] tenant resolution: byRecipient=' + (recipientTenantId || 'none') + ' bySender=' + (senderTenantId || 'none'));
 
-    // (d) Per-tenant blocked_domains check
+    // (d) Per-tenant blocklist check — shared matcher (api/_lib/blocklist): domain/subdomain,
+    // '<local>@' pattern (e.g. noreply@), and full-address shapes, plus keyword-on-subject.
+    // Rejects before any contact/conversation is created.
     var blockCheckTenantId = recipientTenantId || senderTenantId;
     if (blockCheckTenantId) {
       try {
-        var tbRes = await supabase.from('tenants').select('blocked_domains').eq('id', blockCheckTenantId).maybeSingle();
-        var tBlocked = (tbRes.data && Array.isArray(tbRes.data.blocked_domains)) ? tbRes.data.blocked_domains : [];
-        if (tBlocked.length > 0) {
-          var sDomain = fromLower.split('@')[1] || '';
-          var blocked = tBlocked.some(function(entry) {
-            entry = (entry || '').toLowerCase().trim();
-            if (entry.indexOf('@') > -1) return fromLower === entry;
-            return sDomain === entry || sDomain.endsWith('.' + entry);
-          });
-          if (blocked) {
-            console.log('🚫 Blocked by tenant blocklist: ' + fromLower);
-            return res.status(200).json({ skipped: true, reason: 'tenant_blocklist' });
+        var tbRes = await supabase.from('tenants').select('blocked_domains, blocked_keywords').eq('id', blockCheckTenantId).maybeSingle();
+        if (tbRes.data) {
+          var blk = checkInboundBlock(senderEmail, subject, { domains: tbRes.data.blocked_domains, keywords: tbRes.data.blocked_keywords });
+          if (blk.blocked) {
+            console.log('🚫 Blocked by tenant blocklist: ' + fromLower + ' (' + blk.matched + ')');
+            return res.status(200).json({ skipped: true, reason: 'tenant_blocklist', matched: blk.matched });
           }
         }
       } catch (e) { console.log('Tenant blocklist check error:', e.message); }

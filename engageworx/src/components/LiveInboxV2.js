@@ -1997,50 +1997,47 @@ useEffect(function() {
                     setSelectedConv(function(prev) { return prev ? Object.assign({}, prev, { assignedTo: myAssignee, ai_assigned: false }) : prev; });
                     setConversations(function(prev) { return prev.map(function(c) { return c.id === selectedConv.id ? Object.assign({}, c, { assignedTo: myAssignee, ai_assigned: false }) : c; }); });
                   }},
-                  { label: "Block", icon: "🚫", action: function() {
-                    if (window.confirm('Block this contact? They will no longer be able to message you.')) {
-                      if (supabase) {
-                        console.warn('[status-audit] conv=' + selectedConv.id + ' status=blocked via=block-button');
-                        logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'blocked', via: 'block-button' });
-                        supabase.from('conversations').update({ status: 'blocked' }).eq('id', selectedConv.id).then(function() {
-                          setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
-                          setSelectedConv(null);
-                        });
-                      }
-                    }
-                  }},
-                  { label: "Block Sender", icon: "🛡️", action: function(e) {
-                    var senderAddr = ((selectedConv.contact && selectedConv.contact.email) || selectedConv.contact.phone || '').toLowerCase().trim();
-                    var domain = senderAddr.indexOf('@') > -1 ? senderAddr.split('@')[1] : '';
-                    var useExact = e && e.shiftKey;
-                    var blockEntry = useExact ? senderAddr : domain;
-                    var tId = selectedConv.tenant_id || currentTenantId;
+                  { label: "Block", icon: "🚫", action: async function() {
+                    // OUTBOUND suppression: mark the contact blocked (contacts.is_blocked) so
+                    // sequences / campaigns / AI auto-send skip them. Then resolve the thread.
                     var contactId = selectedConv.contact_id;
-                    if (!blockEntry) { alert('No sender address to block.'); return; }
-                    if (!window.confirm('Block "' + blockEntry + '"?\n\nThis will:\n• Add to blocked senders list\n• Resolve this conversation\n• Delete the contact\n\n(Hold Shift + click to block exact address instead of domain)')) return;
+                    var tId = selectedConv.tenant_id || currentTenantId;
+                    var who = (selectedConv.contact && (selectedConv.contact.name || selectedConv.contact.email)) || 'Contact';
+                    if (!contactId) { alert('No contact to block on this conversation.'); return; }
+                    if (!window.confirm('Block ' + who + "? They won't receive sequences or messages from you.")) return;
                     if (!supabase) return;
-                    // 1. Add to tenant blocked_domains
-                    supabase.from('tenants').select('blocked_domains').eq('id', tId).maybeSingle().then(function(r) {
-                      var existing = (r.data && Array.isArray(r.data.blocked_domains)) ? r.data.blocked_domains : [];
-                      if (existing.indexOf(blockEntry) === -1) {
-                        supabase.from('tenants').update({ blocked_domains: existing.concat([blockEntry]) }).eq('id', tId);
-                      }
-                    });
-                    // 2. Resolve all conversations for this contact
-                    console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-sender contact=' + (contactId || 'none'));
-                    logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-sender', contact_id: contactId || null });
-                    if (contactId) {
-                      supabase.from('conversations').update({ status: 'resolved' }).eq('contact_id', contactId).eq('tenant_id', tId);
-                    } else {
-                      supabase.from('conversations').update({ status: 'resolved' }).eq('id', selectedConv.id);
-                    }
-                    // 3. Delete the contact
-                    if (contactId) {
-                      supabase.from('contacts').delete().eq('id', contactId).eq('tenant_id', tId);
-                    }
-                    // 4. Update local state
+                    var r = await supabase.rpc('set_contact_blocked', { p_tenant_id: tId, p_contact_id: contactId, p_blocked: true });
+                    if (r.error) { alert('Failed to block: ' + r.error.message); return; }
+                    console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-contact');
+                    logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-contact', contact_id: contactId });
+                    await supabase.from('conversations').update({ status: 'resolved' }).eq('id', selectedConv.id);
                     setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
                     setSelectedConv(null);
+                    setKbToast(who + " blocked — they won't receive sequences or messages from you.");
+                    setTimeout(function() { setKbToast(null); }, 4000);
+                  }},
+                  { label: "Block Sender", icon: "🛡️", action: async function() {
+                    // INBOUND blocking: add the sender to the tenant blocklist (jsonb) via RPC,
+                    // then resolve the thread. Freemail safety rail: block the EXACT address for
+                    // shared providers (gmail/outlook/etc.), the DOMAIN otherwise. The server RPC
+                    // also refuses bare freemail domains as a backstop — surface that error.
+                    var FREEMAIL = ['gmail.com','googlemail.com','outlook.com','hotmail.com','live.com','msn.com','yahoo.com','ymail.com','icloud.com','me.com','mac.com','aol.com','proton.me','protonmail.com','gmx.com','zoho.com'];
+                    var senderAddr = ((selectedConv.contact && selectedConv.contact.email) || '').toLowerCase().trim();
+                    if (!senderAddr || senderAddr.indexOf('@') === -1) { alert('No email sender address to block.'); return; }
+                    var domain = senderAddr.split('@')[1];
+                    var blockEntry = FREEMAIL.indexOf(domain) !== -1 ? senderAddr : domain;
+                    var tId = selectedConv.tenant_id || currentTenantId;
+                    if (!window.confirm('Block "' + blockEntry + '"? Future mail from it is rejected before reaching your inbox.')) return;
+                    if (!supabase) return;
+                    var r = await supabase.rpc('add_blocked_domain', { p_tenant_id: tId, p_entry: blockEntry });
+                    if (r.error) { alert('Could not block "' + blockEntry + '": ' + r.error.message); return; }
+                    console.warn('[status-audit] conv=' + selectedConv.id + ' status=resolved via=block-sender');
+                    logDebug(supabase, 'status-audit', { conv_id: selectedConv.id, prev_status: selectedConv.status, new_status: 'resolved', via: 'block-sender', entry: blockEntry });
+                    await supabase.from('conversations').update({ status: 'resolved' }).eq('id', selectedConv.id);
+                    setConversations(function(prev) { return prev.filter(function(c) { return c.id !== selectedConv.id; }); });
+                    setSelectedConv(null);
+                    setKbToast('Blocked ' + blockEntry + '. Future mail is rejected before reaching your inbox.');
+                    setTimeout(function() { setKbToast(null); }, 4000);
                   }},
                   { label: "Add Note", icon: "📝", action: function() {
                     var note = window.prompt('Add a note to this conversation:');

@@ -112,6 +112,17 @@ module.exports = async function handler(req, res) {
     console.warn('[action-items/send] No conversationId — message row will not be stored. item:', itemId, 'contactId:', contactId, 'tenant_id:', item.tenant_id);
   }
 
+  // Outbound suppression: never send to a blocked contact (Inbox "Block" → contacts.is_blocked).
+  if (contactId) {
+    try {
+      var blkChk = await supabase.from('contacts').select('is_blocked').eq('id', contactId).eq('tenant_id', item.tenant_id).maybeSingle();
+      if (blkChk.data && blkChk.data.is_blocked) {
+        console.log('[action-items/send] ⛔ Contact blocked — refusing send. item:', itemId, 'contact:', contactId);
+        return res.status(409).json({ error: 'Contact is blocked — unblock before sending.', blocked: true });
+      }
+    } catch (blkErr) { console.warn('[action-items/send] blocked-contact check error:', blkErr.message); }
+  }
+
   // Send to each recipient via tenant's configured email method
   var sendErrors = [];
   var sendResults = [];

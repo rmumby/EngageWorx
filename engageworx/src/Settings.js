@@ -825,36 +825,36 @@ if (!tenantId) {
       } catch (e) {}
     })();
   }, [activeTab, demoMode, resolvedTenantId]);
-  const saveEmailFilters = async (nextDomains, nextKeywords) => {
+  // All writes go through the tenant-scoped jsonb RPCs (one source of truth, shared with the
+  // Inbox "Block Sender" action). The RPC returns the updated array; state mirrors it. The
+  // freemail safety rail lives server-side (add_blocked_domain refuses bare freemail domains) —
+  // surface that error to the user.
+  const runBlockRpc = async (fn, entry, setter) => {
     if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
-    const domains = nextDomains || blockedDomains;
-    const keywords = nextKeywords || blockedKeywords;
     setEmailFilterSaving(true);
     try {
-      await supabase.from('tenants').update({ blocked_domains: domains, blocked_keywords: keywords }).eq('id', resolvedTenantId);
-      setBlockedDomains(domains);
-      setBlockedKeywords(keywords);
+      const { data, error } = await supabase.rpc(fn, { p_tenant_id: resolvedTenantId, p_entry: entry });
+      if (error) throw error;
+      if (Array.isArray(data)) setter(data);
       setEmailFilterSaved(true);
       setTimeout(() => setEmailFilterSaved(false), 2000);
-    } catch (e) { alert('Error: ' + e.message); }
+    } catch (e) { alert('Error: ' + (e.message || e)); }
     setEmailFilterSaving(false);
   };
   const addBlockedDomain = () => {
     const v = (newBlockedDomain || '').trim().toLowerCase();
-    if (!v || blockedDomains.includes(v)) { setNewBlockedDomain(''); return; }
-    const next = blockedDomains.concat([v]);
+    if (!v) { setNewBlockedDomain(''); return; }
     setNewBlockedDomain('');
-    saveEmailFilters(next, null);
+    runBlockRpc('add_blocked_domain', v, setBlockedDomains);
   };
-  const removeBlockedDomain = (d) => saveEmailFilters(blockedDomains.filter(x => x !== d), null);
+  const removeBlockedDomain = (d) => runBlockRpc('remove_blocked_domain', d, setBlockedDomains);
   const addBlockedKeyword = () => {
     const v = (newBlockedKeyword || '').trim();
-    if (!v || blockedKeywords.includes(v)) { setNewBlockedKeyword(''); return; }
-    const next = blockedKeywords.concat([v]);
+    if (!v) { setNewBlockedKeyword(''); return; }
     setNewBlockedKeyword('');
-    saveEmailFilters(null, next);
+    runBlockRpc('add_blocked_keyword', v, setBlockedKeywords);
   };
-  const removeBlockedKeyword = (k) => saveEmailFilters(null, blockedKeywords.filter(x => x !== k));
+  const removeBlockedKeyword = (k) => runBlockRpc('remove_blocked_keyword', k, setBlockedKeywords);
 
   // Per-tenant AI digest email + Calendly
   useEffect(() => {

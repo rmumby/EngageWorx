@@ -531,6 +531,21 @@ async function processDueSteps(supabase) {
       // resolveContactFields() handles missing names with the "there" fallback.
       // Earlier backfill block (removed) corrupted lead.name with email local-parts.
 
+      // GUARD 0: outbound suppression — never send to a blocked contact (Inbox "Block" →
+      // contacts.is_blocked). Pause the enrolment so it stops retrying.
+      if (lead.email) {
+        try {
+          var blkRes = await supabase.from('contacts').select('is_blocked')
+            .eq('tenant_id', sequence.tenant_id).ilike('email', lead.email).limit(1).maybeSingle();
+          if (blkRes.data && blkRes.data.is_blocked) {
+            console.log('[Sequences] ⛔ Contact blocked — skipping send + pausing enrolment for', lead.email);
+            await supabase.from('lead_sequences').update({ status: 'paused' }).eq('id', enrolment.id);
+            try { await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'paused', reason: 'Contact is blocked (is_blocked=true) — outbound suppressed' }); } catch (_) {}
+            continue;
+          }
+        } catch (blkErr) { console.warn('[Sequences] blocked-contact check error:', blkErr.message); }
+      }
+
       // GUARD 1: Max touches in time window (2 emails per 7 days)
       var MAX_EMAILS_PER_WINDOW = 2;
       var WINDOW_DAYS = 7;

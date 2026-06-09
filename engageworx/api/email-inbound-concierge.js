@@ -11,6 +11,7 @@ var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation')
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { getSignature, composeHtmlBody, composeTextBody } = require('./_email-signature');
 var { wrapAndDispatch } = require('./_lib/wrap-and-dispatch');
+var { checkInboundBlock } = require('./_lib/blocklist');
 
 function getSupabase() {
   return createClient(
@@ -252,6 +253,22 @@ module.exports = async function handler(req, res) {
   }
   console.log('[email-concierge] Matched surface:', matchedSurface, 'for tenant:', tenantId);
 
+  // ── 3a. Inbound blocklist gate — reject blocked senders BEFORE any contact/conversation
+  // create or AI/auto-send. Shared matcher with the general inbound path (api/_lib/blocklist).
+  // This is the root-cause fix for the concierge auto-replying to e.g.
+  // messages-noreply@linkedin.com despite linkedin.com + no-reply@ being blocked.
+  try {
+    var { data: blkCfg } = await supabase.from('tenants')
+      .select('blocked_domains, blocked_keywords').eq('id', tenantId).maybeSingle();
+    if (blkCfg) {
+      var blk = checkInboundBlock(senderEmail, subject, { domains: blkCfg.blocked_domains, keywords: blkCfg.blocked_keywords });
+      if (blk.blocked) {
+        console.log('🚫 [email-concierge] Blocked by tenant blocklist:', blk.matched, 'sender:', senderEmail);
+        return res.status(200).json({ ok: true, dropped: 'tenant_blocklist', matched: blk.matched });
+      }
+    }
+  } catch (blkErr) { console.warn('[email-concierge] Blocklist check error (non-fatal):', blkErr.message); }
+
   // ── 3b. Persist inbound to messages (unconditional — ensures Live Inbox visibility) ──
   var earlyContactId = null;
   var earlyConversationId = null;
@@ -296,10 +313,17 @@ module.exports = async function handler(req, res) {
 
   // ── 4. Contact + couple resolution ─────────────────────────────────────
   var { data: contact } = await supabase.from('contacts')
-    .select('id, first_name, last_name, email')
+    .select('id, first_name, last_name, email, is_blocked')
     .eq('tenant_id', tenantId)
     .ilike('email', senderEmail)
     .limit(1).maybeSingle();
+
+  // Outbound suppression: a contact marked blocked (Inbox "Block") never gets an AI
+  // auto-reply/draft. Inbound is already persisted above for visibility; we just stop here.
+  if (contact && contact.is_blocked) {
+    console.log('🚫 [email-concierge] Contact is_blocked — skipping AI/auto-send for:', senderEmail);
+    return res.status(200).json({ ok: true, action: 'contact_blocked', conversation_id: earlyConversationId || null });
+  }
 
   var contactId = contact ? contact.id : (earlyContactId || null);
   var contactName = contact ? [contact.first_name, contact.last_name].filter(Boolean).join(' ') : (senderName || senderEmail.split('@')[0]);
