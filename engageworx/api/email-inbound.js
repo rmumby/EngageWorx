@@ -10,9 +10,7 @@ var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { checkInboundBlock } = require('./_lib/blocklist');
 var { generateConciergeResponse } = require('./wedding-concierge');
-
-// Disable Vercel's default body parser — SendGrid sends multipart/form-data
-module.exports.config = { api: { bodyParser: false } };
+var { getBookingIntegration } = require('./_lib/booking-integration');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -278,6 +276,19 @@ async function analyzeAndActionEmail(ctx) {
       }
     } catch(e) {}
 
+    // Booking-integration config (Path A self-booking link / Path B API), read at runtime
+    // from the channel='booking' config_encrypted for the resolved tenant (value loaded
+    // out-of-band). Surfaced for downstream booking handoff / failure escalation; a no-op
+    // when unconfigured. Keyed on the resolved tenant — no tenant data hardcoded.
+    var bookingIntegration = null;
+    try {
+      bookingIntegration = await getBookingIntegration(supabase, match.tenantId);
+      if (bookingIntegration) {
+        console.log('[Inbound] booking_integration loaded for tenant ' + match.tenantId +
+          ': active_path=' + (bookingIntegration.active_path || 'unset'));
+      }
+    } catch (e) { console.warn('[Inbound] booking_integration read error: ' + e.message); }
+
     // 2. Last 3 interactions for this contact
     var history = [];
     if (match.contactId) {
@@ -344,7 +355,13 @@ async function analyzeAndActionEmail(ctx) {
       '\n\nReturn JSON only.';
 
     var emailCbTemp = null;
-    try { var emailCb = await supabase.from('chatbot_configs').select('temperature').eq('tenant_id', match.tenantId).maybeSingle(); if (emailCb.data) emailCbTemp = emailCb.data.temperature; } catch (_) {}
+    // ai_reply_mode gates whether the per-tenant responder may auto-send (used in the auto_reply
+    // block below). FAIL-CLOSED: if the config row can't be resolved (no row, or a multi-row
+    // maybeSingle error), default to HOLDING the reply (draft_review) rather than auto-sending —
+    // the safe direction for a review platform. A resolved row keeps its explicit mode; a resolved
+    // row with ai_reply_mode unset still defaults to auto_send (behavior-neutral for live tenants).
+    var replyMode = 'draft_review';
+    try { var emailCb = await supabase.from('chatbot_configs').select('temperature, ai_reply_mode').eq('tenant_id', match.tenantId).maybeSingle(); if (emailCb.data) { emailCbTemp = emailCb.data.temperature; replyMode = emailCb.data.ai_reply_mode || 'auto_send'; } } catch (_) {}
 
     var decision = { action: 'review', reasoning: 'Claude unavailable', summary: (ctx.body || '').substring(0, 200), reply_draft: null, new_stage: null, sequence_name: null };
     try {
@@ -399,19 +416,8 @@ async function analyzeAndActionEmail(ctx) {
         var eiThreadId = generateThreadId();
         var eiReplyTo = makeReplyToAddress(eiThreadId);
 
-        await sendTenantEmail(supabase, {
-          tenant_id: match.tenantId,
-          to: sender,
-          subject: replySubj,
-          text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
-          html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
-          reply_to: eiReplyTo,
-          bcc: (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) ? aiCtx.aiOmniBcc : undefined,
-        });
-
-        if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
-
-        // Save outbound message to Live Inbox
+        // Resolve (or create) the conversation up front — needed by BOTH the held draft
+        // (draft_review) and the outbound message (auto_send).
         var outConvId = ctx.conversationId || null;
         if (!outConvId && match.contactId && match.tenantId) {
           try {
@@ -425,23 +431,58 @@ async function analyzeAndActionEmail(ctx) {
             if (newConv.data) outConvId = newConv.data.id;
           } catch (e) {}
         }
-        if (outConvId) {
+
+        // ── SEND GATE on ai_reply_mode (the Haiku classification above is untouched) ──
+        if (replyMode === 'draft_review') {
+          // Review mode: DO NOT send to the contact. Hold the AI reply as a pending draft on the
+          // conversation so it surfaces in Live Inbox → Drafts for human Approve & Send. Store the
+          // body-only HTML; the brand wrap + signature are applied at approve time
+          // (draft-approve → wrapAndDispatch), matching the concierge draft_review path.
+          if (outConvId) {
+            try {
+              await supabase.rpc('save_ai_draft', { p_tenant_id: match.tenantId, p_conversation_id: outConvId, p_body: decision.reply_draft, p_html: bodyHtml, p_channel: 'email' });
+              if (actionId) await supabase.from('email_actions').update({ status: 'drafted' }).eq('id', actionId);
+              console.log('✅ [email-inbound] Per-tenant DRAFT held (draft_review) conv=' + outConvId + ' tenant=' + match.tenantId + ' — NO auto-send; in Live Inbox → Drafts for review');
+            } catch (dErr) { console.error('[email-inbound] save_ai_draft error:', dErr.message); }
+          } else {
+            console.error('[email-inbound] draft_review: could not resolve conversation — draft NOT held. tenant=' + match.tenantId + ' contact=' + match.contactId);
+          }
+        } else if (replyMode === 'off') {
+          // AI auto-replies disabled: neither send nor draft. The email_actions 'pending' row stands as the record.
+          console.log('[email-inbound] ai_reply_mode=off — no auto-send, no draft. tenant=' + match.tenantId);
+        } else {
+          // auto_send (default): reply to the contact now (unchanged behavior).
+          await sendTenantEmail(supabase, {
+            tenant_id: match.tenantId,
+            to: sender,
+            subject: replySubj,
+            text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
+            html: _sig.composeHtmlBody(bodyHtml, sigInfo.closingLine, sigInfo.signatureHtml),
+            reply_to: eiReplyTo,
+            bcc: (aiCtx.aiOmniBcc && aiCtx.aiOmniBcc !== sender) ? aiCtx.aiOmniBcc : undefined,
+          });
+
+          if (actionId) await supabase.from('email_actions').update({ status: 'actioned', actioned_at: new Date().toISOString() }).eq('id', actionId);
+
+          // Save outbound message to Live Inbox
+          if (outConvId) {
+            try {
+              await supabase.from('messages').insert({
+                tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
+                channel: 'email', direction: 'outbound', sender_type: 'bot',
+                body: decision.reply_draft, status: 'sent',
+                metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, source: 'auto_reply', from: aiCtx.fromEmail, to: sender, subject: replySubj },
+                created_at: new Date().toISOString(),
+              });
+              await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
+            } catch (saveErr) { console.error('[email-inbound] Outbound message save error:', saveErr.message); }
+          }
           try {
-            await supabase.from('messages').insert({
-              tenant_id: match.tenantId, conversation_id: outConvId, contact_id: match.contactId,
-              channel: 'email', direction: 'outbound', sender_type: 'bot',
-              body: decision.reply_draft, status: 'sent',
-              metadata: { reply_thread_id: eiThreadId, reply_to_address: eiReplyTo, source: 'auto_reply', from: aiCtx.fromEmail, to: sender, subject: replySubj },
-              created_at: new Date().toISOString(),
-            });
-            await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), status: 'waiting' }).eq('id', outConvId);
-          } catch (saveErr) { console.error('[email-inbound] Outbound message save error:', saveErr.message); }
+            var _eum = require('./_usage-meter');
+            _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
+          } catch (mErr) {}
         }
-        try {
-          var _eum = require('./_usage-meter');
-          _eum.incrementTenantCounter(supabase, match.tenantId, 'email_used', 1);
-        } catch (mErr) {}
-      } catch (seErr) { console.warn('[EmailAI] Auto-reply send error:', seErr.message); }
+      } catch (seErr) { console.warn('[EmailAI] Auto-reply handling error:', seErr.message); }
     }
 
     // 6. Auto-execute stage advance if lead exists
@@ -1240,3 +1281,10 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ error: err.message });
   }
 };
+
+// Disable Vercel's default body parser — SendGrid sends multipart/form-data.
+// MUST be set AFTER `module.exports = handler` above: assigning the handler to
+// module.exports replaces the exports object, so an earlier `module.exports.config`
+// would be silently dropped (raw-body parsing would break). Attaching config as a
+// property of the exported handler keeps both the handler and the config.
+module.exports.config = { api: { bodyParser: false } };
