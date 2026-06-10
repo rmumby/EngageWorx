@@ -356,9 +356,11 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
           if (bd.site_name) siteInfo = ' (' + bd.site_name + ')';
         } catch (e) {}
       }
+      var _s = await supabase.auth.getSession();
+      var _tok = _s && _s.data && _s.data.session ? _s.data.session.access_token : '';
       var r = await fetch('/api/ai-advisor', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _tok },
         body: JSON.stringify({
           max_tokens: 200,
           messages: [{ role: 'user', content: 'Write a 2-3 sentence business description for "' + companyLabel + siteInfo + '". This will be used as an AI chatbot knowledge base so the AI can answer customer questions. Be specific and factual. Output only the description, no preamble.' }],
@@ -375,9 +377,11 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     if (!businessDescription.trim()) { alert('Add a business description first — AI needs it to generate relevant FAQs.'); return; }
     setFaqGenerating(true);
     try {
+      var _s = await supabase.auth.getSession();
+      var _tok = _s && _s.data && _s.data.session ? _s.data.session.access_token : '';
       var r = await fetch('/api/ai-advisor', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _tok },
         body: JSON.stringify({
           max_tokens: 400,
           messages: [{ role: 'user', content: 'Based on this business description, generate exactly 3 customer FAQs as a JSON array of {q, a} objects. Each answer should be 1-2 sentences. Output ONLY the JSON array, no markdown.\n\nBusiness: ' + businessDescription.trim() }],

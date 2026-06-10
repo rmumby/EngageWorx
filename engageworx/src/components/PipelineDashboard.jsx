@@ -272,9 +272,11 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
   const handleAI = async () => {
     setAiLoading(true); setAiText("");
     try {
+      const _s = await supabase.auth.getSession();
+      const _tok = _s && _s.data && _s.data.session ? _s.data.session.access_token : "";
       const res = await fetch("/api/ai-advisor", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + _tok },
         body: JSON.stringify({
           max_tokens: 1000,
           messages: [{ role: "user", content: "You are a sharp B2B sales advisor for EngageWorx. Company: " + (form.company || "unknown") + " | Stage: " + stage.label + " | Urgency: " + form.urgency + " | Days stale: " + (daysSince(form.last_action_at) || "unknown") + " | Notes: " + (form.notes || "none") + "\n\nGive 3 specific punchy next actions, each starting with. Then one sentence on key risk or opportunity. No fluff." }],
