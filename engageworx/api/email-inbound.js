@@ -10,6 +10,7 @@ var { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { checkInboundBlock } = require('./_lib/blocklist');
 var { generateConciergeResponse } = require('./wedding-concierge');
+var { getBookingIntegration } = require('./_lib/booking-integration');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -274,6 +275,19 @@ async function analyzeAndActionEmail(ctx) {
         }
       }
     } catch(e) {}
+
+    // Booking-integration config (Path A self-booking link / Path B API), read at runtime
+    // from the channel='booking' config_encrypted for the resolved tenant (value loaded
+    // out-of-band). Surfaced for downstream booking handoff / failure escalation; a no-op
+    // when unconfigured. Keyed on the resolved tenant — no tenant data hardcoded.
+    var bookingIntegration = null;
+    try {
+      bookingIntegration = await getBookingIntegration(supabase, match.tenantId);
+      if (bookingIntegration) {
+        console.log('[Inbound] booking_integration loaded for tenant ' + match.tenantId +
+          ': active_path=' + (bookingIntegration.active_path || 'unset'));
+      }
+    } catch (e) { console.warn('[Inbound] booking_integration read error: ' + e.message); }
 
     // 2. Last 3 interactions for this contact
     var history = [];
