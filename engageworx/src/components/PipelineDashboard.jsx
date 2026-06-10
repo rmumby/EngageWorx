@@ -244,6 +244,8 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
   const [form, setForm]           = useState({ ...lead });
   const [aiLoading, setAiLoading] = useState(false);
   const [aiText, setAiText]       = useState(lead.ai_next_action || "");
+  const [aiActions, setAiActions] = useState([]);
+  const [aiRisk, setAiRisk]       = useState("");
   const [saving, setSaving]       = useState(false);
   const [saveError, setSaveError] = useState("");
   const [converting, setConverting]   = useState(false);
@@ -270,20 +272,24 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
   const isNew = !lead.id || String(lead.id).startsWith("new_");
 
   const handleAI = async () => {
-    setAiLoading(true); setAiText("");
+    // Grounded advisor reads the lead's SAVED context server-side, so it needs a persisted lead.
+    if (isNew || !lead.id) { setAiActions([]); setAiRisk(""); setAiText("Save the lead first — the advisor reads its saved CRM context."); return; }
+    setAiLoading(true); setAiText(""); setAiActions([]); setAiRisk("");
     try {
       const _s = await supabase.auth.getSession();
       const _tok = _s && _s.data && _s.data.session ? _s.data.session.access_token : "";
-      const res = await fetch("/api/ai-advisor", {
+      const res = await fetch("/api/sales-advisor", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": "Bearer " + _tok },
-        body: JSON.stringify({
-          max_tokens: 1000,
-          messages: [{ role: "user", content: "You are a sharp B2B sales advisor for EngageWorx. Company: " + (form.company || "unknown") + " | Stage: " + stage.label + " | Urgency: " + form.urgency + " | Days stale: " + (daysSince(form.last_action_at) || "unknown") + " | Notes: " + (form.notes || "none") + "\n\nGive 3 specific punchy next actions, each starting with. Then one sentence on key risk or opportunity. No fluff." }],
-        }),
+        body: JSON.stringify({ lead_id: lead.id }),
       });
+      if (!res.ok) throw new Error("advisor " + res.status);
       const data = await res.json();
-      setAiText((data.content || []).find((b) => b.type === "text")?.text || "No suggestion.");
+      const acts = Array.isArray(data.actions) ? data.actions : [];
+      const rk = data.risk || "";
+      setAiActions(acts); setAiRisk(rk);
+      // Flattened summary persists into lead.ai_next_action on save (handleSave reads aiText).
+      setAiText([acts.map((a, i) => (i + 1) + ". " + a).join("\n"), rk ? "Risk: " + rk : ""].filter(Boolean).join("\n\n") || "No suggestion.");
     } catch (e) { setAiText("Error reaching AI. Try again."); }
     setAiLoading(false);
   };
@@ -624,7 +630,16 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
               {aiLoading?"Thinking...":"Get Next Actions"}
             </button>
           </div>
-          {aiText ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
+          {(aiActions.length > 0 || aiRisk) ? (
+            <div>
+              {aiActions.length > 0 && (
+                <ol style={{ margin:"0 0 8px",paddingLeft:"18px",fontSize:"13px",color:"#cbd5e1",lineHeight:1.7 }}>
+                  {aiActions.map((a, i) => <li key={i}>{a}</li>)}
+                </ol>
+              )}
+              {aiRisk && <div style={{ fontSize:"12px",color:"#fca5a5",lineHeight:1.6 }}><strong style={{ color:"#f87171" }}>Risk / opportunity:</strong> {aiRisk}</div>}
+            </div>
+          ) : aiText ? <div style={{ fontSize:"13px",color:"#cbd5e1",lineHeight:1.7,whiteSpace:"pre-wrap" }}>{aiText}</div>
             : <div style={{ fontSize:"12px",color:"#8899aa" }}>Click to get AI-powered next actions for this lead.</div>}
         </div>
 
