@@ -50,12 +50,14 @@ export default async function handler(req, res) {
   if (leadErr || !lead) return res.status(404).json({ error: "Lead not found" });
 
   // Authorization: superadmin, or an active member of the lead's tenant.
+  // A non-owner gets the SAME response as a missing lead (identical 404 body below) so lead
+  // IDs cannot be probed for existence — most-restrictive default. Superadmin path unchanged.
   const { data: prof } = await supabase.from("user_profiles").select("role").eq("id", user.id).maybeSingle();
   const isSA = prof && prof.role === "superadmin";
   if (!isSA) {
     const { data: membership } = await supabase.from("tenant_members").select("id")
       .eq("tenant_id", lead.tenant_id).eq("user_id", user.id).eq("status", "active").maybeSingle();
-    if (!membership) return res.status(403).json({ error: "Not authorized" });
+    if (!membership) return res.status(404).json({ error: "Lead not found" });
   }
 
   // Real context — all reads scoped to the lead's tenant.
