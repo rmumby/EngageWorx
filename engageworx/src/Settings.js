@@ -421,6 +421,9 @@ export default function Settings({ C, tenants, viewLevel = "tenant", currentTena
   const [calendlyUrl, setCalendlyUrl] = useState('');
   const [calendlyUrlSaving, setCalendlyUrlSaving] = useState(false);
   const [calendlyUrlSaved, setCalendlyUrlSaved] = useState(false);
+  const [botName, setBotName] = useState('');
+  const [botNameSaving, setBotNameSaving] = useState(false);
+  const [botNameSaved, setBotNameSaved] = useState(false);
   var browserTz = 'America/New_York';
   try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York'; } catch (_) {}
   const [digestSendTime, setDigestSendTime] = useState('08:00');
@@ -872,9 +875,28 @@ if (!tenantId) {
           var mins = parseInt(loadedTime.split(':')[1] || '0', 10);
           if (mins !== 0 && mins !== 30) setDigestCustomTime(true);
         }
+        // AI assistant name (tenant self-service; lives on chatbot_configs.bot_name)
+        try {
+          const cb = await supabase.from('chatbot_configs').select('bot_name').eq('tenant_id', resolvedTenantId).maybeSingle();
+          setBotName((cb.data && cb.data.bot_name) || '');
+        } catch (e2) {}
       } catch (e) {}
     })();
   }, [activeTab, demoMode, resolvedTenantId]);
+  const saveBotName = async () => {
+    if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
+    setBotNameSaving(true);
+    try {
+      const trimmed = (botName || '').trim();
+      // Tenant-scoped write via RPC (no raw update on tenant data). The RPC authorizes the
+      // caller against this tenant and writes chatbot_configs.bot_name (null when blank).
+      const { error } = await supabase.rpc('update_bot_name', { p_tenant_id: resolvedTenantId, p_bot_name: trimmed || null });
+      if (error) throw error;
+      setBotNameSaved(true);
+      setTimeout(() => setBotNameSaved(false), 2000);
+    } catch (e) { alert('Error: ' + e.message); }
+    setBotNameSaving(false);
+  };
   const saveCalendlyUrl = async () => {
     if (!resolvedTenantId) { alert('No tenant context — cannot save.'); return; }
     setCalendlyUrlSaving(true);
@@ -1812,6 +1834,21 @@ return (<div>
             </div>
             <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
               Your booking link. Used by AI when drafting outreach emails, in your AI assistant auto-replies, and when you type "add calendly link" in the Improve with Context panel. Leave blank to omit.
+            </div>
+          </div>
+
+          {/* AI assistant name — tenant self-service; persists to chatbot_configs.bot_name via RPC */}
+          <div style={Object.assign({}, card, { marginBottom: 20 })}>
+            <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>AI assistant name</label>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <input type="text" value={botName} onChange={e => setBotName(e.target.value)} placeholder="Name your AI assistant" style={Object.assign({}, inputStyle, { flex: 1 })} />
+              <button onClick={saveBotName} disabled={botNameSaving || !resolvedTenantId} style={Object.assign({}, btnPrimary, { opacity: (botNameSaving || !resolvedTenantId) ? 0.5 : 1 })}>
+                {botNameSaving ? 'Saving…' : 'Save'}
+              </button>
+              {botNameSaved && <span style={{ color: '#00E676', fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
+            </div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+              The name your AI assistant uses with your customers across chat, email, and replies. Leave blank for a neutral default.
             </div>
           </div>
 

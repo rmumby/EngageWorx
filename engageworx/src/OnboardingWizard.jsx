@@ -30,7 +30,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
   var [skipEmail, setSkipEmail] = useState(false);
 
   // Step 4 (AI)
-  var [agentName, setAgentName] = useState('Aria');
+  var [agentName, setAgentName] = useState('');
   var [businessDescription, setBusinessDescription] = useState('');
   var [faqs, setFaqs] = useState([{ q: '', a: '' }, { q: '', a: '' }, { q: '', a: '' }]);
   var [skipAI, setSkipAI] = useState(false);
@@ -59,7 +59,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
     setFromName('');
     setEmailApiKey('');
     setSkipEmail(false);
-    setAgentName('Aria');
+    setAgentName('');
     setBusinessDescription('');
     setFaqs([{ q: '', a: '' }, { q: '', a: '' }, { q: '', a: '' }]);
     setSkipAI(false);
@@ -136,7 +136,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
       } else if (step === 4 && !skipAI) {
         var faqText = faqs.filter(function(f) { return f.q.trim() && f.a.trim(); }).map(function(f) { return 'Q: ' + f.q.trim() + '\nA: ' + f.a.trim(); }).join('\n\n');
         var kb = (businessDescription.trim() ? businessDescription.trim() + '\n\n' : '') + (faqText ? '=== FAQs ===\n' + faqText : '');
-        await supabase.from('chatbot_configs').upsert({ tenant_id: tenantId, bot_name: agentName.trim() || 'Aria', knowledge_base: kb || null }, { onConflict: 'tenant_id' });
+        await supabase.from('chatbot_configs').upsert({ tenant_id: tenantId, bot_name: agentName.trim() || null, knowledge_base: kb || null }, { onConflict: 'tenant_id' });
       } else if (step === 5 && !skipWa) {
         var existingWa = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
         var waCfg = Object.assign({}, (existingWa.data && existingWa.data.config_encrypted) || {}, {
@@ -408,7 +408,7 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
         <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 6 }}>🤖 Your AI assistant</div>
         <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 18 }}>Your AI agent reads inbound messages, answers customer questions, and routes anything it can't handle to your team.</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14 }}>
-          <div><label style={label}>AI agent name</label><input value={agentName} onChange={function(e) { setAgentName(e.target.value); }} placeholder="Aria" style={inputStyle} /></div>
+          <div><label style={label}>AI agent name</label><input value={agentName} onChange={function(e) { setAgentName(e.target.value); }} placeholder="Name your AI assistant" style={inputStyle} /></div>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <label style={label}>Business description (what does your business do?)</label>
