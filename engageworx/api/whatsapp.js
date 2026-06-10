@@ -596,7 +596,7 @@ module.exports = async function handler(req, res) {
             if (replyAllowed) {
               try {
                 var agentName = (aiConfig && aiConfig.ai_agent_name) || 'Assistant';
-                var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+                var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
                 var waCbConfig = null;
                 try { var waCb = await supabase.from('chatbot_configs').select('temperature').eq('tenant_id', tenantId).maybeSingle(); waCbConfig = waCb.data; } catch (_) {}
 

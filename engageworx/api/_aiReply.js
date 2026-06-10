@@ -2,7 +2,7 @@
 // Used by sms.js, whatsapp webhook, email-inbound.js
 
 async function getAIReply(message, systemPrompt, maxTokens) {
-  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) throw new Error('No Anthropic API key configured');
 
   var response = await fetch('https://api.anthropic.com/v1/messages', {

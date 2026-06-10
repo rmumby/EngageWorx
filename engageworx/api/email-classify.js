@@ -60,7 +60,7 @@ function buildDraftPrompt(senderName, subject, body, contactContext) {
 }
 
 async function callClaude(model, systemPrompt, userContent, maxTokens) {
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   var response = await fetch('https://api.anthropic.com/v1/messages', {

@@ -231,7 +231,7 @@ async function sendSMS(to, body, from, opts) {
 // ─── AI REPLY ─────────────────────────────────────────────────────────────
 async function getAIReply(supabase, tenantId, message, channel, opts) {
   try {
-    var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+    var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
     if (!ANTHROPIC_KEY) { console.log('[AI] No Anthropic key'); return null; }
     var extra = opts || {};
 
@@ -663,7 +663,7 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
       // Skip on empty/media-only body. Awaited (~1-2s, within Twilio's 15s timeout).
       if (Body && Body.trim().length >= 3 && contactId) {
         try {
-          var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+          var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
           if (ANTHROPIC_KEY) {
             var exController = new AbortController();
             var exTimeoutId = setTimeout(function() { exController.abort(); }, 15000);

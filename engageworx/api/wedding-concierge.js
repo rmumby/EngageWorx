@@ -173,7 +173,7 @@ async function generateConciergeResponse(supabase, opts) {
   var messages = conversationHistory.concat([{ role: 'user', content: userMessage }]);
 
   // 7. Call Anthropic
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   var model = config.ai_model || 'claude-sonnet-4-6';
