@@ -208,7 +208,7 @@ module.exports = async function handler(req, res) {
   }
 
   // ── API key ────────────────────────────────────────────────────────
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'AI service not configured' });
 
   // ── Build system prompt ────────────────────────────────────────────

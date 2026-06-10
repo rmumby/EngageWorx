@@ -115,7 +115,7 @@ function validateNoPlaceholders(text) {
 }
 
 async function personaliseMessage(template, lead, tenantName, mergeCtx) {
-  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
   if (!ANTHROPIC_KEY) return mergePlaceholders(template, lead, tenantName, mergeCtx);
   console.log('[DIAG] personaliseMessage entered, process.version:', process.version, 'at:', new Date().toISOString());
   var controller = new AbortController();

@@ -193,7 +193,7 @@ async function runAiValidation(session, reference) {
   var sampleMessages = (campaign.sample_messages || []).filter(function(m) { return m && m.trim(); });
   var declaredUseCase = (campaign.use_case || '').toUpperCase();
   if (declaredUseCase && sampleMessages.length > 0) {
-    var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+    var apiKey = process.env.ANTHROPIC_API_KEY;
     if (apiKey) {
       try {
         var aiPrompt = 'You are a TCR compliance reviewer. The declared use_case is "' + declaredUseCase + '".\n\n' +
@@ -286,7 +286,7 @@ async function runAiValidation(session, reference) {
 // ── AI pre-fill ─────────────────────────────────────────────────────────────
 
 async function runAiPreFill(session, field, reference, tenantInfo) {
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { suggestion: null, reasoning: 'ANTHROPIC_API_KEY not configured' };
 
   var brand = session.brand_data || {};
@@ -366,7 +366,7 @@ async function runAiPreFill(session, field, reference, tenantInfo) {
 // ── AI rejection interpreter ────────────────────────────────────────────────
 
 async function interpretRejection(session, rejectionText) {
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { explanation: 'AI unavailable', fix: null, step: null };
 
   var prompt = 'You are a TCR compliance expert. A 10DLC campaign registration was rejected.\n\n' +
@@ -866,7 +866,7 @@ module.exports = async function handler(req, res) {
         reference = { brand_data: {}, campaign_data: refFromSubmissions };
       }
 
-      var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+      var apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'AI service unavailable' });
 
       // AI generates COMPLIANCE CONTENT only — no factual data (EIN, address, phone).

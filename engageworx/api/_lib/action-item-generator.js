@@ -266,7 +266,7 @@ function interpolate(template, vars) {
 // ── Generate draft via Claude ───────────────────────────────────────
 
 async function generateDraft(event, enriched, tier) {
-  var apiKey = process.env.ANTHROPIC_API_KEY || process.env.REACT_APP_ANTHROPIC_API_KEY;
+  var apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return fallbackDraft(event, enriched, tier);
 
   var contact = enriched.contact;

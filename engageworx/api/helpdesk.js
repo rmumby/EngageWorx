@@ -8,7 +8,7 @@ var supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-var anthropic = new Anthropic({ apiKey: process.env.REACT_APP_ANTHROPIC_API_KEY });
+var anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 var { getNotifyEmails } = require('./_notify');
 
 var EW_SYSTEM_PROMPT = `You are the EngageWorx AI Support Agent — a helpful, professional, and efficient support assistant for EngageWorx, an AI-powered omnichannel customer communications platform.

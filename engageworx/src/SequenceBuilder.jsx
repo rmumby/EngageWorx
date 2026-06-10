@@ -147,9 +147,11 @@ export default function SequenceBuilder({ C, currentTenantId }) {
         'Respond ONLY with a JSON array of steps, no other text. Example:\n' +
         '[{"step_number":1,"delay_days":0,"channel":"email","subject":"Quick intro","body_template":"Hi [FirstName]..."},...]';
 
+      var _s = await supabase.auth.getSession();
+      var _tok = _s && _s.data && _s.data.session ? _s.data.session.access_token : '';
       var resp = await fetch('/api/ai-advisor', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _tok },
         body: JSON.stringify({
           max_tokens: 2000,
           messages: [{ role: 'user', content: prompt }]
