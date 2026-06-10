@@ -11,9 +11,6 @@ var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { checkInboundBlock } = require('./_lib/blocklist');
 var { generateConciergeResponse } = require('./wedding-concierge');
 
-// Disable Vercel's default body parser — SendGrid sends multipart/form-data
-module.exports.config = { api: { bodyParser: false } };
-
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -1240,3 +1237,10 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ error: err.message });
   }
 };
+
+// Disable Vercel's default body parser — SendGrid sends multipart/form-data.
+// MUST be set AFTER `module.exports = handler` above: assigning the handler to
+// module.exports replaces the exports object, so an earlier `module.exports.config`
+// would be silently dropped (raw-body parsing would break). Attaching config as a
+// property of the exported handler keeps both the handler and the config.
+module.exports.config = { api: { bodyParser: false } };
