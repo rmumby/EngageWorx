@@ -581,12 +581,42 @@ async function processDueSteps(supabase) {
         continue;
       }
 
-      // Acquire lock + increment send_attempts BEFORE sendStep
-      // If the process dies mid-send, send_attempts is already recorded
-      await supabase.from('lead_sequences').update({
+      // Acquire the lock ATOMICALLY before sendStep: only one tick can flip
+      // processing_started_at from NULL → now. The previous blind update-by-id let two
+      // concurrent ticks (both having SELECTed the row while it was NULL) each send. Now the
+      // claim is a compare-and-set: if 0 rows come back, another tick already claimed it → skip.
+      // send_attempts is incremented as part of the same atomic write.
+      var claimRes = await supabase.from('lead_sequences').update({
         processing_started_at: new Date().toISOString(),
         send_attempts: (enrolment.send_attempts || 0) + 1,
-      }).eq('id', enrolment.id);
+      }).eq('id', enrolment.id).eq('status', 'active').is('processing_started_at', null).select('id');
+      if (!claimRes.data || claimRes.data.length === 0) {
+        console.log('[Sequences] Enrolment', enrolment.id, 'already claimed by another tick — skipping (no double-send)');
+        continue;
+      }
+
+      // Belt-and-suspenders idempotency: if a 'sent' event already exists for this exact
+      // (lead, sequence, step), the step went out on a prior run — advance without resending.
+      try {
+        var alreadySent = await supabase.from('lead_sequence_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('lead_id', lead.id).eq('sequence_id', sequence.id)
+          .eq('step_number', nextStepNumber).eq('event_type', 'sent');
+        if (alreadySent.count && alreadySent.count > 0) {
+          console.warn('[Sequences] Step', nextStepNumber, 'already sent for enrolment', enrolment.id, '— advancing without resend');
+          var idemNextRes = await supabase.from('sequence_steps').select('delay_days').eq('sequence_id', sequence.id).eq('step_number', nextStepNumber + 1).maybeSingle();
+          var idemNextAt = null;
+          if (idemNextRes.data) { var idemD = new Date(); idemD.setDate(idemD.getDate() + (idemNextRes.data.delay_days || 1)); idemNextAt = idemD.toISOString(); }
+          await supabase.from('lead_sequences').update({
+            current_step: nextStepNumber,
+            next_step_at: idemNextAt,
+            status: idemNextAt ? 'active' : 'completed',
+            completed_at: idemNextAt ? null : now,
+            processing_started_at: null,
+          }).eq('id', enrolment.id);
+          continue;
+        }
+      } catch (idemErr) { console.warn('[Sequences] idempotency check error (non-fatal):', idemErr.message); }
 
       console.log('[DIAG] before sendStep for', enrolment.id, 'at:', new Date().toISOString());
       var sent = await sendStep(supabase, step, lead, tenant || { id: sequence.tenant_id, name: 'EngageWorx' }, sequence);
@@ -650,7 +680,7 @@ async function processDueSteps(supabase) {
           await supabase.from('sent_emails').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, to_email: (lead.email || '').toLowerCase(), subject: step.subject || '', source: 'sequence', sequence_id: sequence.id });
         } catch (trackErr) { console.warn('[Sequences] sent_emails track error:', trackErr.message); }
         try {
-          await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'sent', reason: 'Step ' + nextStepNumber + ' sent to ' + (lead.email || 'unknown') });
+          await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'sent', step_number: nextStepNumber, reason: 'Step ' + nextStepNumber + ' sent to ' + (lead.email || 'unknown') });
         } catch (_) {}
         var nextStepRes = await supabase
           .from('sequence_steps')
@@ -856,6 +886,8 @@ module.exports = async function handler(req, res) {
 
     if (!enrolRes.enrolled) {
       if (enrolRes.reason === 'sticky_status') return res.status(409).json({ error: 'Lead has existing enrollment in state: ' + enrolRes.existing_status + '. Reset it before re-enrolling.' });
+      if (enrolRes.reason === 'already_active_same_sequence') return res.status(409).json({ error: 'Lead is already active in this sequence.' });
+      if (enrolRes.reason === 'active_outreach_exists') return res.status(409).json({ error: 'Lead already has an active outreach sequence. Cancel it before enrolling another.' });
       return res.status(500).json({ error: enrolRes.error || enrolRes.reason });
     }
     console.log('[Sequences] Lead enrolled:', lead_id, 'in sequence:', sequence_id);
