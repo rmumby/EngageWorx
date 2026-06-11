@@ -730,9 +730,13 @@ else if (helpWords.includes(upperBody)) messageType = 'help';
 
       // 7. Opt-in / opt-out / help
       if (messageType === 'opt_out' && contactId) {
-        await supabase.from('contacts').update({ status: 'unsubscribed', updated_at: now }).eq('id', contactId);
+        // Opt-out MUST suppress all future outbound. is_blocked is the only field the send/enroll
+        // gates check (status='unsubscribed' alone was never consulted), so set both. blocked_at
+        // records the opt-out time. Re-subscribe (opt_in below) clears it.
+        await supabase.from('contacts').update({ status: 'unsubscribed', is_blocked: true, blocked_at: now, updated_at: now }).eq('id', contactId);
       } else if (messageType === 'opt_in' && contactId) {
-        await supabase.from('contacts').update({ status: 'active', updated_at: now }).eq('id', contactId);
+        // Re-subscribe (START/UNSTOP): clear the opt-out block so outbound can resume.
+        await supabase.from('contacts').update({ status: 'active', is_blocked: false, blocked_at: null, updated_at: now }).eq('id', contactId);
         await sendSMS(From, 'EngageWorx: You are now opted in to receive messages. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to opt out.', To);
       } else if (messageType === 'help') {
         await sendSMS(From, 'EngageWorx: For help visit engwx.com or call +1 (786) 982-7800. Reply STOP to unsubscribe. Msg & data rates may apply.', To);
