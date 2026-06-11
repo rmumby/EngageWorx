@@ -454,6 +454,7 @@ async function analyzeAndActionEmail(ctx) {
           // auto_send (default): reply to the contact now (unchanged behavior).
           await sendTenantEmail(supabase, {
             tenant_id: match.tenantId,
+            allowBlocked: true, // conversational auto-reply to a contact-initiated inbound (email-only bypass)
             to: sender,
             subject: replySubj,
             text: _sig.composeTextBody(decision.reply_draft, sigInfo.closingLine, sigInfo.fromName || aiCtx.fromName),
@@ -865,6 +866,55 @@ module.exports = async function handler(req, res) {
     if (iemInsert.error) console.error('[Inbound] inbound_email_messages insert error:', iemInsert.error.message, iemInsert.error.details);
     var inboundEmailMsgId = iemInsert.data ? iemInsert.data.id : null;
 
+    // ── Unsubscribe reply-detect backstop ──────────────────────────────────
+    // An inbound reply expressing opt-out intent: RECORD it (audit trail above + the conversation
+    // thread below = proof they asked to stop, and when), suppress the sender (is_blocked), and
+    // STOP before the dispatch — never auto-reply to an opt-out. Conversational replies normally
+    // bypass send-side suppression, so the auto-reply must be stopped explicitly here. Mirrors the
+    // SMS STOP handler; complements the outbound List-Unsubscribe header + footer.
+    try {
+      var _unsubText = ((subject || '') + ' ' + (emailBody || '')).toLowerCase();
+      var _isUnsub = /\bunsubscribe\b/.test(_unsubText) || /\bopt[- ]?out\b/.test(_unsubText) ||
+                     /\bremove me\b/.test(_unsubText) || /take me off/.test(_unsubText) ||
+                     /\bstop (emailing|contacting|messaging|sending)\b/.test(_unsubText);
+      if (_isUnsub && senderEmail) {
+        var _unsubNow = new Date().toISOString();
+        // Persist the opt-out into the conversation thread (Live Inbox), mirroring the inbound
+        // persistence the dispatch would otherwise do.
+        try {
+          var { data: _uContactId } = await supabase.rpc('find_or_create_contact', {
+            p_tenant_id: resolvedTenantId, p_email: senderEmail, p_first_name: senderName || null, p_source: 'inbound_email',
+          });
+          if (_uContactId) {
+            var _uConvId = null;
+            var _uc = await supabase.from('conversations').select('id')
+              .eq('tenant_id', resolvedTenantId).eq('contact_id', _uContactId).eq('channel', 'email')
+              .in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+            if (_uc.data) _uConvId = _uc.data.id;
+            if (!_uConvId) {
+              var _unc = await supabase.from('conversations').insert({ tenant_id: resolvedTenantId, contact_id: _uContactId, channel: 'email', status: 'active', subject: subject || 'Unsubscribe', last_message_at: _unsubNow, unread_count: 0 }).select('id').single();
+              if (_unc.data) _uConvId = _unc.data.id;
+            }
+            if (_uConvId) {
+              await supabase.from('messages').insert({
+                tenant_id: resolvedTenantId, conversation_id: _uConvId, contact_id: _uContactId,
+                channel: 'email', direction: 'inbound', sender_type: 'contact',
+                body: (emailBody || '').substring(0, 10000), subject: subject, status: 'delivered',
+                metadata: { source: 'sendgrid_inbound', opt_out: true, from: senderEmail }, created_at: _unsubNow,
+              });
+              await supabase.from('conversations').update({ last_message_at: _unsubNow }).eq('id', _uConvId);
+            }
+          }
+        } catch (logErr) { console.warn('[Inbound] opt-out thread persist error (non-fatal):', logErr.message); }
+        // Suppress the sender, mark the inbound processed, and stop (no dispatch / no auto-reply).
+        await supabase.from('contacts').update({ is_blocked: true, blocked_at: _unsubNow, status: 'unsubscribed', updated_at: _unsubNow })
+          .eq('tenant_id', resolvedTenantId).ilike('email', senderEmail);
+        if (inboundEmailMsgId) { try { await supabase.from('inbound_email_messages').update({ processed: true }).eq('id', inboundEmailMsgId); } catch (_) {} }
+        console.log('[Inbound] unsubscribe reply detected — recorded + suppressed', senderEmail, 'for tenant', resolvedTenantId);
+        return res.status(200).json({ ok: true, unsubscribed: true, logged: true });
+      }
+    } catch (e) { console.warn('[Inbound] unsubscribe reply-detect error (non-fatal):', e.message); }
+
     // ── Persona-by-tenant responder dispatch ─────────────────────────────────
     // Persona is a function of the RESOLVED tenant, never the pipeline/provider. A wedding
     // tenant gets Emma even when its mail lands on this (SendGrid) pipeline. The hardcoded
@@ -951,7 +1001,7 @@ module.exports = async function handler(req, res) {
           var sigE = await _sigE.getSignature(supabase, { tenantId: resolvedTenantId, fromEmail: null, isFirstTouch: false, closingKind: 'reply' });
           var emmaHtml = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;line-height:1.6;">' + markdownToHtml(emmaReply) + '</div>';
           await sendTenantEmail(supabase, {
-            tenant_id: resolvedTenantId, to: senderEmail, subject: replySubject,
+            tenant_id: resolvedTenantId, allowBlocked: true, to: senderEmail, subject: replySubject,
             text: _sigE.composeTextBody(emmaReply, sigE.closingLine, sigE.fromName),
             html: _sigE.composeHtmlBody(emmaHtml, sigE.closingLine, sigE.signatureHtml),
             conversation_id: conversationId || undefined,
@@ -989,6 +1039,7 @@ module.exports = async function handler(req, res) {
       try {
         await sendTenantEmail(supabase, {
           tenant_id: EW_TENANT_ID,
+          allowBlocked: true, // conversational auto-reply to a contact-initiated inbound (email-only bypass)
           to: senderEmail,
           subject: replySubject,
           text: aiReply + '\n\n--\nEngageWorx Team\nengwx.com',
