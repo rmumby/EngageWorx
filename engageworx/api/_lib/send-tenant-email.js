@@ -7,6 +7,9 @@
 
 var { generateThreadId, makeReplyToAddress } = require('./reply-thread');
 var { checkBlockedPatterns, sanitizeEmailAsName } = require('./email-safety-gates');
+var { makeUnsubscribeToken } = require('./unsubscribe-token');
+
+var UNSUB_BASE = process.env.PUBLIC_APP_URL || process.env.PORTAL_ORIGIN || process.env.PORTAL_URL || 'https://portal.engwx.com';
 
 // ── Provider implementations ────────────────────────────────────────
 
@@ -23,6 +26,7 @@ async function sendViaResend(fromAddress, fromName, opts) {
   if (opts.text) payload.text = opts.text;
   if (opts.replyTo) payload.reply_to = opts.replyTo;
   if (opts.bcc) payload.bcc = Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc];
+  if (opts.headers) payload.headers = opts.headers;
 
   console.log('[sendViaResend] Payload:', { from: payload.from, to: payload.to, subject: (payload.subject || '').substring(0, 60) });
 
@@ -64,6 +68,7 @@ async function sendViaSMTP(smtpConfig, fromAddress, fromName, opts) {
   if (opts.text) mailOpts.text = opts.text;
   if (opts.replyTo) mailOpts.replyTo = opts.replyTo;
   if (opts.bcc) mailOpts.bcc = opts.bcc;
+  if (opts.headers) mailOpts.headers = opts.headers;
 
   var info = await transport.sendMail(mailOpts);
   return { success: true, message_id: info.messageId || null, method: 'smtp' };
@@ -108,6 +113,37 @@ async function sendTenantEmail(supabase, opts) {
 
   if (tenantErr || !tenant) throw new Error('Tenant not found: ' + opts.tenant_id);
 
+  // ── Opt-out suppression (send-side) + unsubscribe wiring ──────────────────
+  // The recipient's contact is the suppression unit. Capturing opt-outs is useless without this
+  // check (the lesson from the old SMS status='unsubscribed' field that nothing consulted), so it
+  // gates EVERY outbound tenant email: sequences, digests, nudges, auto-replies, the wedding branch.
+  var recipientEmail = Array.isArray(opts.to) ? opts.to[0] : opts.to;
+  if (recipientEmail) {
+    try {
+      var blk = await supabase.from('contacts').select('is_blocked')
+        .eq('tenant_id', opts.tenant_id).ilike('email', recipientEmail).limit(1).maybeSingle();
+      if (blk.data && blk.data.is_blocked) {
+        console.log('[sendTenantEmail] ⛔ recipient unsubscribed/blocked — skipping send:', recipientEmail);
+        return { sent: false, blocked: true, block_reason: 'recipient_unsubscribed', threadId: null, replyToAddress: null };
+      }
+    } catch (e) { console.warn('[sendTenantEmail] is_blocked check error (non-fatal):', e.message); }
+  }
+
+  // One-click (RFC 8058) + visible footer unsubscribe. Token encodes (tenant, email), HMAC-signed.
+  var unsubHeaders = null;
+  if (recipientEmail) {
+    var unsubToken = makeUnsubscribeToken(opts.tenant_id, recipientEmail);
+    if (unsubToken) {
+      var unsubUrl = UNSUB_BASE + '/api/unsubscribe?token=' + encodeURIComponent(unsubToken);
+      unsubHeaders = { 'List-Unsubscribe': '<' + unsubUrl + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
+      if (opts.html) {
+        opts.html += '<div style="margin-top:24px;padding-top:12px;border-top:1px solid #e2e8f0;font-family:Arial,sans-serif;font-size:12px;color:#94a3b8;text-align:center;">' +
+          '<a href="' + unsubUrl + '" style="color:#94a3b8;text-decoration:underline;">Unsubscribe</a> from these emails.</div>';
+      }
+      if (opts.text) opts.text += '\n\n—\nUnsubscribe: ' + unsubUrl;
+    }
+  }
+
   // Build Reply-To for conversation threading
   var replyTo = opts.reply_to || opts.from || null;
   var threadId = null;
@@ -124,6 +160,7 @@ async function sendTenantEmail(supabase, opts) {
     replyTo: replyTo,
     bcc: opts.bcc || null,
     threadId: threadId,
+    headers: unsubHeaders,
   };
 
   console.log('[sendTenantEmail]', {
