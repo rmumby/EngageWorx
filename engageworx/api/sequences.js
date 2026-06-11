@@ -531,20 +531,28 @@ async function processDueSteps(supabase) {
       // resolveContactFields() handles missing names with the "there" fallback.
       // Earlier backfill block (removed) corrupted lead.name with email local-parts.
 
-      // GUARD 0: outbound suppression — never send to a blocked contact (Inbox "Block" →
-      // contacts.is_blocked). Pause the enrolment so it stops retrying.
-      if (lead.email) {
-        try {
-          var blkRes = await supabase.from('contacts').select('is_blocked')
+      // GUARD 0: outbound suppression — never send to a blocked contact (Inbox "Block" or an
+      // opt-out → contacts.is_blocked). Match by email OR phone: an SMS-only opted-out lead has
+      // no email, so an email-only lookup would let STOP'd numbers keep getting SMS (A2P breach).
+      try {
+        var blocked = false;
+        if (lead.email) {
+          var blkE = await supabase.from('contacts').select('is_blocked')
             .eq('tenant_id', sequence.tenant_id).ilike('email', lead.email).limit(1).maybeSingle();
-          if (blkRes.data && blkRes.data.is_blocked) {
-            console.log('[Sequences] ⛔ Contact blocked — skipping send + pausing enrolment for', lead.email);
-            await supabase.from('lead_sequences').update({ status: 'paused' }).eq('id', enrolment.id);
-            try { await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'paused', reason: 'Contact is blocked (is_blocked=true) — outbound suppressed' }); } catch (_) {}
-            continue;
-          }
-        } catch (blkErr) { console.warn('[Sequences] blocked-contact check error:', blkErr.message); }
-      }
+          if (blkE.data && blkE.data.is_blocked) blocked = true;
+        }
+        if (!blocked && lead.phone) {
+          var blkP = await supabase.from('contacts').select('is_blocked')
+            .eq('tenant_id', sequence.tenant_id).eq('phone', lead.phone).limit(1).maybeSingle();
+          if (blkP.data && blkP.data.is_blocked) blocked = true;
+        }
+        if (blocked) {
+          console.log('[Sequences] ⛔ Contact blocked — skipping send + pausing enrolment for lead', lead.id);
+          await supabase.from('lead_sequences').update({ status: 'paused' }).eq('id', enrolment.id);
+          try { await supabase.from('lead_sequence_events').insert({ tenant_id: sequence.tenant_id, lead_id: lead.id, sequence_id: sequence.id, event_type: 'paused', reason: 'Contact is blocked (is_blocked=true) — outbound suppressed' }); } catch (_) {}
+          continue;
+        }
+      } catch (blkErr) { console.warn('[Sequences] blocked-contact check error:', blkErr.message); }
 
       // GUARD 1: Max touches in time window (2 emails per 7 days)
       var MAX_EMAILS_PER_WINDOW = 2;
