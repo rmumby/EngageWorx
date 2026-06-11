@@ -52,6 +52,9 @@ async function wrapAndDispatch(supabase, opts) {
       from_name: sigInfo.fromName || tenantName || 'Team',
       subject: replySubject, html: replyHtml, text: cleanBody,
       reply_to: recipientEmail,
+      // Conversational reply (Approve & Send / concierge auto-send): an unsubscribe is a marketing
+      // opt-out, not do-not-reply — bypass the email is_blocked skip. Email-only; SMS stays blocked.
+      allowBlocked: true,
     });
     if (sendResult.blocked) {
       console.error('[wrapAndDispatch] Reply BLOCKED:', sendResult.block_reason);

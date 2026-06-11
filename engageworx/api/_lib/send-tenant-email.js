@@ -118,7 +118,12 @@ async function sendTenantEmail(supabase, opts) {
   // check (the lesson from the old SMS status='unsubscribed' field that nothing consulted), so it
   // gates EVERY outbound tenant email: sequences, digests, nudges, auto-replies, the wedding branch.
   var recipientEmail = Array.isArray(opts.to) ? opts.to[0] : opts.to;
-  if (recipientEmail) {
+  // opts.allowBlocked bypasses the skip for CONVERSATIONAL replies (Approve & Send, and replies
+  // to a contact-initiated inbound) — an unsubscribe is a marketing opt-out, not do-not-reply.
+  // This bypass is email-only by construction: SMS to a STOP'd number stays hard-blocked in the
+  // SMS paths (sequence GUARD 0 / sms.js), which have no allowBlocked. Automated outbound
+  // (sequences, digests, nudges, campaigns) never sets it, so it stays suppressed.
+  if (recipientEmail && !opts.allowBlocked) {
     try {
       var blk = await supabase.from('contacts').select('is_blocked')
         .eq('tenant_id', opts.tenant_id).ilike('email', recipientEmail).limit(1).maybeSingle();
