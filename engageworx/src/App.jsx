@@ -555,6 +555,16 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     setCreateError(null);
     try {
       var slug = newTenant.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+      // Map the selected account type to canonical fields. customer_type has a NOT NULL DEFAULT
+      // 'direct' + CHECK — so this form MUST set it explicitly, or a CSP created here silently
+      // becomes 'direct' and loses CSP feature gates (which check csp_partner). Same mapping as the
+      // Account-Type dropdown. Fallback customer_type stays canonical ('direct') to satisfy the CHECK.
+      var NT_TYPE_MAP = {
+        direct: { tenant_type: 'direct', customer_type: 'direct' },
+        csp: { tenant_type: 'csp_partner', customer_type: 'csp_partner' },
+        agent: { tenant_type: 'agent', customer_type: 'agent' },
+      };
+      var ntMapped = NT_TYPE_MAP[newTenant.type] || { tenant_type: newTenant.type || 'business', customer_type: 'direct' };
       var insertPayload = {
         name: newTenant.companyName,
         slug: slug,
@@ -563,7 +573,8 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         brand_primary: newTenant.color,
         brand_name: newTenant.brandName || newTenant.companyName,
         channels_enabled: ['sms', 'email'],
-        tenant_type: newTenant.type,
+        tenant_type: ntMapped.tenant_type,
+        customer_type: ntMapped.customer_type,
         custom_domain: newTenant.domain || null,
       };
       if (currentTenantId) {
