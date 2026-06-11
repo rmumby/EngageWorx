@@ -851,6 +851,24 @@ module.exports = async function handler(req, res) {
     emailBody = stripSignature(emailBody, tenantSigMarkers);
     if (emailBody.length > 2000) emailBody = emailBody.substring(0, 2000) + '...';
 
+    // ── Unsubscribe reply-detect backstop ──────────────────────────────────
+    // If an inbound reply is an opt-out request, suppress the sender (is_blocked) and stop —
+    // never auto-reply to someone asking to be removed. Mirrors the SMS STOP handler; complements
+    // the List-Unsubscribe header + footer link added on the outbound side.
+    try {
+      var _unsubText = ((subject || '') + ' ' + (emailBody || '')).toLowerCase();
+      var _isUnsub = /\bunsubscribe\b/.test(_unsubText) || /\bopt[- ]?out\b/.test(_unsubText) ||
+                     /\bremove me\b/.test(_unsubText) || /take me off/.test(_unsubText) ||
+                     /\bstop (emailing|contacting|messaging|sending)\b/.test(_unsubText);
+      if (_isUnsub && senderEmail) {
+        var _unsubNow = new Date().toISOString();
+        await supabase.from('contacts').update({ is_blocked: true, blocked_at: _unsubNow, status: 'unsubscribed', updated_at: _unsubNow })
+          .eq('tenant_id', resolvedTenantId).ilike('email', senderEmail);
+        console.log('[Inbound] unsubscribe reply detected — suppressed', senderEmail, 'for tenant', resolvedTenantId);
+        return res.status(200).json({ ok: true, unsubscribed: true });
+      }
+    } catch (e) { console.warn('[Inbound] unsubscribe reply-detect error (non-fatal):', e.message); }
+
     // ── Write to inbound_email_messages (new schema) ─────────────────────────
     var iemInsert = await supabase.from('inbound_email_messages').insert({
       tenant_id: resolvedTenantId,
