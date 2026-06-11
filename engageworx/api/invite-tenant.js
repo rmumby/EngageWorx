@@ -38,6 +38,10 @@ module.exports = async function handler(req, res) {
   var customerType = body.customer_type || null;
   console.log('📋 [invite-tenant] Input:', { tenant_name: tenantName, admin: adminEmail, customer_type: customerType, plan: planSlug });
   var inviterTenantId = body.inviter_tenant_id || null;
+  // Creator anchor for the welcome email's sender domain: the parent CSP if created under one,
+  // else the SP. NEVER the brand-new tenant (its domain is always unverified at creation).
+  var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+  var welcomeOwnerTenantId = inviterTenantId || SP_TENANT_ID;
   var phoneNumber = (body.phone_number || '').trim() || null;
   var pipelineLeadId = body.pipeline_lead_id || null;
 
@@ -305,6 +309,8 @@ module.exports = async function handler(req, res) {
     try {
       emailResult = await sendPlatformEmail(supabase, {
         recipient_tenant_id: newTenantId,
+        // Gate + send from the CREATOR's verified domain (parent CSP or SP), not the new tenant's.
+        owner_tenant_id: welcomeOwnerTenantId,
         to: adminEmail,
         from_name: pc.platform_name,
         subject: emailSubject,
