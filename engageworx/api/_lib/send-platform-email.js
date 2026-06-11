@@ -106,8 +106,12 @@ async function sendPlatformEmail(supabase, opts) {
   if (!opts.subject) throw new Error('subject required');
   if (!opts.html && !opts.text) throw new Error('html or text required');
 
-  // Resolve platform owner via parent walking
-  var owner = await resolvePlatformOwner(supabase, opts.recipient_tenant_id);
+  // Resolve platform owner via parent walking. opts.owner_tenant_id (the CREATOR/parent) overrides
+  // the recipient as the anchor — used by the tenant-creation welcome so a brand-new (always
+  // unverified) tenant's own domain never gates the platform's welcome TO it. The sender is the
+  // creator's verified domain (SP, or the parent CSP). Without an override, anchor on the recipient
+  // (correct for steady-state platform mail like nudges, where the recipient's own owner sends).
+  var owner = await resolvePlatformOwner(supabase, opts.owner_tenant_id || opts.recipient_tenant_id);
 
   if (!owner) {
     throw new Error('Could not resolve platform owner for tenant ' + opts.recipient_tenant_id);

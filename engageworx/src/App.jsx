@@ -1113,16 +1113,26 @@ setDemoCreating(false);
                       </div>
                       <div>
                         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>Account Type</div>
-                        <select defaultValue={c.tenant_type || "business"} onChange={async function(e) {
-                          var newType = e.target.value;
+                        <select defaultValue={c.tenant_type === 'csp' ? 'csp_partner' : (c.tenant_type || "business")} onChange={async function(e) {
+                          var sel = e.target.value;
+                          // Map the account-type selection to canonical fields. customer_type MUST be in
+                          // {internal, master_agent, agent, csp_partner, direct} (DB CHECK) — writing
+                          // customer_type=tenant_type produced non-canonical 'business'/'csp' and broke
+                          // feature gates (which check csp_partner). tenant_type stays the display vocab.
+                          var TYPE_MAP = {
+                            business: { tenant_type: 'business', customer_type: 'direct' },
+                            csp_partner: { tenant_type: 'csp_partner', customer_type: 'csp_partner' },
+                            agent: { tenant_type: 'agent', customer_type: 'agent' },
+                          };
+                          var mapped = TYPE_MAP[sel] || { tenant_type: sel, customer_type: sel };
                           try {
                             var { supabase: sb } = await import('./supabaseClient');
-                            await sb.from('tenants').update({ tenant_type: newType, customer_type: newType }).eq('id', c.id);
-                            c.tenant_type = newType;
+                            await sb.from('tenants').update({ tenant_type: mapped.tenant_type, customer_type: mapped.customer_type }).eq('id', c.id);
+                            c.tenant_type = mapped.tenant_type;
                           } catch (err) { console.error('Type update error:', err); }
                         }} style={inputStyleTM}>
                           <option value="business">Business</option>
-                          <option value="csp">CSP Partner</option>
+                          <option value="csp_partner">CSP Partner</option>
                           <option value="agent">Agent Partner</option>
                         </select>
                       </div>
