@@ -184,6 +184,26 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
     fetchMembers(selectedTenantId);
   }
 
+  // Regenerate a fresh single-use set-password link for an existing member (recovery links
+  // expire — this reissues without remove-and-re-add) and re-send the branded email.
+  async function resendLink(member) {
+    if (!member.displayEmail) { alert('This member has no email on file.'); return; }
+    setSaving(member.user_id);
+    try {
+      var session = await supabase.auth.getSession();
+      var token = session.data?.session?.access_token;
+      var resp = await fetch('/api/resend-set-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ tenant_id: selectedTenantId, email: member.displayEmail }),
+      });
+      var d = await resp.json();
+      if (!resp.ok) throw new Error(d.error || 'Resend failed');
+      if (d.set_password_link) { window.prompt('New single-use set-password link for ' + member.displayEmail + (d.email_sent ? ' (also emailed)' : '') + ' — copy below:', d.set_password_link); }
+      else { alert('A link was generated but could not be displayed.'); }
+    } catch (e) { alert('Error: ' + e.message); }
+    setSaving(null);
+  }
+
   async function inviteMember() {
     if (!inviteEmail) return;
     var fullName = ((inviteFirstName || '') + ' ' + (inviteLastName || '')).trim();
@@ -198,7 +218,9 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
       });
       var d = await resp.json();
       if (!resp.ok) throw new Error(d.error || 'Invite failed');
-      alert('✅ ' + fullName + ' added as ' + inviteRole + '.' + (d.welcome_email_sent ? ' Welcome email sent.' : '') + (d.temp_password ? '\n\nTemp password: ' + d.temp_password : ''));
+      var addedMsg = '✅ ' + fullName + ' added as ' + inviteRole + '.' + (d.welcome_email_sent ? ' Welcome email sent.' : '');
+      if (d.set_password_link) { window.prompt(addedMsg + '\n\nThey set their own password via this single-use link (no password is shared). Copy it below:', d.set_password_link); }
+      else { alert(addedMsg); }
       setInviteEmail(''); setInviteFirstName(''); setInviteLastName(''); setShowInvite(false); fetchMembers(selectedTenantId);
     } catch (e) { alert('Error: ' + e.message); }
     setSaving(null);
@@ -259,6 +281,7 @@ function TeamMembersTab({ C, viewLevel, currentTenantId, isSuperAdmin, demoMode 
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                     {editable && <button onClick={function() { setEditingId(editingId === m.id ? null : m.id); }} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>✏️ Edit</button>}
+                    {editable && m.role !== 'notification_only' && m.displayEmail && <button disabled={saving === m.user_id} onClick={function() { resendLink(m); }} title="Regenerate and email a single-use set-password link" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '5px 10px', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>{saving === m.user_id ? '…' : '🔑 Send link'}</button>}
                     {editable ? (
                       <select value={m.role || 'admin'} onChange={function(e) { saveMemberField(m.user_id, { role: e.target.value }); }} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, padding: '5px 8px', color: C.text, fontSize: 12, fontFamily: "'DM Sans', sans-serif", cursor: 'pointer' }}>
                         <option value="admin">Admin</option><option value="manager">Manager</option><option value="agent">Support Agent</option><option value="analyst">Analyst</option><option value="readonly">Read Only</option><option value="notification_only">Notification Only</option>

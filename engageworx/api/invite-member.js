@@ -5,6 +5,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { ensureUserWithSetPasswordLink } = require('./_lib/set-password-link');
+var { verifyTenantAuth } = require('./_lib/verify-tenant-auth');
 
 function getSupabase() {
   return createClient(
@@ -27,16 +28,11 @@ module.exports = async function handler(req, res) {
 
   var supabase = getSupabase();
 
-  // Auth: get operator from JWT
-  var authHeader = req.headers.authorization || '';
-  var token = authHeader.replace('Bearer ', '');
-  var operatorId = null;
-  if (token) {
-    try {
-      var { data: { user: authUser } } = await supabase.auth.getUser(token);
-      if (authUser) operatorId = authUser.id;
-    } catch (_) {}
-  }
+  // Auth: only a superadmin or an admin of this tenant may add members (this returns a
+  // set-password link for new users, so it must be gated).
+  var auth = await verifyTenantAuth(supabase, req, tenantId, { requireAdmin: true });
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+  var operatorId = auth.user.id;
 
   try {
     var t = await supabase.from('tenants').select('id, name, brand_name').eq('id', tenantId).maybeSingle();

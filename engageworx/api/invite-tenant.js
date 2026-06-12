@@ -10,6 +10,7 @@ var { sendEmail } = require('./_lib/send-email');
 var { sendPlatformEmail } = require('./_lib/send-platform-email');
 var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
 var { ensureUserWithSetPasswordLink } = require('./_lib/set-password-link');
+var { verifyTenantAuth } = require('./_lib/verify-tenant-auth');
 
 function getSupabase() {
   return createClient(
@@ -46,6 +47,12 @@ module.exports = async function handler(req, res) {
   }
 
   var supabase = getSupabase();
+
+  // Auth: a superadmin may create any tenant; a tenant admin may only create sub-tenants under
+  // their own tenant (inviter_tenant_id). null inviter ⇒ superadmin-only (top-level tenant).
+  var auth = await verifyTenantAuth(supabase, req, inviterTenantId, { requireAdmin: true });
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
+
   var warnings = [];
   // Use inviter's platform_config (CSP overrides SP defaults)
   var pc = await getPlatformConfig(inviterTenantId, supabase);

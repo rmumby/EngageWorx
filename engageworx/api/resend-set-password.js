@@ -9,6 +9,7 @@ var { getPlatformConfig } = require('./_lib/platform-config');
 var { renderTemplate } = require('./_lib/render-template');
 var { sendPlatformEmail } = require('./_lib/send-platform-email');
 var { ensureUserWithSetPasswordLink, setPasswordEmailHtml } = require('./_lib/set-password-link');
+var { verifyTenantAuth } = require('./_lib/verify-tenant-auth');
 
 function getSupabase() {
   return createClient(
@@ -25,6 +26,10 @@ module.exports = async function handler(req, res) {
   if (!tenantId || !email) return res.status(400).json({ error: 'tenant_id and email required' });
 
   var supabase = getSupabase();
+
+  // Auth: only a superadmin or an admin of this tenant may mint a set-password link.
+  var auth = await verifyTenantAuth(supabase, req, tenantId, { requireAdmin: true });
+  if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
   try {
     var t = await supabase.from('tenants').select('id, name, brand_name, parent_tenant_id').eq('id', tenantId).maybeSingle();
