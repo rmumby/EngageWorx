@@ -494,6 +494,8 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
   }, []);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteResult, setInviteResult] = useState(null);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
+  const [inviteResending, setInviteResending] = useState(false);
   const [invitePlans, setInvitePlans] = useState([]);
   const [inviteIndustries, setInviteIndustries] = useState([]);
   const [inviteCustomerTypes, setInviteCustomerTypes] = useState([]);
@@ -777,7 +779,22 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
               <div style={{ color: '#cbd5e1', fontSize: 13, lineHeight: 1.8 }}>
                 <div><strong>Tenant ID:</strong> <code style={{ color: '#00C9FF' }}>{inviteResult.tenant_id}</code></div>
                 <div><strong>Welcome email:</strong> {inviteResult.welcome_email_sent ? '✅ Sent' : '❌ Failed'}</div>
-                <div><strong>Temp password:</strong> <code style={{ color: '#FFD600', fontFamily: 'monospace' }}>{inviteResult.temp_password_for_admin_display}</code></div>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Set-password link (the admin sets their own password — no password is shared)</div>
+                {inviteResult.set_password_link ? (
+                  <>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input readOnly value={inviteResult.set_password_link} onFocus={function(e) { e.target.select(); }} style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#cbd5e1', fontSize: 12, fontFamily: 'monospace' }} />
+                      <button onClick={function() { navigator.clipboard.writeText(inviteResult.set_password_link); setInviteLinkCopied(true); setTimeout(function() { setInviteLinkCopied(false); }, 2000); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '44', borderRadius: 8, padding: '8px 14px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>{inviteLinkCopied ? '✓ Copied' : '📋 Copy'}</button>
+                    </div>
+                    <button onClick={async function() { setInviteResending(true); try { var rr = await fetch('/api/resend-set-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: inviteResult.tenant_id, email: inviteForm.admin_email }) }); var dd = await rr.json(); if (!rr.ok) throw new Error(dd.error || 'Resend failed'); setInviteResult(Object.assign({}, inviteResult, { set_password_link: dd.set_password_link, welcome_email_sent: dd.email_sent })); } catch (e) { alert('Error: ' + e.message); } setInviteResending(false); }} disabled={inviteResending} style={{ marginTop: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, opacity: inviteResending ? 0.6 : 1 }}>{inviteResending ? 'Resending…' : '↻ Resend / regenerate link'}</button>
+                  </>
+                ) : (
+                  <div style={{ color: '#eab308', fontSize: 12 }}>Link generation failed — use Resend below to issue a fresh link.
+                    <button onClick={async function() { setInviteResending(true); try { var rr = await fetch('/api/resend-set-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenant_id: inviteResult.tenant_id, email: inviteForm.admin_email }) }); var dd = await rr.json(); if (!rr.ok) throw new Error(dd.error || 'Resend failed'); setInviteResult(Object.assign({}, inviteResult, { set_password_link: dd.set_password_link, welcome_email_sent: dd.email_sent })); } catch (e) { alert('Error: ' + e.message); } setInviteResending(false); }} disabled={inviteResending} style={{ marginLeft: 8, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '6px 14px', color: C.muted, cursor: 'pointer', fontSize: 12, opacity: inviteResending ? 0.6 : 1 }}>{inviteResending ? 'Resending…' : '↻ Resend'}</button>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                 {onDrillDown && <button onClick={function() { onDrillDown(inviteResult.tenant_id); setShowInvite(false); setInviteResult(null); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + (C.accent || C.primary) + ')', border: 'none', borderRadius: 8, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>Open Tenant Portal</button>}
@@ -1299,7 +1316,9 @@ setDemoCreating(false);
                             if (d.already_member) {
                               alert('ℹ️ ' + email + ' is already a member of ' + (d.tenant_name || 'this tenant') + '.');
                             } else if (d.invited) {
-                              alert('✅ ' + (d.full_name || email) + ' added as ' + role + '.\n\nTemp password: ' + (d.temp_password || '(check email)') + '\n\n' + (d.welcome_email_sent ? 'Welcome email sent to ' + email + '.' : 'Welcome email not sent — share the credentials manually.') + '\n\nThey can log in immediately at the portal.');
+                              var addedMsg = '✅ ' + (d.full_name || email) + ' added as ' + role + '.\n\n' + (d.welcome_email_sent ? 'A set-password email was sent to ' + email + '.' : 'Welcome email not sent — share the single-use link below.') + '\n\nThey set their own password via this single-use link (no password is shared). Copy it from the field below:';
+                              if (d.set_password_link) { window.prompt(addedMsg, d.set_password_link); }
+                              else { alert(addedMsg + '\n\n(Link unavailable — use the tenant\'s Resend / regenerate option to issue a fresh one.)'); }
                             } else {
                               alert('✅ ' + (d.full_name || email) + ' added to ' + (d.tenant_name || 'this tenant') + ' as ' + role + '.');
                             }
@@ -1309,7 +1328,7 @@ setDemoCreating(false);
                           } catch (e) { alert('❌ Error: ' + e.message); }
                         }} style={{ background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: 'none', borderRadius: 8, padding: '8px 18px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Add Member</button>
                       </div>
-                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 6 }}>New users get a temp password shown in the success message. Existing users are linked immediately.</div>
+                      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginTop: 6 }}>New users get a single-use set-password link (emailed, and shown so you can copy it). Existing users are linked immediately.</div>
                     </div>
 
                     <div style={{ marginBottom: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.06)" }}>

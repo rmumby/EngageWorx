@@ -4,21 +4,13 @@
 // POST { tenant_id, email, role: 'admin'|'agent' }
 
 var { createClient } = require('@supabase/supabase-js');
+var { ensureUserWithSetPasswordLink } = require('./_lib/set-password-link');
 
 function getSupabase() {
   return createClient(
     process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-}
-
-function generateTempPassword() {
-  var crypto = require('crypto');
-  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
-  var pw = '';
-  var bytes = crypto.randomBytes(14);
-  for (var i = 0; i < 14; i++) pw += chars[bytes[i] % chars.length];
-  return pw;
 }
 
 module.exports = async function handler(req, res) {
@@ -67,41 +59,31 @@ module.exports = async function handler(req, res) {
     var prof = await supabase.from('user_profiles').select('id, email, tenant_id').ilike('email', email).maybeSingle();
     var userId = prof.data && prof.data.id;
     var invited = false;
-    var tempPassword = null;
+    var setPasswordLink = null;
+    var pc = null;
 
     if (!userId) {
-      // Create auth user with temp password (immediate login, no magic link)
-      tempPassword = generateTempPassword();
-      try {
-        var authRes = await supabase.auth.admin.createUser({
-          email: email, password: tempPassword, email_confirm: true,
-          user_metadata: { tenant_id: tenantId, role: role, full_name: fullName },
-        });
-        if (authRes.error) {
-          // User may exist in auth but not in user_profiles
-          var listRes = await supabase.auth.admin.listUsers();
-          if (listRes.data && listRes.data.users) {
-            var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === email; });
-            if (found) userId = found.id;
-          }
-          if (userId) {
-            await supabase.auth.admin.updateUserById(userId, { password: tempPassword, email_confirm: true, user_metadata: { tenant_id: tenantId, role: role, full_name: fullName } });
-          }
-        } else {
-          userId = authRes.data.user.id;
-        }
-        invited = true;
-      } catch (authErr) {
-        console.error('[invite-member] Auth error:', authErr.message);
-        return res.status(400).json({ error: 'Auth user creation failed: ' + authErr.message });
+      // New portal user — provision an email-confirmed account and a single-use set-password
+      // link. No password is generated, emailed, or returned (link-based onboarding).
+      var { getPlatformConfig } = require('./_lib/platform-config');
+      pc = await getPlatformConfig(tenantId, supabase);
+      var linkRes = await ensureUserWithSetPasswordLink(supabase, {
+        email: email,
+        portal_url: pc.portal_url,
+        user_metadata: { tenant_id: tenantId, role: role, full_name: fullName },
+      });
+      if (linkRes.error || !linkRes.user_id) {
+        console.error('[invite-member] set-password link error:', linkRes.error);
+        return res.status(400).json({ error: 'Could not provision login: ' + (linkRes.error || 'unknown error') });
       }
+      userId = linkRes.user_id;
+      setPasswordLink = linkRes.action_link;
+      invited = true;
       // Create user_profiles row (tenant_id stored as TEXT — explicit String cast)
-      if (userId) {
-        await supabase.from('user_profiles').upsert({
-          id: userId, email: email, tenant_id: String(tenantId), role: role, full_name: fullName,
-        }, { onConflict: 'id' });
-        console.log('👤 User created:', userId, email, fullName);
-      }
+      await supabase.from('user_profiles').upsert({
+        id: userId, email: email, tenant_id: String(tenantId), role: role, full_name: fullName,
+      }, { onConflict: 'id' });
+      console.log('👤 User created:', userId, email, fullName);
     } else {
       // Existing user — update name if provided and currently empty
       if (fullName && fullName !== email.split('@')[0]) {
@@ -140,37 +122,28 @@ module.exports = async function handler(req, res) {
       }
     } catch (auditErr) { console.warn('[invite-member] Audit log error (non-fatal):', auditErr.message); }
 
-    // Send welcome email to new team members
+    // Send welcome email to new team members — branded, link-based, no password on the wire.
     var welcomeEmailSent = false;
-    if (invited && tempPassword) {
+    if (invited && setPasswordLink) {
       try {
-        var { getPlatformConfig } = require('./_lib/platform-config');
         var { renderTemplate } = require('./_lib/render-template');
         var { sendPlatformEmail } = require('./_lib/send-platform-email');
-        var pc = await getPlatformConfig(tenantId, supabase);
+        var { setPasswordEmailHtml } = require('./_lib/set-password-link');
         var tenantName = t.data.brand_name || t.data.name;
+        var emailVars = {
+          first_name: firstName, full_name: fullName, tenant_name: tenantName,
+          platform_name: pc.platform_name || 'Platform', portal_url: pc.portal_url || 'https://portal.engwx.com',
+          email: email, role: role, set_password_link: setPasswordLink,
+        };
 
         var emailSubject = renderTemplate(
           pc.team_member_welcome_email_subject || 'You\'ve been added to {tenant_name}',
-          { tenant_name: tenantName, platform_name: pc.platform_name || 'Platform', role: role, full_name: fullName, first_name: firstName }
+          emailVars
         );
-
-        var defaultHtml = '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:32px;">' +
-          '<h2 style="color:#1e293b;margin:0 0 16px;">Welcome to ' + tenantName + '</h2>' +
-          '<p style="color:#475569;font-size:15px;line-height:1.6;">Hi {first_name},</p>' +
-          '<p style="color:#475569;font-size:15px;line-height:1.6;">You\'ve been added as <strong>{role}</strong> on {tenant_name}. Here are your login credentials:</p>' +
-          '<div style="background:rgba(0,201,255,0.06);border:1px solid rgba(0,201,255,0.2);border-radius:12px;padding:16px;margin:16px 0;">' +
-          '<table style="width:100%;font-size:14px;"><tr><td style="color:#6b8bae;padding:4px 0;">Portal</td><td style="font-weight:700;"><a href="{portal_url}" style="color:#00C9FF;">{portal_url}</a></td></tr>' +
-          '<tr><td style="color:#6b8bae;padding:4px 0;">Email</td><td>{email}</td></tr>' +
-          '<tr><td style="color:#6b8bae;padding:4px 0;">Temp Password</td><td style="color:#FFD600;font-family:monospace;font-weight:700;">{temp_password}</td></tr></table></div>' +
-          '<p style="color:#475569;font-size:14px;">Please change your password on first login.</p>' +
-          '<a href="{portal_url}" style="display:inline-block;background:linear-gradient(135deg,#00C9FF,#E040FB);color:#000;font-weight:800;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:15px;margin:12px 0;">Sign In</a>' +
-          '</div>';
-
-        var emailHtml = renderTemplate(
-          pc.team_member_welcome_email_template || defaultHtml,
-          { first_name: firstName, full_name: fullName, tenant_name: tenantName, platform_name: pc.platform_name || 'Platform', portal_url: pc.portal_url || 'https://portal.engwx.com', email: email, temp_password: tempPassword, role: role }
-        );
+        // Honor a tenant-configured template if present; otherwise use the shared link-based default.
+        var emailHtml = pc.team_member_welcome_email_template
+          ? renderTemplate(pc.team_member_welcome_email_template, emailVars)
+          : setPasswordEmailHtml(emailVars);
 
         var result = await sendPlatformEmail(supabase, { recipient_tenant_id: tenantId, to: email, from_name: tenantName, subject: emailSubject, html: emailHtml });
         welcomeEmailSent = result.success;
@@ -191,7 +164,7 @@ module.exports = async function handler(req, res) {
       full_name: fullName,
       tenant_name: t.data.name || t.data.brand_name,
       role: role,
-      temp_password: invited ? tempPassword : undefined,
+      set_password_link: invited ? setPasswordLink : undefined,
       welcome_email_sent: invited ? welcomeEmailSent : undefined,
     });
   } catch (err) {

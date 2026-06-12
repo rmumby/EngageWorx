@@ -9,20 +9,13 @@ var { renderTemplate } = require('./_lib/render-template');
 var { sendEmail } = require('./_lib/send-email');
 var { sendPlatformEmail } = require('./_lib/send-platform-email');
 var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
+var { ensureUserWithSetPasswordLink } = require('./_lib/set-password-link');
 
 function getSupabase() {
   return createClient(
     process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-}
-
-function generateTempPassword() {
-  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
-  var pw = '';
-  var bytes = crypto.randomBytes(14);
-  for (var i = 0; i < 14; i++) pw += chars[bytes[i] % chars.length];
-  return pw;
 }
 
 module.exports = async function handler(req, res) {
@@ -143,81 +136,26 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 3. Create user via Supabase Auth FIRST — get the real auth user ID
-    var tempPassword = generateTempPassword();
+    // 3. Provision the admin's auth user and a single-use set-password link (no password on
+    //    the wire). The recovery link lands on the portal's /auth/callback set-password form.
     var nameParts = adminName.split(' ');
     var firstName = nameParts[0] || adminName;
     var lastName = nameParts.slice(1).join(' ') || '';
     var userId = existingUser.data ? existingUser.data.id : null;
-    var steps = { user_profile: false, tenant_member: false, password_verified: false };
+    var steps = { user_profile: false, tenant_member: false, set_password_link: false };
 
-    // Always ensure auth user exists with correct password — even if user_profiles row existed
-    try {
-      if (!userId) {
-        // No existing user_profiles row — create auth user from scratch
-        var authRes = await supabase.auth.admin.createUser({
-          email: adminEmail,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-        });
-        if (authRes.error) {
-          console.warn('👤 Auth createUser error:', authRes.error.message, '— looking up existing auth user');
-          var listRes = await supabase.auth.admin.listUsers();
-          if (listRes.data && listRes.data.users) {
-            var found = listRes.data.users.find(function(u) { return u.email && u.email.toLowerCase() === adminEmail; });
-            if (found) userId = found.id;
-          }
-        } else {
-          userId = authRes.data.user.id;
-          console.log('👤 Auth user created + confirmed:', userId);
-        }
-      }
-      // For ALL paths (new OR existing user), force password + email_confirm
-      if (userId) {
-        var updateRes = await supabase.auth.admin.updateUserById(userId, {
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-        });
-        if (updateRes.error) console.error('👤 Auth updateUserById error:', updateRes.error.message);
-        else console.log('👤 Auth user password set + confirmed:', userId);
-      }
-    } catch (authErr) {
-      console.error('👤 Auth error:', authErr.message);
-    }
-
-    // Verify the password works by attempting a server-side sign-in
-    var passwordVerified = false;
-    if (userId) {
-      try {
-        var { createClient: createAnonClient } = require('@supabase/supabase-js');
-        var anonSupabase = createAnonClient(
-          process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
-          process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-        );
-        var signInRes = await anonSupabase.auth.signInWithPassword({ email: adminEmail, password: tempPassword });
-        if (signInRes.error) {
-          console.error('🔑 Password verification FAILED:', signInRes.error.message, '— forcing password reset');
-          var resetRes = await supabase.auth.admin.updateUserById(userId, { password: tempPassword, email_confirm: true });
-          if (resetRes.error) console.error('🔑 Password reset also failed:', resetRes.error.message);
-          else {
-            console.log('🔑 Password force-reset succeeded');
-            var reVerify = await anonSupabase.auth.signInWithPassword({ email: adminEmail, password: tempPassword });
-            passwordVerified = !reVerify.error;
-            if (reVerify.error) console.error('🔑 Re-verification after reset FAILED:', reVerify.error.message);
-            else console.log('🔑 Password verified after reset');
-          }
-        } else {
-          passwordVerified = true;
-          console.log('🔑 Password verified — login works');
-        }
-        // Sign out the test session
-        try { await anonSupabase.auth.signOut(); } catch (e) {}
-      } catch (verifyErr) {
-        console.warn('🔑 Password verification skipped:', verifyErr.message);
-      }
-    }
+    var setPasswordLink = null;
+    var linkRes = await ensureUserWithSetPasswordLink(supabase, {
+      email: adminEmail,
+      portal_url: pc.portal_url,
+      user_id: userId,
+      user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
+    });
+    if (linkRes.error) console.error('👤 set-password link error:', linkRes.error);
+    if (linkRes.user_id) userId = linkRes.user_id;
+    setPasswordLink = linkRes.action_link;
+    steps.set_password_link = !!setPasswordLink;
+    if (!setPasswordLink) warnings.push('Set-password link generation failed — admin will need a manual reset link');
 
     if (!userId) {
       // Still no user ID — generate one and hope user_profiles doesn't have FK to auth.users
@@ -293,7 +231,7 @@ module.exports = async function handler(req, res) {
       platform_name: pc.platform_name,
       portal_url: pc.portal_url,
       admin_email: adminEmail,
-      temp_password: tempPassword,
+      set_password_link: setPasswordLink,
       plan_name: plan.name,
       support_email: pc.support_email,
       support_phone: pc.support_phone || '',
@@ -363,10 +301,8 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    steps.password_verified = passwordVerified;
     if (!steps.user_profile) warnings.push('user_profiles insert failed — admin may not be able to log in');
     if (!steps.tenant_member) warnings.push('tenant_members insert failed — admin not linked to tenant');
-    if (!passwordVerified) warnings.push('Password verification failed — admin may need a manual password reset');
 
     console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType, steps: steps, warnings: warnings });
 
@@ -375,7 +311,7 @@ module.exports = async function handler(req, res) {
       tenant_id: newTenantId,
       user_id: userId,
       welcome_email_sent: emailResult.success,
-      temp_password_for_admin_display: tempPassword,
+      set_password_link: setPasswordLink,
       steps: steps,
       warnings: warnings.length > 0 ? warnings : undefined,
     });
