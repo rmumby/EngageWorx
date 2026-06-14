@@ -262,50 +262,43 @@ module.exports = async function handler(req, res) {
             }
           } catch (umErr) {}
 
-          var tenantResult = await supabase.from('tenants').insert({
-            name: companyName,
-            slug: slug,
+          // Atomic provision: tenant + user_profiles binding + tenant_members admin row in one
+          // service-role transaction. Replaces the separate insert/update/member writes so a
+          // partial failure can't leave an orphaned profile with a phantom tenant_id.
+          var prov = await supabase.rpc('provision_tenant_and_bind', {
+            p_user_id: userId,
+            p_name: companyName,
+            p_slug: slug,
+            p_customer_type: 'direct',
+            p_entity_tier: 'tenant',
+            p_status: 'active',
+            p_parent_tenant_id: null,
+            p_referred_by: null,
+            p_is_sandbox: false,
+          });
+          if (prov.error) {
+            console.error('[Stripe] provision_tenant_and_bind FAILED:', prov.error.message, '— no half-state created');
+            break;
+          }
+          newTenantId = prov.data;
+
+          // Columns the RPC doesn't set (non-fatal — the atomic binding above is what matters).
+          var tDetail = await supabase.from('tenants').update({
             plan: plan,
-            status: 'active',
             brand_primary: '#00C9FF',
             brand_name: suppliedBusinessName || companyName,
             website_url: suppliedWebsite,
             channels_enabled: ['sms', 'email', 'whatsapp'],
-            // Paid self-serve signup is a direct customer — write the tier explicitly, never lean
-            // on the DB 'direct' default (canonical-set guard).
-            customer_type: 'direct',
-          }).select().single();
+          }).eq('id', newTenantId);
+          if (tDetail.error) console.warn('[stripe-webhook] tenant detail update (non-fatal):', tDetail.error.message);
 
-          if (tenantResult.error) {
-            console.error('[Stripe] Tenant create error:', tenantResult.error.message);
-            break;
-          }
-
-          var tenant = tenantResult.data;
-          newTenantId = tenant.id;
+          // Profile role/company_name (RPC already set tenant_id + tenant_type).
+          await supabase.from('user_profiles').update({ role: 'admin', company_name: companyName }).eq('id', userId);
 
           // Seed default pipeline stages (non-fatal if it fails)
-          try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[stripe-webhook] Stage seed error (non-fatal):', e.message); }
+          try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[stripe-webhook] Stage seed error (non-fatal):', e.message); }
 
-          await supabase.from('user_profiles').update({
-            tenant_id: tenant.id,
-            role: 'admin',
-            company_name: companyName,
-          }).eq('id', userId);
-
-          await supabase.from('tenant_members').insert({
-            tenant_id: tenant.id,
-            user_id: userId,
-            role: 'admin',
-            status: 'active',
-            joined_at: new Date().toISOString(),
-            notify_on_escalation: true,
-            notify_on_new_signup: false,
-            notify_on_payment: true,
-            notify_on_new_lead: false,
-          });
-
-          console.log('[Stripe] Tenant created:', tenant.id, 'for:', email);
+          console.log('[Stripe] Tenant provisioned:', newTenantId, 'for:', email);
 
           // Auto-create pipeline lead
           try {
