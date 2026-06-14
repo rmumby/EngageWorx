@@ -275,8 +275,16 @@ module.exports = async function handler(req, res) {
             p_parent_tenant_id: null,
             p_referred_by: null,
             p_is_sandbox: false,
+            p_event_id: event.id,
           });
           if (prov.error) {
+            // Duplicate webhook delivery: the RPC's stripe_events insert hit the PK
+            // (stripe_events_pkey, SQLSTATE 23505). Acknowledge as a no-op 200 so Stripe stops
+            // retrying — a 500 here would loop a no-op forever.
+            if (prov.error.code === '23505' && (((prov.error.message || '') + (prov.error.details || '')).indexOf('stripe_events') !== -1)) {
+              console.log('[Stripe] Duplicate delivery — event already processed:', event.id);
+              return res.status(200).json({ received: true, duplicate: true });
+            }
             console.error('[Stripe] provision_tenant_and_bind FAILED:', prov.error.message, '— no half-state created');
             break;
           }
