@@ -7,6 +7,8 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { seedPipelineStages } = require('./_lib/seed-pipeline-stages');
+var { verifyTenantAuth } = require('./_lib/verify-tenant-auth');
+var { createTenant } = require('./_lib/create-tenant');
 
 function getSupabase() {
   return createClient(
@@ -215,20 +217,24 @@ module.exports = async function handler(req, res) {
   if (action === 'create' && req.method === 'POST') {
     var cspTenantId = req.body.csp_tenant_id;
     var email = (req.body.email || '').trim().toLowerCase();
-    var password = req.body.password || '';
     var fullName = req.body.full_name || '';
     var companyName = req.body.company_name || '';
     var plan = req.body.plan || 'starter';
     var isSandbox = req.body.is_sandbox === true;
     var isDemo = req.body.is_demo === true;
+    var customerType = req.body.customer_type || 'direct';
     // Enforce mutual exclusion: sandbox and demo cannot both be true
     if (isSandbox && isDemo) {
       return res.status(400).json({ error: 'A tenant cannot be both sandbox and demo. Choose one.' });
     }
 
-    if (!cspTenantId || !email || !password || !companyName) {
-      return res.status(400).json({ error: 'Missing required fields: csp_tenant_id, email, password, company_name' });
+    if (!cspTenantId || !email || !companyName) {
+      return res.status(400).json({ error: 'Missing required fields: csp_tenant_id, email, company_name' });
     }
+
+    // Auth: superadmin or an admin of the CSP/agent tenant creating the sub-tenant.
+    var cspAuth = await verifyTenantAuth(supabase, req, cspTenantId, { requireAdmin: true });
+    if (cspAuth.error) return res.status(cspAuth.status).json({ error: cspAuth.error });
 
     var cspCheck = await supabase.from('tenants').select('id, name, tenant_type, customer_type').eq('id', cspTenantId).maybeSingle();
     var cspType = (cspCheck.data && (cspCheck.data.customer_type || cspCheck.data.tenant_type)) || '';
@@ -237,65 +243,30 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      // Create auth user
-      var authResult = await supabase.auth.admin.createUser({
+      // All core provisioning (auth user + set-password link, tenant row with explicit
+      // customer_type/tenant_type + flag XOR, stages/demo seed, member/profile, audit, welcome)
+      // goes through the shared primitive — no plaintext password.
+      var provision = await createTenant(supabase, {
         email: email,
-        password: password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName, company_name: companyName },
-      });
-
-      var userId = null;
-      if (authResult.error) {
-        if (authResult.error.message.includes('already') || authResult.error.message.includes('exists')) {
-          var listResult = await supabase.auth.admin.listUsers();
-          var existing = (listResult.data && listResult.data.users) ? listResult.data.users.find(function(u) { return u.email === email; }) : null;
-          if (existing) userId = existing.id;
-          else return res.status(400).json({ error: 'User exists but could not be found' });
-        } else {
-          return res.status(400).json({ error: authResult.error.message });
-        }
-      } else {
-        userId = authResult.data.user.id;
-      }
-
-      // Create tenant
-      var baseSlug = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      var slug = baseSlug + '-' + Date.now().toString(36).slice(-6);
-
-      var tenantResult = await supabase.from('tenants').insert({
-        name: companyName,
-        slug: slug,
+        fullName: fullName,
+        companyName: companyName,
         plan: plan,
+        customerType: customerType,
+        isSandbox: isSandbox,
+        isDemo: isDemo,
+        parentTenantId: cspTenantId,
+        creatorTenantId: cspTenantId,
         status: 'active',
-        parent_tenant_id: cspTenantId,
-        tenant_type: 'business',
-        is_sandbox: isSandbox,
-        is_demo: isDemo,
-        onboarding_completed: isDemo ? true : false,
-        parent_product_label: req.body.parent_product_label || null,
-        display_alias: req.body.display_alias || null,
-      }).select().single();
+        operatorId: cspAuth.user.id,
+        extraTenantFields: {
+          parent_product_label: req.body.parent_product_label || null,
+          display_alias: req.body.display_alias || null,
+        },
+      });
+      if (!provision.ok) return res.status(provision.status || 500).json({ error: provision.error });
 
-      if (tenantResult.error) {
-        return res.status(500).json({ error: 'Tenant creation failed: ' + tenantResult.error.message });
-      }
-
-      var tenant = tenantResult.data;
-
-      // Seed default pipeline stages (non-fatal if it fails)
-      try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[csp] Stage seed error (non-fatal):', e.message); }
-
-      // Seed demo data if is_demo (non-fatal)
-      if (isDemo) {
-        try { var { seedDemoTenant } = require('./_lib/seed-demo-tenant'); await seedDemoTenant(tenant.id, supabase); } catch (e) { console.warn('[csp] Demo seed error (non-fatal):', e.message); }
-      }
-
-      // Link user
-      await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenant.id, role: 'admin', status: 'active' });
-
-      // Create user profile
-      await supabase.from('user_profiles').upsert({ id: userId, email: email, tenant_id: tenant.id, role: 'admin', company_name: companyName, full_name: fullName });
+      var tenant = provision.tenant;
+      var userId = provision.userId;
 
       // Seed chatbot_configs with brand-aware signature defaults (only if no row exists yet)
       try {
@@ -321,27 +292,22 @@ module.exports = async function handler(req, res) {
         });
       } catch (ne) { console.warn('CSP alert email failed:', ne.message); }
 
-      // Send welcome email to new tenant
-      var welcomeResult = { success: false, error: 'not attempted' };
-      try {
-        welcomeResult = await sendWelcomeEmail(supabase, cspTenantId, email, companyName, plan) || { success: true };
-      } catch (welcomeErr) {
-        console.error('[CSP] Welcome email failed:', welcomeErr.message);
-        welcomeResult = { success: false, error: welcomeErr.message };
-      }
-
+      // Welcome (set-password link) is sent by the shared primitive — single sender per event.
       return res.status(200).json({
         success: true,
         tenant_id: tenant.id,
         tenant_name: companyName,
-        slug: slug,
+        slug: tenant.slug,
         plan: plan,
         csp_id: cspTenantId,
         csp_name: cspCheck.data.name,
         user_id: userId,
         email: email,
-        welcome_email_sent: welcomeResult.success,
-        welcome_email_error: welcomeResult.success ? undefined : welcomeResult.error,
+        customer_type: tenant.customer_type,
+        is_sandbox: tenant.is_sandbox,
+        is_demo: tenant.is_demo,
+        set_password_link: provision.setPasswordLink,
+        welcome_email_sent: provision.welcomeEmailSent,
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });
