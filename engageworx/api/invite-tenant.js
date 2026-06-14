@@ -83,16 +83,54 @@ module.exports = async function handler(req, res) {
       return res.status(409).json({ error: 'Email ' + adminEmail + ' is already associated with a tenant' });
     }
 
-    // 2. Create tenant
+    // 2. Provision the admin user first (auth user + profile row via the on_auth_user_created
+    //    trigger + single-use set-password link), then create the tenant and bind atomically.
+    var nameParts = adminName.split(' ');
+    var firstName = nameParts[0] || adminName;
+    var lastName = nameParts.slice(1).join(' ') || '';
     var slug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
-    var tenantIns = await supabase.from('tenants').insert({
-      name: tenantName,
+
+    var linkRes = await ensureUserWithSetPasswordLink(supabase, {
+      email: adminEmail,
+      portal_url: pc.portal_url,
+      user_id: existingUser.data ? existingUser.data.id : null,
+      user_metadata: { role: 'admin', full_name: adminName },
+    });
+    if (linkRes.error || !linkRes.user_id) {
+      console.error('[invite-tenant] admin provisioning error:', linkRes.error);
+      return res.status(500).json({ error: 'Could not provision admin login: ' + (linkRes.error || 'unknown error') });
+    }
+    var userId = linkRes.user_id;
+    var setPasswordLink = linkRes.action_link;
+
+    // 3. Atomic: create the tenant + bind user_profiles.tenant_id + tenant_members(admin) in a
+    //    single service-role transaction (provision_tenant_and_bind). No half-state on failure.
+    var ENTITY_TIER = { direct: 'tenant', csp_partner: 'csp', agent: 'agent', master_agent: 'master_agent', internal: 'super_admin' };
+    var prov = await supabase.rpc('provision_tenant_and_bind', {
+      p_user_id: userId,
+      p_name: tenantName,
+      p_slug: slug,
+      p_customer_type: customerType,
+      p_entity_tier: ENTITY_TIER[customerType] || 'tenant',
+      p_status: 'trial',
+      p_parent_tenant_id: inviterTenantId || null,
+      p_referred_by: null,
+      p_is_sandbox: false,
+    });
+    if (prov.error) {
+      // Roll back the auth user we just created so a failed provision leaves no orphan.
+      if (linkRes.created) { try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.warn('[invite-tenant] rollback auth delete:', e.message); } }
+      console.error('[invite-tenant] provision_tenant_and_bind FAILED:', prov.error.message, '— no half-state created');
+      return res.status(500).json({ error: 'Tenant provisioning failed: ' + prov.error.message });
+    }
+    var newTenantId = prov.data;
+    console.log('[invite-tenant] Tenant provisioned + bound:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
+
+    // 3b. Columns the RPC doesn't set (non-fatal — the atomic binding above is integrity-critical).
+    var tDetail = await supabase.from('tenants').update({
       brand_name: tenantName,
-      slug: slug,
-      plan: plan.slug,
-      status: 'trial',
       tenant_type: customerType,
-      customer_type: customerType,
+      plan: plan.slug,
       channels_enabled: ['sms', 'email'],
       message_limit: plan.message_limit,
       contact_limit: plan.contact_limit,
@@ -100,46 +138,9 @@ module.exports = async function handler(req, res) {
       website_url: website,
       brand_primary: '#00C9FF',
       brand_secondary: '#E040FB',
-      parent_tenant_id: inviterTenantId || null,
       pipeline_lead_id: pipelineLeadId || null,
-    }).select('id').single();
-
-    if (tenantIns.error) {
-      console.error('[invite-tenant] Tenant insert error:', tenantIns.error.message);
-      return res.status(500).json({ error: 'Failed to create tenant: ' + tenantIns.error.message });
-    }
-    var newTenantId = tenantIns.data.id;
-    console.log('[invite-tenant] Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
-
-    // Defensive: confirm the tenant row actually persisted before we provision a login for it.
-    // Guards the failure mode where the insert returns an id but the row doesn't land — never
-    // create an admin user / send a set-password link for a tenant that isn't really there.
-    var tenantCheck = await supabase.from('tenants').select('id').eq('id', newTenantId).maybeSingle();
-    if (tenantCheck.error || !tenantCheck.data) {
-      console.error('[invite-tenant] Tenant did not persist after insert:', newTenantId, tenantCheck.error && tenantCheck.error.message);
-      return res.status(500).json({ error: 'Tenant creation did not persist — aborted before provisioning login.' });
-    }
-
-    // Roll back a partial provision so a failure never leaves an orphaned auth user + a phantom
-    // tenant_id (and so no login is emailed for a tenant that gets torn down). Deletes the
-    // just-created auth user (never a pre-existing account), its profile, and the new tenant
-    // plus the children seeded so far.
-    async function rollbackProvisioning() {
-      try {
-        if (userId) {
-          if (linkRes && linkRes.created) {
-            await supabase.from('user_profiles').delete().eq('id', userId);
-            try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.warn('[invite-tenant] rollback auth delete:', e.message); }
-          } else {
-            // Pre-existing account — unlink from the failed tenant, don't delete the user.
-            await supabase.from('user_profiles').update({ tenant_id: null }).eq('id', userId);
-          }
-        }
-      } catch (e) { console.warn('[invite-tenant] rollback user step:', e.message); }
-      try { await supabase.from('phone_numbers').delete().eq('tenant_id', newTenantId); } catch (e) {}
-      try { await supabase.from('pipeline_stages').delete().eq('tenant_id', newTenantId); } catch (e) {}
-      try { await supabase.from('tenants').delete().eq('id', newTenantId); } catch (e) { console.warn('[invite-tenant] rollback tenant delete:', e.message); }
-    }
+    }).eq('id', newTenantId);
+    if (tDetail.error) { console.warn('[invite-tenant] tenant detail update (non-fatal):', tDetail.error.message); warnings.push('Tenant created but some details were not saved: ' + tDetail.error.message); }
 
     // Seed default pipeline stages (non-fatal if it fails)
     try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[invite-tenant] Stage seed error (non-fatal):', e.message); }
@@ -173,77 +174,11 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 3. Provision the admin's auth user and a single-use set-password link (no password on
-    //    the wire). The recovery link lands on the portal's /auth/callback set-password form.
-    var nameParts = adminName.split(' ');
-    var firstName = nameParts[0] || adminName;
-    var lastName = nameParts.slice(1).join(' ') || '';
-    var userId = existingUser.data ? existingUser.data.id : null;
-    var steps = { user_profile: false, tenant_member: false, set_password_link: false };
-
-    var setPasswordLink = null;
-    var linkRes = await ensureUserWithSetPasswordLink(supabase, {
-      email: adminEmail,
-      portal_url: pc.portal_url,
-      user_id: userId,
-      user_metadata: { tenant_id: newTenantId, role: 'admin', full_name: adminName },
-    });
-    if (linkRes.error) console.error('👤 set-password link error:', linkRes.error);
-    if (linkRes.user_id) userId = linkRes.user_id;
-    setPasswordLink = linkRes.action_link;
-    steps.set_password_link = !!setPasswordLink;
+    // Admin display name on the profile (the RPC already set tenant_id + tenant_type and the
+    // tenant_members admin row — the binding is complete and atomic).
+    try { await supabase.from('user_profiles').update({ full_name: adminName, role: 'admin' }).eq('id', userId); } catch (e) { console.warn('[invite-tenant] profile name update (non-fatal):', e.message); }
+    var steps = { user_profile: true, tenant_member: true, set_password_link: !!setPasswordLink };
     if (!setPasswordLink) warnings.push('Set-password link generation failed — admin will need a manual reset link');
-
-    if (!userId) {
-      // Still no user ID — generate one and hope user_profiles doesn't have FK to auth.users
-      userId = crypto.randomUUID();
-      console.warn('👤 No auth user created — using generated UUID:', userId);
-    }
-    console.log('👤 User ID resolved:', userId, adminEmail);
-
-    // Insert or update user_profiles
-    var userProfilePayload = { id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin', full_name: adminName };
-    if (existingUser.data) {
-      var upUpd = await supabase.from('user_profiles').update({
-        tenant_id: newTenantId, role: 'admin', full_name: adminName,
-      }).eq('id', userId);
-      if (upUpd.error) console.error('👤 User update error:', upUpd.error.message, upUpd.error.details);
-      else { steps.user_profile = true; console.log('👤 User linked to tenant:', userId); }
-    } else {
-      var userIns = await supabase.from('user_profiles').upsert(userProfilePayload, { onConflict: 'id' });
-      if (userIns.error) {
-        console.error('👤 User upsert error:', userIns.error.message, userIns.error.details, userIns.error.hint);
-        // Retry with minimal columns if a column doesn't exist
-        console.log('👤 Retrying with minimal columns...');
-        var retryIns = await supabase.from('user_profiles').upsert({ id: userId, email: adminEmail, tenant_id: newTenantId, role: 'admin' }, { onConflict: 'id' });
-        if (retryIns.error) console.error('👤 User retry error:', retryIns.error.message);
-        else { steps.user_profile = true; console.log('👤 User created (minimal):', userId); }
-      }
-      else { steps.user_profile = true; console.log('👤 User created:', userId, adminEmail); }
-    }
-
-    // Hard-fail if the admin profile could not be written — roll back rather than leave an
-    // orphaned auth user + phantom tenant_id and (later) email a login that won't work.
-    if (!steps.user_profile) {
-      await rollbackProvisioning();
-      return res.status(500).json({ error: 'Failed to create admin profile — provisioning rolled back; no login email sent.' });
-    }
-
-    // 4. Create tenant_member
-    var tmIns = await supabase.from('tenant_members').upsert({
-      tenant_id: newTenantId, user_id: userId, role: 'admin', status: 'active',
-      joined_at: new Date().toISOString(),
-      notify_on_escalation: true, notify_on_new_signup: true,
-      notify_on_payment: true, notify_on_new_lead: true,
-    }, { onConflict: 'user_id,tenant_id' });
-    if (tmIns.error) console.error('🤝 tenant_members upsert error:', tmIns.error.message, tmIns.error.details, tmIns.error.hint);
-    else { steps.tenant_member = true; console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId); }
-
-    // Hard-fail if the admin couldn't be linked to the tenant — same rollback rationale.
-    if (!steps.tenant_member) {
-      await rollbackProvisioning();
-      return res.status(500).json({ error: 'Failed to link admin to tenant — provisioning rolled back; no login email sent.' });
-    }
 
     // 5. Create chatbot_configs
     var businessContext = tenantName;
