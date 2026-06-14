@@ -163,15 +163,15 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
     if (!sandboxForm.email || !sandboxForm.companyName) return;
     setSandboxLoading(true);
     setSandboxResult(null);
-    var password = sandboxForm.password || generatePassword(sandboxForm.companyName) + '_sbx';
     try {
+      var _ss = await supabase.auth.getSession();
+      var _sjwt = _ss.data.session ? _ss.data.session.access_token : null;
       var resp = await fetch('/api/csp?action=create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _sjwt },
         body: JSON.stringify({
           csp_tenant_id: agentTenantId,
           email: sandboxForm.email.trim(),
-          password: password,
           full_name: sandboxForm.fullName.trim() || 'Sandbox User',
           company_name: sandboxForm.companyName.trim(),
           plan: 'starter',
@@ -179,7 +179,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
         }),
       });
       var data = await resp.json();
-      if (data.success) { setSandboxResult(Object.assign({}, data, { password: password })); loadAgentData(); }
+      if (data.success) { setSandboxResult(data); loadAgentData(); }
       else { setSandboxResult({ error: data.error || 'Failed to create sandbox' }); }
     } catch (e) { setSandboxResult({ error: e.message }); }
     setSandboxLoading(false);
@@ -189,15 +189,15 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
     if (!demoForm.email || !demoForm.companyName) return;
     setDemoLoading(true);
     setDemoResult(null);
-    var password = demoForm.password || generatePassword(demoForm.companyName) + '_demo';
     try {
+      var _ms = await supabase.auth.getSession();
+      var _mjwt = _ms.data.session ? _ms.data.session.access_token : null;
       var resp = await fetch('/api/csp?action=create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _mjwt },
         body: JSON.stringify({
           csp_tenant_id: agentTenantId,
           email: demoForm.email.trim(),
-          password: password,
           full_name: demoForm.fullName.trim() || 'Demo User',
           company_name: demoForm.companyName.trim(),
           plan: 'starter',
@@ -205,7 +205,7 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
         }),
       });
       var data = await resp.json();
-      if (data.success) { setDemoResult(Object.assign({}, data, { password: password })); loadAgentData(); }
+      if (data.success) { setDemoResult(data); loadAgentData(); }
       else { setDemoResult({ error: data.error || 'Failed to create demo account' }); }
     } catch (e) { setDemoResult({ error: e.message }); }
     setDemoLoading(false);
@@ -729,11 +729,11 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
                   <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
                     <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{sandboxResult.tenant_name}</span>
                     <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{sandboxResult.email}</span>
-                    <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{sandboxResult.password}</span>
+                    <span style={{ color: C.muted }}>Set-password link:</span><span style={{ color: C.primary, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{sandboxResult.set_password_link || '(emailed — use Resend if it expires)'}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + sandboxResult.email + '\nPassword: ' + sandboxResult.password); }} style={btnPrimary}>Copy Credentials</button>
+                    <button onClick={function() { navigator.clipboard.writeText(sandboxResult.set_password_link || ''); }} style={btnPrimary} disabled={!sandboxResult.set_password_link}>Copy set-password link</button>
                     <button onClick={function() { setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={btnSec}>Create Another</button>
                     <button onClick={function() { setShowSandbox(false); }} style={btnSec}>Close</button>
                   </div>
@@ -748,7 +748,6 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div><div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Email *</div><input value={sandboxForm.email} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { email: e.target.value })); }} placeholder="jane@prospect.com" type="email" style={inputStyle} /></div>
-                      <div><div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div><input value={sandboxForm.password} onChange={function(e) { setSandboxForm(Object.assign({}, sandboxForm, { password: e.target.value })); }} placeholder="Auto-generated" style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} /></div>
                     </div>
                     <div style={{ background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>🧪 Sandbox accounts use the <span style={{ color: C.primary }}>Starter plan</span> with full feature access. Appears under your My Clients list.</div>
                     <button onClick={handleCreateSandbox} disabled={sandboxLoading || !sandboxForm.email || !sandboxForm.companyName} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: (sandboxLoading || !sandboxForm.email || !sandboxForm.companyName) ? 0.6 : 1 })}>{sandboxLoading ? 'Creating...' : '🧪 Create Sandbox Account'}</button>
@@ -774,11 +773,11 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
                   <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: 8, fontSize: 13 }}>
                     <span style={{ color: C.muted }}>Company:</span><span style={{ color: '#fff', fontWeight: 600 }}>{demoResult.tenant_name}</span>
                     <span style={{ color: C.muted }}>Email:</span><span style={{ color: '#fff' }}>{demoResult.email}</span>
-                    <span style={{ color: C.muted }}>Password:</span><span style={{ color: C.primary, fontFamily: 'monospace' }}>{demoResult.password}</span>
+                    <span style={{ color: C.muted }}>Set-password link:</span><span style={{ color: C.primary, fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>{demoResult.set_password_link || '(emailed — use Resend if it expires)'}</span>
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() { navigator.clipboard.writeText('Portal: portal.engwx.com\nEmail: ' + demoResult.email + '\nPassword: ' + demoResult.password); }} style={btnPrimary}>Copy Credentials</button>
+                    <button onClick={function() { navigator.clipboard.writeText(demoResult.set_password_link || ''); }} style={btnPrimary} disabled={!demoResult.set_password_link}>Copy set-password link</button>
                     <button onClick={function() { setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={btnSec}>Create Another</button>
                     <button onClick={function() { setShowDemoForm(false); }} style={btnSec}>Close</button>
                   </div>
@@ -793,7 +792,6 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div><div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Email *</div><input value={demoForm.email} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { email: e.target.value })); }} placeholder="jane@prospect.com" type="email" style={inputStyle} /></div>
-                      <div><div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Password</div><input value={demoForm.password} onChange={function(e) { setDemoForm(Object.assign({}, demoForm, { password: e.target.value })); }} placeholder="Auto-generated" style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} /></div>
                     </div>
                     <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>🎮 Demo accounts come ready for a live walkthrough. Appears under My Clients and counts toward commission tracking.</div>
                     <button onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ background: 'linear-gradient(135deg, ' + C.accent + ', #7C4DFF)', border: 'none', borderRadius: 10, padding: '14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: (demoLoading || !demoForm.email || !demoForm.companyName) ? 0.6 : 1 }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</button>

@@ -512,7 +512,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
       if (d.support_email) setPlatformSupportEmail(d.support_email);
     }).catch(function(e) { console.warn('Platform config load error:', e.message); });
   }, []);
-  const [demoForm, setDemoForm] = useState({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
+  const [demoForm, setDemoForm] = useState({ email: "", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" });
   const [demoCreating, setDemoCreating] = useState(false);
   const [demoResult, setDemoResult] = useState(null);
   const [editingBrand, setEditingBrand] = useState(null);
@@ -557,6 +557,10 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     setCreateError(null);
     try {
       var slug = newTenant.companyName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now();
+      // Write customer_type explicitly (canonical) — never lean on the DB 'direct' default.
+      // Map the form's tier values to the canonical set; tenant_type mirrors it (#97 pattern).
+      var ctMap = { direct: 'direct', csp: 'csp_partner', agent: 'agent', master_agent: 'master_agent', internal: 'internal' };
+      var customerType = ctMap[newTenant.type] || 'direct';
       var insertPayload = {
         name: newTenant.companyName,
         slug: slug,
@@ -565,7 +569,8 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         brand_primary: newTenant.color,
         brand_name: newTenant.brandName || newTenant.companyName,
         channels_enabled: ['sms', 'email'],
-        tenant_type: newTenant.type,
+        customer_type: customerType,
+        tenant_type: customerType,
         custom_domain: newTenant.domain || null,
       };
       if (currentTenantId) {
@@ -865,33 +870,31 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
                       <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>{demoResult.email}</div>
                     </div>
                     <div>
-                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Password</div>
-                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>{demoResult.password}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Portal URL</div>
-                      <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14, fontFamily: "monospace" }}>portal.engwx.com</div>
-                    </div>
-                    <div>
                       <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Company</div>
                       <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 8, padding: "10px 14px", color: "#fff", fontSize: 14 }}>{demoResult.company}</div>
                     </div>
                   </div>
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Set-password link (prospect sets their own password — no password is shared)</div>
+                    {demoResult.set_password_link ? (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input readOnly value={demoResult.set_password_link} onFocus={(e) => e.target.select()} style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 14px", color: "#cbd5e1", fontSize: 12, fontFamily: "monospace" }} />
+                        <button onClick={() => { navigator.clipboard.writeText(demoResult.set_password_link); }} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 8, padding: "10px 16px", color: C.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif" }}>📋 Copy link</button>
+                      </div>
+                    ) : (
+                      <div style={{ color: "#eab308", fontSize: 12 }}>Link unavailable — welcome email {demoResult.welcome_email_sent ? "was sent" : "failed"}; use the tenant Resend action to reissue.</div>
+                    )}
+                  </div>
                   <div style={{ marginTop: 16, display: "flex", gap: 10 }}>
-                    <button onClick={() => { navigator.clipboard.writeText(`Portal: portal.engwx.com\nEmail: ${demoResult.email}\nPassword: ${demoResult.password}`); }} style={{ background: `${C.primary}22`, border: `1px solid ${C.primary}44`, borderRadius: 8, padding: "8px 18px", color: C.primary, fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>📋 Copy Credentials</button>
-                    <button onClick={() => { setDemoResult(null); setDemoForm({ email: "", password: "demo1234", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" }); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Create Another</button>
+                    <button onClick={() => { setDemoResult(null); setDemoForm({ email: "", companyName: "", brandColor: "#00C9FF", plan: "starter", expiresIn: "7" }); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "8px 18px", color: "#fff", cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>+ Create Another</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <div>
                       <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Prospect Email</label>
                       <input value={demoForm.email} onChange={e => setDemoForm(p => ({ ...p, email: e.target.value }))} placeholder="prospect@company.com" style={inputStyleTM} />
-                    </div>
-                    <div>
-                      <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Password</label>
-                      <input value={demoForm.password} onChange={e => setDemoForm(p => ({ ...p, password: e.target.value }))} placeholder="demo1234" style={inputStyleTM} />
                     </div>
                     <div>
                       <label style={{ color: C.muted, fontSize: 11, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Company Name</label>
@@ -931,14 +934,14 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
                       if (!demoForm.email || !demoForm.companyName) return;
                       setDemoCreating(true);
 try {
-  const slug = demoForm.companyName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-demo-" + Date.now().toString(36).slice(-4);
+  const _ds = await supabase.auth.getSession();
+  const _djwt = _ds.data.session ? _ds.data.session.access_token : null;
   const resp = await fetch('/api/csp?action=create', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _djwt },
     body: JSON.stringify({
       csp_tenant_id: (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387'),
       email: demoForm.email,
-      password: demoForm.password,
       full_name: 'Demo User',
       company_name: demoForm.companyName,
       plan: demoForm.plan,
@@ -947,7 +950,7 @@ try {
   });
   const data = await resp.json();
   if (!data.success) throw new Error(data.error || 'Failed to create demo account');
-  const demoTenantId = data.tenant?.id;
+  const demoTenantId = data.tenant_id;
 
 // Auto-create pipeline lead
 try {
@@ -972,7 +975,7 @@ try {
   }
 } catch(e) { console.log('Pipeline lead create failed:', e.message); }
 
-setDemoResult({ email: demoForm.email, password: demoForm.password, company: demoForm.companyName, tenantId: demoTenantId });
+setDemoResult({ email: demoForm.email, set_password_link: data.set_password_link, welcome_email_sent: data.welcome_email_sent, company: demoForm.companyName, tenantId: demoTenantId });
 } catch (err) { alert("Error: " + err.message); }
 setDemoCreating(false);
                     }} disabled={demoCreating || !demoForm.email || !demoForm.companyName} style={{

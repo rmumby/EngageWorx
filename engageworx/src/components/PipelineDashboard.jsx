@@ -330,7 +330,11 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
       const { data: tenant, error: tErr } = await supabase.from("tenants").insert({
         name: form.company, slug, brand_primary: "#00C9FF", brand_name: form.company,
         plan: form.package?.includes("Enterprise") ? "enterprise" : form.package?.includes("Pro") ? "pro" : form.package?.includes("Growth") ? "growth" : "starter",
-        status: "trial", channels_enabled: ["sms", "email", "whatsapp"]
+        status: "trial", channels_enabled: ["sms", "email", "whatsapp"],
+        // This is the "Convert to Sandbox" action — set the sandbox flag explicitly (it was
+        // omitted, so converts were landing is_sandbox=false), respect the XOR, and write the
+        // tier explicitly instead of leaning on the 'direct' default.
+        is_sandbox: true, is_demo: false, customer_type: "direct", tenant_type: "direct"
       }).select().single();
       if (tErr) throw tErr;
 

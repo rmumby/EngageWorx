@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { supabase } from './supabaseClient';
 
 export default function CreateSandbox({ C, onCreated }) {
   var showState = useState(false);
   var show = showState[0];
   var setShow = showState[1];
 
-  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', password: '', isDemo: false });
+  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', isDemo: false });
   var form = formState[0];
   var setForm = formState[1];
 
@@ -21,14 +22,8 @@ export default function CreateSandbox({ C, onCreated }) {
   var error = errorState[0];
   var setError = errorState[1];
 
-  function generatePassword(company) {
-    var base = company.replace(/[^a-zA-Z]/g, '');
-    if (base.length < 3) base = 'Trial';
-    return base.charAt(0).toUpperCase() + base.slice(1, 6) + '2026!';
-  }
-
   function updateCompany(val) {
-    setForm(Object.assign({}, form, { companyName: val, password: generatePassword(val) }));
+    setForm(Object.assign({}, form, { companyName: val }));
   }
 
   async function handleCreate() {
@@ -36,21 +31,18 @@ export default function CreateSandbox({ C, onCreated }) {
       setError('Email and Company Name are required');
       return;
     }
-    if (!form.password) {
-      setError('Password is required');
-      return;
-    }
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
+      var session = await supabase.auth.getSession();
+      var jwt = session.data.session ? session.data.session.access_token : null;
       var resp = await fetch('/api/create-sandbox', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
       body: JSON.stringify({
           email: form.email.trim(),
-          password: form.password,
           fullName: form.fullName.trim(),
           companyName: form.companyName.trim(),
           plan: form.plan,
@@ -71,7 +63,7 @@ export default function CreateSandbox({ C, onCreated }) {
   }
 
   function reset() {
-    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', password: '', isDemo: false });
+    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', isDemo: false });
     setResult(null);
     setError(null);
   }
@@ -122,25 +114,30 @@ export default function CreateSandbox({ C, onCreated }) {
             <span style={{ color: '#fff', fontWeight: 600 }}>{result.tenantName}</span>
             <span style={{ color: 'rgba(255,255,255,0.4)' }}>Email:</span>
             <span style={{ color: '#fff' }}>{result.email}</span>
-            <span style={{ color: 'rgba(255,255,255,0.4)' }}>Password:</span>
-            <span style={{ color: C.primary || '#00C9FF', fontFamily: 'monospace' }}>{form.password}</span>
+            <span style={{ color: 'rgba(255,255,255,0.4)' }}>Tier:</span>
+            <span style={{ color: '#fff' }}>{result.customer_type} {result.is_demo ? '· demo' : '· sandbox'}</span>
             <span style={{ color: 'rgba(255,255,255,0.4)' }}>Plan:</span>
             <span style={{ color: '#fff' }}>{result.plan}</span>
             <span style={{ color: 'rgba(255,255,255,0.4)' }}>Tenant ID:</span>
             <span style={{ color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace', fontSize: 11 }}>{result.tenantId}</span>
-            <span style={{ color: 'rgba(255,255,255,0.4)' }}>Portal URL:</span>
-            <span style={{ color: C.primary || '#00C9FF' }}>portal.engwx.com</span>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, fontWeight: 700 }}>Set-password link (admin sets their own password — no password is shared)</div>
+            {result.set_password_link ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input readOnly value={result.set_password_link} onFocus={function(e) { e.target.select(); }} style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', color: '#cbd5e1', fontSize: 12, fontFamily: 'monospace' }} />
+                <button onClick={function() { navigator.clipboard.writeText(result.set_password_link); }} style={Object.assign({}, btnPrimary, { whiteSpace: 'nowrap' })}>Copy link</button>
+              </div>
+            ) : (
+              <div style={{ color: '#eab308', fontSize: 12 }}>Link unavailable — welcome email {result.welcome_email_sent ? 'was sent' : 'failed'}; use the tenant Resend action to reissue.</div>
+            )}
           </div>
           <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-            <button onClick={function() {
-              var text = 'Portal: portal.engwx.com\nEmail: ' + result.email + '\nPassword: ' + form.password + '\nPlan: ' + result.plan;
-              navigator.clipboard.writeText(text);
-            }} style={btnPrimary}>Copy Credentials</button>
             <button onClick={function() { reset(); }} style={btnSec}>Create Another</button>
             <button onClick={function() { setShow(false); reset(); }} style={btnSec}>Close</button>
           </div>
           <div style={{ marginTop: 12, color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>
-            Next: Assign a phone number in Supabase → phone_numbers table, then configure Twilio webhook.
+            A welcome email with this link {result.welcome_email_sent ? 'was sent to ' + result.email : 'could not be sent — share the link above'}. Next: assign a phone number, then configure messaging.
           </div>
         </div>
       ) : (
@@ -155,15 +152,9 @@ export default function CreateSandbox({ C, onCreated }) {
               <input value={form.companyName} onChange={function(e) { updateCompany(e.target.value); }} placeholder="Acme Telecom" style={inputStyle} />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-            <div>
-              <label style={labelStyle}>Email *</label>
-              <input value={form.email} onChange={function(e) { setForm(Object.assign({}, form, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Temporary Password *</label>
-              <input value={form.password} onChange={function(e) { setForm(Object.assign({}, form, { password: e.target.value })); }} placeholder="Auto-generated" style={Object.assign({}, inputStyle, { fontFamily: 'monospace' })} />
-            </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Email *</label>
+            <input value={form.email} onChange={function(e) { setForm(Object.assign({}, form, { email: e.target.value })); }} placeholder="jane@company.com" type="email" style={inputStyle} />
           </div>
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Plan</label>

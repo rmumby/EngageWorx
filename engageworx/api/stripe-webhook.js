@@ -271,6 +271,9 @@ module.exports = async function handler(req, res) {
             brand_name: suppliedBusinessName || companyName,
             website_url: suppliedWebsite,
             channels_enabled: ['sms', 'email', 'whatsapp'],
+            // Paid self-serve signup is a direct customer — write the tier explicitly, never lean
+            // on the DB 'direct' default (canonical-set guard).
+            customer_type: 'direct',
           }).select().single();
 
           if (tenantResult.error) {
