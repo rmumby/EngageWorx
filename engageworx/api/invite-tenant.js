@@ -111,6 +111,36 @@ module.exports = async function handler(req, res) {
     var newTenantId = tenantIns.data.id;
     console.log('[invite-tenant] Tenant created:', newTenantId, tenantName, 'customer_type=' + customerType, 'plan=' + plan.slug);
 
+    // Defensive: confirm the tenant row actually persisted before we provision a login for it.
+    // Guards the failure mode where the insert returns an id but the row doesn't land — never
+    // create an admin user / send a set-password link for a tenant that isn't really there.
+    var tenantCheck = await supabase.from('tenants').select('id').eq('id', newTenantId).maybeSingle();
+    if (tenantCheck.error || !tenantCheck.data) {
+      console.error('[invite-tenant] Tenant did not persist after insert:', newTenantId, tenantCheck.error && tenantCheck.error.message);
+      return res.status(500).json({ error: 'Tenant creation did not persist — aborted before provisioning login.' });
+    }
+
+    // Roll back a partial provision so a failure never leaves an orphaned auth user + a phantom
+    // tenant_id (and so no login is emailed for a tenant that gets torn down). Deletes the
+    // just-created auth user (never a pre-existing account), its profile, and the new tenant
+    // plus the children seeded so far.
+    async function rollbackProvisioning() {
+      try {
+        if (userId) {
+          if (linkRes && linkRes.created) {
+            await supabase.from('user_profiles').delete().eq('id', userId);
+            try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.warn('[invite-tenant] rollback auth delete:', e.message); }
+          } else {
+            // Pre-existing account — unlink from the failed tenant, don't delete the user.
+            await supabase.from('user_profiles').update({ tenant_id: null }).eq('id', userId);
+          }
+        }
+      } catch (e) { console.warn('[invite-tenant] rollback user step:', e.message); }
+      try { await supabase.from('phone_numbers').delete().eq('tenant_id', newTenantId); } catch (e) {}
+      try { await supabase.from('pipeline_stages').delete().eq('tenant_id', newTenantId); } catch (e) {}
+      try { await supabase.from('tenants').delete().eq('id', newTenantId); } catch (e) { console.warn('[invite-tenant] rollback tenant delete:', e.message); }
+    }
+
     // Seed default pipeline stages (non-fatal if it fails)
     try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[invite-tenant] Stage seed error (non-fatal):', e.message); }
 
@@ -192,6 +222,13 @@ module.exports = async function handler(req, res) {
       else { steps.user_profile = true; console.log('👤 User created:', userId, adminEmail); }
     }
 
+    // Hard-fail if the admin profile could not be written — roll back rather than leave an
+    // orphaned auth user + phantom tenant_id and (later) email a login that won't work.
+    if (!steps.user_profile) {
+      await rollbackProvisioning();
+      return res.status(500).json({ error: 'Failed to create admin profile — provisioning rolled back; no login email sent.' });
+    }
+
     // 4. Create tenant_member
     var tmIns = await supabase.from('tenant_members').upsert({
       tenant_id: newTenantId, user_id: userId, role: 'admin', status: 'active',
@@ -201,6 +238,12 @@ module.exports = async function handler(req, res) {
     }, { onConflict: 'user_id,tenant_id' });
     if (tmIns.error) console.error('🤝 tenant_members upsert error:', tmIns.error.message, tmIns.error.details, tmIns.error.hint);
     else { steps.tenant_member = true; console.log('🤝 Member created: user=' + userId + ' tenant=' + newTenantId); }
+
+    // Hard-fail if the admin couldn't be linked to the tenant — same rollback rationale.
+    if (!steps.tenant_member) {
+      await rollbackProvisioning();
+      return res.status(500).json({ error: 'Failed to link admin to tenant — provisioning rolled back; no login email sent.' });
+    }
 
     // 5. Create chatbot_configs
     var businessContext = tenantName;
@@ -308,9 +351,8 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    if (!steps.user_profile) warnings.push('user_profiles insert failed — admin may not be able to log in');
-    if (!steps.tenant_member) warnings.push('tenant_members insert failed — admin not linked to tenant');
-
+    // user_profile + tenant_member are guaranteed by the hard-fail guards above; reaching here
+    // means the tenant, admin, and membership all landed before the welcome email was sent.
     console.log('✅ Onboarding complete:', { tenant_id: newTenantId, tenant_name: tenantName, admin: adminEmail, plan: plan.slug, type: customerType, steps: steps, warnings: warnings });
 
     return res.status(200).json({
