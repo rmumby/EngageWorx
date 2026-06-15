@@ -110,7 +110,12 @@ async function createTenant(supabase, opts) {
     onboarding_completed: isDemo ? true : false,
   }, opts.extraTenantFields || {});
   var tDetail = await supabase.from('tenants').update(detailRow).eq('id', newTenantId);
-  if (tDetail.error) console.warn('[createTenant] tenant detail update (non-fatal):', tDetail.error.message);
+  if (tDetail.error) {
+    console.error('[createTenant] tenant detail update FAILED:', tDetail.error.message);
+    // Durable signal so the half-configured tenant surfaces in v_incomplete_provisioning.
+    var flagRes = await supabase.from('tenants').update({ provisioning_incomplete: true }).eq('id', newTenantId);
+    if (flagRes.error) console.error('[createTenant] provisioning_incomplete flag-set FAILED:', flagRes.error.message);
+  }
 
   // Profile display fields (the RPC already set tenant_id + tenant_type).
   try { await supabase.from('user_profiles').update({ company_name: companyName, full_name: fullName, role: role }).eq('id', userId); } catch (e) { console.warn('[createTenant] profile detail (non-fatal):', e.message); }
