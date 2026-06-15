@@ -102,7 +102,6 @@ const SEGMENTS = [
   { id: "all", name: "All Contacts", icon: "👥", desc: "Every contact in your database", filter: () => true },
   { id: "active", name: "Active", icon: "✅", desc: "Active contacts", filter: c => c.status === "active" },
   { id: "vip", name: "VIP Customers", icon: "⭐", desc: "Tagged as VIP", filter: c => c.tags.includes("VIP") },
-  { id: "wedding", name: "Wedding Couples", icon: "💒", desc: "Marked as wedding couples", filter: c => c.is_wedding_couple },
   { id: "new30", name: "New (30 days)", icon: "🆕", desc: "Joined in the last 30 days", filter: c => (Date.now() - c.created) < 30 * 86400000 },
   { id: "inactive", name: "Inactive 30+ Days", icon: "😴", desc: "No activity in 30+ days", filter: c => (Date.now() - c.lastActive) > 30 * 86400000 },
   { id: "highvalue", name: "High Value", icon: "💎", desc: "LTV over $1,000", filter: c => c.ltv > 1000 },
@@ -291,7 +290,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [selectedSegment, setSelectedSegment] = useState("all");
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [filterVip, setFilterVip] = useState(false);
-  const [filterWedding, setFilterWedding] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
   const [mergePrimaryId, setMergePrimaryId] = useState(null);
   const [mergeChoices, setMergeChoices] = useState({});
@@ -1023,7 +1021,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const filtered = contacts.filter(c => {
     if (!segment.filter(c)) return false;
     if (filterVip && !c.is_vip) return false;
-    if (filterWedding && !c.is_wedding_couple) return false;
     if (filterStatus !== "all" && c.status !== filterStatus) return false;
     if (filterTag !== "all" && !c.tags.includes(filterTag)) return false;
     if (filterChannel !== "all" && !c.channels.includes(filterChannel)) return false;
@@ -1639,7 +1636,6 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <select value={filterTag} onChange={e => { setFilterTag(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 130 }}><option value="all">All Tags</option>{TAGS.map(t => <option key={t} value={t}>{t}</option>)}</select>
             <select value={filterChannel} onChange={e => { setFilterChannel(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 140 }}><option value="all">All Channels</option>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select>
             <button onClick={function() { setFilterVip(!filterVip); setPage(0); }} style={{ background: filterVip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterVip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterVip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterVip ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterVip ? "⭐ VIP Only" : "⭐ VIP"}</button>
-            <button onClick={function() { setFilterWedding(!filterWedding); setPage(0); }} style={{ background: filterWedding ? "rgba(236,72,153,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterWedding ? "rgba(236,72,153,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterWedding ? "#ec4899" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterWedding ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterWedding ? "💒 Couples Only" : "💒 Couples"}</button>
             <div style={{ marginLeft: "auto", color: C.muted, fontSize: 13 }}>{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</div>
           </div>
 
