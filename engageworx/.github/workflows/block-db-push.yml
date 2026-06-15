@@ -1,0 +1,24 @@
+# Guard: the production DB is currently AHEAD of the migration ledger, so a
+# `supabase db push` would try to re-run ~58 non-idempotent files against
+# existing objects and corrupt/abort. Until the one-time `migration repair`
+# lands, db push must not be wired into any automation. This job fails CI if it
+# finds such an invocation committed anywhere (scripts, Makefiles, other workflows).
+name: Block supabase db push
+
+on: [push, pull_request]
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if a db push invocation is committed
+        run: |
+          if grep -rInE 'supabase[[:space:]]+db[[:space:]]+push' . \
+               --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.bash' \
+               --include='*.json' --include='*.toml' --include='Makefile' \
+               --exclude='block-db-push.yml'; then
+            echo "::error::A 'db push' invocation is committed. It is blocked until the migration ledger repair lands (the DB is ahead of the ledger). Use MCP apply_migration with an idempotent file instead."
+            exit 1
+          fi
+          echo "OK: no db push invocation found."
