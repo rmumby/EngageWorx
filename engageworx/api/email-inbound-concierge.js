@@ -36,30 +36,9 @@ function stripHtml(html) {
     .trim();
 }
 
-// Conservative quoted-reply stripping — known client markers only.
-// Cuts at the earliest high-confidence quote marker (Gmail/Apple Mail "On … wrote:",
-// Outlook "-----Original Message-----", Outlook "From:…\nSent:…" header block, or the
-// Outlook underscore divider). Returns the new reply only. Returns the FULL text
-// untouched when no marker is found (fresh email) or when stripping would leave
-// nothing — the caller also retains the full raw body in metadata as a fallback,
-// so the customer's actual words are never lost even if this over-strips.
-function stripQuotedReply(text) {
-  if (!text) return text;
-  var markers = [
-    /^On\b.*\bwrote:[ \t]*$/m,                 // Gmail / Apple Mail "On <date> … wrote:"
-    /^-{2,}\s*Original Message\s*-{2,}/mi,      // Outlook "-----Original Message-----"
-    /^From:[ \t].+\r?\n(Sent|Date):[ \t]/mi,    // Outlook reply header block
-    /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
-  ];
-  var cutAt = -1;
-  for (var i = 0; i < markers.length; i++) {
-    var m = text.match(markers[i]);
-    if (m && typeof m.index === 'number' && (cutAt === -1 || m.index < cutAt)) cutAt = m.index;
-  }
-  if (cutAt === -1) return text;                // no quote marker → fresh email, untouched
-  var stripped = text.slice(0, cutAt).trim();
-  return stripped.length > 0 ? stripped : text; // never lose the customer's words
-}
+// Conservative quoted-reply stripping — shared helper (see _lib/strip-quoted-reply.js),
+// also used by the main email-inbound path so both surfaces strip identically.
+var { stripQuotedReply } = require('./_lib/strip-quoted-reply');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).json({ ok: true });
