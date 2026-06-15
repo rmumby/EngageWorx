@@ -140,7 +140,13 @@ module.exports = async function handler(req, res) {
       brand_secondary: '#E040FB',
       pipeline_lead_id: pipelineLeadId || null,
     }).eq('id', newTenantId);
-    if (tDetail.error) { console.warn('[invite-tenant] tenant detail update (non-fatal):', tDetail.error.message); warnings.push('Tenant created but some details were not saved: ' + tDetail.error.message); }
+    if (tDetail.error) {
+      console.error('[invite-tenant] tenant detail update FAILED:', tDetail.error.message);
+      warnings.push('Tenant created but some details were not saved: ' + tDetail.error.message);
+      // Durable signal so the half-configured tenant surfaces in v_incomplete_provisioning.
+      var flagRes = await supabase.from('tenants').update({ provisioning_incomplete: true }).eq('id', newTenantId);
+      if (flagRes.error) console.error('[invite-tenant] provisioning_incomplete flag-set FAILED:', flagRes.error.message);
+    }
 
     // Seed default pipeline stages (non-fatal if it fails)
     try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[invite-tenant] Stage seed error (non-fatal):', e.message); }

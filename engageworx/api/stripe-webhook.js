@@ -290,7 +290,12 @@ module.exports = async function handler(req, res) {
             website_url: suppliedWebsite,
             channels_enabled: ['sms', 'email', 'whatsapp'],
           }).eq('id', newTenantId);
-          if (tDetail.error) console.warn('[stripe-webhook] tenant detail update (non-fatal):', tDetail.error.message);
+          if (tDetail.error) {
+            console.error('[stripe-webhook] tenant detail update FAILED:', tDetail.error.message);
+            // Durable signal so the half-configured tenant surfaces in v_incomplete_provisioning.
+            var flagRes = await supabase.from('tenants').update({ provisioning_incomplete: true }).eq('id', newTenantId);
+            if (flagRes.error) console.error('[stripe-webhook] provisioning_incomplete flag-set FAILED:', flagRes.error.message);
+          }
 
           // Profile role/company_name (RPC already set tenant_id + tenant_type).
           await supabase.from('user_profiles').update({ role: 'admin', company_name: companyName }).eq('id', userId);
