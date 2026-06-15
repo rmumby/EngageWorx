@@ -376,12 +376,16 @@ async function analyzeAndActionEmail(ctx) {
       if (m) decision = Object.assign(decision, JSON.parse(m[0]));
     } catch (aiErr) { console.warn('[EmailAI] Claude error:', aiErr.message); }
 
-    // 3b. If the matched tenant has a Calendly link set, append a booking CTA
-    //     to any Claude-drafted reply (auto_reply or review).
+    // 3b. If the matched tenant has a booking link, append a booking CTA to any
+    //     Claude-drafted reply (auto_reply or review). Prefer the Calendly link;
+    //     fall back to the booking-integration Path A link (e.g. Campus Dentist's
+    //     dental4.me page) so booking-only tenants still surface a link in drafts.
     if (decision.reply_draft && match.tenantId) {
       try {
         var tInfo = await supabase.from('tenants').select('calendly_url').eq('id', match.tenantId).maybeSingle();
-        var cu = tInfo.data && tInfo.data.calendly_url ? tInfo.data.calendly_url.trim() : '';
+        var cu = (tInfo.data && tInfo.data.calendly_url && tInfo.data.calendly_url.trim())
+          || (bookingIntegration && bookingIntegration.booking_url && bookingIntegration.booking_url.trim())
+          || '';
         if (cu && decision.reply_draft.indexOf(cu) === -1) {
           decision.reply_draft = decision.reply_draft.trimEnd() + '\n\nYou can book a time with me here: ' + cu;
         }
