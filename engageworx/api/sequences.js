@@ -160,18 +160,27 @@ async function sendStep(supabase, step, lead, tenant, sequence) {
   var seq = sequence || {};
   var mergeCtx = {
     calendlyLink: seq.meeting_link || (tenant && tenant.calendly_url) || (tenant && tenant.welcome_email_calendly) || (tenant && tenant.welcome_email_onboarding_link) || null,
-    senderName: (tenant && tenant.name) || null,
+    senderName: null,
   };
-  // Resolve sender name from user_profiles if available (the tenant admin / sequence owner)
+  // Resolve [Your Name] deterministically: prefer the enrolling user (lead_sequences.enrolled_by),
+  // fall back to the first active admin (proxy) for system/cron/legacy null enrolled_by, then to
+  // the tenant name. Null senderName is the refuse-gate's backstop — never ships a literal token.
   if (supabase && tenant && tenant.id) {
     try {
-      var ownerRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', tenant.id).eq('role', 'admin').eq('status', 'active').limit(1).maybeSingle();
-      if (ownerRes.data) {
-        var profileRes = await supabase.from('user_profiles').select('full_name').eq('id', ownerRes.data.user_id).maybeSingle();
+      var senderUserId = null;
+      var enrRes = await supabase.from('lead_sequences').select('enrolled_by').eq('lead_id', lead.id).eq('sequence_id', step.sequence_id).maybeSingle();
+      if (enrRes.data && enrRes.data.enrolled_by) senderUserId = enrRes.data.enrolled_by;
+      if (!senderUserId) {
+        var ownerRes = await supabase.from('tenant_members').select('user_id').eq('tenant_id', tenant.id).eq('role', 'admin').eq('status', 'active').limit(1).maybeSingle();
+        if (ownerRes.data) senderUserId = ownerRes.data.user_id;
+      }
+      if (senderUserId) {
+        var profileRes = await supabase.from('user_profiles').select('full_name').eq('id', senderUserId).maybeSingle();
         if (profileRes.data && profileRes.data.full_name) mergeCtx.senderName = profileRes.data.full_name;
       }
     } catch (_) {}
   }
+  if (!mergeCtx.senderName) mergeCtx.senderName = (tenant && tenant.name) || null;
 
   // Guard: refuse to send email to a lead with no email address
   if (step.channel === 'email' && (!lead.email || !lead.email.trim())) {
@@ -848,6 +857,18 @@ module.exports = async function handler(req, res) {
 
   var body = req.body || {};
 
+  // Best-effort actor for enrolled_by attribution (deterministic [Your Name] resolution).
+  // No token / invalid → null → admin-proxy fallback at send time; never blocks enrollment.
+  var actorUserId = null;
+  try {
+    var _authHeader = req.headers.authorization || '';
+    var _token = _authHeader.indexOf('Bearer ') === 0 ? _authHeader.slice(7) : null;
+    if (_token) {
+      var _actor = await supabase.auth.getUser(_token);
+      if (_actor && _actor.data && _actor.data.user) actorUserId = _actor.data.user.id;
+    }
+  } catch (_) {}
+
   // ── ENROL lead in sequence ──────────────────────────────────────────────────
   if (action === 'enrol') {
     var enrolBody = body;
@@ -890,7 +911,7 @@ module.exports = async function handler(req, res) {
     }
 
     var { safeEnrolSequence } = require('./_lib/safe-enrol-sequence');
-    var enrolRes = await safeEnrolSequence(supabase, { tenant_id: tenant_id, lead_id: lead_id, sequence_id: sequence_id, next_step_at: startDate.toISOString() });
+    var enrolRes = await safeEnrolSequence(supabase, { tenant_id: tenant_id, lead_id: lead_id, sequence_id: sequence_id, next_step_at: startDate.toISOString(), enrolled_by: actorUserId });
 
     if (!enrolRes.enrolled) {
       if (enrolRes.reason === 'sticky_status') return res.status(409).json({ error: 'Lead has existing enrollment in state: ' + enrolRes.existing_status + '. Reset it before re-enrolling.' });
@@ -953,7 +974,7 @@ module.exports = async function handler(req, res) {
         var bulkStartDate = new Date();
         if (bulkFirstStep && bulkFirstStep.delay_days > 0) bulkStartDate.setDate(bulkStartDate.getDate() + bulkFirstStep.delay_days);
         var _safeEnrolBulk = require('./_lib/safe-enrol-sequence');
-        var bulkEnrolRes = await _safeEnrolBulk.safeEnrolSequence(supabase, { tenant_id: bulkTenantId, lead_id: bulkLeadId, sequence_id: bulkSeqId, next_step_at: bulkStartDate.toISOString() });
+        var bulkEnrolRes = await _safeEnrolBulk.safeEnrolSequence(supabase, { tenant_id: bulkTenantId, lead_id: bulkLeadId, sequence_id: bulkSeqId, next_step_at: bulkStartDate.toISOString(), enrolled_by: actorUserId });
         if (!bulkEnrolRes.enrolled) { results.errors.push(bulkLeadId + ': ' + (bulkEnrolRes.reason || 'enrol failed')); results.skipped++; continue; }
         results.enrolled++;
       } catch(e) { results.errors.push((bulkLead.email || 'unknown') + ': ' + e.message); }

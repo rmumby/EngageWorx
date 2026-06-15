@@ -80,6 +80,9 @@ async function safeEnrolSequence(supabase, opts) {
   } catch (typeErr) { console.warn('[safeEnrol] outreach-guard check error (non-fatal):', typeErr.message); }
 
   // Safe to insert — no existing row in this sequence, and no competing active outreach.
+  // enrolled_by (optional): the user who initiated this enrollment, so [Your Name]
+  // resolves deterministically at send time. Null for system/cron/inbound enrollments
+  // (those fall back to the admin proxy in sendStep).
   var result = await supabase.from('lead_sequences').upsert({
     tenant_id: tenantId,
     lead_id: leadId,
@@ -87,6 +90,7 @@ async function safeEnrolSequence(supabase, opts) {
     current_step: 0,
     status: 'active',
     enrolled_at: new Date().toISOString(),
+    enrolled_by: opts.enrolled_by || null,
     next_step_at: nextStepAt || new Date().toISOString(),
     processing_started_at: null,
   }, { onConflict: 'lead_id,sequence_id' });
