@@ -11,6 +11,7 @@ var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { checkInboundBlock } = require('./_lib/blocklist');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { getBookingIntegration } = require('./_lib/booking-integration');
+var { stripQuotedReply } = require('./_lib/strip-quoted-reply');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -742,7 +743,11 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ skipped: true, reason: 'internal' });
     }
 
-    var rawEmailBody = text || html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/https?:\/\/\S+/g, '').replace(/\[cid:[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
+    // Strip the quoted reply chain from the plain-text part (markers are line-anchored, so this
+    // must run on newline-intact text BEFORE whitespace is collapsed) so stored messages hold only
+    // the new reply, not the entire prior thread re-quoted each round (issue 1ab0ff1d).
+    var _deQuotedText = text ? stripQuotedReply(text) : '';
+    var rawEmailBody = (_deQuotedText || html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ')).replace(/https?:\/\/\S+/g, '').replace(/\[cid:[^\]]+\]/g, '').replace(/\s+/g, ' ').trim();
     // Signature stripping applied after tenant resolution (tenant may have custom markers)
     var emailBody = rawEmailBody;
     if (emailBody.length > 5000) emailBody = emailBody.substring(0, 5000);
