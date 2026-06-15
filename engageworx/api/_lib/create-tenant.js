@@ -4,8 +4,10 @@
 //     tenant_type, so no path ever leans on the DB 'direct'/'business' defaults;
 //   - enforces the sandbox/demo flag XOR (never both true — respects tenants_sandbox_xor_demo);
 //   - provisions the admin via a single-use set-password link (no password on the wire);
-//   - seeds pipeline stages (+ demo fixtures when is_demo);
-//   - links the member + profile, writes an audit row;
+//   - creates the tenant + binds the admin profile + membership ATOMICALLY via the
+//     provision_tenant_and_bind RPC (no half-state; slug self-heal built in), then sets the
+//     columns the RPC doesn't cover (is_demo, plan, tenant_type, onboarding_completed, extras);
+//   - seeds pipeline stages (+ demo fixtures when is_demo), writes an audit row;
 //   - sends the branded welcome carrying the set-password link, anchored to the creator's
 //     verified domain (#97 sendPlatformEmail owner_tenant_id).
 //
@@ -76,43 +78,52 @@ async function createTenant(supabase, opts) {
   var userId = linkRes.user_id;
   var setPasswordLink = linkRes.action_link;
 
-  // 2. Tenant row — explicit tier + flag XOR; tenant_type mirrors customer_type.
-  var slug = slugify(companyName);
-  var slugCheck = await supabase.from('tenants').select('id').eq('slug', slug).limit(1);
-  if (slugCheck.data && slugCheck.data.length > 0) slug = slug + '-' + Date.now().toString(36).slice(-4);
+  // 2. Atomic: create the tenant + bind user_profiles.tenant_id + tenant_members(admin) in one
+  //    service-role transaction (provision_tenant_and_bind). Slug self-heal is built into the RPC.
+  var ENTITY_TIER = { direct: 'tenant', csp_partner: 'csp', agent: 'agent', master_agent: 'master_agent' };
+  var slug = slugify(companyName) + '-' + Date.now().toString(36);
+  var prov = await supabase.rpc('provision_tenant_and_bind', {
+    p_user_id: userId,
+    p_name: companyName,
+    p_slug: slug,
+    p_customer_type: customerType,
+    p_entity_tier: ENTITY_TIER[customerType] || 'tenant',
+    p_status: status,
+    p_parent_tenant_id: opts.parentTenantId || null,
+    p_referred_by: null,
+    p_is_sandbox: isSandbox,
+    p_event_id: null,
+  });
+  if (prov.error) {
+    // Roll back the just-created auth user so a failed provision leaves no orphan.
+    if (linkRes.created) { try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.warn('[createTenant] rollback auth delete:', e.message); } }
+    return { ok: false, status: 500, error: 'Tenant provisioning failed: ' + prov.error.message };
+  }
+  var newTenantId = prov.data;
 
-  var insertRow = Object.assign({
-    name: companyName,
-    slug: slug,
-    plan: opts.plan || 'growth',
-    status: status,
-    customer_type: customerType,
+  // 2b. Columns the RPC doesn't set — tenant_type mirror, is_demo, plan, onboarding_completed, and
+  //     any caller extras (website_url, display_alias, parent_product_label, brand_*). Non-fatal.
+  var detailRow = Object.assign({
     tenant_type: customerType,
-    is_sandbox: isSandbox,
     is_demo: isDemo,
-    parent_tenant_id: opts.parentTenantId || null,
+    plan: opts.plan || 'growth',
     onboarding_completed: isDemo ? true : false,
   }, opts.extraTenantFields || {});
+  var tDetail = await supabase.from('tenants').update(detailRow).eq('id', newTenantId);
+  if (tDetail.error) console.warn('[createTenant] tenant detail update (non-fatal):', tDetail.error.message);
 
-  var tenantRes = await supabase.from('tenants').insert(insertRow).select().single();
-  if (tenantRes.error) return { ok: false, status: 500, error: 'Tenant creation failed: ' + tenantRes.error.message };
-  var tenant = tenantRes.data;
+  // Profile display fields (the RPC already set tenant_id + tenant_type).
+  try { await supabase.from('user_profiles').update({ company_name: companyName, full_name: fullName, role: role }).eq('id', userId); } catch (e) { console.warn('[createTenant] profile detail (non-fatal):', e.message); }
+
+  // Fetch the final tenant row to return (reflects is_sandbox/is_demo/slug/customer_type for callers).
+  var tenantSel = await supabase.from('tenants').select().eq('id', newTenantId).maybeSingle();
+  var tenant = tenantSel.data || { id: newTenantId, slug: slug, customer_type: customerType, is_sandbox: isSandbox, is_demo: isDemo };
 
   // 3. Seed pipeline stages (non-fatal) + demo fixtures (non-fatal).
-  try { await seedPipelineStages(supabase, tenant.id); } catch (e) { console.warn('[createTenant] stage seed:', e.message); }
+  try { await seedPipelineStages(supabase, newTenantId); } catch (e) { console.warn('[createTenant] stage seed:', e.message); }
   if (seedDemo) {
-    try { var { seedDemoTenant } = require('./seed-demo-tenant'); await seedDemoTenant(tenant.id, supabase); } catch (e) { console.warn('[createTenant] demo seed:', e.message); }
+    try { var { seedDemoTenant } = require('./seed-demo-tenant'); await seedDemoTenant(newTenantId, supabase); } catch (e) { console.warn('[createTenant] demo seed:', e.message); }
   }
-
-  // 4. Link member (idempotent) + upsert profile.
-  var existingLink = await supabase.from('tenant_members').select('id').eq('user_id', userId).eq('tenant_id', tenant.id).maybeSingle();
-  if (!existingLink.data) {
-    var memRes = await supabase.from('tenant_members').insert({ user_id: userId, tenant_id: tenant.id, role: role, status: 'active', joined_at: new Date().toISOString() });
-    if (memRes.error) return { ok: false, status: 500, error: 'Member link failed: ' + memRes.error.message };
-  }
-  try {
-    await supabase.from('user_profiles').upsert({ id: userId, email: email, tenant_id: String(tenant.id), role: role, company_name: companyName, full_name: fullName }, { onConflict: 'id' });
-  } catch (e) { console.warn('[createTenant] profile upsert:', e.message); }
 
   // 5. Audit.
   try {
