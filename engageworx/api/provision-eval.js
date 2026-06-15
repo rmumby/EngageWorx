@@ -330,7 +330,12 @@ module.exports = async function handler(req, res) {
     var evDetail = await supabase.from('tenants').update({
       plan: plan, is_demo: false, onboarding_completed: true, channels_enabled: ['sms', 'email', 'whatsapp'],
     }).eq('id', newEvalTenantId);
-    if (evDetail.error) console.warn('[provision-eval] tenant detail update (non-fatal):', evDetail.error.message);
+    if (evDetail.error) {
+      console.error('[provision-eval] tenant detail update FAILED:', evDetail.error.message);
+      // Durable signal so the half-configured tenant surfaces in v_incomplete_provisioning.
+      var flagRes = await supabase.from('tenants').update({ provisioning_incomplete: true }).eq('id', newEvalTenantId);
+      if (flagRes.error) console.error('[provision-eval] provisioning_incomplete flag-set FAILED:', flagRes.error.message);
+    }
 
     // Seed pipeline stages
     try { var { seedPipelineStages } = require('./_lib/seed-pipeline-stages'); await seedPipelineStages(supabase, newEvalTenantId); } catch (e) { console.warn('[provision-eval] Stage seed error:', e.message); }
