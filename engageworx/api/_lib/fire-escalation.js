@@ -2,6 +2,8 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { sendTenantEmail } = require('./send-tenant-email');
+var { systemMailHeaders } = require('./system-mail');
+var { escalationCapReached } = require('./escalation-guard');
 
 function getSupabase() {
   return createClient(
@@ -34,6 +36,14 @@ async function fireEscalation(opts) {
     var channels = ac.channels || [];
     if (channels.length === 0) {
       console.warn('[fireEscalation] No channels configured for rule:', rule.rule_name);
+      return;
+    }
+
+    // Circuit breaker (incident backstop): suppress if this rule has already escalated this
+    // conversation too many times in the last hour. This path records to escalation_log below,
+    // so the count accrues here. Fail-open inside the helper.
+    if (await escalationCapReached(supabase, tenantId, ruleId, conversationId)) {
+      console.warn('[fireEscalation] Escalation cap reached — suppressing for rule:', rule.rule_name, '| conversation:', conversationId);
       return;
     }
 
@@ -74,6 +84,8 @@ async function fireEscalation(opts) {
           to: user.email,
           subject: subject,
           html: html,
+          // Stamp as platform system mail so inbound drops it (no self-referential escalation loop).
+          headers: systemMailHeaders('escalation'),
         });
         succeeded.push('email');
       } catch (e) {

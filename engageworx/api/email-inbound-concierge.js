@@ -8,6 +8,7 @@ var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation');
+var { systemMailHeaders, isSystemMail } = require('./_lib/system-mail');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { getSignature, composeHtmlBody, composeTextBody } = require('./_email-signature');
 var { wrapAndDispatch } = require('./_lib/wrap-and-dispatch');
@@ -121,6 +122,13 @@ module.exports = async function handler(req, res) {
   if (!senderEmail || !recipientEmail) {
     console.log('[email-concierge] Missing sender or recipient — dropping');
     return res.status(200).json({ ok: true, dropped: 'missing_addresses' });
+  }
+
+  // Drop the platform's own system/notification mail (root fix for self-referential escalation
+  // loops: our outbound notify can never be re-ingested as customer inbound and re-trigger a rule).
+  if (isSystemMail(headersArr)) {
+    console.log('[email-concierge] Blocked platform system/notification email from: ' + senderEmail);
+    return res.status(200).json({ ok: true, dropped: 'system_notification' });
   }
 
   // ── 2. Tenant resolution ──────────────────────────────────────────────
@@ -456,6 +464,15 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // Belt: From == the tenant's own send/inbound identity → our own mail looping back (catches the
+  // case where an intermediary stripped the system header). The concierge loop re-ingests the notify
+  // from weddings@<domain> into the same inbox it was sent from, so sender == recipient/sender id.
+  var selfLower = (senderEmail || '').toLowerCase();
+  if (selfLower && (selfLower === (recipientEmail || '').toLowerCase() || selfLower === (tenantSenderEmail || '').toLowerCase())) {
+    console.log('[email-concierge] Blocked mail from tenant\'s own identity (loop guard): ' + senderEmail);
+    return res.status(200).json({ ok: true, dropped: 'own_identity' });
+  }
+
   // ── 6b. Evaluate escalation rules before AI call ──────────────────────
   try {
     var { data: escRules } = await supabase.from('escalation_rules')
@@ -467,14 +484,14 @@ module.exports = async function handler(req, res) {
       if (matched) {
         console.log('[email-concierge] Escalation rule matched:', matched.rule.rule_name, '| match:', JSON.stringify(matched.match));
         var escResult = await executeActions(supabase, matched, {
-          tenantId: tenantId, conversationId: conversationId, contactName: contactName,
+          tenantId: tenantId, conversationId: conversationId, contactId: contactId, contactName: contactName,
           senderEmail: senderEmail, messageBody: emailBody, tenantSenderEmail: tenantSenderEmail, tenantName: tenantName,
         });
         if (escResult.skipAI) {
           var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
           var confHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
             escResult.confirmationMessage.replace(/\n/g, '<br>') + '</div>';
-          try { await sendTenantEmail(supabase, { tenant_id: tenantId, allowBlocked: true, to: senderEmail, from: tenantSenderEmail || recipientEmail, from_name: tenantName || 'Team', subject: replySubject, html: confHtml, text: escResult.confirmationMessage, reply_to: recipientEmail }); } catch (se) { console.error('[email-concierge] Escalation confirmation send failed:', se.message); }
+          try { await sendTenantEmail(supabase, { tenant_id: tenantId, allowBlocked: true, to: senderEmail, from: tenantSenderEmail || recipientEmail, from_name: tenantName || 'Team', subject: replySubject, html: confHtml, text: escResult.confirmationMessage, reply_to: recipientEmail, headers: systemMailHeaders('escalation') }); } catch (se) { console.error('[email-concierge] Escalation confirmation send failed:', se.message); }
           if (conversationId) { await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'email', direction: 'outbound', sender_type: 'bot', body: escResult.confirmationMessage, status: 'delivered', created_at: new Date().toISOString() }).then(function() {}).catch(function() {}); }
           return res.status(200).json({ ok: true, action: 'escalation_confirmation', rule: matched.rule.rule_name, conversation_id: conversationId });
         }
