@@ -828,20 +828,20 @@ module.exports = async function handler(req, res) {
         var ec = await supabase.from('contacts').select('id').eq('email', senderEmail).eq('tenant_id', tid).limit(1);
         if (ec.data && ec.data.length > 0) contactId2 = ec.data[0].id;
         else {
-          var nc = await supabase.from('contacts').insert({ tenant_id: tid, first_name: firstName2, last_name: lastName2, email: senderEmail, status: 'spam' }).select().single();
+          var nc = await supabase.from('contacts').insert({ tenant_id: tid, first_name: firstName2, last_name: lastName2, email: senderEmail, status: 'blocked' }).select().single();
           contactId2 = nc.data ? nc.data.id : null;
         }
         var convId2 = null;
         if (contactId2) {
           var nconv = await supabase.from('conversations').insert({
-            tenant_id: tid, contact_id: contactId2, channel: 'email', status: 'spam',
+            tenant_id: tid, contact_id: contactId2, channel: 'email', status: 'resolved',
             subject: subject, last_message_at: new Date().toISOString(), unread_count: 0,
           }).select().single();
           convId2 = nconv.data ? nconv.data.id : null;
           if (convId2) {
             await supabase.from('messages').insert({
               tenant_id: tid, conversation_id: convId2, contact_id: contactId2, channel: 'email',
-              direction: 'inbound', sender_type: 'contact', body: emailBody, status: 'spam',
+              direction: 'inbound', sender_type: 'contact', body: emailBody, status: 'delivered',
             });
           }
         }
