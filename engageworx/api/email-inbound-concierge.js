@@ -491,9 +491,22 @@ module.exports = async function handler(req, res) {
   // never empty when emailBody is non-empty, so the empty-body guard below still holds.
   var userMessage = (replyBody || '').substring(0, 5000).trim();
   if (!userMessage) {
-    // Inbound already persisted above; no AI to run. No ticket (enquiry surface, 96202d7d) —
-    // the conversation stays in Live Inbox for a human to see. Conversation-only.
-    console.log('[email-concierge] Empty body — conversation persisted, no AI, no ticket:', conversationId);
+    // Enquiry surfaces (wedding_concierge / supplier) must never auto-create tickets (96202d7d):
+    // conversation-only (inbound already persisted). The helpdesk surface keeps its empty-body ticket.
+    if (matchedSurface === 'helpdesk') {
+      try {
+        await supabase.from('support_tickets').insert({
+          tenant_id: tenantId, wedding_id: weddingId,
+          subject: 'Empty email body: ' + subject,
+          description: 'Email from ' + senderEmail + ' had no extractable text or HTML content.\n\nSubject: ' + subject,
+          submitter_email: senderEmail, submitter_name: contactName || senderEmail,
+          submitter_type: 'couple', category: matchedSurface + '_empty_body',
+          channel: 'email', ai_handled: false, status: 'open', priority: 'low',
+        });
+      } catch (e) {}
+    } else {
+      console.log('[email-concierge] Empty body on enquiry surface — conversation persisted, no AI, no ticket:', conversationId);
+    }
     return res.status(200).json({ ok: true, action: 'empty_body_skipped' });
   }
 
@@ -627,10 +640,30 @@ module.exports = async function handler(req, res) {
   // ── 10. Prefix routing ────────────────────────────────────────────────
   if (aiResult.prefix === 'ESCALATE') {
     try {
-      // Enquiry/concierge surface must not auto-create Help Desk tickets (96202d7d). On ESCALATE
-      // the conversation stays in Live Inbox and we notify the tenant's escalation recipients
-      // below — no ticket. No needs-attention marker exists to set, and we are not building one.
-      console.log('[email-concierge] Concierge ESCALATE — notifying recipients, conversation stays in Live Inbox, no ticket:', senderEmail);
+      // Helpdesk surface retains its [ESCALATE] handoff ticket. Enquiry surfaces (wedding_concierge /
+      // supplier) must never auto-create tickets (96202d7d) — the conversation stays in Live Inbox and
+      // we only notify the tenant's escalation recipients below. No needs-attention marker exists.
+      if (matchedSurface === 'helpdesk') {
+        await supabase.from('support_tickets').insert({
+          tenant_id: tenantId,
+          wedding_id: weddingId,
+          subject: 'Concierge escalation: ' + subject,
+          description: 'Original email from ' + contactName + ' (' + senderEmail + '):\n\n' + emailBody.substring(0, 3000) + '\n\n---\n\nAI escalation summary:\n' + aiResult.response,
+          submitter_email: senderEmail,
+          submitter_name: contactName || senderEmail,
+          submitter_type: 'couple',
+          category: matchedSurface + '_escalation',
+          channel: 'email',
+          ai_handled: true,
+          status: 'open',
+          priority: 'high',
+          transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+          metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
+        });
+        console.log('[email-concierge] Helpdesk ESCALATE ticket created for:', senderEmail);
+      } else {
+        console.log('[email-concierge] Enquiry-surface ESCALATE — notifying recipients, conversation stays in Live Inbox, no ticket:', senderEmail);
+      }
 
       // Notify tenant members with notify_on_escalation = true
       try {
