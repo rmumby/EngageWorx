@@ -4,6 +4,7 @@
 
 var { sendTenantEmail } = require('./send-tenant-email');
 var { systemMailHeaders } = require('./system-mail');
+var { escalationCapReached } = require('./escalation-guard');
 
 var EXPLICIT_ASK_PATTERNS = [
   /speak\s+(to|with)\s+(a|an|the|someone|a\s+person|a\s+human|the\s+team|the\s+manager|a\s+coordinator)/i,
@@ -70,6 +71,12 @@ async function executeActions(supabase, matched, opts) {
     var actionConfig = action.config || {};
 
     if (action.type === 'notify') {
+      // Circuit breaker: suppress if this rule has already escalated this conversation too many
+      // times in the last hour (incident backstop). Fail-open inside the helper.
+      if (await escalationCapReached(supabase, opts.tenantId, rule.id, opts.conversationId)) {
+        console.warn('[evaluate-escalation] Escalation cap reached — suppressing notify for rule:', rule.rule_name, '| conversation:', opts.conversationId);
+        continue;
+      }
       var recipients = actionConfig.recipients || [];
       if (recipients.length === 0) {
         // Fallback: load tenant members with notify_on_escalation
@@ -113,6 +120,21 @@ async function executeActions(supabase, matched, opts) {
         }
       }
       console.log('[evaluate-escalation] Notified', recipients.length, 'recipients for rule:', rule.rule_name);
+
+      // Record for audit + circuit-breaker accounting (this path previously left no escalation_log
+      // row, so the per-rule/per-conversation/hour cap had nothing to count).
+      try {
+        await supabase.from('escalation_log').insert({
+          tenant_id: opts.tenantId,
+          rule_id: rule.id,
+          conversation_id: opts.conversationId || null,
+          contact_id: opts.contactId || null,
+          channels_attempted: ['email'],
+          channels_succeeded: recipients.length > 0 ? ['email'] : [],
+          trigger_keyword_matched: (matched.match && matched.match.keywords_matched && matched.match.keywords_matched[0]) || null,
+          trigger_excerpt: (opts.messageBody || '').substring(0, 500),
+        });
+      } catch (e) { console.warn('[evaluate-escalation] escalation_log insert failed:', e.message); }
     }
 
     if (action.type === 'pause_concierge' && opts.conversationId) {

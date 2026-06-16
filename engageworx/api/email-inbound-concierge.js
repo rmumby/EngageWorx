@@ -484,7 +484,7 @@ module.exports = async function handler(req, res) {
       if (matched) {
         console.log('[email-concierge] Escalation rule matched:', matched.rule.rule_name, '| match:', JSON.stringify(matched.match));
         var escResult = await executeActions(supabase, matched, {
-          tenantId: tenantId, conversationId: conversationId, contactName: contactName,
+          tenantId: tenantId, conversationId: conversationId, contactId: contactId, contactName: contactName,
           senderEmail: senderEmail, messageBody: emailBody, tenantSenderEmail: tenantSenderEmail, tenantName: tenantName,
         });
         if (escResult.skipAI) {
