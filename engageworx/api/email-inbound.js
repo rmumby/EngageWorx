@@ -290,6 +290,41 @@ async function analyzeAndActionEmail(ctx) {
       }
     } catch (e) { console.warn('[Inbound] booking_integration read error: ' + e.message); }
 
+    // ── email_request mode: capture inbound, HARD-SKIP the AI drafter ───────────────
+    // Mode-driven kill switch — bulletproof regardless of ai_reply_mode / ai_enabled. Tenants whose
+    // booking_integration is in 'email_request' mode (e.g. Campus Dentist Phase 1) take inbound email
+    // as a Live Inbox conversation for a human, NEVER an AI draft or auto-reply. Tightly scoped: only
+    // fires for email_request tenants, so no other tenant's flow changes.
+    if (match.tenantId && bookingIntegration && bookingIntegration.active_path === 'email_request') {
+      try {
+        var erContactId = match.contactId;
+        if (!erContactId) {
+          var erFind = await supabase.from('contacts').select('id').eq('tenant_id', match.tenantId).ilike('email', sender).limit(1).maybeSingle();
+          erContactId = erFind.data ? erFind.data.id : null;
+          if (!erContactId) {
+            var erName = (ctx.senderName || sender.split('@')[0] || '').trim();
+            var erIns = await supabase.from('contacts').insert({ tenant_id: match.tenantId, first_name: erName.split(' ')[0] || erName, last_name: erName.split(' ').slice(1).join(' ') || null, email: sender, source: 'inbound_email', status: 'active' }).select('id').single();
+            erContactId = erIns.data ? erIns.data.id : null;
+          }
+        }
+        if (erContactId) {
+          var erConv = await supabase.from('conversations').select('id').eq('tenant_id', match.tenantId).eq('contact_id', erContactId).eq('channel', 'email').in('status', ['active', 'waiting', 'snoozed']).order('last_message_at', { ascending: false }).limit(1).maybeSingle();
+          var erConvId = erConv.data ? erConv.data.id : null;
+          if (erConvId) {
+            await supabase.from('conversations').update({ last_message_at: new Date().toISOString(), unread_count: 1, status: 'active' }).eq('id', erConvId);
+          } else {
+            var erNewConv = await supabase.from('conversations').insert({ tenant_id: match.tenantId, contact_id: erContactId, channel: 'email', status: 'active', subject: (ctx.subject || 'Inbound email'), last_message_at: new Date().toISOString(), unread_count: 1 }).select('id').single();
+            erConvId = erNewConv.data ? erNewConv.data.id : null;
+          }
+          if (erConvId) {
+            await supabase.from('messages').insert({ tenant_id: match.tenantId, conversation_id: erConvId, contact_id: erContactId, direction: 'inbound', channel: 'email', body: (ctx.body || '').substring(0, 10000), status: 'delivered', sender_type: 'contact', metadata: { source: 'email_request_inbound' } });
+          }
+        }
+        console.log('[Inbound] email_request mode — captured in Live Inbox, AI drafter skipped. tenant=' + match.tenantId);
+      } catch (erErr) { console.error('[Inbound] email_request capture error:', erErr.message); }
+      return res.status(200).json({ ok: true, action: 'email_request_captured', tenant_id: match.tenantId });
+    }
+
     // 2. Last 3 interactions for this contact
     var history = [];
     if (match.contactId) {
