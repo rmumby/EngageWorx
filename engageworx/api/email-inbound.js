@@ -12,6 +12,7 @@ var { checkInboundBlock } = require('./_lib/blocklist');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { getBookingIntegration } = require('./_lib/booking-integration');
 var { stripQuotedReply } = require('./_lib/strip-quoted-reply');
+var { isSystemMail } = require('./_lib/system-mail');
 
 var supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -780,6 +781,28 @@ module.exports = async function handler(req, res) {
     if (fromLower.indexOf('engwx.com') !== -1) {
       console.log('🚫 Skipping internal email from: ' + fromLower);
       return res.status(200).json({ skipped: true, reason: 'internal' });
+    }
+    // (d) Platform's own system/notification mail — drop it (root fix for self-referential
+    // escalation loops: our outbound notifications must never be re-ingested as customer inbound).
+    if (isSystemMail(body.headers)) {
+      console.log('🚫 Blocked platform system/notification email from: ' + fromLower);
+      return res.status(200).json({ skipped: true, reason: 'system_notification' });
+    }
+    // (e) Belt: From == a tenant's own sending/inbound identity. A customer's From is never the
+    // tenant's configured from_email/inbound_email, so such mail is our own outbound looping back
+    // (catches the case where an intermediary stripped the header above). Tenant-agnostic.
+    if (fromLower && fromLower.indexOf('@') !== -1) {
+      try {
+        var selfFrom = await supabase.from('channel_configs').select('tenant_id')
+          .eq('channel', 'email').eq('config_encrypted->>from_email', fromLower).limit(1);
+        var selfInbound = (selfFrom.data && selfFrom.data.length > 0) ? null
+          : await supabase.from('channel_configs').select('tenant_id')
+              .eq('channel', 'email').eq('config_encrypted->>inbound_email', fromLower).limit(1);
+        if ((selfFrom.data && selfFrom.data.length > 0) || (selfInbound && selfInbound.data && selfInbound.data.length > 0)) {
+          console.log('🚫 Blocked mail from a tenant\'s own send/inbound identity (loop guard): ' + fromLower);
+          return res.status(200).json({ skipped: true, reason: 'own_identity' });
+        }
+      } catch (e) { /* non-fatal: header drop (d) is the primary guard */ }
     }
 
     // Strip the quoted reply chain from the plain-text part (markers are line-anchored, so this

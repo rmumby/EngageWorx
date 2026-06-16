@@ -124,6 +124,13 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, dropped: 'missing_addresses' });
   }
 
+  // Drop the platform's own system/notification mail (root fix for self-referential escalation
+  // loops: our outbound notify can never be re-ingested as customer inbound and re-trigger a rule).
+  if (isSystemMail(headersArr)) {
+    console.log('[email-concierge] Blocked platform system/notification email from: ' + senderEmail);
+    return res.status(200).json({ ok: true, dropped: 'system_notification' });
+  }
+
   // ── 2. Tenant resolution ──────────────────────────────────────────────
   var tenantId = null;
   var tenantName = null;
@@ -455,6 +462,15 @@ module.exports = async function handler(req, res) {
     } catch (msgErr) {
       console.error('[email-concierge] Inbound message insert threw:', msgErr.message);
     }
+  }
+
+  // Belt: From == the tenant's own send/inbound identity → our own mail looping back (catches the
+  // case where an intermediary stripped the system header). The concierge loop re-ingests the notify
+  // from weddings@<domain> into the same inbox it was sent from, so sender == recipient/sender id.
+  var selfLower = (senderEmail || '').toLowerCase();
+  if (selfLower && (selfLower === (recipientEmail || '').toLowerCase() || selfLower === (tenantSenderEmail || '').toLowerCase())) {
+    console.log('[email-concierge] Blocked mail from tenant\'s own identity (loop guard): ' + senderEmail);
+    return res.status(200).json({ ok: true, dropped: 'own_identity' });
   }
 
   // ── 6b. Evaluate escalation rules before AI call ──────────────────────
