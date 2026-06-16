@@ -3,6 +3,7 @@
 // First matching rule wins (sorted by priority ASC, lowest = highest priority).
 
 var { sendTenantEmail } = require('./send-tenant-email');
+var { systemMailHeaders } = require('./system-mail');
 
 var EXPLICIT_ASK_PATTERNS = [
   /speak\s+(to|with)\s+(a|an|the|someone|a\s+person|a\s+human|the\s+team|the\s+manager|a\s+coordinator)/i,
@@ -104,6 +105,8 @@ async function executeActions(supabase, matched, opts) {
             subject: subject,
             html: html,
             text: 'Escalation: ' + rule.rule_name + '\nFrom: ' + (opts.contactName || '') + '\n\n' + (opts.messageBody || '').substring(0, 500),
+            // Stamp as platform system mail so inbound drops it (no self-referential escalation loop).
+            headers: systemMailHeaders('escalation'),
           });
         } catch (e) {
           console.warn('[evaluate-escalation] Notify send failed for', recipients[r], ':', e.message);

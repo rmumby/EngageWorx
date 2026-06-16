@@ -8,6 +8,7 @@ var { sendTenantEmail } = require('./_lib/send-tenant-email');
 var { getNotifyEmails } = require('./_notify');
 var { generateConciergeResponse } = require('./wedding-concierge');
 var { findMatchingRule, executeActions } = require('./_lib/evaluate-escalation');
+var { systemMailHeaders, isSystemMail } = require('./_lib/system-mail');
 var { markdownToHtml } = require('./_lib/markdown-to-html');
 var { getSignature, composeHtmlBody, composeTextBody } = require('./_email-signature');
 var { wrapAndDispatch } = require('./_lib/wrap-and-dispatch');
@@ -474,7 +475,7 @@ module.exports = async function handler(req, res) {
           var replySubject = subject.startsWith('Re:') ? subject : 'Re: ' + subject;
           var confHtml = '<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:20px;color:#1e293b;font-size:15px;line-height:1.75;">' +
             escResult.confirmationMessage.replace(/\n/g, '<br>') + '</div>';
-          try { await sendTenantEmail(supabase, { tenant_id: tenantId, allowBlocked: true, to: senderEmail, from: tenantSenderEmail || recipientEmail, from_name: tenantName || 'Team', subject: replySubject, html: confHtml, text: escResult.confirmationMessage, reply_to: recipientEmail }); } catch (se) { console.error('[email-concierge] Escalation confirmation send failed:', se.message); }
+          try { await sendTenantEmail(supabase, { tenant_id: tenantId, allowBlocked: true, to: senderEmail, from: tenantSenderEmail || recipientEmail, from_name: tenantName || 'Team', subject: replySubject, html: confHtml, text: escResult.confirmationMessage, reply_to: recipientEmail, headers: systemMailHeaders('escalation') }); } catch (se) { console.error('[email-concierge] Escalation confirmation send failed:', se.message); }
           if (conversationId) { await supabase.from('messages').insert({ tenant_id: tenantId, conversation_id: conversationId, contact_id: contactId, channel: 'email', direction: 'outbound', sender_type: 'bot', body: escResult.confirmationMessage, status: 'delivered', created_at: new Date().toISOString() }).then(function() {}).catch(function() {}); }
           return res.status(200).json({ ok: true, action: 'escalation_confirmation', rule: matched.rule.rule_name, conversation_id: conversationId });
         }

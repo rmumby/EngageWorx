@@ -2,6 +2,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { sendTenantEmail } = require('./send-tenant-email');
+var { systemMailHeaders } = require('./system-mail');
 
 function getSupabase() {
   return createClient(
@@ -74,6 +75,8 @@ async function fireEscalation(opts) {
           to: user.email,
           subject: subject,
           html: html,
+          // Stamp as platform system mail so inbound drops it (no self-referential escalation loop).
+          headers: systemMailHeaders('escalation'),
         });
         succeeded.push('email');
       } catch (e) {
