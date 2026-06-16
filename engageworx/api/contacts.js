@@ -45,7 +45,12 @@ module.exports = async function handler(req, res) {
     var q = supabase.from('contacts')
       .select('id, first_name, last_name, email, phone, created_at')
       .eq('tenant_id', tId)
-      .ilike('email', em);
+      .ilike('email', em)
+      // Exclude archived/blocked junk so prospect/import dedup is not blocked by a junk contact
+      // (system-sender purge, b88558c9). Inbound-attach uses its own queries in email-inbound.js
+      // (unchanged) — a blocked sender's reply still resolves to its existing contact.
+      .neq('status', 'blocked')
+      .not('is_blocked', 'is', true);
     if (excl) q = q.neq('id', excl);
     var r = await q;
     return res.status(200).json({ exists: (r.data || []).length > 0, matches: r.data || [] });
