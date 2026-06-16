@@ -357,26 +357,10 @@ module.exports = async function handler(req, res) {
     }
 
     if (!weddingId) {
-      console.log('[email-concierge] No wedding for sender:', senderEmail, '— routing to unrecognised_sender');
-      try {
-        await supabase.from('support_tickets').insert({
-          tenant_id: tenantId,
-          subject: 'Unrecognised sender: ' + subject,
-          description: 'Email from ' + senderEmail + (senderName ? ' (' + senderName + ')' : '') + ' to ' + recipientEmail + '.\n\nSubject: ' + subject + '\n\nBody:\n' + emailBody.substring(0, 3000),
-          submitter_email: senderEmail,
-          submitter_name: senderName || senderEmail,
-          submitter_type: 'external',
-          category: matchedSurface + '_unrecognised_sender',
-          channel: 'email',
-          ai_handled: false,
-          wedding_id: null,
-          status: 'open',
-          priority: 'normal',
-          transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
-          metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
-        });
-      } catch (ticketErr) { console.error('[email-concierge] Ticket insert error:', ticketErr.message); }
-      return res.status(200).json({ ok: true, action: 'unrecognised_sender_ticket' });
+      // Enquiry surface must never auto-create Help Desk tickets (96202d7d). An unrecognised
+      // sender is a new enquiry — fall through to the AI concierge draft + Live Inbox like any
+      // other email. generateConciergeResponse handles a null weddingId (no wedding context).
+      console.log('[email-concierge] Unrecognised sender (no wedding) — handling as enquiry via AI draft, no ticket:', senderEmail);
     }
   } else {
     // Helpdesk surface: no wedding required, proceed directly to AI
@@ -507,17 +491,22 @@ module.exports = async function handler(req, res) {
   // never empty when emailBody is non-empty, so the empty-body guard below still holds.
   var userMessage = (replyBody || '').substring(0, 5000).trim();
   if (!userMessage) {
-    console.warn('[email-concierge] Empty body — skipping AI, creating empty-content ticket');
-    try {
-      await supabase.from('support_tickets').insert({
-        tenant_id: tenantId, wedding_id: weddingId,
-        subject: 'Empty email body: ' + subject,
-        description: 'Email from ' + senderEmail + ' had no extractable text or HTML content.\n\nSubject: ' + subject,
-        submitter_email: senderEmail, submitter_name: contactName || senderEmail,
-        submitter_type: 'couple', category: matchedSurface + '_empty_body',
-        channel: 'email', ai_handled: false, status: 'open', priority: 'low',
-      });
-    } catch (e) {}
+    // Enquiry surfaces (wedding_concierge / supplier) must never auto-create tickets (96202d7d):
+    // conversation-only (inbound already persisted). The helpdesk surface keeps its empty-body ticket.
+    if (matchedSurface === 'helpdesk') {
+      try {
+        await supabase.from('support_tickets').insert({
+          tenant_id: tenantId, wedding_id: weddingId,
+          subject: 'Empty email body: ' + subject,
+          description: 'Email from ' + senderEmail + ' had no extractable text or HTML content.\n\nSubject: ' + subject,
+          submitter_email: senderEmail, submitter_name: contactName || senderEmail,
+          submitter_type: 'couple', category: matchedSurface + '_empty_body',
+          channel: 'email', ai_handled: false, status: 'open', priority: 'low',
+        });
+      } catch (e) {}
+    } else {
+      console.log('[email-concierge] Empty body on enquiry surface — conversation persisted, no AI, no ticket:', conversationId);
+    }
     return res.status(200).json({ ok: true, action: 'empty_body_skipped' });
   }
 
@@ -651,23 +640,30 @@ module.exports = async function handler(req, res) {
   // ── 10. Prefix routing ────────────────────────────────────────────────
   if (aiResult.prefix === 'ESCALATE') {
     try {
-      await supabase.from('support_tickets').insert({
-        tenant_id: tenantId,
-        wedding_id: weddingId,
-        subject: 'Concierge escalation: ' + subject,
-        description: 'Original email from ' + contactName + ' (' + senderEmail + '):\n\n' + emailBody.substring(0, 3000) + '\n\n---\n\nAI escalation summary:\n' + aiResult.response,
-        submitter_email: senderEmail,
-        submitter_name: contactName || senderEmail,
-        submitter_type: 'couple',
-        category: matchedSurface + '_escalation',
-        channel: 'email',
-        ai_handled: true,
-        status: 'open',
-        priority: 'high',
-        transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
-        metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
-      });
-      console.log('[email-concierge] Escalation ticket created for:', senderEmail);
+      // Helpdesk surface retains its [ESCALATE] handoff ticket. Enquiry surfaces (wedding_concierge /
+      // supplier) must never auto-create tickets (96202d7d) — the conversation stays in Live Inbox and
+      // we only notify the tenant's escalation recipients below. No needs-attention marker exists.
+      if (matchedSurface === 'helpdesk') {
+        await supabase.from('support_tickets').insert({
+          tenant_id: tenantId,
+          wedding_id: weddingId,
+          subject: 'Concierge escalation: ' + subject,
+          description: 'Original email from ' + contactName + ' (' + senderEmail + '):\n\n' + emailBody.substring(0, 3000) + '\n\n---\n\nAI escalation summary:\n' + aiResult.response,
+          submitter_email: senderEmail,
+          submitter_name: contactName || senderEmail,
+          submitter_type: 'couple',
+          category: matchedSurface + '_escalation',
+          channel: 'email',
+          ai_handled: true,
+          status: 'open',
+          priority: 'high',
+          transcript_snapshot: { from: fromRaw, to: toArray, subject: subject, text: emailBody.substring(0, 5000), html: rawHtml ? rawHtml.substring(0, 5000) : null, headers: headersArr.slice(0, 30) },
+          metadata: { source: 'resend_inbound', message_id: messageId || null, in_reply_to: inReplyTo, resend_event_id: eventData.id || null },
+        });
+        console.log('[email-concierge] Helpdesk ESCALATE ticket created for:', senderEmail);
+      } else {
+        console.log('[email-concierge] Enquiry-surface ESCALATE — notifying recipients, conversation stays in Live Inbox, no ticket:', senderEmail);
+      }
 
       // Notify tenant members with notify_on_escalation = true
       try {
