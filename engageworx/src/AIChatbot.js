@@ -281,6 +281,9 @@ if (existing.data) {
         email_team_signature_reply: teamSigReply || null,
         ai_reply_mode: aiReplyMode,
       };
+      // Config-lock: AI activation (ai_reply_mode) is SP-controlled. A tenant admin must not be able
+      // to (re)enable AI from their portal, so never persist ai_reply_mode from a tenant-level save.
+      if (viewLevel !== 'sp') delete sigUpdate.ai_reply_mode;
       if (surfaceConfigId) {
         await supabase.from('chatbot_configs').update(sigUpdate).eq('id', surfaceConfigId);
       } else {
@@ -513,6 +516,7 @@ saveAIConfig(newSources);
                     </div>
                   </div>
 
+                  {viewLevel === 'sp' && (
                   <Card style={{ borderColor: C.border, background: C.surface }}>
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>{t('aiChatbot.replyMode.title')}</h3>
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 16 }}>{t('aiChatbot.replyMode.description')}</div>
@@ -545,6 +549,7 @@ saveAIConfig(newSources);
                       {aiReplyMode === 'draft_review' && t('aiChatbot.replyMode.summaryDraftReview')}
                     </div>
                   </Card>
+                  )}
 
                   <div style={card}>
                     <h3 style={{ color: C.text, margin: "0 0 6px", fontSize: 16 }}>✉️ Email Signatures</h3>
