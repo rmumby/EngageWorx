@@ -52,6 +52,7 @@ import { lazy, Suspense } from 'react';
 const Blog = lazy(() => import('./Blog'));
 const ApiDocs = lazy(() => import('./ApiDocs'));
 const WeddingDashboard = lazy(() => import('./wedding/WeddingDashboard'));
+const AppointmentRequestForm = lazy(() => import('./AppointmentRequestForm'));
 import CoordinatorEvents from './admin/CoordinatorEvents';
 
 // ─── LIVE DATA HOOK ──────────────────────────────────────────────────────────
@@ -2334,6 +2335,15 @@ var spNavBase = [
     var _weddingId = window.location.pathname.split('/weddings/')[1].split('/')[0].split('?')[0];
     if (_weddingId) {
       return <Suspense fallback={<div style={{background:'#1a1a2e',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading wedding…</div>}><WeddingDashboard weddingId={_weddingId} /></Suspense>;
+    }
+  }
+
+  // Public appointment-request form — intercepts before auth gate (unauthenticated patients).
+  // Tenant is resolved server-side from the opaque form key in the path; nothing tenant-specific here.
+  if (window.location.pathname.startsWith('/request/')) {
+    var _reqFormKey = window.location.pathname.split('/request/')[1].split('/')[0].split('?')[0];
+    if (_reqFormKey) {
+      return <Suspense fallback={<div style={{background:'#f5f6f8',color:'#475467',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading…</div>}><AppointmentRequestForm formKey={_reqFormKey} /></Suspense>;
     }
   }
 
