@@ -89,8 +89,19 @@ module.exports = async function handler(req, res) {
     p_reason: reason || null, p_consent_text: consentText, p_dedup_window_minutes: 10,
   });
   if (rpc.error) {
-    // NO FALSE SUCCESS. Log tenant only (never PHI/name). Explicit error + office number.
-    console.error('[appointment-request] durable write FAILED tenant=' + tenantId + ' code=' + (rpc.error.code || '?'));
+    // Explicit, non-PHI reason logging (the RPC raises only 'missing_required_fields'/'invalid_form_key'
+    // — neither carries PHI), so the next occurrence is unambiguous. Still tenant id + reason only.
+    var reason = (rpc.error.message || '').toLowerCase();
+    console.error('[appointment-request] RPC error tenant=' + tenantId + ' reason="' + (rpc.error.message || '') + '" code=' + (rpc.error.code || '?'));
+    // Validation-class raises are the patient's input, not a system failure → field-level 400, never
+    // the office-phone "we couldn't submit" copy (which must mean a genuine durable-write failure).
+    if (reason.indexOf('missing_required_fields') !== -1) {
+      return res.status(400).json({ error: 'Please complete all required fields, including the consent checkbox.' });
+    }
+    if (reason.indexOf('invalid_form_key') !== -1) {
+      return res.status(400).json({ error: 'This request form is not active. Please contact the office.' });
+    }
+    // Genuine durable-write failure → NO FALSE SUCCESS; explicit office-phone error.
     var callLine = officePhone ? ('please call us at ' + officePhone) : 'please call our office';
     return res.status(502).json({ error: "We couldn't submit your request — " + callLine + '.' });
   }
