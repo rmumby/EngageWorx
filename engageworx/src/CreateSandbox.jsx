@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { supabase } from './supabaseClient';
 
-export default function CreateSandbox({ C, onCreated }) {
+export default function CreateSandbox({ C, onCreated, customerTypes }) {
+  var ctOptions = Array.isArray(customerTypes) ? customerTypes : [];
   var showState = useState(false);
   var show = showState[0];
   var setShow = showState[1];
 
-  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', isDemo: false });
+  var formState = useState({ fullName: '', email: '', companyName: '', plan: 'growth', customer_type: 'direct', isDemo: false });
   var form = formState[0];
   var setForm = formState[1];
 
@@ -46,6 +47,7 @@ export default function CreateSandbox({ C, onCreated }) {
           fullName: form.fullName.trim(),
           companyName: form.companyName.trim(),
           plan: form.plan,
+          customer_type: form.customer_type,
           is_demo: form.isDemo,
         }),
       });
@@ -63,7 +65,7 @@ export default function CreateSandbox({ C, onCreated }) {
   }
 
   function reset() {
-    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', isDemo: false });
+    setForm({ fullName: '', email: '', companyName: '', plan: 'growth', customer_type: 'direct', isDemo: false });
     setResult(null);
     setError(null);
   }
@@ -174,6 +176,19 @@ export default function CreateSandbox({ C, onCreated }) {
               })}
             </div>
           </div>
+
+          {ctOptions.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>Customer Type</label>
+              <select value={form.customer_type} onChange={function(e) { setForm(Object.assign({}, form, { customer_type: e.target.value })); }} style={inputStyle}>
+                {ctOptions.map(function(ct) {
+                  var ctVal = typeof ct === 'object' ? ct.value : ct;
+                  var ctLbl = typeof ct === 'object' ? (ct.label || ct.value) : ct;
+                  return <option key={ctVal} value={ctVal} style={{ background: '#0d1425' }}>{ctLbl}</option>;
+                })}
+              </select>
+            </div>
+          )}
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px 16px', marginBottom: 16, background: form.isDemo ? 'rgba(224,64,251,0.08)' : 'rgba(255,255,255,0.02)', border: '1px solid ' + (form.isDemo ? 'rgba(224,64,251,0.35)' : 'rgba(255,255,255,0.08)'), borderRadius: 10, transition: 'all 0.2s' }}>
             <input type="checkbox" checked={form.isDemo} onChange={function(e) { setForm(Object.assign({}, form, { isDemo: e.target.checked })); }} style={{ accentColor: '#E040FB' }} />

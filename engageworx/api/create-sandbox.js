@@ -8,7 +8,7 @@
 
 var { createClient } = require('@supabase/supabase-js');
 var { verifyTenantAuth } = require('./_lib/verify-tenant-auth');
-var { createTenant } = require('./_lib/create-tenant');
+var { createTenant, CANONICAL_CUSTOMER_TYPES } = require('./_lib/create-tenant');
 
 var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
 
@@ -38,6 +38,12 @@ module.exports = async function handler(req, res) {
 
   if (!email || !companyName) {
     return res.status(400).json({ error: 'Missing required fields: email, companyName' });
+  }
+
+  // Server-side validation: never trust the client selector. Unknown customer_type is rejected
+  // (absent → 'direct' fallback above). Validated against the canonical set, not a hardcoded list.
+  if (CANONICAL_CUSTOMER_TYPES.indexOf(customerType) === -1) {
+    return res.status(400).json({ error: 'Invalid customer_type "' + customerType + '". Allowed: ' + CANONICAL_CUSTOMER_TYPES.join(', ') });
   }
 
   // Auth: superadmin, or an admin of the creating tenant. null creator => superadmin-only.

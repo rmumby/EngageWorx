@@ -754,7 +754,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage white-label customers, branding & access</p>
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <CreateSandbox C={C} onCreated={function() { window.location.reload(); }} />
+          <CreateSandbox C={C} customerTypes={inviteCustomerTypes} onCreated={function() { window.location.reload(); }} />
           <button onClick={() => { setShowDemoForm(true); setShowNew(false); }} style={{ background: `${C.accent}22`, border: `1px solid ${C.accent}55`, borderRadius: 10, padding: "12px 20px", color: C.accent, fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
             🎮 Create Demo Account
           </button>
