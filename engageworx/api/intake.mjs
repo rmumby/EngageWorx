@@ -6,6 +6,13 @@
 //   ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_KEY
 //   RESEND_API_KEY, ALERT_EMAIL (defaults to rob@engwx.com)
 
+// ESM imports (this file is loaded as an ES module — .mjs — by Vercel).
+// supabase-js v2 ships real ESM exports, so the named import is safe. notify-tenant-admins is
+// CommonJS, so default-import its module.exports object and destructure (reliable CJS↔ESM interop).
+import { createClient as _createClient } from '@supabase/supabase-js';
+import notifyTenantAdminsMod from './_lib/notify-tenant-admins.js';
+const { notifyTenantAdmins: _notifyIntake } = notifyTenantAdminsMod;
+
 const CALENDLY = "https://calendly.com/rob-engwx/30min";
 
 const SIGNATURE = `
@@ -152,10 +159,8 @@ JSON structure:
 
     // ── Step 3: Notify tenant admins of new lead ──────────────────────────────────
     const urgencyEmoji = { Hot: "🔥", Warm: "⚡", Cold: "❄️" }[classification.urgency] || "📥";
-    const { notifyTenantAdmins: _notifyIntake } = require('./_lib/notify-tenant-admins');
-    const { createClient: _createClient } = require('@supabase/supabase-js');
     const _supa = _createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-    const _spTenantId = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+    // _spTenantId already declared above (Step 2); reuse it.
 
     try {
       await _notifyIntake(_supa, _spTenantId, 'new_lead', { name, email, company, urgency: classification.urgency, source }, {
