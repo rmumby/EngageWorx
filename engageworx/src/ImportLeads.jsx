@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import { useAccentButtonStyle, useSecondaryButtonStyle, useSegmentedStyles } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 function parseCSV(text) {
   var lines = text.trim().split('\n').filter(function(l) { return l.trim(); });
@@ -123,10 +124,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
 
   return (
     <div style={{ padding: '28px 32px', fontFamily: "'DM Sans', sans-serif", color: '#f1f5f9', maxWidth: 1000 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>📥 Import Leads</h1>
-        <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>Bulk upload contacts from CSV or add manually — then enrol in a sequence</p>
-      </div>
+      <ModuleHeader title="📥 Import Leads" subtitle="Bulk upload contacts from CSV or add manually — then enrol in a sequence" />
 
       {/* Sequence selector */}
       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
