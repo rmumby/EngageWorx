@@ -23,6 +23,7 @@ import MasterAgentPortal from './MasterAgentPortal';
 import HierarchyView from './HierarchyView';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
+import Button from './components/ui/Button';
 import { contrastRatio, suggestSimilarReadable } from './themes/contrast';
 import { useTranslation } from 'react-i18next';
 import FlowBuilder from './FlowBuilder';
@@ -2524,7 +2525,7 @@ var spNavBase = [
               </div>
             </div>
 
-            <button onClick={async () => {
+            <Button variant="accent" onClick={async () => {
               if (!newPassword || newPassword.length < 6) {
                 setResetMessage({ type: "error", text: "Password must be at least 6 characters" });
                 return;
@@ -2542,13 +2543,9 @@ var spNavBase = [
                 setConfirmNewPassword("");
                 setTimeout(() => setResetMessage(null), 2000);
               }
-            }} style={{
-              width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
-              border: "none", borderRadius: 10, padding: "14px",
-              color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 15,
-            }}>
+            }} style={{ width: "100%", padding: "14px", fontSize: 15 }}>
               Update Password
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -2610,14 +2607,9 @@ var spNavBase = [
                   </div>
                 </div>
 
-                <button type="submit" disabled={loginLoading} style={{
-                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
-                  border: "none", borderRadius: 10, padding: "14px",
-                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
-                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
-                }}>
+                <Button type="submit" variant="accent" disabled={loginLoading} style={{ width: "100%", padding: "14px", fontSize: 15 }}>
                   {loginLoading ? "Signing in..." : "Sign In →"}
-                </button>
+                </Button>
 
                 <div style={{ marginTop: 14, textAlign: "center" }}>
                   <button type="button" onClick={() => { setLoginTab("reset"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12 }}>
@@ -2654,7 +2646,7 @@ var spNavBase = [
                   </div>
                 </div>
 
-                <button type="button" disabled={loginLoading} onClick={async () => {
+                <Button type="button" variant="accent" disabled={loginLoading} onClick={async () => {
                   if (!loginForm.fullName || !loginForm.companyName || !loginForm.email || !loginForm.password) {
                     setLoginMessage({ type: "error", text: "Please fill all fields" });
                     return;
@@ -2695,14 +2687,9 @@ var spNavBase = [
                     setLoginMessage({ type: "error", text: "We're having trouble processing your signup. Please try again or contact us at hello@engwx.com and we'll get you set up right away." });
                     setLoginLoading(false);
                   }
-                }} style={{
-                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
-                  border: "none", borderRadius: 10, padding: "14px",
-                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
-                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
-                }}>
+                }} style={{ width: "100%", padding: "14px", fontSize: 15 }}>
                   {loginLoading ? "Creating account..." : "Create Account →"}
-                </button>
+                </Button>
               </div>
             )}
 
@@ -2717,14 +2704,9 @@ var spNavBase = [
                   <input type="email" required value={loginForm.email} onChange={e => setLoginForm(p => ({ ...p, email: e.target.value }))} placeholder="you@company.com" style={inputLogin} />
                 </div>
 
-                <button type="submit" disabled={loginLoading} style={{
-                  width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`,
-                  border: "none", borderRadius: 10, padding: "14px",
-                  color: "#000", fontWeight: 700, cursor: loginLoading ? "wait" : "pointer",
-                  fontSize: 15, opacity: loginLoading ? 0.7 : 1,
-                }}>
+                <Button type="submit" variant="accent" disabled={loginLoading} style={{ width: "100%", padding: "14px", fontSize: 15 }}>
                   {loginLoading ? "Sending..." : "Send Reset Link"}
-                </button>
+                </Button>
 
                 <div style={{ marginTop: 14, textAlign: "center" }}>
                   <button type="button" onClick={() => { setLoginTab("login"); setLoginMessage(null); }} style={{ background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
