@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
+import { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
 
 const SP_TENANT_ID = (process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387');
 
@@ -72,6 +73,8 @@ function _isLight() { return typeof document !== 'undefined' && document.body.cl
 
 export default function LeadScan({ C, demoMode = false }) {
   var light = _isLight();
+  var btnAccent = useAccentButtonStyle();
+  var btnSecondary = useSecondaryButtonStyle();
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: light ? '#f9fafb' : '#080d1a', surface: light ? '#ffffff' : '#0d1425', border: light ? '#e5e7eb' : '#182440', text: light ? '#111827' : '#E8F4FD', muted: light ? '#374151' : '#6B8BAE' };
   var lsText = light ? '#111827' : '#f1f5f9';
   var lsMuted = light ? '#4b5563' : '#94a3b8';
@@ -333,7 +336,7 @@ export default function LeadScan({ C, demoMode = false }) {
         <div style={{ maxWidth: 420, margin: '0 auto' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <button onClick={function() { setShowLocationMgr(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: lsMuted, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+            <button onClick={function() { setShowLocationMgr(false); }} style={{ ...btnSecondary, padding: '10px 16px', fontSize: 15 }}>← Back</button>
             <div style={{ fontSize: 18, fontWeight: 800, color: lsText }}>📍 Manage Locations</div>
           </div>
 
@@ -355,7 +358,7 @@ export default function LeadScan({ C, demoMode = false }) {
               <button
                 onClick={handleAddLocation}
                 disabled={!newLocationText.trim()}
-                style={{ background: newLocationText.trim() ? 'linear-gradient(135deg, #00C9FF, #0070f3)' : 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 10, padding: '12px 20px', color: newLocationText.trim() ? '#fff' : '#475569', fontWeight: 700, fontSize: 15, cursor: newLocationText.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}
+                style={{ ...btnAccent, padding: '12px 20px', fontSize: 15, opacity: newLocationText.trim() ? 1 : 0.5 }}
               >Add</button>
             </div>
           </div>
@@ -440,7 +443,7 @@ export default function LeadScan({ C, demoMode = false }) {
 
         {/* Capture buttons */}
         <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <label style={{ width: '100%', padding: '22px 20px', borderRadius: 18, border: 'none', background: 'linear-gradient(135deg, #00C9FF, #0070f3)', color: '#fff', fontWeight: 900, fontSize: 19, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', boxSizing: 'border-box', boxShadow: '0 8px 32px rgba(0,201,255,0.35)' }}>
+          <label style={{ ...btnAccent, width: '100%', padding: '22px 20px', borderRadius: 18, fontSize: 19, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', boxSizing: 'border-box' }}>
             <span style={{ fontSize: 32, flexShrink: 0 }}>{aiReading ? '⏳' : '📷'}</span>
             <div style={{ flex: 1 }}>
               <div>{aiReading ? 'AI Reading...' : 'Scan Business Card'}</div>
@@ -510,7 +513,7 @@ export default function LeadScan({ C, demoMode = false }) {
       <div style={{ maxWidth: 500, margin: '0 auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-          <button onClick={function() { setMode('home'); setError(''); setAiReading(false); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 16px', color: lsMuted, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>← Back</button>
+          <button onClick={function() { setMode('home'); setError(''); setAiReading(false); }} style={{ ...btnSecondary, padding: '10px 16px', fontSize: 15 }}>← Back</button>
           <div style={{ fontSize: 17, fontWeight: 800, color: lsText }}>{aiReading ? '🤖 AI Reading...' : 'New Lead'}</div>
           {selectedLocation && (
             <div style={{ marginLeft: 'auto', fontSize: 11, color: '#00C9FF', background: 'rgba(0,201,255,0.1)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '4px 9px', fontWeight: 600 }}>
@@ -584,7 +587,7 @@ export default function LeadScan({ C, demoMode = false }) {
               <div style={{ flex: 1, background: 'rgba(0,201,255,0.08)', border: '1px solid rgba(0,201,255,0.25)', borderRadius: 12, padding: '13px 14px', color: '#00C9FF', fontSize: 15, fontWeight: 600 }}>
                 📍 {selectedLocation || 'Not set'}
               </div>
-              <button onClick={function() { setShowLocationMgr(true); }} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 14px', color: lsMuted, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Change</button>
+              <button onClick={function() { setShowLocationMgr(true); }} style={{ ...btnSecondary, padding: '13px 14px', borderRadius: 12, fontSize: 13 }}>Change</button>
             </div>
           </div>
 
@@ -617,7 +620,7 @@ export default function LeadScan({ C, demoMode = false }) {
             onClick={handleSave}
             onTouchEnd={function(e) { if (!saving && !aiReading) { e.preventDefault(); handleSave(); } }}
             disabled={saving || aiReading}
-            style={{ width: '100%', padding: '20px', borderRadius: 16, border: 'none', background: saving || aiReading ? 'rgba(99,102,241,0.4)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 900, fontSize: 20, cursor: saving || aiReading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: saving || aiReading ? 'none' : '0 8px 24px rgba(99,102,241,0.4)', marginTop: 4 }}>
+            style={{ ...btnAccent, width: '100%', padding: '20px', borderRadius: 16, fontSize: 20, fontWeight: 900, marginTop: 4, opacity: (saving || aiReading) ? 0.6 : 1 }}>
             {saving ? 'Saving...' : '⚡ Save Lead'}
           </button>
 
