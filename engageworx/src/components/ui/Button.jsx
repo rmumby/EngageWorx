@@ -36,6 +36,27 @@ function contrastText(bgHex) {
 // Exported so other components can use the same logic without importing the full Button
 export { contrastText, relativeLuminance };
 
+// Shared flat-accent button STYLE (brand fill + WCAG auto-contrast text) — same computation as the
+// `accent` variant below. For modules that style their own <button> via a reused style const: point
+// that const at this hook to drop gradients and match Button.jsx, without inlining <Button> at every
+// call site. `overrides` lets a module keep its own padding/fontSize/etc.
+export function useAccentButtonStyle(overrides) {
+  var b = useBranding();
+  var { theme } = useTheme();
+  var brandColor = b.brandPrimary || theme.primary;
+  return Object.assign({
+    background: brandColor,
+    color: contrastText(brandColor),
+    border: 'none',
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 700,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
 var BASE = {
   border: 'none',
   borderRadius: 8,
