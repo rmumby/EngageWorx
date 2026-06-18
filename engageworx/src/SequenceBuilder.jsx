@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import LeadPickerModal from './components/LeadPickerModal';
 import { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 const CHANNELS = ['email', 'sms', 'whatsapp'];
 
@@ -283,6 +284,7 @@ setSteps(aiSteps.map(function(s, i) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+        <ModuleHeader title="Sequence Builder" subtitle={selectedSeq ? selectedSeq.name : 'Select a sequence or create a new one'} />
         {!selectedSeq ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60%', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 48 }}>⚡</div>
@@ -292,7 +294,6 @@ setSteps(aiSteps.map(function(s, i) {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
-                <h1 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{selectedSeq.name}</h1>
                 <div style={{ color: colors.muted, fontSize: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span>{steps.length} steps</span>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: selectedSeq.send_on_weekends ? '#10b981' : colors.muted }}>
