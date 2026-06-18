@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 import { DEMO_LEADS } from '../demoFixtures';
+import { useAccentButtonStyle } from './ui/Button';
 
 // Fallback stages used before DB stages load (or if fetch fails)
 var FALLBACK_STAGES = [
@@ -689,6 +690,7 @@ function Modal({ lead, onClose, onSave, tenantId, stages }) {
 }
 
 export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin }) {
+  const btnAccent = useAccentButtonStyle(); // brand fill + WCAG contrast (replaces the hardcoded indigo/purple gradient CTA)
   var bg = C ? C.bg : '#070d1a';
   var surface = C ? C.surface : 'rgba(255,255,255,0.04)';
   var text = C ? C.text : '#f1f5f9';
@@ -840,7 +842,7 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
               <span style={{ fontSize:"10px",color:"#334155",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
             </div>
           </div>
-          <button onClick={()=>setSelected(newLead)} style={{ padding:"9px 18px",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",border:"none",borderRadius:"8px",color:"#fff",fontWeight:700,fontSize:"13px",cursor:"pointer" }}>+ Add Lead</button>
+          <button onClick={()=>setSelected(newLead)} style={{ ...btnAccent, padding:"9px 18px", borderRadius:"8px", fontSize:"13px" }}>+ Add Lead</button>
         </div>
 
         <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
