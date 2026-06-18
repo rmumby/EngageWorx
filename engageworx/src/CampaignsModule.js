@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
+import { useAccentButtonStyle } from './components/ui/Button';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -353,7 +354,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   // ─── STYLES ───────────────────────────────────────────────────────────────
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 };
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
-  const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent})`, border: "none", borderRadius: 10, padding: "12px 24px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
+  const btnPrimary = useAccentButtonStyle({ padding: "12px 24px", fontSize: 14 }); // flat brand fill + WCAG-contrast text (was a gradient)
   const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
   const badge = (color) => ({ background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 });
 
