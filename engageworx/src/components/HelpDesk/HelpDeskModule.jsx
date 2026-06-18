@@ -608,7 +608,7 @@ export default function HelpDeskModule({ tenantId, userRole, userId, userName, u
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: bg, color: text, overflow: 'hidden' }}>
       <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid ' + border, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', flexShrink: 0 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: text }}>Help Desk</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: text, letterSpacing: '-0.4px' }}>Help Desk</div>
           <div style={{ fontSize: 13, color: textMuted, marginTop: 2 }}>AI handles 90%+ of tickets automatically</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
