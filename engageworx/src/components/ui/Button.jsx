@@ -36,6 +36,17 @@ function contrastText(bgHex) {
 // Exported so other components can use the same logic without importing the full Button
 export { contrastText, relativeLuminance };
 
+// Edge-analog of the text auto-contrast: a border that contrasts the brand FILL (and therefore a
+// same-colored background) plus a soft shadow, so an accent button never sits edgeless ("text in
+// mid-air") when a light brand lands on a light bg — or any brand on a matching bg. Any brand, any mode.
+function accentEdge(brandColor) {
+  var brandIsLight = contrastText(brandColor) === '#000'; // luminance>threshold → dark edge, else light edge
+  return {
+    border: '1px solid ' + (brandIsLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.28)'),
+    boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+  };
+}
+
 // Shared flat-accent button STYLE (brand fill + WCAG auto-contrast text) — same computation as the
 // `accent` variant below. For modules that style their own <button> via a reused style const: point
 // that const at this hook to drop gradients and match Button.jsx, without inlining <Button> at every
@@ -47,14 +58,14 @@ export function useAccentButtonStyle(overrides) {
   return Object.assign({
     background: brandColor,
     color: contrastText(brandColor),
-    border: 'none',
     borderRadius: 10,
     padding: '10px 20px',
     fontWeight: 700,
     fontSize: 13,
     fontFamily: "'DM Sans', sans-serif",
     cursor: 'pointer',
-  }, overrides || {});
+    boxSizing: 'border-box', // so the guaranteed edge doesn't grow the button
+  }, accentEdge(brandColor), overrides || {});
 }
 
 // Theme-aware SECONDARY button style (subtle fill, switches light↔dark). Replaces dark-tuned
@@ -145,7 +156,7 @@ export default function Button({ variant, onClick, disabled, children, style, ty
   var cls = (v === 'primary' ? 'ew-btn-primary' : '') + (className ? ' ' + className : '') || undefined;
 
   var brandColor = b.brandPrimary || theme.primary;
-  var bg, color, border;
+  var bg, color, border, boxShadow;
 
   if (v === 'primary') {
     bg = isDark ? '#ffffff' : '#000000';
@@ -158,7 +169,9 @@ export default function Button({ variant, onClick, disabled, children, style, ty
   } else if (v === 'accent') {
     bg = brandColor;
     color = contrastText(brandColor);
-    border = 'none';
+    var _ae = accentEdge(brandColor);
+    border = _ae.border;
+    boxShadow = _ae.boxShadow;
   } else if (v === 'ghost') {
     bg = 'transparent';
     color = isDark ? theme.muted : '#4b5563';
@@ -181,6 +194,7 @@ export default function Button({ variant, onClick, disabled, children, style, ty
     background: bg,
     color: color,
     border: border,
+    boxShadow: boxShadow,
     opacity: disabled ? 0.5 : 1,
     cursor: disabled ? 'not-allowed' : 'pointer',
   }, style || {});
