@@ -33,20 +33,15 @@ export function ThemeProvider({ children }) {
     return 'dark';
   };
 
-  // Check saved preference, fall back to OS preference
-  var getInitialMode = function() {
-    try {
-      var saved = localStorage.getItem('ew_theme_mode');
-      if (saved === 'dark' || saved === 'light') return saved;
-      if (saved === 'auto' || !saved) return getOSPreference();
-    } catch (e) {}
-    return 'dark';
-  };
+  // Theme default is LIGHT pre-auth for every tenant. We deliberately do NOT read a global
+  // localStorage key here: a shared host (portal.engwx.com) means a global key bleeds one user's
+  // choice into the next login. The per-user preference is applied post-auth (profile effect below),
+  // keyed by user id. (SP admins are still locked to dark there until Phase 2b.)
+  var userKey = function(uid) { return 'ew_theme_pref:' + uid; };
 
-  var [mode, setMode] = useState(getInitialMode); // 'dark', 'light'
-  var [preference, setPreference] = useState(function() {
-    try { return localStorage.getItem('ew_theme_preference') || 'auto'; } catch(e) { return 'auto'; }
-  }); // 'auto', 'dark', 'light'
+  var [userId, setUserId] = useState(null);
+  var [mode, setMode] = useState('light'); // 'dark', 'light' — default light pre-auth
+  var [preference, setPreference] = useState('light'); // 'auto', 'dark', 'light' — default light pre-auth
 
   // Listen for OS preference changes when set to auto
   useEffect(function() {
@@ -61,28 +56,20 @@ export function ThemeProvider({ children }) {
     };
   }, [preference]);
 
+  // Persist ONLY to a per-user key (never a global key — that bled across logins on the shared host).
+  // Pre-auth (userId null) we don't write at all; the default stays light.
   var setThemeMode = useCallback(function(newPref) {
     setPreference(newPref);
-    try { localStorage.setItem('ew_theme_preference', newPref); } catch(e) {}
-    if (newPref === 'auto') {
-      var osMode = getOSPreference();
-      setMode(osMode);
-      try { localStorage.setItem('ew_theme_mode', osMode); } catch(e) {}
-    } else {
-      setMode(newPref);
-      try { localStorage.setItem('ew_theme_mode', newPref); } catch(e) {}
-    }
-  }, []);
+    setMode(newPref === 'auto' ? getOSPreference() : newPref);
+    if (userId) { try { localStorage.setItem(userKey(userId), newPref); } catch(e) {} }
+  }, [userId]);
 
   var toggleTheme = useCallback(function() {
     var newMode = mode === 'dark' ? 'light' : 'dark';
     setMode(newMode);
     setPreference(newMode);
-    try {
-      localStorage.setItem('ew_theme_mode', newMode);
-      localStorage.setItem('ew_theme_preference', newMode);
-    } catch(e) {}
-  }, [mode]);
+    if (userId) { try { localStorage.setItem(userKey(userId), newMode); } catch(e) {} }
+  }, [mode, userId]);
 
   // Sync preference from user_profiles on mount (async, localStorage is fast fallback)
   var [profileLoaded, setProfileLoaded] = useState(false);
@@ -91,22 +78,31 @@ export function ThemeProvider({ children }) {
       try {
         var { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+        setUserId(user.id);
         var { data: profile } = await supabase
           .from('user_profiles')
           .select('theme_preference, role')
           .eq('id', user.id)
           .maybeSingle();
-        if (profile && profile.theme_preference) {
-          // SP admins are locked to dark regardless of stored preference
-          var isSPAdmin = profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin';
-          if (isSPAdmin) {
-            setMode('dark');
-            setPreference('dark');
-          } else {
-            setThemeMode(profile.theme_preference === 'system' ? 'auto' : profile.theme_preference);
+        // SP admins are locked to dark regardless of stored preference (lock removed in Phase 2b).
+        var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
+        if (isSPAdmin) {
+          setMode('dark');
+          setPreference('dark');
+        } else {
+          // Apply this user's choice: per-user localStorage on this device first, else the
+          // server-synced user_profiles preference, else keep the light default. Keyed per user id,
+          // so nothing bleeds between logins on the shared host. (No new server sync this round.)
+          var localPref = null;
+          try { localPref = localStorage.getItem(userKey(user.id)); } catch (e) {}
+          var serverPref = profile && profile.theme_preference ? (profile.theme_preference === 'system' ? 'auto' : profile.theme_preference) : null;
+          var chosen = localPref || serverPref;
+          if (chosen === 'dark' || chosen === 'light' || chosen === 'auto') {
+            setPreference(chosen);
+            setMode(chosen === 'auto' ? getOSPreference() : chosen);
           }
         }
-      } catch (e) { /* localStorage fallback already applied */ }
+      } catch (e) { /* light default already applied */ }
       setProfileLoaded(true);
     })();
   }, []);
