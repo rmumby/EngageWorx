@@ -24,6 +24,7 @@ import HierarchyView from './HierarchyView';
 import HelpDeskModule from './components/HelpDesk/HelpDeskModule';
 import { ThemeProvider, useTheme, getThemedColors, ThemeToggle } from './ThemeContext';
 import Button from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 import { contrastRatio, suggestSimilarReadable } from './themes/contrast';
 import { useTranslation } from 'react-i18next';
 import FlowBuilder from './FlowBuilder';
@@ -336,15 +337,12 @@ function SuperAdminDashboard({ tenant, onDrillDown, C, demoMode, liveTenants, li
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-            <Badge color={C.primary} size="md">🌐 Service Provider View</Badge>
-            <Badge color="#00E676" size="md">● All Systems Operational</Badge>
-          </div>
-        <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>API keys, integrations, channels, billing & team management</p>
+      <ModuleHeader title="Platform Overview" subtitle="Monitor all tenants, usage, and health at a glance." right={(
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Badge color={C.primary} size="md">🌐 Service Provider View</Badge>
+          <Badge color="#00E676" size="md">● All Systems Operational</Badge>
         </div>
-      </div>
+      )} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18, marginBottom: 32 }}>
         <StatCard label="Total Messages Sent" value={stats.totalMessages >= 1000000 ? (stats.totalMessages / 1000000).toFixed(2) + 'M' : stats.totalMessages.toLocaleString()} sub="Across all tenants" color={C.primary} icon="📨" />
