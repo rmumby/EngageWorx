@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import DigestStore from './digestStore';
 import { useAccentButtonStyle } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 var ACTION_STYLE = {
   advance_stage:   { label: 'Advance Stage',  color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
@@ -752,13 +753,7 @@ export default function EmailDigest({ C, currentTenantId }) {
 
   return (
     <div style={{ padding: '32px 40px', minHeight: '100vh', background: colors.bg, fontFamily: "'DM Sans', sans-serif" }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#fff', margin: 0 }}>📡 AI Omnichannel Digest</h1>
-          <p style={{ color: colors.muted, marginTop: 4, fontSize: 14 }}>AI-analyzed inbound email, WhatsApp, SMS, and voice with recommended actions</p>
-        </div>
-        <button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄 Refresh</button>
-      </div>
+      <ModuleHeader title="📡 AI Omnichannel Digest" subtitle="AI-analyzed inbound email, WhatsApp, SMS, and voice with recommended actions" right={<button onClick={load} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 16px', color: '#fff', cursor: 'pointer', fontSize: 12 }}>🔄 Refresh</button>} />
 
       {trackingGap && trackingGap.slug && (
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 14, background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.35)', borderRadius: 10, marginBottom: 18 }}>
