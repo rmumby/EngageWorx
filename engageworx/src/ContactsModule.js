@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import { DEMO_CONTACTS } from './demoFixtures';
 
@@ -1316,11 +1317,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Contacts</h1>
-          <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Manage contacts, segments, and CRM integrations</p>
-        </div>
+      <ModuleHeader title="Contacts" subtitle="Manage contacts, segments, and CRM integrations" right={(
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {viewLevel === 'sp' && !demoMode && (
             <select value={spTenantFilter} onChange={e => setSpTenantFilter(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 14px', color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", minWidth: 220, cursor: 'pointer' }}>
@@ -1334,7 +1331,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           {demoMode !== true &&<button onClick={handleDedup} disabled={dedupRunning} style={{ ...btnSecondary, padding: '10px 18px', fontSize: 13, opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
           <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
         </div>
-      </div>
+      )} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
         {[
