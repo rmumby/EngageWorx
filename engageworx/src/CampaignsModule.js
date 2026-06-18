@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -1343,13 +1344,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>Campaigns</h1>
-          <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Create, manage, and track your messaging campaigns</p>
-        </div>
-        <button onClick={() => setView("create")} style={btnPrimary}>+ New Campaign</button>
-      </div>
+      <ModuleHeader title="Campaigns" subtitle="Create, manage, and track your messaging campaigns" right={<button onClick={() => setView("create")} style={btnPrimary}>+ New Campaign</button>} />
 
       {/* Quick Start Templates */}
       <div style={{ marginBottom: 24 }}>
