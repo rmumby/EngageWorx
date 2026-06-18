@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import LeadPickerModal from './components/LeadPickerModal';
+import ModuleHeader from './components/ModuleHeader';
 
 function daysSince(d) {
   if (!d) return null;
@@ -110,13 +111,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
 
   return (
     <div style={{ padding: '28px 32px', fontFamily: "'DM Sans', sans-serif", color: '#f1f5f9', minHeight: '100vh', background: colors.bg }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>Sequence Roster</h1>
-          <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>See who is enrolled in each sequence and where they are in the flow</p>
-        </div>
-        {selectedSeq && <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Add Leads</button>}
-      </div>
+      <ModuleHeader title="Sequence Roster" subtitle="See who is enrolled in each sequence and where they are in the flow" right={selectedSeq && <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Add Leads</button>} />
 
       {seqLoading ? (
         <div style={{ color: colors.muted, fontSize: 13 }}>Loading sequences...</div>
