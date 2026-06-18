@@ -329,7 +329,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   });
 
   var logoEl = brandColors.logoUrl
-    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 2, flexShrink: 0 }} />
     : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
 
   // ── Tenant drill-down portal ──────────────────────────────────────────────
@@ -547,7 +547,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {brandColors.logoUrl
-              ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+              ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 3, flexShrink: 0 }} />
               : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
             }
             {!sidebarCollapsed && <div style={{ flex: 1 }} />}
