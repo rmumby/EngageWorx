@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ChatThread, ChatInput } from "./components/chat";
 import { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from "./components/ui/Button";
+import ModuleHeader from "./components/ModuleHeader";
 import { Toggle, Card } from './components/ui';
 import EscalationRulesSettings from './admin/EscalationRulesSettings';
 import EscalationRulesConfig from './EscalationRulesConfig';
@@ -427,15 +428,7 @@ saveAIConfig(newSources);
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
         <div style={{ maxWidth: 900 }}>
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>🤖 AI Chatbot</h1>
-              <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Configure personality, knowledge, and escalation rules</p>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <span style={badge("#00E676")}>● Bot Active</span>
-            </div>
-          </div>
+          <ModuleHeader title="🤖 AI Chatbot" subtitle="Configure personality, knowledge, and escalation rules" right={<span style={badge("#00E676")}>● Bot Active</span>} />
 
           {/* KPI Row — will be populated from real queries when analytics are wired */}
 
