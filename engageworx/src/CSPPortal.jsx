@@ -26,7 +26,7 @@ import { getEnabledModules } from './lib/modules';
 import PortalShell from './components/PortalShell';
 import { SP_BASE_COLORS } from './themes/portalColors';
 import { useBranding } from './BrandingContext';
-import Button from './components/ui/Button';
+import Button, { useOutlineButtonStyle } from './components/ui/Button';
 
 var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
@@ -87,6 +87,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     primary: brandColors.primary || SP_BASE_COLORS.primary,
     accent: brandColors.accent || SP_BASE_COLORS.accent,
   }), _cspTheme);
+  var btnOutline = useOutlineButtonStyle(); // standardized outline for Sandbox/Demo (vs +New Tenant = accent)
   var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
 
   // Per-tenant title/favicon for a CSP authenticated on the platform host (portal.engwx.com). Additive:
@@ -675,8 +676,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: C.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
-                  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
+                  <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '10px 16px', fontSize: 12, fontWeight: 700 }}>🧪 Sandbox</button>
+                  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '10px 16px', fontSize: 12, fontWeight: 700 }}>🎮 Demo</button>
                   <Button variant="accent" onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }}>+ New Tenant</Button>
                 </div>
               </div>
@@ -734,8 +735,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} under {cspInfo ? cspInfo.name : 'your account'}</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '12px 20px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🧪 Create Sandbox</button>
-                <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '12px 20px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🎮 Create Demo Account</button>
+                <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '12px 20px', fontSize: 13, fontWeight: 700 }}>🧪 Create Sandbox</button>
+                <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '12px 20px', fontSize: 13, fontWeight: 700 }}>🎮 Create Demo Account</button>
                 <Button variant="accent" onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ padding: '12px 24px' }}>+ New Tenant</Button>
               </div>
             </div>
