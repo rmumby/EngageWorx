@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
-import { useAccentButtonStyle } from './components/ui/Button';
+import Button, { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -355,7 +355,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 };
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
   const btnPrimary = useAccentButtonStyle({ padding: "12px 24px", fontSize: 14 }); // flat brand fill + WCAG-contrast text (was a gradient)
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "12px 24px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" };
+  const btnSecondary = useSecondaryButtonStyle({ padding: "12px 24px", fontSize: 14 }); // theme-aware (was dark-tuned rgba white)
   const badge = (color) => ({ background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1351,7 +1351,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
 
       {/* Quick Start Templates */}
       <div style={{ marginBottom: 24 }}>
-        <button onClick={() => setShowTemplates(!showTemplates)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 20px', color: C.text, cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+        <button onClick={() => setShowTemplates(!showTemplates)} style={{ ...btnSecondary, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
           📝 Quick Start Templates <span style={{ marginLeft: 'auto', fontSize: 12, color: C.muted }}>{showTemplates ? '▲ Hide' : '▼ Show ' + TEMPLATES.length + ' templates'}</span>
         </button>
         {showTemplates && (
@@ -1423,7 +1423,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
         {selectedIds.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: C.primary + '11', border: '1px solid ' + C.primary + '33', borderRadius: 10, marginBottom: 8 }}>
             <span style={{ color: C.primary, fontSize: 13, fontWeight: 700 }}>{selectedIds.length} selected</span>
-            <button onClick={bulkDelete} disabled={deleting} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.35)', borderRadius: 8, padding: '6px 14px', color: '#FF3B30', fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>{deleting ? 'Deleting…' : '🗑 Delete selected'}</button>
+            <Button variant="danger" onClick={bulkDelete} disabled={deleting} style={{ borderRadius: 8, padding: '6px 14px', fontSize: 12 }}>{deleting ? 'Deleting…' : '🗑 Delete selected'}</Button>
             <button onClick={function() { setSelectedIds([]); }} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 12, marginLeft: 'auto' }}>Clear</button>
           </div>
         )}
