@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 import { DEMO_LEADS } from '../demoFixtures';
 import { useAccentButtonStyle } from './ui/Button';
+import ModuleHeader from './ModuleHeader';
 
 // Fallback stages used before DB stages load (or if fetch fails)
 var FALLBACK_STAGES = [
@@ -834,16 +835,15 @@ export default function PipelineDashboard({ C, tenantId, demoMode, isSuperAdmin 
   return (
     <div style={{ minHeight:"100vh",background:bg,fontFamily:"inherit",color:text }}>
       <div style={{ padding:"24px 28px 0",borderBottom:"1px solid " + border }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px" }}>
+        <ModuleHeader title="Pipeline" subtitle="Track leads through every stage, from first touch to close." right={(
           <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
-            <span style={{ fontSize:"17px",fontWeight:800,letterSpacing:"-0.02em" }}>Pipeline</span>
             <div style={{ display:"flex",alignItems:"center",gap:"5px" }}>
               <div style={{ width:"7px",height:"7px",borderRadius:"50%",background:liveFlash?"#10b981":"#1e293b",transition:"background 0.3s" }} />
               <span style={{ fontSize:"10px",color:"#334155",fontFamily:"ui-monospace, 'SF Mono', Menlo, monospace" }}>{liveFlash?"LIVE":lastSync?"synced "+lastSync.toLocaleTimeString():"connecting..."}</span>
             </div>
+            <button onClick={()=>setSelected(newLead)} style={{ ...btnAccent, padding:"9px 18px", borderRadius:"8px", fontSize:"13px" }}>+ Add Lead</button>
           </div>
-          <button onClick={()=>setSelected(newLead)} style={{ ...btnAccent, padding:"9px 18px", borderRadius:"8px", fontSize:"13px" }}>+ Add Lead</button>
-        </div>
+        )} />
 
         <div style={{ display:"flex",gap:"28px",marginBottom:"18px" }}>
           {[{l:"Pipeline",v:pipeline,c:"#6366f1"},{l:"Customers",v:customers,c:"#10b981"},{l:"Hot Leads",v:hot,c:hot>0?"#ef4444":"#334155"},{l:"Needs Action",v:stale,c:stale>0?"#f59e0b":"#334155"},{l:"Overdue",v:overdue,c:overdue>0?"#ef4444":"#334155"}].map(k=>(
