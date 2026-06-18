@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import ModuleHeader from './components/ModuleHeader';
 
 // ─── DEMO DATA GENERATOR ──────────────────────────────────────────────────────
 const CHANNELS = ["SMS", "MMS", "RCS", "WhatsApp", "Email", "Voice"];
@@ -390,6 +391,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
   return (
     <div style={{ padding: viewLevel === "sp" ? "32px 40px" : 0, maxWidth: 1400 }}>
       {/* Header */}
+      {viewLevel !== "sp" && <ModuleHeader title="Analytics" subtitle="Track delivery, engagement, and campaign performance." />}
       {viewLevel === "sp" && (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
           <div>
