@@ -389,7 +389,7 @@ export default function LeadScan({ C, demoMode = false }) {
             })}
           </div>
 
-          <button onClick={function() { setShowLocationMgr(false); }} style={{ width: '100%', marginTop: 28, padding: '16px', borderRadius: 14, border: 'none', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 800, fontSize: 17, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <button onClick={function() { setShowLocationMgr(false); }} style={{ ...btnAccent, width: '100%', marginTop: 28, padding: '16px', borderRadius: 14, fontSize: 17, fontWeight: 800 }}>
             ✓ Done
           </button>
         </div>
