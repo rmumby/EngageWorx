@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
-import { useAccentButtonStyle } from './components/ui/Button';
+import { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import { DEMO_CONTACTS } from './demoFixtures';
 
@@ -1049,7 +1049,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = useAccentButtonStyle(); // flat brand fill + WCAG-contrast text (was a gradient)
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnSecondary = useSecondaryButtonStyle(); // theme-aware (was dark-tuned rgba white that washed out in light)
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" });
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("desc"); } };
