@@ -57,6 +57,69 @@ export function useAccentButtonStyle(overrides) {
   }, overrides || {});
 }
 
+// Theme-aware SECONDARY button style (subtle fill, switches light↔dark). Replaces dark-tuned
+// rgba(255,255,255,…) consts that wash out on light backgrounds.
+export function useSecondaryButtonStyle(overrides) {
+  var { isDark } = useTheme();
+  return Object.assign({
+    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+    color: isDark ? '#E8F4FD' : '#374151',
+    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware GHOST button style (transparent, muted text) for text/icon buttons (✕, ← Back, Clear, ★).
+export function useGhostButtonStyle(overrides) {
+  var { isDark, theme } = useTheme();
+  return Object.assign({
+    background: 'transparent',
+    color: isDark ? theme.muted : '#4b5563',
+    border: 'none',
+    borderRadius: 8,
+    padding: '8px 12px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware OUTLINE button style (transparent + border) — e.g. Sandbox / Demo / +New Tenant (task 3).
+export function useOutlineButtonStyle(overrides) {
+  var { isDark, theme } = useTheme();
+  return Object.assign({
+    background: 'transparent',
+    color: isDark ? theme.muted : '#4b5563',
+    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware SEGMENTED-control item styling (tabs / filter chips) — NOT a button variant. Returns an
+// (active) => style fn so it can be used inside .map() without violating rules-of-hooks. Active = brand
+// fill + WCAG-contrast text; inactive = theme-aware subtle. Fixes the dark-tuned wash on light.
+export function useSegmentedStyles() {
+  var b = useBranding();
+  var { isDark, theme } = useTheme();
+  var brand = b.brandPrimary || theme.primary;
+  return function (active) {
+    return active
+      ? { background: brand, color: contrastText(brand), border: '1px solid ' + brand }
+      : { background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: isDark ? theme.muted : '#4b5563', border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.08)' : '#e4e7ec') };
+  };
+}
+
 var BASE = {
   border: 'none',
   borderRadius: 8,
