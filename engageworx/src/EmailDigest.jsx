@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import DigestStore from './digestStore';
+import { useAccentButtonStyle } from './components/ui/Button';
 
 var ACTION_STYLE = {
   advance_stage:   { label: 'Advance Stage',  color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
@@ -15,6 +16,7 @@ var SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-975
 
 export default function EmailDigest({ C, currentTenantId }) {
   var resolvedTenantId = currentTenantId || SP_TENANT_ID;
+  var btnAccent = useAccentButtonStyle(); // brand fill + WCAG contrast (replaces hardcoded gradient action CTAs)
   var colors = C || { bg: '#080d1a', surface: '#0d1425', border: '#182440', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
   var [items, setItems] = useState([]);
   var [loading, setLoading] = useState(true);
@@ -822,7 +824,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                   <button onClick={function() { DigestStore.resetDismissed(resolvedTenantId); loadFollowups(); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '6px 12px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>↩ Reset dismissed ({DigestStore.getDismissed(resolvedTenantId).length})</button>
                 )}
                 {followups.length > 0 && (
-                  <button onClick={generateAllFollowups} disabled={fuGeneratingAll} style={{ background: 'linear-gradient(135deg, #E040FB, #A855F7)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuGeneratingAll ? 0.6 : 1 }}>
+                  <button onClick={generateAllFollowups} disabled={fuGeneratingAll} style={{ ...btnAccent, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 800, opacity: fuGeneratingAll ? 0.6 : 1 }}>
                     {fuGeneratingAll ? '⏳ Generating…' : '✨ Generate All'}
                   </button>
                 )}
@@ -860,7 +862,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                   </select>
                 )}
                 {Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length > 0 && (
-                  <button onClick={sendSelectedFollowups} disabled={fuSending === 'bulk'} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '6px 14px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: fuSending === 'bulk' ? 0.6 : 1 }}>
+                  <button onClick={sendSelectedFollowups} disabled={fuSending === 'bulk'} style={{ ...btnAccent, borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 800, opacity: fuSending === 'bulk' ? 0.6 : 1 }}>
                     {fuSending === 'bulk' ? '⏳ Sending…' : '✉️ Send Selected (' + Object.keys(fuSelected).filter(function(k) { return fuSelected[k]; }).length + ')'}
                   </button>
                 )}
@@ -947,7 +949,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                               <button type="button" onMouseDown={function() { console.log('[FuPreview] opening for', fu.id, fu.first_name, 'channel=' + fu.channel); setFuPreview(fu); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '5px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>
                             )}
                             {fu.draft && (
-                              <button type="button" onMouseDown={function() { if (!isSending) sendFollowup(fu); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '5px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                              <button type="button" onMouseDown={function() { if (!isSending) sendFollowup(fu); }} disabled={isSending} style={{ ...btnAccent, borderRadius: 6, padding: '5px 14px', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                                 {isSending ? '⏳…' : '✉️ Send'}
                               </button>
                             )}
@@ -1145,11 +1147,11 @@ export default function EmailDigest({ C, currentTenantId }) {
 
                       {!vc.researched ? (
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <button type="button" onMouseDown={function() { console.log('[VIP] Research clicked for', vc.id); if (!isResearching) researchAndGenerate(vc); }} disabled={isResearching || vipFollowingUp === vc.id} style={{ flex: 1, background: 'linear-gradient(135deg, #FFD600, #F59E0B)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: isResearching ? 0.6 : 1 }}>
+                          <button type="button" onMouseDown={function() { console.log('[VIP] Research clicked for', vc.id); if (!isResearching) researchAndGenerate(vc); }} disabled={isResearching || vipFollowingUp === vc.id} style={{ ...btnAccent, flex: 1, borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 800, opacity: isResearching ? 0.6 : 1 }}>
                             {isResearching ? '🔍 Researching…' : '🔍 Research & Generate'}
                           </button>
                           {(followupDue || noReply) && (
-                            <button type="button" onMouseDown={function() { console.log('[VIP] Follow-up clicked for', vc.id); if (vipFollowingUp !== vc.id) generateVipFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', border: 'none', borderRadius: 8, padding: '10px 18px', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
+                            <button type="button" onMouseDown={function() { console.log('[VIP] Follow-up clicked for', vc.id); if (vipFollowingUp !== vc.id) generateVipFollowup(vc); }} disabled={vipFollowingUp === vc.id} style={{ ...btnAccent, borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 800, opacity: vipFollowingUp === vc.id ? 0.6 : 1 }}>
                               {vipFollowingUp === vc.id ? '⏳…' : '🔄 Follow-up'}
                             </button>
                           )}
@@ -1202,7 +1204,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                               {isResearching ? '⏳…' : '🔄 Regenerate'}
                             </button>
                             {vc.channel === 'email' && vc.emailDraft && <button type="button" onMouseDown={function() { setVipPreview(vc); }} style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: 6, padding: '6px 12px', color: '#a5b4fc', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>👁 Preview</button>}
-                            <button type="button" onMouseDown={function() { if (!isSending) sendVipOutreach(vc); }} disabled={isSending} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 6, padding: '6px 14px', color: '#000', cursor: 'pointer', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
+                            <button type="button" onMouseDown={function() { if (!isSending) sendVipOutreach(vc); }} disabled={isSending} style={{ ...btnAccent, borderRadius: 6, padding: '6px 14px', fontSize: 11, fontWeight: 800, opacity: isSending ? 0.5 : 1 }}>
                               {isSending ? '⏳…' : '✉️ Send'}
                             </button>
                             <button type="button" onMouseDown={function() { setVipContacts(function(p) { return p.filter(function(c) { return c.id !== vc.id; }); }); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '6px 10px', color: colors.muted, cursor: 'pointer', fontSize: 11 }}>✗ Remove</button>
@@ -1321,7 +1323,7 @@ export default function EmailDigest({ C, currentTenantId }) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <h2 style={{ color: '#fff', margin: 0, fontSize: 18, fontWeight: 800 }}>🔄 Stale Lead Actions <span style={{ color: colors.muted, fontSize: 13, fontWeight: 400 }}>· {staleItems.length}</span></h2>
                 {pendingStale.length > 0 && (
-                  <button onClick={bulkApproveStale} disabled={sending === 'bulk'} style={{ background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#000', fontWeight: 800, cursor: 'pointer', fontSize: 12, opacity: sending === 'bulk' ? 0.6 : 1 }}>
+                  <button onClick={bulkApproveStale} disabled={sending === 'bulk'} style={{ ...btnAccent, borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 800, opacity: sending === 'bulk' ? 0.6 : 1 }}>
                     {sending === 'bulk' ? '⏳ Approving…' : '✅ Approve all ' + pendingStale.length}
                   </button>
                 )}
@@ -1412,7 +1414,7 @@ export default function EmailDigest({ C, currentTenantId }) {
                         <div style={{ color: '#E040FB', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>✨ Add context for AI</div>
                         <textarea value={improveContext} onChange={function(e) { setImproveContext(e.target.value); }} placeholder="e.g. Met at CPExpo, interested in CSP model, has 500 agents, follow up about Poland SMS" rows={3} style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(224,64,251,0.3)', borderRadius: 6, padding: 10, color: '#fff', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
                         <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                          <button onClick={function() { regenerate(a); }} disabled={improving} style={{ background: 'linear-gradient(135deg,#E040FB,#A855F7)', border: 'none', borderRadius: 6, padding: '8px 14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12, opacity: improving ? 0.5 : 1 }}>{improving ? 'Rewriting…' : '✨ Regenerate Draft'}</button>
+                          <button onClick={function() { regenerate(a); }} disabled={improving} style={{ ...btnAccent, borderRadius: 6, padding: '8px 14px', fontSize: 12, fontWeight: 700, opacity: improving ? 0.5 : 1 }}>{improving ? 'Rewriting…' : '✨ Regenerate Draft'}</button>
                           <button onClick={closeImprove} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '8px 12px', color: colors.muted, cursor: 'pointer', fontSize: 12 }}>Cancel</button>
                           {improveErr && <span style={{ color: '#dc2626', fontSize: 11 }}>{improveErr}</span>}
                         </div>
