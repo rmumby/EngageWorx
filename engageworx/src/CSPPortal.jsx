@@ -23,10 +23,9 @@ import FlowBuilder from './FlowBuilder';
 import SequenceRoster from './SequenceRoster';
 import ActionBoard from './ActionBoard';
 import { getEnabledModules } from './lib/modules';
-
-function getCSPColors() {
-  return { bg: '#050810', surface: '#0d1220', border: '#1a2540', primary: '#00C9FF', accent: '#E040FB', text: '#E8F4FD', muted: '#6B8BAE' };
-}
+import PortalShell from './components/PortalShell';
+import { SP_BASE_COLORS } from './themes/portalColors';
+import { useBranding } from './BrandingContext';
 
 var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
@@ -81,9 +80,25 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     })();
   }, [cspTenantId]);
   var { theme: _cspTheme, isDark: _cspIsDark } = useTheme();
-  var C = getThemedColors(Object.assign({}, getCSPColors(), brandColors), _cspTheme);
-  var sidebarBg = _cspIsDark ? (brandColors.primary || C.surface) : (brandColors.accent || C.surface);
+  // Same base palette as the SA shell + this tenant's brand overlay → shared chrome + shared theme
+  // (light default / true-black dark come from ThemeContext, not a bespoke CSP palette).
+  var C = getThemedColors(Object.assign({}, SP_BASE_COLORS, {
+    primary: brandColors.primary || SP_BASE_COLORS.primary,
+    accent: brandColors.accent || SP_BASE_COLORS.accent,
+  }), _cspTheme);
   var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
+
+  // Per-tenant title/favicon for a CSP authenticated on the platform host (portal.engwx.com). Additive:
+  // uses the existing BrandingContext mechanism and reverts on unmount; hostname-based resolution for
+  // white-label domains, the SA console, and tenant portals is left untouched.
+  var _branding = useBranding();
+  var _setTenantBranding = _branding && _branding.setActiveTenantBranding;
+  var _resetBranding = _branding && _branding.resetToHostBranding;
+  useEffect(function() {
+    if (!cspTenantId || !_setTenantBranding) return;
+    _setTenantBranding(cspTenantId);
+    return function() { if (_resetBranding) _resetBranding(); };
+  }, [cspTenantId, _setTenantBranding, _resetBranding]);
 
   useEffect(function() {
     supabase.from('tenants').select('brand_primary, brand_secondary, brand_name, brand_logo_url, website_url').eq('id', cspTenantId).single().then(function(res) {
@@ -314,7 +329,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
   });
 
   var logoEl = brandColors.logoUrl
-    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 2, flexShrink: 0 }} />
     : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
 
   // ── Tenant drill-down portal ──────────────────────────────────────────────
@@ -347,7 +362,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-        <div style={{ width: drillSidebarHidden ? 0 : 240, background: sidebarBg, borderRight: drillSidebarHidden ? 'none' : ('1px solid ' + C.border), display: 'flex', flexDirection: 'column', padding: drillSidebarHidden ? 0 : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden', transition: 'width 0.25s ease, padding 0.25s ease' }}>
+        <div style={{ width: drillSidebarHidden ? 0 : 240, background: C.bg, borderRight: drillSidebarHidden ? 'none' : ('1px solid ' + C.border), display: 'flex', flexDirection: 'column', padding: drillSidebarHidden ? 0 : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, overflow: 'hidden', transition: 'width 0.25s ease, padding 0.25s ease' }}>
           <div onClick={function() { setDrillDownTenant(null); setPage('tenants'); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
             <span>←</span><span>Back to {cspInfo ? cspInfo.name : 'Portal'}</span>
           </div>
@@ -512,67 +527,42 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   // ── Main layout ───────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg, fontFamily: "'DM Sans', sans-serif", color: C.text }}>
-
-      {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? 64 : 240, boxSizing: 'border-box', background: sidebarBg, borderRight: '1px solid ' + C.border, display: 'flex', flexDirection: 'column', padding: sidebarCollapsed ? '24px 8px' : '24px 16px', flexShrink: 0, position: 'fixed', height: '100vh', zIndex: 50, transition: 'all 0.25s ease', overflow: 'hidden' }}>
-        {onBack && (
-          <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
-            <span>←</span>
-            {!sidebarCollapsed && <span>Back to Platform</span>}
+    <PortalShell
+      C={C}
+      isDark={_cspIsDark}
+      navItems={navItems}
+      activePage={page}
+      onNav={function(id) { setPage(id); setDrillDown(null); }}
+      collapsed={sidebarCollapsed}
+      onToggleCollapse={function() { setSidebarCollapsed(!sidebarCollapsed); }}
+      onSignOut={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }}
+      themeToggle={<ThemeToggle />}
+      contentScroll={page !== 'inbox'}
+      header={(
+        <div>
+          {onBack && (
+            <div onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.primary, fontSize: 12, fontWeight: 600, marginBottom: 12, background: C.primary + '10', border: '1px solid ' + C.primary + '22' }}>
+              <span>←</span>{!sidebarCollapsed && <span>Back to Platform</span>}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {brandColors.logoUrl
+              ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 3, flexShrink: 0 }} />
+              : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
+            }
+            {!sidebarCollapsed && <div style={{ flex: 1 }} />}
+            <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
           </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-          {brandColors.logoUrl
-            ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
-            : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
-          }
-          {!sidebarCollapsed && <div style={{ flex: 1 }} />}
-          <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
           {!sidebarCollapsed && (
-            <div>
+            <div style={{ marginTop: 8 }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: C.text, letterSpacing: -0.5 }}>{cspInfo ? cspInfo.name : 'CSP Portal'}</div>
               <div style={{ fontSize: 10, color: C.primary, fontWeight: 600, letterSpacing: 0.5 }}>PARTNER PORTAL</div>
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-          {navItems.map(function(item) {
-            var active = page === item.id;
-            return (
-              <div key={item.id} onClick={function() { setPage(item.id); setDrillDown(null); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 8px' : '10px 14px', borderRadius: 10, cursor: 'pointer', background: active ? (_cspIsDark ? 'rgba(255,255,255,0.1)' : C.primary + '15') : 'transparent', color: active ? (_cspIsDark ? '#ffffff' : C.primary) : C.muted, fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-                <span style={{ fontSize: 18 }}>{item.icon}</span>
-                {!sidebarCollapsed && <span>{item.label}</span>}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-          {/* Light/Dark Toggle */}
-          {!sidebarCollapsed ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <span style={{ fontSize: 12, color: C.muted }}>🌙 Dark Mode</span>
-              <ThemeToggle />
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', marginBottom: 2 }}><ThemeToggle /></div>
-          )}
-          {/* Sign Out */}
-          <div onClick={function() { supabase.auth.signOut().then(function() { if (onLogout) onLogout(); window.location.href = '/'; }).catch(function() { window.location.href = '/'; }); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, cursor: 'pointer', color: '#FF5252', fontSize: 13, background: 'rgba(255,82,82,0.06)', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <span>⏻</span>
-            {!sidebarCollapsed && <span style={{ fontWeight: 600 }}>Sign Out</span>}
-          </div>
-          {/* Collapse */}
-          <div onClick={function() { setSidebarCollapsed(!sidebarCollapsed); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderRadius: 8, cursor: 'pointer', color: C.muted, fontSize: 13, justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-            <span>{sidebarCollapsed ? '»' : '«'}</span>
-            {!sidebarCollapsed && <span>Collapse</span>}
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div style={{ marginLeft: sidebarCollapsed ? 64 : 240, flex: 1, padding: page === 'inbox' ? 0 : '32px 40px', transition: 'margin-left 0.25s ease', position: 'relative', overflowY: page === 'inbox' ? 'hidden' : undefined, height: page === 'inbox' ? '100vh' : undefined }}>
+      )}
+    >
+      <div style={{ flex: 1, minHeight: 0, padding: page === 'inbox' ? 0 : '32px 40px', display: 'flex', flexDirection: 'column' }}>
         {page !== 'inbox' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, marginBottom: 8 }}>
             {onBack && <span onClick={onBack} style={{ color: C.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>← Back to Platform</span>}
@@ -627,7 +617,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         {page === 'sequence-roster' && <SequenceRoster C={C} currentTenantId={cspTenantId} demoMode={false} />}
         {page === 'action-board' && <ActionBoard C={C} currentTenantId={cspTenantId} demoMode={false} />}
 
-        {page === 'email-digest' && <EmailDigest C={C} currentTenantId={cspTenantId} />}
+        {page === 'email-digest' && cspTenantId && <EmailDigest C={C} currentTenantId={cspTenantId} />}
 
         {page === 'branding' && (
           <div style={{ padding: '32px 36px', maxWidth: 900 }}>
@@ -958,6 +948,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         )}
 
       </div>
-    </div>
+    </PortalShell>
   );
 }
