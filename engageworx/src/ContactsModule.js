@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
-import { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
+import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import { DEMO_CONTACTS } from './demoFixtures';
 
@@ -218,7 +218,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
   if (selected) {
     return (
       <div>
-        <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 13, marginBottom: 14 }}>← Back to companies</button>
+        <button onClick={() => setSelected(null)} style={{ ...btnGhost, padding: 0, fontSize: 13, marginBottom: 14 }}>← Back to companies</button>
         <div style={Object.assign({}, card, { marginBottom: 16, borderLeft: `4px solid ${C.primary}` })}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
             <div>
@@ -1050,6 +1050,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
   const btnPrimary = useAccentButtonStyle(); // flat brand fill + WCAG-contrast text (was a gradient)
   const btnSecondary = useSecondaryButtonStyle(); // theme-aware (was dark-tuned rgba white that washed out in light)
+  const btnGhost = useGhostButtonStyle();
+  const segStyle = useSegmentedStyles(); // (active)=>style; segStyle(false) for theme-aware INACTIVE, active preserved
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" });
   const handleSort = (col) => { if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc"); else { setSortBy(col); setSortDir("desc"); } };
@@ -1074,7 +1076,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-          <button onClick={() => { setView("list"); setSelectedContact(null); setEditingContact(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontFamily: "'DM Sans', sans-serif" }}>← Back to Contacts</button>
+          <button onClick={() => { setView("list"); setSelectedContact(null); setEditingContact(null); }} style={{ ...btnGhost, padding: 0, fontSize: 14 }}>← Back to Contacts</button>
           <div style={{ display: "flex", gap: 8 }}>
             {onNavigate && <button onClick={function() {
               var vipContact = { id: c.id, first_name: c.firstName, last_name: c.lastName, email: c.email, phone: c.phone, company: c.company, title: c.title || '', notes: c.notes || '' };
@@ -1087,12 +1089,12 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 .then(function(r) { setSeqList(r.data || []); setSeqLoading(false); })
                 .catch(function() { setSeqList([]); setSeqLoading(false); });
               setSelectedContacts([c.id]);
-            }} style={{ background: "rgba(224,64,251,0.1)", border: "1px solid rgba(224,64,251,0.35)", borderRadius: 8, padding: "8px 16px", color: "#E040FB", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>🚀 Enrol in Sequence</button>
+            }} style={{ ...btnSecondary, padding: "8px 16px", fontSize: 12 }}>🚀 Enrol in Sequence</button>
               {!c.pipeline_lead_id && !convertResult && (
-                <button type="button" onMouseDown={function() { convertToLead(c); }} disabled={convertingLead} style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.35)", borderRadius: 8, padding: "8px 16px", color: "#6366f1", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: convertingLead ? 0.5 : 1 }}>{convertingLead ? '⏳…' : '📈 Convert to Lead'}</button>
+                <button type="button" onMouseDown={function() { convertToLead(c); }} disabled={convertingLead} style={{ ...btnSecondary, padding: "8px 16px", fontSize: 12, opacity: convertingLead ? 0.5 : 1 }}>{convertingLead ? '⏳…' : '📈 Convert to Lead'}</button>
               )}
               {convertResult && convertResult.created && (
-                <span style={{ color: "#10b981", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>✅ Lead created — {onNavigate ? <button type="button" onMouseDown={function() { onNavigate('pipeline'); }} style={{ background: 'none', border: 'none', color: '#6366f1', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', textDecoration: 'underline', padding: 0 }}>view in Pipeline</button> : 'view in Pipeline'}</span>
+                <span style={{ color: "#10b981", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>✅ Lead created — {onNavigate ? <button type="button" onMouseDown={function() { onNavigate('pipeline'); }} style={{ ...btnGhost, padding: 0, fontSize: 12, fontWeight: 700, color: C.primary, textDecoration: 'underline' }}>view in Pipeline</button> : 'view in Pipeline'}</span>
               )}
               {convertResult && convertResult.exists && (
                 <span style={{ color: "#f59e0b", fontSize: 12, fontWeight: 600, padding: "8px 0" }}>Already in Pipeline ({convertResult.stage})</span>
@@ -1103,8 +1105,8 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               {c.pipeline_lead_id && !convertResult && (
                 <span style={{ color: "#6366f1", fontSize: 12, fontWeight: 600, padding: "8px 16px" }}>📈 In Pipeline</span>
               )}
-            <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ background: editingContact ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${editingContact ? C.primary : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "8px 16px", color: editingContact ? C.primary : "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif" }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
-            <button onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ background: "rgba(255,59,48,0.08)", border: "1px solid rgba(255,59,48,0.2)", borderRadius: 8, padding: "8px 16px", color: "#FF3B30", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", opacity: deleting ? 0.5 : 1 }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
+            <button onClick={() => setEditingContact(editingContact ? null : { ...c })} style={{ ...btnSecondary, padding: "8px 16px", fontSize: 12, ...(editingContact ? { background: `${C.primary}22`, border: `1px solid ${C.primary}`, color: C.primary } : {}) }}>{editingContact ? "Cancel Edit" : "✏️ Edit"}</button>
+            <Button variant="danger" onClick={() => { if (window.confirm(`Delete ${c.firstName} ${c.lastName}?`)) handleDeleteContact(c.id); }} disabled={deleting} style={{ borderRadius: 8, padding: "8px 16px", fontSize: 12 }}>{deleting ? "Deleting..." : "🗑 Delete"}</Button>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24 }}>
@@ -1115,7 +1117,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: "#000", margin: "0 auto 14px" }}>{(initials || '?').toUpperCase()}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                 <h2 style={{ color: C.text, margin: "0", fontSize: 20 }}>{displayName}</h2>
-                <button onClick={function() { toggleVip(c); }} title={c.is_vip ? "Remove VIP" : "Mark as VIP"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1, color: c.is_vip ? "#FFD600" : "rgba(255,255,255,0.15)", transition: "color 0.2s" }}>{c.is_vip ? "⭐" : "☆"}</button>
+                <button onClick={function() { toggleVip(c); }} title={c.is_vip ? "Remove VIP" : "Mark as VIP"} style={{ ...btnGhost, padding: 0, fontSize: 20, lineHeight: 1, color: c.is_vip ? "#FFD600" : btnGhost.color, transition: "color 0.2s" }}>{c.is_vip ? "⭐" : "☆"}</button>
               </div>
               </>); })()}
               {c.title && <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 2, marginBottom: 4 }}>{c.title}</div>}
@@ -1329,7 +1331,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
           <button onClick={handleDownloadTemplate} style={btnSecondary}>📄 Download Template</button>
           <button onClick={() => setShowImport(true)} style={btnSecondary}>📥 Import CSV</button>
           <button onClick={handleExport} style={btnSecondary}>📤 Export CSV</button>
-          {demoMode !== true &&<button onClick={handleDedup} disabled={dedupRunning} style={{ background: 'rgba(255,214,0,0.12)', border: '1px solid rgba(255,214,0,0.3)', borderRadius: 10, padding: '10px 18px', color: '#FFD600', fontWeight: 700, cursor: dedupRunning ? 'wait' : 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif", opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
+          {demoMode !== true &&<button onClick={handleDedup} disabled={dedupRunning} style={{ ...btnSecondary, padding: '10px 18px', fontSize: 13, opacity: dedupRunning ? 0.6 : 1 }}>{dedupRunning ? '⏳ Merging...' : '🔀 Find & Merge Duplicates'}</button>}
           <button onClick={() => setShowAddContact(true)} style={btnPrimary}>+ Add Contact</button>
         </div>
       </div>
@@ -1354,7 +1356,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
       <div style={{ display: "flex", gap: 2, marginBottom: 20 }}>
         {[{ id: "contacts", label: "Contacts", icon: "👥" }, { id: "companies", label: "Companies", icon: "🏢" }, { id: "segments", label: "Segments", icon: "🎯" }, { id: "crm", label: "CRM Integrations", icon: "🔗" }].map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)", border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 18px", color: activeTab === t.id ? "#000" : C.muted, fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{t.icon} {t.label}</button>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ borderRadius: 8, padding: "8px 18px", fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", ...(activeTab === t.id ? { background: C.primary, border: "none", color: "#000" } : segStyle(false)) }}>{t.icon} {t.label}</button>
         ))}
       </div>
 
@@ -1370,7 +1372,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Import Contacts from CSV</h3>
-                <button onClick={handleCloseImport} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={handleCloseImport} style={{ ...btnGhost, padding: 0, fontSize: 18 }}>✕</button>
               </div>
 
               {/* Step 1: File picker */}
@@ -1511,7 +1513,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <div style={{ ...card, marginBottom: 20, border: `1px solid ${C.primary}44` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Add Contact</h3>
-                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" }); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>✕</button>
+                <button onClick={() => { setShowAddContact(false); setNewContact({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", linkedinUrl: "", status: "active", channel_preference: "SMS" }); }} style={{ ...btnGhost, padding: 0, fontSize: 18 }}>✕</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label style={{ color: C.muted, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>First Name *</label><input value={newContact.firstName} onChange={e => setNewContact(p => ({ ...p, firstName: e.target.value }))} placeholder="John" style={inputStyle} /></div>
@@ -1627,7 +1629,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
 
           <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto", paddingBottom: 4 }}>
             {SEGMENTS.slice(0, 6).map(s => (
-              <button key={s.id} onClick={() => { setSelectedSegment(s.id); setPage(0); }} style={{ background: selectedSegment === s.id ? `${C.primary}22` : "rgba(255,255,255,0.03)", border: `1px solid ${selectedSegment === s.id ? C.primary : "rgba(255,255,255,0.06)"}`, borderRadius: 8, padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap", color: selectedSegment === s.id ? C.primary : C.muted, fontSize: 12, fontWeight: selectedSegment === s.id ? 700 : 400, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{s.icon} {s.name}</button>
+              <button key={s.id} onClick={() => { setSelectedSegment(s.id); setPage(0); }} style={{ borderRadius: 8, padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap", fontSize: 12, fontWeight: selectedSegment === s.id ? 700 : 400, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", ...(selectedSegment === s.id ? { background: `${C.primary}22`, border: `1px solid ${C.primary}`, color: C.primary } : segStyle(false)) }}>{s.icon} {s.name}</button>
             ))}
           </div>
 
@@ -1636,7 +1638,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
             <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 140 }}><option value="all">All Statuses</option>{STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}</select>
             <select value={filterTag} onChange={e => { setFilterTag(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 130 }}><option value="all">All Tags</option>{TAGS.map(t => <option key={t} value={t}>{t}</option>)}</select>
             <select value={filterChannel} onChange={e => { setFilterChannel(e.target.value); setPage(0); }} style={{ ...inputStyle, width: 140 }}><option value="all">All Channels</option>{CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}</select>
-            <button onClick={function() { setFilterVip(!filterVip); setPage(0); }} style={{ background: filterVip ? "rgba(255,214,0,0.15)" : "rgba(255,255,255,0.04)", border: "1px solid " + (filterVip ? "rgba(255,214,0,0.5)" : "rgba(255,255,255,0.1)"), borderRadius: 8, padding: "8px 14px", color: filterVip ? "#FFD600" : C.muted, cursor: "pointer", fontSize: 12, fontWeight: filterVip ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap" }}>{filterVip ? "⭐ VIP Only" : "⭐ VIP"}</button>
+            <button onClick={function() { setFilterVip(!filterVip); setPage(0); }} style={{ borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: filterVip ? 700 : 400, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", ...(filterVip ? { background: "rgba(255,214,0,0.15)", border: "1px solid rgba(255,214,0,0.5)", color: "#FFD600" } : segStyle(false)) }}>{filterVip ? "⭐ VIP Only" : "⭐ VIP"}</button>
             <div style={{ marginLeft: "auto", color: C.muted, fontSize: 13 }}>{filtered.length} contact{filtered.length !== 1 ? "s" : ""}</div>
           </div>
 
@@ -1647,10 +1649,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <button onClick={async function() { setShowSeqPicker(true); setSeqSelected(null); setSeqSearch(''); setSeqLoading(true); try { var r = await supabase.from('sequences').select('id, name, status').eq('tenant_id', resolvedTenantId).in('status', ['active', 'draft']).order('name'); setSeqList(r.data || []); } catch(e) { setSeqList([]); } setSeqLoading(false); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🚀 Add to Sequence</button>
               <button onClick={function() { var ids = new Set(selectedContacts); var selected = contacts.filter(function(c) { return ids.has(c.id); }); if (selected.length === 0) return; var headers = ['first_name','last_name','email','phone','company','status','tags']; var csv = headers.join(',') + '\n' + selected.map(function(c) { return [c.firstName || '', c.lastName || '', c.email || '', c.phone || '', c.company || '', c.status || '', (c.tags || []).join(';')].map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n'); var blob = new Blob([csv], { type: 'text/csv' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = 'contacts_selected_' + selected.length + '.csv'; a.click(); URL.revokeObjectURL(url); }} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>📤 Export</button>
               {selectedContacts.length >= 2 && (
-                <button onClick={openMergeModal} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#E040FB", borderColor: "rgba(224,64,251,0.35)" }}>🔀 Merge Selected</button>
+                <button onClick={openMergeModal} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12 }}>🔀 Merge Selected</button>
               )}
-              <button onClick={handleBulkDelete} disabled={deleting} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, color: "#FF3B30", borderColor: "rgba(255,59,48,0.3)" }}>{deleting ? "Deleting..." : "🗑 Delete"}</button>
-              <button onClick={() => setSelectedContacts([])} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 12, marginLeft: "auto" }}>Clear</button>
+              <Button variant="danger" onClick={handleBulkDelete} disabled={deleting} style={{ padding: "6px 14px", fontSize: 12 }}>{deleting ? "Deleting..." : "🗑 Delete"}</Button>
+              <button onClick={() => setSelectedContacts([])} style={{ ...btnGhost, padding: 0, fontSize: 12, marginLeft: "auto" }}>Clear</button>
             </div>
           )}
 
@@ -1672,7 +1674,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                 <div onClick={e => e.stopPropagation()} style={{ background: '#0d1425', border: '1px solid rgba(224,64,251,0.35)', borderRadius: 14, padding: 24, maxWidth: 900, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
                     <h3 style={{ color: C.text, margin: 0, fontSize: 18 }}>🔀 Merge {chosen.length} contacts</h3>
-                    <button onClick={() => setShowMerge(false)} disabled={merging} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
+                    <button onClick={() => setShowMerge(false)} disabled={merging} style={{ ...btnGhost, padding: 0, fontSize: 18 }}>✕</button>
                   </div>
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ color: C.muted, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 6, fontWeight: 700 }}>Primary contact (record that survives)</label>
@@ -1731,7 +1733,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid ' + C.primary + '44', borderRadius: 14, padding: 24, maxWidth: 500, width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 style={{ color: C.text, margin: 0, fontSize: 16 }}>Add {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} to a sequence</h3>
-                  <button onClick={function() { setShowSeqPicker(false); }} disabled={seqEnrolling} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 18 }}>✕</button>
+                  <button onClick={function() { setShowSeqPicker(false); }} disabled={seqEnrolling} style={{ ...btnGhost, padding: 0, fontSize: 18 }}>✕</button>
                 </div>
                 <input value={seqSearch} onChange={function(e) { setSeqSearch(e.target.value); }} placeholder="Search sequences..." style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 14px', color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none', marginBottom: 12 }} />
                 {seqLoading ? (
@@ -1855,7 +1857,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, opacity: page === 0 ? 0.3 : 1 }}>← Prev</button>
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                 const p = totalPages <= 7 ? i : page < 3 ? i : page > totalPages - 4 ? totalPages - 7 + i : page - 3 + i;
-                return <button key={p} onClick={() => setPage(p)} style={{ width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer", background: page === p ? C.primary : "rgba(255,255,255,0.04)", color: page === p ? "#000" : C.muted, fontWeight: page === p ? 700 : 400, fontSize: 13 }}>{p + 1}</button>;
+                return <button key={p} onClick={() => setPage(p)} style={{ width: 32, height: 32, borderRadius: 8, cursor: "pointer", fontWeight: page === p ? 700 : 400, fontSize: 13, ...(page === p ? { background: C.primary, border: "none", color: "#000" } : segStyle(false)) }}>{p + 1}</button>;
               })}
               <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page === totalPages - 1} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, opacity: page === totalPages - 1 ? 0.3 : 1 }}>Next →</button>
             </div>
