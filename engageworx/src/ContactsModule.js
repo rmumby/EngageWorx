@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
+import { useAccentButtonStyle } from './components/ui/Button';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
 import { DEMO_CONTACTS } from './demoFixtures';
 
@@ -1047,7 +1048,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const totalLTV = contacts.reduce((s, c) => s + c.ltv, 0);
 
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
-  const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnPrimary = useAccentButtonStyle(); // flat brand fill + WCAG-contrast text (was a gradient)
   const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" });
@@ -1215,7 +1216,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       {TAGS.filter(function(t) { return !(editingContact.tags || []).includes(t); }).map(function(t) { return <option key={t} value={t}>{t}</option>; })}
                     </select>
                   </div>
-                  <button onClick={() => handleEditContact(editingContact)} style={{ width: "100%", background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 8, padding: "10px", color: "#000", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'DM Sans', sans-serif" }}>Save Changes</button>
+                  <button onClick={() => handleEditContact(editingContact)} style={{ ...btnPrimary, width: "100%", borderRadius: 8, padding: "10px" }}>Save Changes</button>
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1717,7 +1718,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                   </div>
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                     <button onClick={() => setShowMerge(false)} disabled={merging} style={btnSecondary}>Cancel</button>
-                    <button onClick={handleMergeConfirm} disabled={merging} style={Object.assign({}, btnPrimary, { background: 'linear-gradient(135deg,#E040FB,#A855F7)', color: C.text })}>{merging ? 'Merging…' : 'Confirm Merge'}</button>
+                    <button onClick={handleMergeConfirm} disabled={merging} style={Object.assign({}, btnPrimary, { opacity: merging ? 0.6 : 1 })}>{merging ? 'Merging…' : 'Confirm Merge'}</button>
                   </div>
                 </div>
               </div>
