@@ -34,11 +34,21 @@ module.exports = async function handler(req, res) {
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-EngageWorx-Tenant, X-EngageWorx-Ingest-Token');
+  res.setHeader('Access-Control-Max-Age', '86400'); // cache the preflight for 24h
 
-  // Preflight runs before we can resolve the tenant (no body) — reflect the requesting Origin.
-  // The POST itself enforces the per-tenant allow-list before exposing any data.
   if (req.method === 'OPTIONS') {
-    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    // A CORS preflight carries no tenant/token (the browser is asking permission to SEND those
+    // headers), so there's no single tenant context. Validate the Origin against the union of
+    // tenants.allowed_origins and echo it only if some tenant permits it; otherwise omit the header
+    // and the browser blocks the call. The actual POST re-checks the Origin against the resolved
+    // tenant's allow-list.
+    if (origin && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        var pf = createClient(process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        var m = await pf.from('tenants').select('id').contains('allowed_origins', [origin]).limit(1);
+        if (m.data && m.data.length > 0) res.setHeader('Access-Control-Allow-Origin', origin);
+      } catch (e) { /* origin not echoed → browser blocks; safe default */ }
+    }
     return res.status(204).end();
   }
   if (req.method !== 'POST') return fail(res, 405, [{ message: 'Method not allowed' }]);
