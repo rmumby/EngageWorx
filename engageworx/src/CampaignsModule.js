@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
-import Button, { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
+import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -356,6 +356,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 16px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" };
   const btnPrimary = useAccentButtonStyle({ padding: "12px 24px", fontSize: 14 }); // flat brand fill + WCAG-contrast text (was a gradient)
   const btnSecondary = useSecondaryButtonStyle({ padding: "12px 24px", fontSize: 14 }); // theme-aware (was dark-tuned rgba white)
+  const btnGhost = useGhostButtonStyle();
+  const segStyle = useSegmentedStyles(); // (active)=>style; we use segStyle(false) for the theme-aware INACTIVE state, preserving each control's active styling
   const badge = (color) => ({ background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -374,7 +376,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       <div style={{ padding: "32px 40px", maxWidth: 900 }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <button onClick={() => { setView("list"); setCreateStep(1); setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] }); setAiSuggestions([]); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>← Back</button>
+          <button onClick={() => { setView("list"); setCreateStep(1); setNewCampaign({ name: "", channel: "SMS", audience: "All Contacts", audienceSize: 12400, body: "", subject: "", abTest: false, abVariantB: "", scheduledDate: "", scheduledTime: "", sendNow: false, tags: [], tone: "Professional", aiTemplate: null, useAI: false, fallbackEnabled: false, fallbacks: [] }); setAiSuggestions([]); }} style={{ ...btnGhost, padding: 0, fontSize: 14 }}>← Back</button>
           <h1 style={{ fontSize: 24, fontWeight: 800, color: C.text, margin: 0 }}>Create Campaign</h1>
         </div>
 
@@ -436,11 +438,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <div style={{ display: "flex", gap: 10 }}>
                 {CHANNELS.map(ch => (
                   <button key={ch} onClick={() => setNewCampaign({ ...newCampaign, channel: ch })} style={{
-                    flex: 1, padding: "14px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center",
-                    background: newCampaign.channel === ch ? CHANNEL_COLORS[ch] + "22" : "rgba(255,255,255,0.03)",
-                    border: `2px solid ${newCampaign.channel === ch ? CHANNEL_COLORS[ch] : "rgba(255,255,255,0.08)"}`,
-                    color: newCampaign.channel === ch ? CHANNEL_COLORS[ch] : C.muted,
-                    transition: "all 0.2s",
+                    flex: 1, padding: "14px 8px", borderRadius: 10, cursor: "pointer", textAlign: "center", transition: "all 0.2s",
+                    ...(newCampaign.channel === ch
+                      ? { background: CHANNEL_COLORS[ch] + "22", border: `2px solid ${CHANNEL_COLORS[ch]}`, color: CHANNEL_COLORS[ch] }
+                      : segStyle(false)),
                   }}>
                     <div style={{ fontSize: 22, marginBottom: 4 }}>{CHANNEL_ICONS[ch]}</div>
                     <div style={{ fontSize: 12, fontWeight: 700 }}>{ch}</div>
@@ -454,10 +455,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <label style={{ color: C.muted, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Smart Fallback</label>
                 <button onClick={() => setNewCampaign({ ...newCampaign, fallbackEnabled: !newCampaign.fallbackEnabled, fallbacks: !newCampaign.fallbackEnabled ? [] : newCampaign.fallbacks })} style={{
-                  background: newCampaign.fallbackEnabled ? C.primary + "22" : "rgba(255,255,255,0.05)",
-                  border: `1px solid ${newCampaign.fallbackEnabled ? C.primary : "rgba(255,255,255,0.1)"}`,
-                  borderRadius: 20, padding: "4px 12px", color: newCampaign.fallbackEnabled ? C.primary : C.muted,
-                  fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  borderRadius: 20, padding: "4px 12px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  ...(newCampaign.fallbackEnabled
+                    ? { background: C.primary + "22", border: `1px solid ${C.primary}`, color: C.primary }
+                    : segStyle(false)),
                 }}>{newCampaign.fallbackEnabled ? "✓ Enabled" : "Off"}</button>
               </div>
               {!newCampaign.fallbackEnabled && (
@@ -566,11 +567,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
                     {AI_TEMPLATES.map(t => (
                       <button key={t.id} onClick={() => setNewCampaign({ ...newCampaign, aiTemplate: t.id })} style={{
-                        padding: "14px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center",
-                        background: newCampaign.aiTemplate === t.id ? `${C.primary}22` : "rgba(255,255,255,0.03)",
-                        border: `2px solid ${newCampaign.aiTemplate === t.id ? C.primary : "rgba(255,255,255,0.06)"}`,
-                        color: newCampaign.aiTemplate === t.id ? C.primary : C.muted,
-                        transition: "all 0.2s",
+                        padding: "14px 10px", borderRadius: 10, cursor: "pointer", textAlign: "center", transition: "all 0.2s",
+                        ...(newCampaign.aiTemplate === t.id
+                          ? { background: `${C.primary}22`, border: `2px solid ${C.primary}`, color: C.primary }
+                          : segStyle(false)),
                       }}>
                         <div style={{ fontSize: 20, marginBottom: 6 }}>{t.icon}</div>
                         <div style={{ fontSize: 11, fontWeight: 700 }}>{t.name}</div>
@@ -585,11 +585,11 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {AI_TONES.map(t => (
                       <button key={t} onClick={() => setNewCampaign({ ...newCampaign, tone: t })} style={{
-                        padding: "8px 16px", borderRadius: 8, cursor: "pointer",
-                        background: newCampaign.tone === t ? C.primary : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${newCampaign.tone === t ? C.primary : "rgba(255,255,255,0.08)"}`,
-                        color: newCampaign.tone === t ? "#000" : C.muted,
-                        fontSize: 13, fontWeight: newCampaign.tone === t ? 700 : 400, transition: "all 0.2s",
+                        padding: "8px 16px", borderRadius: 8, cursor: "pointer", fontSize: 13, transition: "all 0.2s",
+                        fontWeight: newCampaign.tone === t ? 700 : 400,
+                        ...(newCampaign.tone === t
+                          ? { background: C.primary, border: `1px solid ${C.primary}`, color: "#000" }
+                          : segStyle(false)),
                       }}>{t}</button>
                     ))}
                   </div>
@@ -731,10 +731,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                 { name: "Upcoming Appointments", size: 620, desc: "Appointments in the next 7 days", icon: "📅" },
               ].map(seg => (
                 <button key={seg.name} onClick={() => setNewCampaign({ ...newCampaign, audience: seg.name, audienceSize: seg.size })} style={{
-                  display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                  background: newCampaign.audience === seg.name ? `${C.primary}15` : "rgba(255,255,255,0.02)",
-                  border: `2px solid ${newCampaign.audience === seg.name ? C.primary : "rgba(255,255,255,0.06)"}`,
-                  transition: "all 0.2s",
+                  display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderRadius: 12, cursor: "pointer", textAlign: "left", transition: "all 0.2s",
+                  ...(newCampaign.audience === seg.name
+                    ? { background: `${C.primary}15`, border: `2px solid ${C.primary}` }
+                    : segStyle(false)),
                 }}>
                   <span style={{ fontSize: 24 }}>{seg.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -763,8 +763,9 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
             <div style={{ display: "grid", gap: 14 }}>
               <button onClick={() => setNewCampaign({ ...newCampaign, sendNow: true })} style={{
                 display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                background: newCampaign.sendNow ? `${C.primary}15` : "rgba(255,255,255,0.02)",
-                border: `2px solid ${newCampaign.sendNow ? C.primary : "rgba(255,255,255,0.06)"}`,
+                ...(newCampaign.sendNow
+                  ? { background: `${C.primary}15`, border: `2px solid ${C.primary}` }
+                  : segStyle(false)),
               }}>
                 <span style={{ fontSize: 28 }}>🚀</span>
                 <div>
@@ -775,8 +776,9 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
               </button>
               <button onClick={() => setNewCampaign({ ...newCampaign, sendNow: false })} style={{
                 display: "flex", alignItems: "center", gap: 14, padding: "20px 24px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                background: !newCampaign.sendNow ? `${C.primary}15` : "rgba(255,255,255,0.02)",
-                border: `2px solid ${!newCampaign.sendNow ? C.primary : "rgba(255,255,255,0.06)"}`,
+                ...(!newCampaign.sendNow
+                  ? { background: `${C.primary}15`, border: `2px solid ${C.primary}` }
+                  : segStyle(false)),
               }}>
                 <span style={{ fontSize: 28 }}>⏰</span>
                 <div>
@@ -862,10 +864,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
                       {["09:00", "12:00", "15:00", "18:00"].map(t => (
                         <button key={t} onClick={() => setNewCampaign({ ...newCampaign, scheduledTime: t })} style={{
                           display: "block", width: "100%", padding: "8px", marginBottom: 4, borderRadius: 6, cursor: "pointer",
-                          background: newCampaign.scheduledTime === t ? C.primary + "22" : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${newCampaign.scheduledTime === t ? C.primary : "rgba(255,255,255,0.08)"}`,
-                          color: newCampaign.scheduledTime === t ? C.primary : "rgba(255,255,255,0.6)",
                           fontSize: 12, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                          ...(newCampaign.scheduledTime === t
+                            ? { background: C.primary + "22", border: `1px solid ${C.primary}`, color: C.primary }
+                            : segStyle(false)),
                         }}>{t === "09:00" ? "9:00 AM" : t === "12:00" ? "12:00 PM" : t === "15:00" ? "3:00 PM" : "6:00 PM"}</button>
                       ))}
                     </div>
@@ -1148,7 +1150,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1200 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <button onClick={() => { setView("list"); setSelectedCampaign(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}>← Back to Campaigns</button>
+          <button onClick={() => { setView("list"); setSelectedCampaign(null); }} style={{ ...btnGhost, padding: 0, fontSize: 14 }}>← Back to Campaigns</button>
         </div>
 
         {/* Header */}
@@ -1424,7 +1426,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: C.primary + '11', border: '1px solid ' + C.primary + '33', borderRadius: 10, marginBottom: 8 }}>
             <span style={{ color: C.primary, fontSize: 13, fontWeight: 700 }}>{selectedIds.length} selected</span>
             <Button variant="danger" onClick={bulkDelete} disabled={deleting} style={{ borderRadius: 8, padding: '6px 14px', fontSize: 12 }}>{deleting ? 'Deleting…' : '🗑 Delete selected'}</Button>
-            <button onClick={function() { setSelectedIds([]); }} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 12, marginLeft: 'auto' }}>Clear</button>
+            <button onClick={function() { setSelectedIds([]); }} style={{ ...btnGhost, padding: 0, fontSize: 12, marginLeft: 'auto' }}>Clear</button>
           </div>
         )}
 
