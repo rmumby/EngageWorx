@@ -1,6 +1,7 @@
 // ─── TENANT DATA ──────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthProvider, useAuth } from './AuthContext';
+import MfaChallenge from './MfaChallenge';
 import { BrandingProvider, useBranding } from './BrandingContext';
 import BrandLogo from './BrandLogo';
 import PipelineDashboard from './components/PipelineDashboard';
@@ -2130,7 +2131,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 function AppInner() {
-  const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, isNotificationOnly, passwordRecovery } = useAuth();
+  const { user, profile, setProfile, loading, demoMode, toggleDemoMode, signIn, signUp, signOut, resetPassword, updatePassword, authError, isSuperAdmin, isCSP, cspTenantId, isAuthenticated, isNotificationOnly, passwordRecovery, mfaPending, finishMfaChallenge, cancelMfaChallenge } = useAuth();
   const { t: tSP } = useTranslation();
   
   // Default to production mode (demo off) on first load
@@ -2200,6 +2201,7 @@ function AppInner() {
 
   // Auto-route authenticated users directly to their portal
   useEffect(() => {
+    if (mfaPending) return; // hold routing until the second-factor challenge passes
     if (isAuthenticated && profile && view === "login") {
       if (profile.role === "superadmin" || profile.role === "super_admin" || profile.role === "sp_admin") {
         setView("sp");
@@ -2405,6 +2407,21 @@ var spNavBase = [
           <div style={{ color: C.muted, fontSize: 14 }}>Loading...</div>
         </div>
       </div>
+    );
+  }
+
+  // Second-factor gate: a fresh password login with a verified MFA factor must pass the
+  // TOTP challenge before any portal renders. Sits above every authenticated view.
+  if (mfaPending) {
+    return (
+      <MfaChallenge
+        C={C}
+        factorId={mfaPending.factorId}
+        onVerified={finishMfaChallenge}
+        onCancel={cancelMfaChallenge}
+        title="Two-factor verification"
+        subtitle="Enter the 6-digit code from your authenticator app to finish signing in."
+      />
     );
   }
 

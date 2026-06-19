@@ -6,6 +6,8 @@ import EmailTrackingInstructions from './EmailTrackingInstructions';
 import EmailSetupWizard from './components/EmailSetupWizard';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
+import MfaCard from './MfaCard';
+import MfaChallenge from './MfaChallenge';
 import PolandCarrierCard from './PolandCarrierCard';
 import BrandingEditor from './BrandingEditor';
 import KBArticleEditor from './admin/KBArticleEditor';
@@ -378,6 +380,19 @@ function OutboundTrackingCard({ tenantId, C, card, btnSec }) {
 export default function Settings({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, defaultTab, allowedTabs, enabledModules, onSaveModules, userRole }) {
   const { t, i18n } = useTranslation();
   const [activeTab, setActiveTab] = useState(defaultTab || "integrations");
+  // aal2 step-up gate for sensitive surfaces. Only enforced when the user actually has a
+  // verified factor (aal.nextLevel === 'aal2') and the current session isn't aal2 yet — so
+  // MFA stays opt-in and never locks out tenants who never enrolled.
+  const SENSITIVE_TABS = ["billing", "channels", "api"];
+  const [aal, setAal] = useState(null); // { currentLevel, nextLevel } | null
+  const needsStepUp = SENSITIVE_TABS.includes(activeTab) && aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2";
+  const refreshAal = async () => {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      setAal(data || null);
+    } catch (e) { setAal(null); }
+  };
+  useEffect(() => { if (SENSITIVE_TABS.includes(activeTab)) refreshAal(); }, [activeTab]);
   const [tenantLanguage, setTenantLanguage] = useState(i18n.language || 'en');
   const [emailSendMethod, setEmailSendMethod] = useState('sendgrid');
   const [testEmailSending, setTestEmailSending] = useState(false);
@@ -1146,6 +1161,14 @@ return (<div>
         </div>
       )}
 
+      {needsStepUp && (
+        <div style={{ display: "grid", gap: 16, maxWidth: 460 }}>
+          <div style={{ color: C.text, fontSize: 18, fontWeight: 700 }}>Verify your identity</div>
+          <div style={{ color: C.muted, fontSize: 13 }}>This section holds sensitive settings. Enter a code from your authenticator app to continue.</div>
+          <MfaChallenge C={C} inline onVerified={refreshAal} subtitle="Enter the 6-digit code from your authenticator app." />
+        </div>
+      )}
+
       {activeTab === "integrations" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -1267,7 +1290,7 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "api" && (
+      {activeTab === "api" && !needsStepUp && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>API Keys</h2>
@@ -1309,7 +1332,7 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "channels" && (
+      {activeTab === "channels" && !needsStepUp && (
         <div>
           <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Channel Configuration</h2>
           {channelsLoading ? <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading channels...</div> : (
@@ -1514,7 +1537,7 @@ return (<div>
         </div>
       )}
 
-      {activeTab === "billing" && (
+      {activeTab === "billing" && !needsStepUp && (
         <div>
           <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Billing & Subscription</h2>
           {(planStatus === "Trial" || stripeStatus === "trialing" || !stripePlan) && (
@@ -1601,7 +1624,7 @@ return (<div>
 
       {activeTab === "team" && <TeamMembersTab C={C} viewLevel={viewLevel} currentTenantId={currentTenantId} isSuperAdmin={viewLevel === 'sp'} demoMode={demoMode} />}
 
-      {activeTab === "channels" && !demoMode && (
+      {activeTab === "channels" && !needsStepUp && !demoMode && (
         <div style={Object.assign({}, card, { marginTop: 20, borderLeft: '4px solid #00C9FF' })}>
           <h3 style={{ color: C.text, fontSize: 14, fontWeight: 700, margin: '0 0 8px' }}>📧 Send Test Email</h3>
           <p style={{ color: C.muted, fontSize: 12, margin: '0 0 12px' }}>Send a sample email with your full HTML signature to verify delivery and rendering.</p>
@@ -1644,7 +1667,7 @@ return (<div>
           </div>
         </div>
       )}
-      {activeTab === "channels" && resolvedTenantId && !demoMode && (
+      {activeTab === "channels" && !needsStepUp && resolvedTenantId && !demoMode && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
           <div style={Object.assign({}, card, { borderLeft: '4px solid ' + (C.accent || '#E040FB') })}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -1902,6 +1925,7 @@ return (<div>
         <div>
           <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Security Settings</h2>
           <div style={{ display: "grid", gap: 16 }}>
+            <MfaCard C={C} />
             <div style={card}>
               <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Authentication</h3>
               <div style={{ display: "grid", gap: 14 }}>

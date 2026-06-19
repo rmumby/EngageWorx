@@ -17,6 +17,10 @@ export function AuthProvider({ children }) {
   }, [demoMode]);
 
   const [passwordRecovery, setPasswordRecovery] = useState(false);
+  // When a fresh password login lands at aal1 but the user has a verified MFA factor,
+  // hold portal access until they pass the second-factor challenge. App renders the
+  // MFA challenge gate whenever this is non-null. null = no challenge outstanding.
+  const [mfaPending, setMfaPending] = useState(null); // { factorId } | null
 
   // Fetch profile — never throws, never hangs
   const fetchProfile = useCallback(async (userId) => {
@@ -161,6 +165,23 @@ export function AuthProvider({ children }) {
       // Manually set user/session immediately so we don't wait for onAuthStateChange
       setUser(data.user);
       setSession(data.session);
+      // MFA step-up: a fresh password login is aal1. If the user has a verified factor,
+      // nextLevel is 'aal2' and we must challenge before granting portal access. Reloads
+      // don't re-challenge — once verified the session token carries aal2 and persists.
+      try {
+        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aal && aal.nextLevel === 'aal2' && aal.currentLevel === 'aal1') {
+          let factorId = null;
+          try {
+            const { data: fl } = await supabase.auth.mfa.listFactors();
+            const totp = fl && fl.totp ? fl.totp.find((f) => f.status === 'verified') : null;
+            factorId = totp ? totp.id : null;
+          } catch (flErr) { console.warn('listFactors failed:', flErr.message); }
+          setMfaPending({ factorId });
+          // Hold profile fetch until aal2 — App gates on mfaPending regardless.
+          return { data, error: null, mfaRequired: true };
+        }
+      } catch (aalErr) { console.warn('AAL check failed:', aalErr.message); }
       // Fetch profile — await so isCSP is set before routing
     await fetchProfile(data.user.id);
       return { data, error: null };
@@ -191,6 +212,26 @@ export function AuthProvider({ children }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setMfaPending(null);
+  };
+
+  // Called by the MFA challenge gate after a successful mfa.verify (which upgrades the
+  // session to aal2 on the shared client). Refresh local session + profile, drop the gate.
+  const finishMfaChallenge = async () => {
+    try {
+      const { data: { session: s2 } } = await supabase.auth.getSession();
+      if (s2) { setSession(s2); setUser(s2.user); }
+      const uid = (s2 && s2.user ? s2.user.id : (user ? user.id : null));
+      if (uid) await fetchProfile(uid);
+    } catch (err) {
+      console.warn('finishMfaChallenge refresh failed:', err.message);
+    }
+    setMfaPending(null);
+  };
+
+  // User abandons the challenge → fully sign out (don't leave a half-authed aal1 session).
+  const cancelMfaChallenge = async () => {
+    await signOut();
   };
 
   const resetPassword = async (email) => {
@@ -233,6 +274,7 @@ export function AuthProvider({ children }) {
       signIn, signUp, signOut, resetPassword, updatePassword,
       authError, isAuthenticated, isNotificationOnly, isSuperAdmin, isCSP, cspTenantId,
       entityTier, isMasterAgent, isAgent, passwordRecovery,
+      mfaPending, finishMfaChallenge, cancelMfaChallenge,
     }}>
       {children}
     </AuthContext.Provider>
