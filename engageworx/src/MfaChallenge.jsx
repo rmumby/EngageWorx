@@ -17,7 +17,10 @@ export default function MfaChallenge({ C, onVerified, onCancel, factorId: factor
   var [error, setError] = useState(null);
   var [resolving, setResolving] = useState(true);
 
-  var passkeySupported = typeof navigator !== 'undefined' && !!(navigator.credentials && navigator.credentials.get);
+  // Passkey-at-gate is dormant behind the same flag as enrollment (WebAuthn factor not yet
+  // enabled on the project). Doubly dormant today: no verified webauthn factor can exist while
+  // enrollment is gated off. Flip REACT_APP_PASSKEY_MFA_ENABLED=true to re-enable — no code change.
+  var passkeySupported = process.env.REACT_APP_PASSKEY_MFA_ENABLED === 'true' && typeof navigator !== 'undefined' && !!(navigator.credentials && navigator.credentials.get);
 
   // Discover the user's verified factors so we can offer the right control(s).
   useEffect(function () {

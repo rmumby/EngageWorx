@@ -20,9 +20,13 @@ export default function MfaCard({ C }) {
   var [error, setError] = useState(null);
   var [notice, setNotice] = useState(null);
 
-  // Does the installed SDK expose WebAuthn passkey enrollment? Capability-gate the
-  // passkey button so older SDKs degrade to TOTP-only with no broken control.
-  var passkeySupported = typeof navigator !== 'undefined' && !!(navigator.credentials && navigator.credentials.create);
+  // Passkey gate. The WebAuthn factor is NOT enabled on the Supabase project yet (Multi-Factor
+  // exposes TOTP + SMS only), so enroll would throw — keep the button hidden behind this flag.
+  // The enroll + passkey-at-challenge code stays in place, dormant: flip
+  // REACT_APP_PASSKEY_MFA_ENABLED=true once the WebAuthn factor is available to re-enable it with
+  // no code change. Browser-capability check is ANDed so we never show a control the UA can't run.
+  var passkeyMfaEnabled = process.env.REACT_APP_PASSKEY_MFA_ENABLED === 'true';
+  var passkeySupported = passkeyMfaEnabled && typeof navigator !== 'undefined' && !!(navigator.credentials && navigator.credentials.create);
 
   var loadFactors = useCallback(async function () {
     setLoading(true);
