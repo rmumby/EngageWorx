@@ -373,8 +373,11 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   const [newContact, setNewContact] = useState({ firstName: "", lastName: "", email: "", phone: "", phoneNumber: "", countryCode: "+1", company: "", status: "active", channel_preference: "SMS" });
   const [emailWarning, setEmailWarning] = useState(null);
   const [dedupRunning, setDedupRunning] = useState(false);
-  // SP admin tenant filter — only used when viewLevel === 'sp'
-  const [spTenantFilter, setSpTenantFilter] = useState('all');
+  // SP admin tenant filter — only used when viewLevel === 'sp'. Default to the SP's OWN tenant so the
+  // SA Contacts view shows SP pipeline by default, not every tenant's contacts (superadmin RLS grants
+  // cross-tenant SELECT, so an unscoped 'all' default leaked tenant contacts e.g. Delamere into SA).
+  // 'All Tenants' and per-tenant selection remain available in the dropdown — capability is preserved.
+  const [spTenantFilter, setSpTenantFilter] = useState(CM_SP_TENANT_ID);
   const [spTenantList, setSpTenantList] = useState([]);
   // CSV import state
   const [importRows, setImportRows] = useState(null);         // parsed rows (array of objects)
