@@ -6,6 +6,7 @@ import EmailTrackingInstructions from './EmailTrackingInstructions';
 import EmailSetupWizard from './components/EmailSetupWizard';
 import WhatsAppEmbeddedSignup from './WhatsAppEmbeddedSignup';
 import WhatsAppTemplatesTab from './WhatsAppTemplatesTab';
+import MfaCard from './MfaCard';
 import PolandCarrierCard from './PolandCarrierCard';
 import BrandingEditor from './BrandingEditor';
 import KBArticleEditor from './admin/KBArticleEditor';
@@ -1902,6 +1903,7 @@ return (<div>
         <div>
           <h2 style={{ color: C.text, fontSize: 18, margin: "0 0 20px" }}>Security Settings</h2>
           <div style={{ display: "grid", gap: 16 }}>
+            <MfaCard C={C} />
             <div style={card}>
               <h3 style={{ color: C.text, margin: "0 0 16px", fontSize: 15 }}>Authentication</h3>
               <div style={{ display: "grid", gap: 14 }}>
