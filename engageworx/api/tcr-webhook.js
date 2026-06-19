@@ -45,7 +45,7 @@ module.exports = async function handler(req, res) {
   if (!brandSid) return res.status(200).json({ received: true });
 
   try {
-    var subRes = await supabase.from('tcr_submissions').select('*, tenants(id, name)').eq('tcr_brand_id', brandSid).limit(1).single();
+    var subRes = await supabase.from('tcr_submissions').select('*, tenants(id, name)').eq('brand_sid', brandSid).limit(1).single();
     var sub = subRes.data;
     if (!sub) {
       console.warn('[TCR Webhook] No submission found for brand:', brandSid);

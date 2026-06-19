@@ -322,7 +322,7 @@ export default function TCRQueue({ C }) {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid ' + colors.border, paddingTop: 16 }}>
               <button onClick={function() { setSelected(null); }} style={btnSec}>Close</button>
-              {selected.tcr_brand_id && ['submitted','brand_pending','campaign_pending'].includes(selected.status) && (
+              {selected.brand_sid && ['submitted','brand_pending','campaign_pending'].includes(selected.status) && (
                 <button onClick={function() { handleCheckStatus(selected.id); }} disabled={checking} style={Object.assign({}, btnSec, { opacity: checking ? 0.6 : 1 })}>
                   {checking ? '⏳ Checking...' : '📡 Check Status'}
                 </button>

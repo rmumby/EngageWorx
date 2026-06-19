@@ -317,7 +317,7 @@ module.exports = async function handler(req, res) {
 
       if (brandSid) {
         await supabase.from('tcr_submissions').update({
-          tcr_brand_id: brandSid, status: 'brand_pending', updated_at: new Date().toISOString(),
+          brand_sid: brandSid, status: 'brand_pending', updated_at: new Date().toISOString(),
         }).eq('id', submissionId);
       }
 
@@ -343,7 +343,7 @@ module.exports = async function handler(req, res) {
 
         if (campaignData.sid) {
           await supabase.from('tcr_submissions').update({
-            tcr_campaign_id: campaignData.sid, status: 'campaign_pending', updated_at: new Date().toISOString(),
+            campaign_sid: campaignData.sid, status: 'campaign_pending', updated_at: new Date().toISOString(),
           }).eq('id', submissionId);
         }
       }
@@ -403,7 +403,7 @@ module.exports = async function handler(req, res) {
 
         try {
           var { notifyTenantAdmins: _notifyTCR2 } = require('./_lib/notify-tenant-admins');
-          await _notifyTCR2(supabase, sub.tenant_id, 'tcr_approved', { brand_sid: sub.tcr_brand_id, trust_score: brandScore }, {
+          await _notifyTCR2(supabase, sub.tenant_id, 'tcr_approved', { brand_sid: sub.brand_sid, trust_score: brandScore }, {
             subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
             html: '<h3>TCR Registration Approved</h3>' +
               '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
@@ -480,9 +480,9 @@ module.exports = async function handler(req, res) {
     }
 
     async function checkOne(sub) {
-      if (!sub.tcr_brand_id) return { id: sub.id, skipped: true, reason: 'no_brand_id' };
+      if (!sub.brand_sid) return { id: sub.id, skipped: true, reason: 'no_brand_id' };
       try {
-        var brandRes = await fetch('https://messaging.twilio.com/v1/a2p/BrandRegistrations/' + sub.tcr_brand_id, {
+        var brandRes = await fetch('https://messaging.twilio.com/v1/a2p/BrandRegistrations/' + sub.brand_sid, {
           headers: { 'Authorization': 'Basic ' + authPoll },
         });
         var brandData = await brandRes.json();
@@ -513,7 +513,7 @@ module.exports = async function handler(req, res) {
     // poll-pending: iterate all in-flight submissions
     var pendingRes = await supabase.from('tcr_submissions').select('*')
       .in('status', ['submitted', 'brand_pending', 'campaign_pending'])
-      .not('tcr_brand_id', 'is', null);
+      .not('brand_sid', 'is', null);
     var pending = pendingRes.data || [];
     var results = [];
     for (var p of pending) {
