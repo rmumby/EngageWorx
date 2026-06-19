@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
 import ModuleHeader from './components/ModuleHeader';
 import { STAGE_KEYS, getPipelineStageId } from './lib/pipelineStages';
+import { SP_TENANT_ID, defaultScope } from './lib/spScope';
 import { DEMO_CONTACTS } from './demoFixtures';
 
 const TAGS = ["New", "Active", "Inactive", "Churned", "Lead", "Prospect", "Enterprise", "SMB", "Newsletter"];
@@ -274,7 +275,7 @@ function CompaniesView({ C, currentTenantId, demoMode }) {
   );
 }
 
-var CM_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+var CM_SP_TENANT_ID = SP_TENANT_ID;
 
 export default function ContactsModule({ C, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, onNavigate }) {
   var resolvedTenantId = currentTenantId || CM_SP_TENANT_ID;
@@ -377,7 +378,7 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
   // SA Contacts view shows SP pipeline by default, not every tenant's contacts (superadmin RLS grants
   // cross-tenant SELECT, so an unscoped 'all' default leaked tenant contacts e.g. Delamere into SA).
   // 'All Tenants' and per-tenant selection remain available in the dropdown — capability is preserved.
-  const [spTenantFilter, setSpTenantFilter] = useState(CM_SP_TENANT_ID);
+  const [spTenantFilter, setSpTenantFilter] = useState(function() { return defaultScope({ viewLevel, currentTenantId, savedPref: null }); });
   const [spTenantList, setSpTenantList] = useState([]);
   // CSV import state
   const [importRows, setImportRows] = useState(null);         // parsed rows (array of objects)
