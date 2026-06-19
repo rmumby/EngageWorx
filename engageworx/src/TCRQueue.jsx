@@ -16,7 +16,14 @@ export default function TCRQueue({ C }) {
   async function loadSubmissions() {
     setLoading(true);
     try {
-      var res = await supabase.from('tcr_submissions').select('*, tenants(id, name)').order('created_at', { ascending: false });
+      // Explicit columns (not '*'): ein_dup_match_tenant is intentionally REVOKEd from
+      // anon/authenticated (cross-tenant id), so '*' would error. We read ein_dup_flagged
+      // (the badge) but never the matched tenant id from the client.
+      var res = await supabase.from('tcr_submissions').select(
+        'id, tenant_id, legal_name, dba, entity_type, ein, vertical, website, contact_email, contact_phone, ' +
+        'use_case, use_case_description, message_volume, sample_messages, opt_in_description, ai_review_result, ' +
+        'rejection_reason, brand_sid, status, created_at, submitted_at, ein_dup_flagged, tenants(id, name)'
+      ).order('created_at', { ascending: false });
       setSubmissions(res.data || []);
     } catch (e) { console.error('[TCR Queue] Load error:', e.message); }
     setLoading(false);
@@ -267,7 +274,7 @@ export default function TCRQueue({ C }) {
               <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, padding: 14, marginBottom: 18 }}>
                 <div style={{ color: '#fcd34d', fontSize: 12, fontWeight: 800, marginBottom: 4 }}>⚠ Duplicate EIN — cross-tenant match</div>
                 <div style={{ color: colors.muted, fontSize: 13, lineHeight: 1.6 }}>
-                  This EIN is already registered under another tenant{selected.ein_dup_match_tenant ? ' (' + selected.ein_dup_match_tenant + ')' : ''}. Registration was allowed to proceed — verify this is a legitimate shared entity (e.g. holding company, or re-registration after a failed brand) before submitting to TCR.
+                  This EIN is already registered under another tenant. Registration was allowed to proceed — verify this is a legitimate shared entity (e.g. holding company, or re-registration after a failed brand) before submitting to TCR.
                 </div>
               </div>
             )}
