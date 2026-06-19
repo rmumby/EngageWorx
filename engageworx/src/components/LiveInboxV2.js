@@ -403,7 +403,19 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
   var isSPorCSP = viewLevel === 'sp' || viewLevel === 'csp';
   var scopeStorageKey = 'ew_inbox_scope_' + (userProfile && userProfile.id || 'anon');
-  var [scopeOwnOnly, setScopeOwnOnly] = useState(function() { try { return localStorage.getItem(scopeStorageKey) === 'own'; } catch(e) { return false; } });
+  var [scopeOwnOnly, setScopeOwnOnly] = useState(function() {
+    try {
+      var stored = localStorage.getItem(scopeStorageKey);
+      if (stored === 'own') return true;
+      if (stored === 'all') return false;
+      // No saved preference: default the superadmin (sp) view to own-tenant scope so the SA inbox
+      // doesn't open onto every tenant's conversations + message bodies. RLS grants superadmin
+      // cross-tenant reads, so the previous all-tenant default leaked live customer content; the
+      // "All tenants" toggle stays one click away. CSP/tenant keep the prior default — they're
+      // non-superadmin so RLS already scopes them (no bleed to fix there).
+      return viewLevel === 'sp';
+    } catch(e) { return viewLevel === 'sp'; }
+  });
   var [tenantBrandName, setTenantBrandName] = useState('');
   function toggleScope() {
     var next = !scopeOwnOnly;
