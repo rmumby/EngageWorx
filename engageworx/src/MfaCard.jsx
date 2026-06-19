@@ -75,6 +75,33 @@ export default function MfaCard({ C }) {
     setEnrolling(null); setCode(''); setError(null);
   }
 
+  async function startPasskeyEnroll() {
+    setError(null); setNotice(null); setBusy(true);
+    var newFactorId = null;
+    try {
+      var enr = await supabase.auth.mfa.enroll({ factorType: 'webauthn', friendlyName: 'Passkey ' + new Date().toLocaleDateString() });
+      if (enr.error) throw enr.error;
+      newFactorId = enr.data.id;
+      var ch = await supabase.auth.mfa.challenge({ factorId: newFactorId });
+      if (ch.error) throw ch.error;
+      // challenge() returns browser-ready PublicKeyCredentialCreationOptions; run the
+      // WebAuthn ceremony, then hand the credential back to verify() (SDK serializes it).
+      var publicKey = ch.data && ch.data.webauthn && ch.data.webauthn.credential_options ? ch.data.webauthn.credential_options.publicKey : null;
+      if (!publicKey) throw new Error('This account is not configured for passkeys.');
+      var credential = await navigator.credentials.create({ publicKey: publicKey });
+      var v = await supabase.auth.mfa.verify({ factorId: newFactorId, challengeId: ch.data.id, webauthn: { type: 'create', credential_response: credential } });
+      if (v.error) throw v.error;
+      newFactorId = null; // verified — don't clean up
+      setNotice('Passkey added. You can use it as your second step at sign-in.');
+      await loadFactors();
+    } catch (e) {
+      // User cancelled the browser prompt or it failed — remove the dangling unverified factor.
+      if (newFactorId) { try { await supabase.auth.mfa.unenroll({ factorId: newFactorId }); } catch (ce) {} }
+      setError(e.name === 'NotAllowedError' ? 'Passkey setup was cancelled.' : e.message);
+    }
+    setBusy(false);
+  }
+
   async function removeFactor(factorId) {
     if (!window.confirm('Remove this two-factor method? You will no longer be prompted for it at sign-in.')) return;
     setError(null); setBusy(true);
@@ -124,6 +151,15 @@ export default function MfaCard({ C }) {
             );
           })}
 
+          {factors.webauthn.map(function (f) {
+            return (
+              <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div><div style={{ color: C.text, fontSize: 14, fontWeight: 600 }}>🔑 Passkey</div><div style={{ color: C.muted, fontSize: 12 }}>{f.friendly_name || 'WebAuthn'}</div></div>
+                <button onClick={function () { removeFactor(f.id); }} disabled={busy} style={{ background: 'rgba(255,59,48,0.1)', border: '1px solid rgba(255,59,48,0.25)', color: '#FF6B6B', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Remove</button>
+              </div>
+            );
+          })}
+
           {/* TOTP enroll flow */}
           {enrolling ? (
             <div style={{ display: 'grid', gap: 12, paddingTop: 4 }}>
@@ -143,6 +179,9 @@ export default function MfaCard({ C }) {
           ) : (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', paddingTop: 4 }}>
               <button onClick={startTotpEnroll} disabled={busy} style={primaryBtn}>{factors.totp.length ? '+ Add another authenticator' : 'Enable authenticator app'}</button>
+              {passkeySupported && (
+                <button onClick={startPasskeyEnroll} disabled={busy} style={ghostBtn}>{factors.webauthn.length ? '+ Add another passkey' : 'Add a passkey'}</button>
+              )}
             </div>
           )}
         </div>
