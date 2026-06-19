@@ -32,7 +32,7 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
         // Pull each child tenant's most recent submission status
         var ids = (ts.data || []).map(function(t) { return t.id; });
         if (ids.length > 0) {
-          var subs = await supabase.from('tcr_submissions').select('tenant_id, status, tcr_brand_id, tcr_campaign_id, created_at').in('tenant_id', ids).order('created_at', { ascending: false });
+          var subs = await supabase.from('tcr_submissions').select('tenant_id, status, brand_sid, campaign_sid, created_at').in('tenant_id', ids).order('created_at', { ascending: false });
           var map = {};
           (subs.data || []).forEach(function(s) {
             if (!map[s.tenant_id]) map[s.tenant_id] = s;
@@ -144,7 +144,7 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
                       <tr key={t.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                         <td style={{ padding: '10px 14px', color: '#fff', fontWeight: 600 }}>{t.name}</td>
                         <td style={{ padding: '10px 14px', color: colors.muted }}>{t.plan || '—'}</td>
-                        <td style={{ padding: '10px 14px' }}><span style={{ background: badge.color + '18', color: badge.color, border: '1px solid ' + badge.color + '55', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{badge.label}</span>{sub && sub.tcr_brand_id && <div style={{ color: colors.muted, fontSize: 10, marginTop: 4, fontFamily: 'monospace' }}>{sub.tcr_brand_id}</div>}</td>
+                        <td style={{ padding: '10px 14px' }}><span style={{ background: badge.color + '18', color: badge.color, border: '1px solid ' + badge.color + '55', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{badge.label}</span>{sub && sub.brand_sid && <div style={{ color: colors.muted, fontSize: 10, marginTop: 4, fontFamily: 'monospace' }}>{sub.brand_sid}</div>}</td>
                         <td style={{ padding: '10px 14px', color: t.sms_enabled ? '#10b981' : colors.muted, fontSize: 11, fontWeight: 700 }}>{t.sms_enabled ? '● Enabled' : '○ Disabled'}</td>
                         <td style={{ padding: '10px 14px' }}>
                           {mspEnabled ? (

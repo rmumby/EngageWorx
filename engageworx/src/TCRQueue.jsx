@@ -16,7 +16,14 @@ export default function TCRQueue({ C }) {
   async function loadSubmissions() {
     setLoading(true);
     try {
-      var res = await supabase.from('tcr_submissions').select('*, tenants(id, name)').order('created_at', { ascending: false });
+      // Explicit columns (not '*'): ein_dup_match_tenant is intentionally REVOKEd from
+      // anon/authenticated (cross-tenant id), so '*' would error. We read ein_dup_flagged
+      // (the badge) but never the matched tenant id from the client.
+      var res = await supabase.from('tcr_submissions').select(
+        'id, tenant_id, legal_name, dba, entity_type, ein, vertical, website, contact_email, contact_phone, ' +
+        'use_case, use_case_description, message_volume, sample_messages, opt_in_description, ai_review_result, ' +
+        'rejection_reason, brand_sid, status, created_at, submitted_at, ein_dup_flagged, tenants(id, name)'
+      ).order('created_at', { ascending: false });
       setSubmissions(res.data || []);
     } catch (e) { console.error('[TCR Queue] Load error:', e.message); }
     setLoading(false);
@@ -181,6 +188,9 @@ export default function TCRQueue({ C }) {
                   <div>
                     <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{s.legal_name || (s.tenants && s.tenants.name) || 'Unknown'}</div>
                     <div style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>{s.contact_email || '—'}</div>
+                    {s.ein_dup_flagged && (
+                      <span title="EIN matches another tenant's registration — review before submitting to TCR" style={{ display: 'inline-block', marginTop: 4, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: '#fcd34d', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>⚠ EIN dup</span>
+                    )}
                   </div>
                   <div style={{ color: colors.text, fontSize: 13 }}>{s.use_case || '—'}</div>
                   <div style={{ color: colors.text, fontSize: 13 }}>{s.message_volume || '—'}</div>
@@ -260,6 +270,15 @@ export default function TCRQueue({ C }) {
               </div>
             )}
 
+            {selected.ein_dup_flagged && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, padding: 14, marginBottom: 18 }}>
+                <div style={{ color: '#fcd34d', fontSize: 12, fontWeight: 800, marginBottom: 4 }}>⚠ Duplicate EIN — cross-tenant match</div>
+                <div style={{ color: colors.muted, fontSize: 13, lineHeight: 1.6 }}>
+                  This EIN is already registered under another tenant. Registration was allowed to proceed — verify this is a legitimate shared entity (e.g. holding company, or re-registration after a failed brand) before submitting to TCR.
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
               {[
                 { label: 'DBA', value: selected.dba },
@@ -310,7 +329,7 @@ export default function TCRQueue({ C }) {
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', borderTop: '1px solid ' + colors.border, paddingTop: 16 }}>
               <button onClick={function() { setSelected(null); }} style={btnSec}>Close</button>
-              {selected.tcr_brand_id && ['submitted','brand_pending','campaign_pending'].includes(selected.status) && (
+              {selected.brand_sid && ['submitted','brand_pending','campaign_pending'].includes(selected.status) && (
                 <button onClick={function() { handleCheckStatus(selected.id); }} disabled={checking} style={Object.assign({}, btnSec, { opacity: checking ? 0.6 : 1 })}>
                   {checking ? '⏳ Checking...' : '📡 Check Status'}
                 </button>

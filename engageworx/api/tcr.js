@@ -75,7 +75,9 @@ module.exports = async function handler(req, res) {
       };
 
       var existing = await supabase.from('tcr_submissions').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1);
-      return res.status(200).json({ prefill: prefill, existing: existing.data ? existing.data[0] : null });
+      var existingRow = existing.data ? existing.data[0] : null;
+      if (existingRow) { delete existingRow.ein_dup_match_tenant; delete existingRow.ein_dup_flagged; } // superadmin-only; never echo to the tenant
+      return res.status(200).json({ prefill: prefill, existing: existingRow });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -185,6 +187,36 @@ module.exports = async function handler(req, res) {
     if (!tenantId) return res.status(400).json({ error: 'tenant_id required' });
 
     try {
+      // ── Duplicate-EIN cross-tenant flag (flag for review, never block) ──────
+      // Server-side only. Normalize EIN to digits; only run the match when the
+      // normalized value is non-empty — otherwise empty-vs-empty would collide
+      // every pre-EIN submission and flag the whole table. Scope to non-rejected
+      // submissions to cut noise (a rejected brand's EIN shouldn't flag a new one).
+      // Same-tenant re-registration never flags: we query OTHER tenants only.
+      // Legit collisions exist (holding cos, re-reg after a failed brand) → flag,
+      // record the match tenant, and ALWAYS let registration proceed.
+      var normalizedEin = (body.ein || '').replace(/\D/g, '');
+      var einDupFlagged = false;
+      var einDupMatchTenant = null;
+      if (normalizedEin) {
+        var einCandidates = await supabase
+          .from('tcr_submissions')
+          .select('tenant_id, ein, status')
+          .neq('tenant_id', tenantId)
+          .not('ein', 'is', null)
+          .neq('status', 'rejected');
+        if (einCandidates.data && einCandidates.data.length) {
+          var einMatch = einCandidates.data.find(function (r) {
+            return (r.ein || '').replace(/\D/g, '') === normalizedEin;
+          });
+          if (einMatch) {
+            einDupFlagged = true;
+            einDupMatchTenant = einMatch.tenant_id;
+            console.warn('[tcr submit-draft] cross-tenant EIN duplicate flagged', JSON.stringify({ tenant_id: tenantId, match_tenant: einMatch.tenant_id }));
+          }
+        }
+      }
+
       var submissionData = {
         tenant_id: tenantId,
         status: 'pending_review',
@@ -219,6 +251,8 @@ module.exports = async function handler(req, res) {
         has_embedded_phone: body.hasEmbeddedPhone || false,
         ai_review_result: body.aiReviewResult || null,
         ai_reviewed_at: body.aiReviewResult ? new Date().toISOString() : null,
+        ein_dup_flagged: einDupFlagged,
+        ein_dup_match_tenant: einDupMatchTenant,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -248,7 +282,9 @@ module.exports = async function handler(req, res) {
         });
       } catch (ne) { console.log('[TCR] Notification error:', ne.message); }
 
-      return res.status(200).json({ success: true, submission: result.data });
+      var safeSubmission = result.data || null;
+      if (safeSubmission) { delete safeSubmission.ein_dup_match_tenant; delete safeSubmission.ein_dup_flagged; } // superadmin-only; never echo to the tenant
+      return res.status(200).json({ success: true, submission: safeSubmission });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -285,7 +321,7 @@ module.exports = async function handler(req, res) {
 
       if (brandSid) {
         await supabase.from('tcr_submissions').update({
-          tcr_brand_id: brandSid, status: 'brand_pending', updated_at: new Date().toISOString(),
+          brand_sid: brandSid, status: 'brand_pending', updated_at: new Date().toISOString(),
         }).eq('id', submissionId);
       }
 
@@ -311,7 +347,7 @@ module.exports = async function handler(req, res) {
 
         if (campaignData.sid) {
           await supabase.from('tcr_submissions').update({
-            tcr_campaign_id: campaignData.sid, status: 'campaign_pending', updated_at: new Date().toISOString(),
+            campaign_sid: campaignData.sid, status: 'campaign_pending', updated_at: new Date().toISOString(),
           }).eq('id', submissionId);
         }
       }
@@ -371,7 +407,7 @@ module.exports = async function handler(req, res) {
 
         try {
           var { notifyTenantAdmins: _notifyTCR2 } = require('./_lib/notify-tenant-admins');
-          await _notifyTCR2(supabase, sub.tenant_id, 'tcr_approved', { brand_sid: sub.tcr_brand_id, trust_score: brandScore }, {
+          await _notifyTCR2(supabase, sub.tenant_id, 'tcr_approved', { brand_sid: sub.brand_sid, trust_score: brandScore }, {
             subject: 'TCR Approved: ' + (sub.legal_name || 'Tenant'),
             html: '<h3>TCR Registration Approved</h3>' +
               '<p><b>Tenant:</b> ' + (sub.legal_name || 'Unknown') + '</p>' +
@@ -448,9 +484,9 @@ module.exports = async function handler(req, res) {
     }
 
     async function checkOne(sub) {
-      if (!sub.tcr_brand_id) return { id: sub.id, skipped: true, reason: 'no_brand_id' };
+      if (!sub.brand_sid) return { id: sub.id, skipped: true, reason: 'no_brand_id' };
       try {
-        var brandRes = await fetch('https://messaging.twilio.com/v1/a2p/BrandRegistrations/' + sub.tcr_brand_id, {
+        var brandRes = await fetch('https://messaging.twilio.com/v1/a2p/BrandRegistrations/' + sub.brand_sid, {
           headers: { 'Authorization': 'Basic ' + authPoll },
         });
         var brandData = await brandRes.json();
@@ -481,7 +517,7 @@ module.exports = async function handler(req, res) {
     // poll-pending: iterate all in-flight submissions
     var pendingRes = await supabase.from('tcr_submissions').select('*')
       .in('status', ['submitted', 'brand_pending', 'campaign_pending'])
-      .not('tcr_brand_id', 'is', null);
+      .not('brand_sid', 'is', null);
     var pending = pendingRes.data || [];
     var results = [];
     for (var p of pending) {
