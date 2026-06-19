@@ -75,7 +75,9 @@ module.exports = async function handler(req, res) {
       };
 
       var existing = await supabase.from('tcr_submissions').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(1);
-      return res.status(200).json({ prefill: prefill, existing: existing.data ? existing.data[0] : null });
+      var existingRow = existing.data ? existing.data[0] : null;
+      if (existingRow) { delete existingRow.ein_dup_match_tenant; delete existingRow.ein_dup_flagged; } // superadmin-only; never echo to the tenant
+      return res.status(200).json({ prefill: prefill, existing: existingRow });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -280,7 +282,9 @@ module.exports = async function handler(req, res) {
         });
       } catch (ne) { console.log('[TCR] Notification error:', ne.message); }
 
-      return res.status(200).json({ success: true, submission: result.data });
+      var safeSubmission = result.data || null;
+      if (safeSubmission) { delete safeSubmission.ein_dup_match_tenant; delete safeSubmission.ein_dup_flagged; } // superadmin-only; never echo to the tenant
+      return res.status(200).json({ success: true, submission: safeSubmission });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
