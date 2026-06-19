@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from './supabaseClient';
 import Button, { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from './components/ui/Button';
 import ModuleHeader from './components/ModuleHeader';
+import { spDefaultsToOwn, binaryScopeFilter } from './lib/spScope';
 
 // ─── DEMO CAMPAIGN DATA ───────────────────────────────────────────────────────
 const CAMPAIGN_STATUSES = ["draft", "scheduled", "active", "paused", "completed"];
@@ -85,6 +86,10 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
   const [showDeleted, setShowDeleted] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(false);
+  // SP scope: default to the SP tenant (not all-tenant) so the SA campaigns view doesn't open
+  // onto every tenant's campaigns; "All tenants" toggle preserves cross-tenant oversight. Session
+  // state (re-defaults safe on reload). Shared rule via spScope helper. Inert for viewLevel=tenant.
+  const [scopeOwnOnly, setScopeOwnOnly] = useState(function() { return spDefaultsToOwn(viewLevel); });
 
   // Fetch live campaigns from Supabase
   useEffect(() => {
@@ -96,9 +101,8 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       setLiveLoading(true);
       try {
         let query = supabase.from('campaigns').select('*').order('created_at', { ascending: false });
-        if (currentTenantId && viewLevel === 'tenant') {
-          query = query.eq('tenant_id', currentTenantId);
-        }
+        const campTenantFilter = binaryScopeFilter({ scopeOwnOnly, viewLevel, currentTenantId });
+        if (campTenantFilter) query = query.eq('tenant_id', campTenantFilter);
         const { data, error } = await query;
         if (error) throw error;
         const mapped = (data || []).map(c => ({
@@ -137,7 +141,7 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
       setLiveLoading(false);
     };
     fetchCampaigns();
-  }, [demoMode, currentTenantId, viewLevel]);
+  }, [demoMode, currentTenantId, viewLevel, scopeOwnOnly]);
 
   // Create campaign state
   const [createStep, setCreateStep] = useState(1); // 1: basics, 2: content, 3: audience, 4: schedule, 5: review
@@ -1345,6 +1349,14 @@ export default function CampaignsModule({ C, tenants, viewLevel = "tenant", curr
     <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
       {/* Header */}
       <ModuleHeader title="Campaigns" subtitle="Create, manage, and track your messaging campaigns" right={<button onClick={() => setView("create")} style={btnPrimary}>+ New Campaign</button>} />
+
+      {/* SP scope toggle — defaults to SP only (no cross-tenant bleed); All tenants opt-in */}
+      {viewLevel === 'sp' && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 20, maxWidth: 300 }}>
+          <button onClick={function() { setScopeOwnOnly(false); }} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid ' + (!scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.12)'), background: !scopeOwnOnly ? C.primary + '22' : 'transparent', color: !scopeOwnOnly ? C.primary : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>All tenants</button>
+          <button onClick={function() { setScopeOwnOnly(true); }} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: '1px solid ' + (scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.12)'), background: scopeOwnOnly ? C.primary + '22' : 'transparent', color: scopeOwnOnly ? C.primary : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>SP only</button>
+        </div>
+      )}
 
       {/* Quick Start Templates */}
       <div style={{ marginBottom: 24 }}>
