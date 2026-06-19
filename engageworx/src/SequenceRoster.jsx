@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import LeadPickerModal from './components/LeadPickerModal';
+import ModuleHeader from './components/ModuleHeader';
+import { useSecondaryButtonStyle, useSegmentedStyles } from './components/ui/Button';
 
 function daysSince(d) {
   if (!d) return null;
@@ -38,6 +40,8 @@ var STATUS_TOOLTIPS = {
 
 export default function SequenceRoster({ C, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
+  var btnSecondary = useSecondaryButtonStyle();
+  var segStyle = useSegmentedStyles();
 
   var [sequences, setSequences] = useState([]);
   var [selectedSeq, setSelectedSeq] = useState(null);
@@ -110,13 +114,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
 
   return (
     <div style={{ padding: '28px 32px', fontFamily: "'DM Sans', sans-serif", color: '#f1f5f9', minHeight: '100vh', background: colors.bg }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>Sequence Roster</h1>
-          <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>See who is enrolled in each sequence and where they are in the flow</p>
-        </div>
-        {selectedSeq && <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Add Leads</button>}
-      </div>
+      <ModuleHeader title="Sequence Roster" subtitle="See who is enrolled in each sequence and where they are in the flow" right={selectedSeq && <button onClick={function() { setShowLeadPicker(true); }} style={{ ...btnSecondary, padding: '8px 16px', fontSize: 12 }}>Add Leads</button>} />
 
       {seqLoading ? (
         <div style={{ color: colors.muted, fontSize: 13 }}>Loading sequences...</div>
@@ -130,7 +128,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
               var isSelected = selectedSeq === s.id;
               return (
                 <div key={s.id} style={{ position: 'relative', marginBottom: 6 }}>
-                  <button onClick={function() { setSelectedSeq(s.id); setFilter('all'); setSearch(''); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', paddingRight: 36, borderRadius: 9, border: '1px solid ' + (isSelected ? colors.primary + '44' : 'rgba(255,255,255,0.07)'), background: isSelected ? colors.primary + '15' : 'rgba(255,255,255,0.03)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', display: 'block', boxSizing: 'border-box' }}>
+                  <button onClick={function() { setSelectedSeq(s.id); setFilter('all'); setSearch(''); }} style={{ width: '100%', textAlign: 'left', padding: '10px 14px', paddingRight: 36, borderRadius: 9, fontWeight: isSelected ? 700 : 400, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit', display: 'block', boxSizing: 'border-box', ...(isSelected ? { background: colors.primary + '15', border: '1px solid ' + colors.primary + '44', color: colors.primary } : segStyle(false)) }}>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</div>
                     <div style={{ fontSize: 10, color: colors.muted, marginTop: 2 }}>{s.sequence_steps ? s.sequence_steps.length : 0} steps</div>
                   </button>
@@ -183,7 +181,7 @@ export default function SequenceRoster({ C, currentTenantId }) {
                   <div style={{ display: 'flex', gap: 4 }}>
                     {['all', 'active', 'completed', 'paused', 'cancelled', 'error', 'replied'].map(function(f) {
                       return (
-                        <button key={f} onClick={function() { setFilter(f); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: filter === f ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.03)', color: filter === f ? '#a5b4fc' : '#475569', fontSize: 11, fontWeight: filter === f ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}>{f}</button>
+                        <button key={f} onClick={function() { setFilter(f); }} style={{ padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: filter === f ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize', ...(filter === f ? { background: colors.primary + '22', border: '1px solid ' + colors.primary, color: colors.primary } : segStyle(false)) }}>{f}</button>
                       );
                     })}
                   </div>

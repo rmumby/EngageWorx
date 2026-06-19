@@ -629,6 +629,7 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
           padding: "8px 16px", borderBottom: `1px solid ${C.border}`, background: C.surface,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: C.text, letterSpacing: '-0.3px', paddingRight: 12, borderRight: `1px solid ${C.border}` }}>Flow Builder</span>
             <span style={{ fontSize: 18 }}>⚡</span>
             <input
               value={flowName}

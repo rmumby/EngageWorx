@@ -36,6 +36,101 @@ function contrastText(bgHex) {
 // Exported so other components can use the same logic without importing the full Button
 export { contrastText, relativeLuminance };
 
+// Edge-analog of the text auto-contrast: a border that contrasts the brand FILL (and therefore a
+// same-colored background) plus a soft shadow, so an accent button never sits edgeless ("text in
+// mid-air") when a light brand lands on a light bg — or any brand on a matching bg. Any brand, any mode.
+function accentEdge(brandColor) {
+  var brandIsLight = contrastText(brandColor) === '#000'; // luminance>threshold → dark edge, else light edge
+  return {
+    border: '1px solid ' + (brandIsLight ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.28)'),
+    boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+  };
+}
+
+// Shared flat-accent button STYLE (brand fill + WCAG auto-contrast text) — same computation as the
+// `accent` variant below. For modules that style their own <button> via a reused style const: point
+// that const at this hook to drop gradients and match Button.jsx, without inlining <Button> at every
+// call site. `overrides` lets a module keep its own padding/fontSize/etc.
+export function useAccentButtonStyle(overrides) {
+  var b = useBranding();
+  var { theme } = useTheme();
+  var brandColor = b.brandPrimary || theme.primary;
+  return Object.assign({
+    background: brandColor,
+    color: contrastText(brandColor),
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 700,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+    boxSizing: 'border-box', // so the guaranteed edge doesn't grow the button
+  }, accentEdge(brandColor), overrides || {});
+}
+
+// Theme-aware SECONDARY button style (subtle fill, switches light↔dark). Replaces dark-tuned
+// rgba(255,255,255,…) consts that wash out on light backgrounds.
+export function useSecondaryButtonStyle(overrides) {
+  var { isDark } = useTheme();
+  return Object.assign({
+    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+    color: isDark ? '#E8F4FD' : '#374151',
+    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware GHOST button style (transparent, muted text) for text/icon buttons (✕, ← Back, Clear, ★).
+export function useGhostButtonStyle(overrides) {
+  var { isDark, theme } = useTheme();
+  return Object.assign({
+    background: 'transparent',
+    color: isDark ? theme.muted : '#4b5563',
+    border: 'none',
+    borderRadius: 8,
+    padding: '8px 12px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware OUTLINE button style (transparent + border) — e.g. Sandbox / Demo / +New Tenant (task 3).
+export function useOutlineButtonStyle(overrides) {
+  var { isDark, theme } = useTheme();
+  return Object.assign({
+    background: 'transparent',
+    color: isDark ? theme.muted : '#4b5563',
+    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    borderRadius: 10,
+    padding: '10px 20px',
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'DM Sans', sans-serif",
+    cursor: 'pointer',
+  }, overrides || {});
+}
+
+// Theme-aware SEGMENTED-control item styling (tabs / filter chips) — NOT a button variant. Returns an
+// (active) => style fn so it can be used inside .map() without violating rules-of-hooks. Active = brand
+// fill + WCAG-contrast text; inactive = theme-aware subtle. Fixes the dark-tuned wash on light.
+export function useSegmentedStyles() {
+  var b = useBranding();
+  var { isDark, theme } = useTheme();
+  var brand = b.brandPrimary || theme.primary;
+  return function (active) {
+    return active
+      ? { background: brand, color: contrastText(brand), border: '1px solid ' + brand }
+      : { background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: isDark ? theme.muted : '#4b5563', border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.08)' : '#e4e7ec') };
+  };
+}
+
 var BASE = {
   border: 'none',
   borderRadius: 8,
@@ -61,7 +156,7 @@ export default function Button({ variant, onClick, disabled, children, style, ty
   var cls = (v === 'primary' ? 'ew-btn-primary' : '') + (className ? ' ' + className : '') || undefined;
 
   var brandColor = b.brandPrimary || theme.primary;
-  var bg, color, border;
+  var bg, color, border, boxShadow;
 
   if (v === 'primary') {
     bg = isDark ? '#ffffff' : '#000000';
@@ -74,7 +169,9 @@ export default function Button({ variant, onClick, disabled, children, style, ty
   } else if (v === 'accent') {
     bg = brandColor;
     color = contrastText(brandColor);
-    border = 'none';
+    var _ae = accentEdge(brandColor);
+    border = _ae.border;
+    boxShadow = _ae.boxShadow;
   } else if (v === 'ghost') {
     bg = 'transparent';
     color = isDark ? theme.muted : '#4b5563';
@@ -97,6 +194,7 @@ export default function Button({ variant, onClick, disabled, children, style, ty
     background: bg,
     color: color,
     border: border,
+    boxShadow: boxShadow,
     opacity: disabled ? 0.5 : 1,
     cursor: disabled ? 'not-allowed' : 'pointer',
   }, style || {});

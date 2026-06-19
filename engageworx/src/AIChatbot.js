@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { ChatThread, ChatInput } from "./components/chat";
+import { useAccentButtonStyle, useSecondaryButtonStyle, useGhostButtonStyle, useSegmentedStyles } from "./components/ui/Button";
+import ModuleHeader from "./components/ModuleHeader";
 import { Toggle, Card } from './components/ui';
 import EscalationRulesSettings from './admin/EscalationRulesSettings';
 import EscalationRulesConfig from './EscalationRulesConfig';
@@ -379,8 +381,10 @@ saveAIConfig(newSources);
 
   const personality = PERSONALITIES.find(p => p.id === selectedPersonality);
   const inputStyle = { width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "10px 14px", color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box", outline: "none" };
-  const btnPrimary = { background: `linear-gradient(135deg, ${C.primary}, ${C.accent || C.primary})`, border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
-  const btnSecondary = { background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 20px", color: C.text, fontWeight: 600, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
+  const btnPrimary = useAccentButtonStyle(); // flat brand fill + WCAG contrast (was gradient)
+  const btnSecondary = useSecondaryButtonStyle(); // theme-aware (was dark-tuned rgba white)
+  const btnGhost = useGhostButtonStyle();
+  const segStyle = useSegmentedStyles(); // segStyle(false) = theme-aware INACTIVE, active preserved
   const card = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 22 };
   const badge = (color) => ({ display: "inline-block", background: color + "18", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 700 });
   const label = { color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "block", fontWeight: 700 };
@@ -424,15 +428,7 @@ saveAIConfig(newSources);
       <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
         <div style={{ maxWidth: 900 }}>
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <div>
-              <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: 0 }}>🤖 AI Chatbot</h1>
-              <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>Configure personality, knowledge, and escalation rules</p>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <span style={badge("#00E676")}>● Bot Active</span>
-            </div>
-          </div>
+          <ModuleHeader title="🤖 AI Chatbot" subtitle="Configure personality, knowledge, and escalation rules" right={<span style={badge("#00E676")}>● Bot Active</span>} />
 
           {/* KPI Row — will be populated from real queries when analytics are wired */}
 
@@ -448,11 +444,10 @@ saveAIConfig(newSources);
               { id: "advanced", label: "Advanced", icon: "⚙️" },
             ].map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                background: activeTab === t.id ? C.primary : "rgba(255,255,255,0.04)",
-                border: activeTab === t.id ? "none" : "1px solid rgba(255,255,255,0.06)",
-                borderRadius: 8, padding: "8px 16px", color: activeTab === t.id ? "#000" : C.muted,
+                borderRadius: 8, padding: "8px 16px",
                 fontWeight: activeTab === t.id ? 700 : 400, cursor: "pointer", fontSize: 13,
                 fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+                ...(activeTab === t.id ? { background: C.primary, border: "none", color: "#000" } : segStyle(false)),
               }}>{t.icon} {t.label}</button>
             ))}
           </div>
@@ -524,7 +519,7 @@ saveAIConfig(newSources);
                       {tenantSurfaces.map(function(s) {
                         var isRoutable = ROUTABLE_INBOUND_SURFACES.indexOf(s.surface) !== -1;
                         var isActive = sigSurface === s.surface;
-                        return <button key={s.surface} onClick={isRoutable ? function() { setSigSurface(s.surface); } : undefined} disabled={!isRoutable} title={!isRoutable ? 'Not yet active — coming soon' : ''} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: isRoutable ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: "inherit", opacity: isRoutable ? 1 : 0.4, background: isActive && isRoutable ? (C.primary + "22") : "transparent", color: isActive && isRoutable ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}{!isRoutable ? ' ·\u00A0soon' : ''}</button>;
+                        return <button key={s.surface} onClick={isRoutable ? function() { setSigSurface(s.surface); } : undefined} disabled={!isRoutable} title={!isRoutable ? 'Not yet active — coming soon' : ''} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: isRoutable ? "pointer" : "default", fontSize: 12, fontWeight: 700, fontFamily: "inherit", opacity: isRoutable ? 1 : 0.4, background: isActive && isRoutable ? (C.primary + "22") : "transparent", color: isActive && isRoutable ? C.primary : segStyle(false).color }}>{s.label}{!isRoutable ? ' ·\u00A0soon' : ''}</button>;
                       })}
                     </div>
                     <div style={{ display: 'grid', gap: 12 }}>
@@ -556,7 +551,7 @@ saveAIConfig(newSources);
                     <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Per-surface signatures. Select a surface below to edit its signature independently.</div>
                     <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
                       {SIG_SURFACES.map(function(s) {
-                        return <button key={s.id} onClick={function() { setSigSurface(s.id); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: sigSurface === s.id ? (C.primary + "22") : "transparent", color: sigSurface === s.id ? C.primary : "rgba(255,255,255,0.4)" }}>{s.label}</button>;
+                        return <button key={s.id} onClick={function() { setSigSurface(s.id); }} style={{ flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: "inherit", background: sigSurface === s.id ? (C.primary + "22") : "transparent", color: sigSurface === s.id ? C.primary : segStyle(false).color }}>{s.label}</button>;
                       })}
                     </div>
 
@@ -618,7 +613,7 @@ saveAIConfig(newSources);
                 <p style={{ color: C.muted, fontSize: 13, marginBottom: 16 }}>Choose how your AI agent communicates. This affects tone, temperature, and response style across all channels.</p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                   {PERSONALITIES.map(p => (
-                    <button key={p.id} onClick={() => { setSelectedPersonality(p.id); setTemperature(p.temp); }} style={{ background: selectedPersonality === p.id ? `${C.primary}15` : "rgba(255,255,255,0.03)", border: `2px solid ${selectedPersonality === p.id ? C.primary : "rgba(255,255,255,0.06)"}`, borderRadius: 12, padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif" }}>
+                    <button key={p.id} onClick={() => { setSelectedPersonality(p.id); setTemperature(p.temp); }} style={{ borderRadius: 12, padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "'DM Sans', sans-serif", ...(selectedPersonality === p.id ? { background: `${C.primary}15`, border: `2px solid ${C.primary}` } : segStyle(false)) }}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>{p.icon}</div>
                       <div style={{ color: selectedPersonality === p.id ? C.primary : "#fff", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{p.name}</div>
                       <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, lineHeight: 1.3 }}>{p.desc}</div>
@@ -672,7 +667,7 @@ saveAIConfig(newSources);
                       { label: "Code Blocks", value: enableCodeBlocks, setter: setEnableCodeBlocks, icon: "💻" },
                       { label: "Rich Formatting", value: enableMarkdown, setter: setEnableMarkdown, icon: "✨" },
                     ].map(toggle => (
-                      <button key={toggle.label} onClick={() => toggle.setter(!toggle.value)} style={{ flex: 1, background: toggle.value ? `${C.primary}15` : "rgba(255,255,255,0.03)", border: `1px solid ${toggle.value ? C.primary + "44" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "12px", cursor: "pointer", textAlign: "center", fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>
+                      <button key={toggle.label} onClick={() => toggle.setter(!toggle.value)} style={{ flex: 1, borderRadius: 10, padding: "12px", cursor: "pointer", textAlign: "center", fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", ...(toggle.value ? { background: `${C.primary}15`, border: `1px solid ${C.primary}44` } : segStyle(false)) }}>
                         <div style={{ fontSize: 20, marginBottom: 4 }}>{toggle.icon}</div>
                         <div style={{ color: toggle.value ? C.primary : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 600 }}>{toggle.label}</div>
                         <div style={{ color: toggle.value ? "#00E676" : "rgba(255,255,255,0.2)", fontSize: 10, marginTop: 2 }}>{toggle.value ? "Enabled" : "Disabled"}</div>
@@ -806,7 +801,7 @@ saveAIConfig(newSources);
             <div>
               {escWizardOpen ? (
                 <div>
-                  <button onClick={function() { setEscWizardOpen(false); setEscWizardEditRule(null); }} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif", marginBottom: 12, padding: 0 }}>← Back to rules list</button>
+                  <button onClick={function() { setEscWizardOpen(false); setEscWizardEditRule(null); }} style={{ ...btnGhost, padding: 0, fontSize: 13, marginBottom: 12 }}>← Back to rules list</button>
                   <EscalationRulesConfig
                     tenantId={currentTenantId}
                     colors={C}
@@ -839,7 +834,7 @@ saveAIConfig(newSources);
                       <h2 style={{ color: C.text, fontSize: 18, margin: 0 }}>Escalation Rules</h2>
                       <p style={{ color: C.muted, fontSize: 12, marginTop: 4 }}>Define when the AI should hand off to a human, notify your team, or pause the conversation</p>
                     </div>
-                    <button onClick={function() { setEscWizardOpen(true); setEscWizardEditRule(null); }} style={{ background: "linear-gradient(135deg, " + C.primary + ", " + (C.accent || C.primary) + ")", border: "none", borderRadius: 10, padding: "10px 20px", color: "#000", fontWeight: 700, cursor: "pointer", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ AI Wizard</button>
+                    <button onClick={function() { setEscWizardOpen(true); setEscWizardEditRule(null); }} style={btnPrimary}>+ AI Wizard</button>
                   </div>
                   <EscalationRulesSettings tenantId={currentTenantId} C={C} />
                 </div>
@@ -923,12 +918,12 @@ saveAIConfig(newSources);
         <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <h3 style={{ color: C.text, margin: 0, fontSize: 15 }}>💬 Live Preview</h3>
-            <button onClick={() => { setPreviewMessages([]); setSelectedDemo(null); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "4px 10px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>Clear</button>
+            <button onClick={() => { setPreviewMessages([]); setSelectedDemo(null); }} style={{ ...btnGhost, padding: "4px 10px", fontSize: 11 }}>Clear</button>
           </div>
           <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, marginBottom: 10 }}>Test your bot configuration in real-time</div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {DEMO_CONVERSATIONS.map((demo, i) => (
-              <button key={i} onClick={() => loadDemoConversation(demo)} style={{ background: selectedDemo === demo ? `${C.primary}22` : "rgba(255,255,255,0.04)", border: `1px solid ${selectedDemo === demo ? C.primary + "44" : "rgba(255,255,255,0.06)"}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: selectedDemo === demo ? C.primary : "rgba(255,255,255,0.35)", fontSize: 10, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>{demo.persona.split(" ").slice(0, 2).join(" ")}</button>
+              <button key={i} onClick={() => loadDemoConversation(demo)} style={{ borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, ...(selectedDemo === demo ? { background: `${C.primary}22`, border: `1px solid ${C.primary}44`, color: C.primary } : segStyle(false)) }}>{demo.persona.split(" ").slice(0, 2).join(" ")}</button>
             ))}
           </div>
         </div>

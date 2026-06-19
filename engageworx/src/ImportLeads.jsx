@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
+import { useAccentButtonStyle, useSecondaryButtonStyle, useSegmentedStyles } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 function parseCSV(text) {
   var lines = text.trim().split('\n').filter(function(l) { return l.trim(); });
@@ -32,6 +34,9 @@ function parseCSV(text) {
 
 export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
+  var btnAccent = useAccentButtonStyle();
+  var btnSecondary = useSecondaryButtonStyle();
+  var segStyle = useSegmentedStyles();
 
   var [csvText, setCsvText] = useState('');
   var [parsed, setParsed] = useState([]);
@@ -119,10 +124,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
 
   return (
     <div style={{ padding: '28px 32px', fontFamily: "'DM Sans', sans-serif", color: '#f1f5f9', maxWidth: 1000 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px' }}>📥 Import Leads</h1>
-        <p style={{ color: colors.muted, fontSize: 13, margin: 0 }}>Bulk upload contacts from CSV or add manually — then enrol in a sequence</p>
-      </div>
+      <ModuleHeader title="📥 Import Leads" subtitle="Bulk upload contacts from CSV or add manually — then enrol in a sequence" />
 
       {/* Sequence selector */}
       <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
@@ -133,7 +135,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
             : sequences.map(function(s) {
               var isSelected = selectedSeq === s.id;
               return (
-                <button key={s.id} onClick={function() { setSelectedSeq(s.id); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid ' + (isSelected ? colors.primary + '66' : 'rgba(255,255,255,0.1)'), background: isSelected ? colors.primary + '22' : 'rgba(255,255,255,0.04)', color: isSelected ? colors.primary : '#94a3b8', fontWeight: isSelected ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button key={s.id} onClick={function() { setSelectedSeq(s.id); }} style={{ padding: '8px 16px', borderRadius: 8, fontWeight: isSelected ? 700 : 400, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', ...(isSelected ? { background: colors.primary + '22', border: '1px solid ' + colors.primary + '66', color: colors.primary } : segStyle(false)) }}>
                   {s.name}
                 </button>
               );
@@ -145,7 +147,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: 3, width: 'fit-content' }}>
         {[{ id: 'paste', label: '📋 Paste CSV' }, { id: 'manual', label: '✏️ Manual Entry' }].map(function(t) {
           return (
-            <button key={t.id} onClick={function() { setTab(t.id); setResult(null); }} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: tab === t.id ? 700 : 400, fontFamily: 'inherit', background: tab === t.id ? colors.primary + '22' : 'transparent', color: tab === t.id ? colors.primary : 'rgba(255,255,255,0.4)' }}>{t.label}</button>
+            <button key={t.id} onClick={function() { setTab(t.id); setResult(null); }} style={{ padding: '7px 16px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: tab === t.id ? 700 : 400, fontFamily: 'inherit', background: tab === t.id ? colors.primary + '22' : 'transparent', color: tab === t.id ? colors.primary : segStyle(false).color }}>{t.label}</button>
           );
         })}
       </div>
@@ -162,7 +164,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
               rows={8}
               style={{ ...inputStyle, width: '100%', resize: 'vertical', lineHeight: 1.5, padding: '10px 12px', fontSize: 12 }}
             />
-            <button onClick={handleParse} disabled={!csvText.trim()} style={{ marginTop: 8, padding: '8px 20px', borderRadius: 7, border: 'none', background: colors.primary, color: '#000', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', opacity: csvText.trim() ? 1 : 0.5 }}>Parse CSV →</button>
+            <button onClick={handleParse} disabled={!csvText.trim()} style={{ ...btnAccent, marginTop: 8, padding: '8px 20px', borderRadius: 7, fontSize: 13, opacity: csvText.trim() ? 1 : 0.5 }}>Parse CSV →</button>
           </div>
 
           {parsed.length > 0 && (
@@ -246,7 +248,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
             </table>
           </div>
           <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <button onClick={addManualRow} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add Row</button>
+            <button onClick={addManualRow} style={{ ...btnSecondary, padding: '6px 14px', borderRadius: 6, fontSize: 12 }}>+ Add Row</button>
           </div>
         </div>
       )}
@@ -257,7 +259,7 @@ export default function ImportLeads({ C, demoMode = false, currentTenantId }) {
           <button
             onClick={handleEnrol}
             disabled={enrolling || !selectedSeq || selectedCount === 0}
-            style={{ padding: '11px 28px', borderRadius: 9, border: 'none', background: enrolling || !selectedSeq || selectedCount === 0 ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg, ' + colors.primary + ', ' + colors.accent + ')', color: enrolling || !selectedSeq || selectedCount === 0 ? 'rgba(255,255,255,0.3)' : '#000', fontWeight: 800, fontSize: 14, cursor: enrolling || !selectedSeq || selectedCount === 0 ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'all 0.2s' }}
+            style={{ ...btnAccent, padding: '11px 28px', borderRadius: 9, fontSize: 14, fontWeight: 800, opacity: (enrolling || !selectedSeq || selectedCount === 0) ? 0.5 : 1, transition: 'all 0.2s' }}
           >
             {enrolling ? 'Enrolling...' : 'Enrol ' + selectedCount + ' leads in ' + seqName + ' →'}
           </button>

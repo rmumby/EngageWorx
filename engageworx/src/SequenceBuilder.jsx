@@ -1,11 +1,15 @@
 import { useState, useEffect } from "react";
 import { supabase } from './supabaseClient';
 import LeadPickerModal from './components/LeadPickerModal';
+import { useAccentButtonStyle, useSecondaryButtonStyle } from './components/ui/Button';
+import ModuleHeader from './components/ModuleHeader';
 
 const CHANNELS = ['email', 'sms', 'whatsapp'];
 
 export default function SequenceBuilder({ C, currentTenantId }) {
   var colors = C || { primary: '#00C9FF', accent: '#E040FB', bg: '#080d1a', surface: '#0d1425', border: '#182440', text: '#E8F4FD', muted: '#6B8BAE' };
+  var btnAccent = useAccentButtonStyle();
+  var btnSecondary = useSecondaryButtonStyle();
 
   var [sequences, setSequences] = useState([]);
   var [selectedSeq, setSelectedSeq] = useState(null);
@@ -280,6 +284,7 @@ setSteps(aiSteps.map(function(s, i) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px' }}>
+        <ModuleHeader title="Sequence Builder" subtitle={selectedSeq ? selectedSeq.name : 'Select a sequence or create a new one'} />
         {!selectedSeq ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60%', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 48 }}>⚡</div>
@@ -289,7 +294,6 @@ setSteps(aiSteps.map(function(s, i) {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
               <div>
-                <h1 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{selectedSeq.name}</h1>
                 <div style={{ color: colors.muted, fontSize: 13, display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span>{steps.length} steps</span>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: selectedSeq.send_on_weekends ? '#10b981' : colors.muted }}>
@@ -306,10 +310,10 @@ setSteps(aiSteps.map(function(s, i) {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={function() { setShowLeadPicker(true); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Add Leads</button>
-                <button onClick={function() { setShowAI(!showAI); }} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(224,64,251,0.3)', background: showAI ? 'rgba(224,64,251,0.2)' : 'rgba(224,64,251,0.08)', color: '#e879f9', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Build with AI</button>
-                <button onClick={addStep} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>+ Add Step</button>
-                <button onClick={saveSteps} disabled={saving} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: saving ? 'rgba(0,201,255,0.3)' : colors.primary, color: '#000', fontWeight: 800, fontSize: 12, cursor: saving ? 'wait' : 'pointer', fontFamily: 'inherit' }}>{saving ? 'Saving...' : 'Save'}</button>
+                <button onClick={function() { setShowLeadPicker(true); }} style={{ ...btnSecondary, padding: '8px 16px', fontSize: 12 }}>Add Leads</button>
+                <button onClick={function() { setShowAI(!showAI); }} style={{ ...btnSecondary, padding: '8px 16px', fontSize: 12, ...(showAI ? { background: colors.primary + '22', border: '1px solid ' + colors.primary, color: colors.primary } : {}) }}>Build with AI</button>
+                <button onClick={addStep} style={{ ...btnSecondary, padding: '8px 16px', fontSize: 12 }}>+ Add Step</button>
+                <button onClick={saveSteps} disabled={saving} style={{ ...btnAccent, padding: '8px 20px', fontSize: 12, fontWeight: 800, opacity: saving ? 0.6 : 1 }}>{saving ? 'Saving...' : 'Save'}</button>
               </div>
             </div>
 
@@ -345,8 +349,8 @@ setSteps(aiSteps.map(function(s, i) {
                 <div style={{ fontSize: 12, color: colors.muted, marginBottom: 10 }}>Describe your goal and AI will generate the full sequence with subject lines and message bodies.</div>
                 <textarea value={aiGoal} onChange={function(e) { setAiGoal(e.target.value); }} placeholder="e.g. CPExpo trade show follow-up sequence for telecom resellers — 7 steps over 21 days mixing email and SMS, focusing on booking a demo call" rows={3} style={{ ...inputStyle, resize: 'vertical', marginBottom: 12, lineHeight: 1.5 }} />
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={buildWithAI} disabled={aiLoading || !aiGoal.trim()} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: aiLoading ? 'rgba(224,64,251,0.3)' : 'linear-gradient(135deg, #E040FB, #00C9FF)', color: '#000', fontWeight: 800, fontSize: 13, cursor: aiLoading ? 'wait' : 'pointer', fontFamily: 'inherit', opacity: !aiGoal.trim() ? 0.5 : 1 }}>{aiLoading ? 'Generating...' : 'Generate Sequence'}</button>
-                  <button onClick={function() { setShowAI(false); }} style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#94a3b8', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                  <button onClick={buildWithAI} disabled={aiLoading || !aiGoal.trim()} style={{ ...btnAccent, padding: '9px 20px', fontSize: 13, fontWeight: 800, opacity: (aiLoading || !aiGoal.trim()) ? 0.6 : 1 }}>{aiLoading ? 'Generating...' : 'Generate Sequence'}</button>
+                  <button onClick={function() { setShowAI(false); }} style={{ ...btnSecondary, padding: '9px 16px', fontSize: 12 }}>Cancel</button>
                 </div>
               </div>
             )}

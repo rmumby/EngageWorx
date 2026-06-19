@@ -26,6 +26,7 @@ import { getEnabledModules } from './lib/modules';
 import PortalShell from './components/PortalShell';
 import { SP_BASE_COLORS } from './themes/portalColors';
 import { useBranding } from './BrandingContext';
+import Button, { useOutlineButtonStyle } from './components/ui/Button';
 
 var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
@@ -86,6 +87,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     primary: brandColors.primary || SP_BASE_COLORS.primary,
     accent: brandColors.accent || SP_BASE_COLORS.accent,
   }), _cspTheme);
+  var btnOutline = useOutlineButtonStyle(); // standardized outline for Sandbox/Demo (vs +New Tenant = accent)
   var isSPAdmin = profile && (profile.role === 'superadmin' || profile.role === 'super_admin' || profile.role === 'sp_admin');
 
   // Per-tenant title/favicon for a CSP authenticated on the platform host (portal.engwx.com). Additive:
@@ -314,7 +316,6 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
 
   var card = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 22 };
   var inputStyle = { width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 14px', color: C.text, fontSize: 14, fontFamily: "'DM Sans', sans-serif", boxSizing: 'border-box', outline: 'none' };
-  var btnPrimary = { background: 'linear-gradient(135deg, ' + (brandColors.primary || '#00C9FF') + ', ' + (brandColors.accent || '#E040FB') + ')', border: 'none', borderRadius: 10, padding: '10px 20px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   var btnSec = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, padding: '10px 20px', color: C.text, fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" };
   var labelStyle = { color: 'rgba(255,255,255,0.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, display: 'block', fontWeight: 700 };
 
@@ -675,9 +676,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h2 style={{ color: C.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Your Tenants</h2>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '10px 16px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🧪 Sandbox</button>
-                  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '10px 16px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>🎮 Demo</button>
-                  <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={btnPrimary}>+ New Tenant</button>
+                  <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '10px 16px', fontSize: 12, fontWeight: 700 }}>🧪 Sandbox</button>
+                  <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '10px 16px', fontSize: 12, fontWeight: 700 }}>🎮 Demo</button>
+                  <Button variant="accent" onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }}>+ New Tenant</Button>
                 </div>
               </div>
               {loading ? (
@@ -686,7 +687,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <div style={{ textAlign: 'center', padding: 40 }}>
                   <div style={{ fontSize: 40, marginBottom: 12 }}>🏢</div>
                   <div style={{ color: C.text, fontWeight: 700, fontSize: 16, marginBottom: 6 }}>No tenants yet</div>
-                  <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
+                  <Button variant="accent" onClick={function() { setShowCreate(true); }}>Add Your First Tenant</Button>
                 </div>
               ) : (
                 <div style={{ display: 'grid', gap: 8 }}>
@@ -715,7 +716,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <button onClick={function() { setDrillDownTenant(tenant); setTenantPage('tenant_inbox'); }} style={Object.assign({}, btnPrimary, { padding: '6px 14px', fontSize: 11 })}>Manage →</button>
+                          <Button variant="accent" onClick={function() { setDrillDownTenant(tenant); setTenantPage('tenant_inbox'); }} style={{ padding: '6px 14px', fontSize: 11 }}>Manage →</Button>
                         </div>
                       </div>
                     );
@@ -734,16 +735,16 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                 <p style={{ color: C.muted, marginTop: 4, fontSize: 14 }}>{tenants.length} tenant{tenants.length !== 1 ? 's' : ''} under {cspInfo ? cspInfo.name : 'your account'}</p>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.primary + '22', border: '1px solid ' + C.primary + '55', borderRadius: 10, padding: '12px 20px', color: C.primary, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🧪 Create Sandbox</button>
-                <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ background: C.accent + '22', border: '1px solid ' + C.accent + '55', borderRadius: 10, padding: '12px 20px', color: C.accent, fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>🎮 Create Demo Account</button>
-                <button onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', border: 'none', borderRadius: 10, padding: '12px 24px', color: '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>+ New Tenant</button>
+                <button onClick={function() { setShowSandbox(true); setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '12px 20px', fontSize: 13, fontWeight: 700 }}>🧪 Create Sandbox</button>
+                <button onClick={function() { setShowDemoForm(true); setShowCreate(false); setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={{ ...btnOutline, padding: '12px 20px', fontSize: 13, fontWeight: 700 }}>🎮 Create Demo Account</button>
+                <Button variant="accent" onClick={function() { setShowCreate(true); setShowDemoForm(false); setShowSandbox(false); setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter', websiteUrl: '', detecting: false, detectedBrand: null }); }} style={{ padding: '12px 24px' }}>+ New Tenant</Button>
               </div>
             </div>
             {tenants.length === 0 ? (
               <div style={Object.assign({}, card, { textAlign: 'center', padding: 60 })}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🏢</div>
                 <div style={{ color: C.text, fontWeight: 700, fontSize: 20, marginBottom: 8 }}>No tenants yet</div>
-                <button onClick={function() { setShowCreate(true); }} style={btnPrimary}>Add Your First Tenant</button>
+                <Button variant="accent" onClick={function() { setShowCreate(true); }}>Add Your First Tenant</Button>
               </div>
             ) : (
               <div style={{ display: 'grid', gap: 12 }}>
@@ -768,7 +769,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                         <div style={{ color: C.text, fontWeight: 700, fontSize: 13 }}>{msgs.toLocaleString()}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <button onClick={function() { setDrillDownTenant(tenant); setTenantPage('tenant_inbox'); }} style={Object.assign({}, btnPrimary, { padding: '8px 16px', fontSize: 12 })}>Manage →</button>
+                        <Button variant="accent" onClick={function() { setDrillDownTenant(tenant); setTenantPage('tenant_inbox'); }} style={{ padding: '8px 16px', fontSize: 12 }}>Manage →</Button>
                       </div>
                     </div>
                   );
@@ -797,7 +798,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <span style={{ color: C.muted }}>Welcome email:</span><span style={{ color: createResult.welcome_email_sent === false ? '#FF6B35' : '#00E676', fontWeight: 600 }}>{createResult.welcome_email_sent === false ? 'Failed — ' + (createResult.welcome_email_error || 'unknown') : '✓ Sent'}</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() { navigator.clipboard.writeText(createResult.set_password_link || ''); }} style={btnPrimary} disabled={!createResult.set_password_link}>Copy set-password link</button>
+                    <Button variant="accent" onClick={function() { navigator.clipboard.writeText(createResult.set_password_link || ''); }} disabled={!createResult.set_password_link}>Copy set-password link</Button>
                     <button onClick={function() { setCreateResult(null); setCreateForm({ fullName: '', email: '', companyName: '', password: '', plan: 'starter' }); }} style={btnSec}>Add Another</button>
                     <button onClick={function() { setShowCreate(false); }} style={btnSec}>Close</button>
                   </div>
@@ -812,9 +813,9 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                       <label style={labelStyle}>Website URL</label>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <input value={createForm.websiteUrl} onChange={function(e) { setCreateForm(Object.assign({}, createForm, { websiteUrl: e.target.value })); }} placeholder="https://clientbusiness.com" style={Object.assign({}, inputStyle, { flex: 1 })} />
-                        <button onClick={detectBrand} disabled={!createForm.websiteUrl || createForm.detecting} style={{ background: createForm.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 10, padding: '10px 14px', color: createForm.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: 'pointer', fontSize: 13, fontFamily: "'DM Sans', sans-serif" }}>
+                        <Button variant="accent" onClick={detectBrand} disabled={!createForm.websiteUrl || createForm.detecting} style={{ padding: '10px 14px' }}>
                           {createForm.detecting ? '⏳' : '✨ Auto-detect'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -843,7 +844,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                         Sub-tenant pricing managed by you outside the platform for now. Per-partner pricing layer coming soon.
                       </div>
                     )}
-                    <button onClick={handleCreateTenant} disabled={createLoading} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: createLoading ? 0.6 : 1 })}>{createLoading ? 'Creating...' : 'Create Tenant'}</button>
+                    <Button variant="accent" onClick={handleCreateTenant} disabled={createLoading} style={{ width: '100%', padding: '14px', fontSize: 14 }}>{createLoading ? 'Creating...' : 'Create Tenant'}</Button>
                   </div>
                 </div>
               )}
@@ -870,7 +871,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() { navigator.clipboard.writeText(sandboxResult.set_password_link || ''); }} style={btnPrimary} disabled={!sandboxResult.set_password_link}>Copy set-password link</button>
+                    <Button variant="accent" onClick={function() { navigator.clipboard.writeText(sandboxResult.set_password_link || ''); }} disabled={!sandboxResult.set_password_link}>Copy set-password link</Button>
                     <button onClick={function() { setSandboxResult(null); setSandboxForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={btnSec}>Create Another</button>
                     <button onClick={function() { setShowSandbox(false); }} style={btnSec}>Close</button>
                   </div>
@@ -891,7 +892,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <div style={{ background: 'rgba(0,201,255,0.06)', border: '1px solid rgba(0,201,255,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
                       🧪 Sandbox accounts use the <span style={{ color: C.primary }}>Starter plan</span> with full feature access. A welcome email will be sent automatically.
                     </div>
-                    <button onClick={handleCreateSandbox} disabled={sandboxLoading || !sandboxForm.email || !sandboxForm.companyName} style={Object.assign({}, btnPrimary, { width: '100%', padding: '14px', fontSize: 14, opacity: (sandboxLoading || !sandboxForm.email || !sandboxForm.companyName) ? 0.6 : 1 })}>{sandboxLoading ? 'Creating...' : '🧪 Create Sandbox Account'}</button>
+                    <Button variant="accent" onClick={handleCreateSandbox} disabled={sandboxLoading || !sandboxForm.email || !sandboxForm.companyName} style={{ width: '100%', padding: '14px', fontSize: 14 }}>{sandboxLoading ? 'Creating...' : '🧪 Create Sandbox Account'}</Button>
                   </div>
                 </div>
               )}
@@ -918,7 +919,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <span style={{ color: C.muted }}>Portal:</span><span style={{ color: C.primary }}>portal.engwx.com</span>
                   </div>
                   <div style={{ marginTop: 16, display: 'flex', gap: 10 }}>
-                    <button onClick={function() { navigator.clipboard.writeText(demoResult.set_password_link || ''); }} style={btnPrimary} disabled={!demoResult.set_password_link}>Copy set-password link</button>
+                    <Button variant="accent" onClick={function() { navigator.clipboard.writeText(demoResult.set_password_link || ''); }} disabled={!demoResult.set_password_link}>Copy set-password link</Button>
                     <button onClick={function() { setDemoResult(null); setDemoForm({ fullName: '', email: '', companyName: '', password: '' }); }} style={btnSec}>Create Another</button>
                     <button onClick={function() { setShowDemoForm(false); }} style={btnSec}>Close</button>
                   </div>
@@ -939,7 +940,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
                     <div style={{ background: 'rgba(224,64,251,0.06)', border: '1px solid rgba(224,64,251,0.2)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: C.muted }}>
                       🎮 Demo accounts come pre-loaded and are great for live prospect walkthroughs.
                     </div>
-                    <button onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ background: 'linear-gradient(135deg, ' + C.accent + ', #7C4DFF)', border: 'none', borderRadius: 10, padding: '14px', color: C.text, fontWeight: 700, cursor: 'pointer', fontSize: 14, fontFamily: "'DM Sans', sans-serif", width: '100%', opacity: (demoLoading || !demoForm.email || !demoForm.companyName) ? 0.6 : 1 }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</button>
+                    <Button variant="accent" onClick={handleCreateDemo} disabled={demoLoading || !demoForm.email || !demoForm.companyName} style={{ padding: '14px', fontSize: 14, width: '100%' }}>{demoLoading ? 'Creating...' : '🎮 Create Demo Account'}</Button>
                   </div>
                 </div>
               )}
