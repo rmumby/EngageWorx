@@ -181,6 +181,9 @@ export default function TCRQueue({ C }) {
                   <div>
                     <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{s.legal_name || (s.tenants && s.tenants.name) || 'Unknown'}</div>
                     <div style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>{s.contact_email || '—'}</div>
+                    {s.ein_dup_flagged && (
+                      <span title="EIN matches another tenant's registration — review before submitting to TCR" style={{ display: 'inline-block', marginTop: 4, background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: '#fcd34d', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>⚠ EIN dup</span>
+                    )}
                   </div>
                   <div style={{ color: colors.text, fontSize: 13 }}>{s.use_case || '—'}</div>
                   <div style={{ color: colors.text, fontSize: 13 }}>{s.message_volume || '—'}</div>
@@ -256,6 +259,15 @@ export default function TCRQueue({ C }) {
                         : 'No issues detected'}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {selected.ein_dup_flagged && (
+              <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 10, padding: 14, marginBottom: 18 }}>
+                <div style={{ color: '#fcd34d', fontSize: 12, fontWeight: 800, marginBottom: 4 }}>⚠ Duplicate EIN — cross-tenant match</div>
+                <div style={{ color: colors.muted, fontSize: 13, lineHeight: 1.6 }}>
+                  This EIN is already registered under another tenant{selected.ein_dup_match_tenant ? ' (' + selected.ein_dup_match_tenant + ')' : ''}. Registration was allowed to proceed — verify this is a legitimate shared entity (e.g. holding company, or re-registration after a failed brand) before submitting to TCR.
                 </div>
               </div>
             )}

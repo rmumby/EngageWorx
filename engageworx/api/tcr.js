@@ -185,6 +185,36 @@ module.exports = async function handler(req, res) {
     if (!tenantId) return res.status(400).json({ error: 'tenant_id required' });
 
     try {
+      // ── Duplicate-EIN cross-tenant flag (flag for review, never block) ──────
+      // Server-side only. Normalize EIN to digits; only run the match when the
+      // normalized value is non-empty — otherwise empty-vs-empty would collide
+      // every pre-EIN submission and flag the whole table. Scope to non-rejected
+      // submissions to cut noise (a rejected brand's EIN shouldn't flag a new one).
+      // Same-tenant re-registration never flags: we query OTHER tenants only.
+      // Legit collisions exist (holding cos, re-reg after a failed brand) → flag,
+      // record the match tenant, and ALWAYS let registration proceed.
+      var normalizedEin = (body.ein || '').replace(/\D/g, '');
+      var einDupFlagged = false;
+      var einDupMatchTenant = null;
+      if (normalizedEin) {
+        var einCandidates = await supabase
+          .from('tcr_submissions')
+          .select('tenant_id, ein, status')
+          .neq('tenant_id', tenantId)
+          .not('ein', 'is', null)
+          .neq('status', 'rejected');
+        if (einCandidates.data && einCandidates.data.length) {
+          var einMatch = einCandidates.data.find(function (r) {
+            return (r.ein || '').replace(/\D/g, '') === normalizedEin;
+          });
+          if (einMatch) {
+            einDupFlagged = true;
+            einDupMatchTenant = einMatch.tenant_id;
+            console.warn('[tcr submit-draft] cross-tenant EIN duplicate flagged', JSON.stringify({ tenant_id: tenantId, match_tenant: einMatch.tenant_id }));
+          }
+        }
+      }
+
       var submissionData = {
         tenant_id: tenantId,
         status: 'pending_review',
@@ -219,6 +249,8 @@ module.exports = async function handler(req, res) {
         has_embedded_phone: body.hasEmbeddedPhone || false,
         ai_review_result: body.aiReviewResult || null,
         ai_reviewed_at: body.aiReviewResult ? new Date().toISOString() : null,
+        ein_dup_flagged: einDupFlagged,
+        ein_dup_match_tenant: einDupMatchTenant,
         submitted_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
