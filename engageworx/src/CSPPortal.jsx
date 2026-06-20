@@ -26,7 +26,7 @@ import { getEnabledModules } from './lib/modules';
 import PortalShell from './components/PortalShell';
 import { SP_BASE_COLORS } from './themes/portalColors';
 import { useBranding } from './BrandingContext';
-import Button, { useOutlineButtonStyle } from './components/ui/Button';
+import Button, { useOutlineButtonStyle, relativeLuminance, contrastText } from './components/ui/Button';
 
 var DEFAULT_ENABLED_MODULES = ['pipeline', 'helpdesk', 'sequences', 'blog'];
 
@@ -329,9 +329,20 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
     }
   });
 
+  // Logo container background is the tenant's brand_primary (fixed dark #1f1f1f fallback) in BOTH
+  // themes — not the theme bg — so a white/light lockup never disappears on a light-mode white panel.
+  // Clamp: if brand_primary is light (WCAG luminance > 0.179), use #1f1f1f so a near-white brand
+  // (e.g. Conecta Cloud #ffffff) can't whiteout the logo OR the no-logo initial badge. logoFg is the
+  // WCAG-contrast text for that fill, used by the fallback initial.
+  var logoBg = (function () {
+    var p = brandColors.primary;
+    if (!p || typeof p !== 'string') return '#1f1f1f';
+    try { return relativeLuminance(p) > 0.179 ? '#1f1f1f' : p; } catch (e) { return '#1f1f1f'; }
+  })();
+  var logoFg = contrastText(logoBg);
   var logoEl = brandColors.logoUrl
-    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 2, flexShrink: 0 }} />
-    : <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
+    ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'contain', background: logoBg, border: '1px solid rgba(255,255,255,0.14)', boxSizing: 'border-box', padding: 2, flexShrink: 0 }} />
+    : <div style={{ width: 28, height: 28, borderRadius: 8, background: logoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 12, color: logoFg, flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>;
 
   // ── Tenant drill-down portal ──────────────────────────────────────────────
   if (drillDownTenant) {
@@ -548,8 +559,8 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {brandColors.logoUrl
-              ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: _cspIsDark ? 'rgba(255,255,255,0.06)' : '#ffffff', border: _cspIsDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid ' + C.border, boxSizing: 'border-box', padding: 3, flexShrink: 0 }} />
-              : <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, ' + C.primary + ', ' + C.accent + ')', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: '#000', flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
+              ? <img src={brandColors.logoUrl} alt="logo" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'contain', background: logoBg, border: '1px solid rgba(255,255,255,0.14)', boxSizing: 'border-box', padding: 3, flexShrink: 0 }} />
+              : <div style={{ width: 36, height: 36, borderRadius: 10, background: logoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 18, color: logoFg, flexShrink: 0 }}>{(cspInfo ? (cspInfo.brand_name || cspInfo.name || 'C') : 'C').charAt(0).toUpperCase()}</div>
             }
             {!sidebarCollapsed && <div style={{ flex: 1 }} />}
             <PlatformUpdatesBell userId={profile ? profile.id : null} audience="csp" />
