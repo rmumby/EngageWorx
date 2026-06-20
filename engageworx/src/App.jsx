@@ -575,7 +575,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         custom_domain: newTenant.domain || null,
       };
       if (currentTenantId) {
+        // Write both pointers, mirrored — reads key off parent_entity_id (authoritative post-071).
         insertPayload.parent_tenant_id = currentTenantId;
+        insertPayload.parent_entity_id = currentTenantId;
       }
       var tenantRes = await supabase.from('tenants').insert(insertPayload).select().single();
       if (tenantRes.error) throw new Error(tenantRes.error.message);

@@ -31,7 +31,7 @@ export default function HierarchyView({ C, onDrillDown }) {
   async function load() {
     setLoading(true);
     try {
-      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, parent_tenant_id, referred_by, plan, status, legal_entity_id, contract_type').order('name');
+      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, referred_by, plan, status, legal_entity_id, contract_type').order('name');
       // Normalize: parent_entity_id is the canonical parent (authoritative post-071)
       var normalized = (res.data || []).map(function(t) {
         return Object.assign({}, t, { _parent: t.parent_entity_id || t._parent || null, _type: t.customer_type || t.tenant_type || t.entity_tier || 'tenant' });
