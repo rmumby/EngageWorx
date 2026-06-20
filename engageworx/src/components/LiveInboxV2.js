@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { DEMO_CONVERSATIONS } from '../demoFixtures';
 import { ChatThread, ChatInput, MessageBubble } from './chat';
 import { Button, Badge, Card, RichEditor } from './ui';
+import { SP_TENANT_ID, spDefaultsToOwn } from '../lib/spScope';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 function dedupConversations(convos, contactMap, msgMap) {
@@ -396,14 +397,21 @@ function DraftCard({ convId, draftHtml: initialHtml, draftChannel, draftGenerate
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
-var LI_SP_TENANT_ID = process.env.REACT_APP_SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
+var LI_SP_TENANT_ID = SP_TENANT_ID;
 
 function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, supabase, userProfile }) {
   const { t } = useTranslation();
   var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
   var isSPorCSP = viewLevel === 'sp' || viewLevel === 'csp';
   var scopeStorageKey = 'ew_inbox_scope_' + (userProfile && userProfile.id || 'anon');
-  var [scopeOwnOnly, setScopeOwnOnly] = useState(function() { try { return localStorage.getItem(scopeStorageKey) === 'own'; } catch(e) { return false; } });
+  var [scopeOwnOnly, setScopeOwnOnly] = useState(function() {
+    try {
+      var stored = localStorage.getItem(scopeStorageKey); // 'own' | 'all' | null
+      if (stored === 'own') return true;
+      if (stored === 'all') return false;
+      return spDefaultsToOwn(viewLevel); // no saved pref → SP defaults to own-tenant scope (shared rule)
+    } catch(e) { return spDefaultsToOwn(viewLevel); }
+  });
   var [tenantBrandName, setTenantBrandName] = useState('');
   function toggleScope() {
     var next = !scopeOwnOnly;

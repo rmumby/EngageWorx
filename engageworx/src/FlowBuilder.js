@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+import { spDefaultsToOwn, binaryScopeFilter } from './lib/spScope';
+
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
   process.env.REACT_APP_SUPABASE_ANON_KEY
@@ -320,9 +322,12 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
   const [currentFlowId, setCurrentFlowId] = useState(null);
   const [toast, setToast] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("nodes"); // "nodes" or "flows"
+  // SP scope: default to SP-tenant flows (not all-tenant) so the SA flow list doesn't expose every
+  // tenant's automation logic; "All tenants" toggle preserves oversight. Shared rule via spScope.
+  const [scopeOwnOnly, setScopeOwnOnly] = useState(function() { return spDefaultsToOwn(viewLevel); });
   const canvasRef = useRef(null);
 
-  useEffect(() => { loadFlows(); }, [demoMode, tid]);
+  useEffect(() => { loadFlows(); }, [demoMode, tid, scopeOwnOnly]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -407,7 +412,8 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
     }
     try {
       let query = supabase.from("flows").select("*").order("updated_at", { ascending: false }).limit(20);
-      if (tid) query = query.eq("tenant_id", tid);
+      const flowFilter = binaryScopeFilter({ scopeOwnOnly, viewLevel, currentTenantId: tid });
+      if (flowFilter) query = query.eq("tenant_id", flowFilter);
       const { data } = await query;
       if (data) setFlows(data);
     } catch (err) { console.log("No flows table:", err); }
@@ -592,6 +598,13 @@ export default function FlowBuilder({ C, tenants, viewLevel = "tenant", currentT
             ))
           ) : (
             <div>
+              {/* SP scope toggle — defaults to SP only (no cross-tenant bleed of tenant flows) */}
+              {viewLevel === 'sp' && (
+                <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+                  <button onClick={function() { setScopeOwnOnly(false); }} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid ' + (!scopeOwnOnly ? C.accent : C.border), background: !scopeOwnOnly ? C.accent + '15' : 'transparent', color: !scopeOwnOnly ? C.accent : C.muted, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>All tenants</button>
+                  <button onClick={function() { setScopeOwnOnly(true); }} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: '1px solid ' + (scopeOwnOnly ? C.accent : C.border), background: scopeOwnOnly ? C.accent + '15' : 'transparent', color: scopeOwnOnly ? C.accent : C.muted, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>SP only</button>
+                </div>
+              )}
               <button onClick={newFlow} style={{
                 width: "100%", background: C.accent + "15", border: `1px solid ${C.accent}33`,
                 borderRadius: 7, padding: "8px 10px", color: C.accent, fontSize: 12,
