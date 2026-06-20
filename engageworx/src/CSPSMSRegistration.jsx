@@ -32,6 +32,9 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
         // Pull each child tenant's most recent submission status
         var ids = (ts.data || []).map(function(t) { return t.id; });
         if (ids.length > 0) {
+          // Resolves campaign status from tcr_submissions for CSP sub-tenants ONLY. An SP-facing status
+          // surface must read tcr_campaigns instead — tcr_submissions is empty for the SP (its approved
+          // campaign/CM SID lives in tcr_campaigns). See project memory: tcr_campaigns_operational_authority.
           var subs = await supabase.from('tcr_submissions').select('tenant_id, status, brand_sid, campaign_sid, created_at').in('tenant_id', ids).order('created_at', { ascending: false });
           var map = {};
           (subs.data || []).forEach(function(s) {
