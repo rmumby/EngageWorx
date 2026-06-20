@@ -31,10 +31,10 @@ export default function HierarchyView({ C, onDrillDown }) {
   async function load() {
     setLoading(true);
     try {
-      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, parent_tenant_id, referred_by, plan, status, legal_entity_id, contract_type').order('name');
-      // Normalize: use parent_tenant_id (preferred) or parent_entity_id as the canonical parent
+      var res = await supabase.from('tenants').select('id, name, entity_tier, tenant_type, customer_type, parent_entity_id, referred_by, plan, status, legal_entity_id, contract_type').order('name');
+      // Normalize: parent_entity_id is the canonical parent (authoritative post-071)
       var normalized = (res.data || []).map(function(t) {
-        return Object.assign({}, t, { _parent: t.parent_tenant_id || t._parent || null, _type: t.customer_type || t.tenant_type || t.entity_tier || 'tenant' });
+        return Object.assign({}, t, { _parent: t.parent_entity_id || t._parent || null, _type: t.customer_type || t.tenant_type || t.entity_tier || 'tenant' });
       });
       setAllTenants(normalized);
     } catch (e) { console.error('[Hierarchy] Load error:', e.message); }
@@ -244,7 +244,7 @@ export default function HierarchyView({ C, onDrillDown }) {
       </div>
 
       <div style={{ marginTop: 14, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 12, color: colors.muted, fontSize: 11, lineHeight: 1.6 }}>
-        <b>How this works:</b> Each node's children are tenants whose <code>parent_tenant_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors. Click <strong>↕ Move</strong> to re-parent a tenant.
+        <b>How this works:</b> Each node's children are tenants whose <code>parent_entity_id</code> points to that node. Click ▶ to expand, <strong>Focus</strong> to scope the view to one branch, breadcrumb to navigate back. Search highlights matches in gold and auto-expands ancestors. Click <strong>↕ Move</strong> to re-parent a tenant.
       </div>
 
       {/* Move Modal */}

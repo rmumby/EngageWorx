@@ -168,7 +168,7 @@ export default function CSPPortal({ cspTenantId, onLogout, onBack, profile }) {
         var modRes = await supabase.rpc('get_tenant_enabled_modules', { p_tenant_id: cspTenantId });
         if (!modRes.error && modRes.data) setEnabledModules(modRes.data);
       } catch (modErr) { console.error('[CSPPortal] module fetch error', modErr); }
-      var tenantsResult = await supabase.from('tenants').select('*').eq('parent_tenant_id', cspTenantId).order('name');
+      var tenantsResult = await supabase.from('tenants').select('*').eq('parent_entity_id', cspTenantId).order('name');
       if (tenantsResult.data) setTenants(tenantsResult.data);
       try {
         var periodStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];

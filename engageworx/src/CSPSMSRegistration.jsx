@@ -27,7 +27,7 @@ export default function CSPSMSRegistration({ cspTenantId, C }) {
       try {
         var c = await supabase.from('tenants').select('id, name, msp_enabled, letter_of_agency').eq('id', cspTenantId).maybeSingle();
         if (c.data) setCsp(c.data);
-        var ts = await supabase.from('tenants').select('id, name, plan, tcr_status, sms_enabled, status').or('parent_tenant_id.eq.' + cspTenantId + ',parent_entity_id.eq.' + cspTenantId).neq('id', cspTenantId);
+        var ts = await supabase.from('tenants').select('id, name, plan, tcr_status, sms_enabled, status').eq('parent_entity_id', cspTenantId).neq('id', cspTenantId);
         setTenants(ts.data || []);
         // Pull each child tenant's most recent submission status
         var ids = (ts.data || []).map(function(t) { return t.id; });

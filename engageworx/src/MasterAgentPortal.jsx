@@ -77,8 +77,8 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
       var m = await supabase.from('tenants').select('*').eq('id', masterAgentTenantId).maybeSingle();
       if (m.data) setInfo(m.data);
 
-      // All children of this master agent (using parent_tenant_id preferred, parent_entity_id fallback)
-      var allChildren = await supabase.from('tenants').select('*').or('parent_tenant_id.eq.' + masterAgentTenantId + ',parent_entity_id.eq.' + masterAgentTenantId).order('created_at', { ascending: false });
+      // All children of this master agent (parent_entity_id is the authoritative hierarchy pointer)
+      var allChildren = await supabase.from('tenants').select('*').eq('parent_entity_id', masterAgentTenantId).order('created_at', { ascending: false });
       var childList = allChildren.data || [];
 
       // Split into agents (including master_agents) vs direct customers
@@ -93,7 +93,7 @@ export default function MasterAgentPortal({ masterAgentTenantId, onLogout, onBac
       var tenantsByAgent = {};
       for (var i = 0; i < agentList.length; i++) {
         var ag = agentList[i];
-        var at = await supabase.from('tenants').select('*').or('parent_tenant_id.eq.' + ag.id + ',parent_entity_id.eq.' + ag.id).order('created_at', { ascending: false });
+        var at = await supabase.from('tenants').select('*').eq('parent_entity_id', ag.id).order('created_at', { ascending: false });
         tenantsByAgent[ag.id] = at.data || [];
       }
       setAgentTenantsMap(tenantsByAgent);

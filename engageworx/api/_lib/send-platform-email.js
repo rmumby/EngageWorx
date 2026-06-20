@@ -1,5 +1,5 @@
 // api/_lib/send-platform-email.js — Platform→tenant notification email routing
-// Walks parent_tenant_id chain to find the CSP/EngageWorx platform owner.
+// Walks parent_entity_id chain to find the CSP/EngageWorx platform owner.
 // Sends FROM the platform owner's verified domain.
 // STRICT — no fallback, no env flag. Domain must be verified.
 
@@ -72,7 +72,7 @@ async function resolvePlatformOwner(supabase, recipientTenantId) {
     visited.add(currentId);
 
     var { data: tenant } = await supabase.from('tenants')
-      .select('id, name, customer_type, parent_tenant_id, ' +
+      .select('id, name, customer_type, parent_entity_id, ' +
         'platform_email_send_method, platform_email_from_address, ' +
         'platform_email_domain, platform_email_domain_verified, ' +
         'platform_smtp_config_encrypted')
@@ -84,15 +84,15 @@ async function resolvePlatformOwner(supabase, recipientTenantId) {
     // If it's an owner type but has NO verified domain and HAS a parent, keep walking up.
     if (ownerTypes.indexOf(tenant.customer_type) >= 0) {
       if (tenant.platform_email_domain_verified) return tenant;
-      if (!tenant.parent_tenant_id) return tenant; // root with no domain — will fail at verification
+      if (!tenant.parent_entity_id) return tenant; // root with no domain — will fail at verification
       // Unverified owner with parent — walk up to find a verified ancestor
     }
 
     // No parent? This is the root
-    if (!tenant.parent_tenant_id) return tenant;
+    if (!tenant.parent_entity_id) return tenant;
 
     // Walk up
-    currentId = tenant.parent_tenant_id;
+    currentId = tenant.parent_entity_id;
   }
 
   return null;

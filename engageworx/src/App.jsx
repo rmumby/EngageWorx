@@ -147,12 +147,12 @@ function useLiveData(demoMode, isSPAdmin) {
           tenant_type: t.customer_type || t.tenant_type || 'business',
           customer_type: t.customer_type,
           entity_tier: t.entity_tier || 'tenant',
-          parent_tenant_id: t.parent_tenant_id,
+          parent_entity_id: t.parent_entity_id,
         };
       });
 
       // SP view: show CSPs but hide their sub-tenants
-const filtered = formatted.filter(t => !t.parent_tenant_id);
+const filtered = formatted.filter(t => !t.parent_entity_id);
 setLiveTenants(filtered);
 setLiveStats({
   totalMessages: 0,
@@ -575,7 +575,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         custom_domain: newTenant.domain || null,
       };
       if (currentTenantId) {
+        // Write both pointers, mirrored — reads key off parent_entity_id (authoritative post-071).
         insertPayload.parent_tenant_id = currentTenantId;
+        insertPayload.parent_entity_id = currentTenantId;
       }
       var tenantRes = await supabase.from('tenants').insert(insertPayload).select().single();
       if (tenantRes.error) throw new Error(tenantRes.error.message);
@@ -670,9 +672,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
           .from('tenants')
           .select('*')
           .order('created_at', { ascending: false });
-        console.log('[TenantManagement] query scoping — currentTenantId:', currentTenantId, currentTenantId ? 'SCOPED to parent_tenant_id' : 'UNSCOPED (all tenants)');
+        console.log('[TenantManagement] query scoping — currentTenantId:', currentTenantId, currentTenantId ? 'SCOPED to parent_entity_id' : 'UNSCOPED (all tenants)');
         if (currentTenantId) {
-          tenantQuery = tenantQuery.eq('parent_tenant_id', currentTenantId);
+          tenantQuery = tenantQuery.eq('parent_entity_id', currentTenantId);
         }
         const { data, error } = await tenantQuery;
         console.log('[TenantManagement] query result — rows:', data ? data.length : 0, 'error:', error ? error.message : 'none', 'ids:', (data || []).slice(0, 5).map(function(t) { return t.name + '(' + t.id.substring(0, 8) + ')'; }));
@@ -703,7 +705,6 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
             slug: t.slug,
             created_at: t.created_at,
             tenant_type: t.customer_type || t.tenant_type || 'business',
-            parent_tenant_id: t.parent_tenant_id,
             entity_tier: t.entity_tier || 'tenant',
             parent_entity_id: t.parent_entity_id,
             referred_by: t.referred_by,
@@ -745,7 +746,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     else { setEditingBrand(null); window.location.reload(); }
   };
 
-  var visibleTenants = currentTenantId ? liveTenants.filter(function(t) { return t.parent_tenant_id === currentTenantId; }) : liveTenants;
+  var visibleTenants = currentTenantId ? liveTenants.filter(function(t) { return t.parent_entity_id === currentTenantId; }) : liveTenants;
 
   return (
     <div style={{ padding: "32px 40px" }}>
@@ -1063,7 +1064,7 @@ setDemoCreating(false);
                       {c.entity_tier === "agent" && <span style={{ background: "#FF6B3522", color: "#FF6B35", border: "1px solid #FF6B3544", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>AGENT</span>}
                       {c.entity_tier === "csp" && <span style={{ background: "#7C4DFF22", color: "#7C4DFF", border: "1px solid #7C4DFF44", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>CSP</span>}
                       {c.msp_enabled && <span style={{ background: "#00E67622", color: "#00E676", border: "1px solid #00E67644", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>MSP</span>}
-                      {c.parent_tenant_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ tenant</span>}
+                      {c.parent_entity_id && <span style={{ color: C.muted, fontSize: 10 }}>↳ tenant</span>}
                     </div>
                     <div style={{ color: c.brand.primary, fontSize: 12 }}>{c.brand.name}</div>
                   </div>
@@ -1077,7 +1078,7 @@ setDemoCreating(false);
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <Badge color={isSuspended ? "#FF3B30" : "#00E676"}>{isSuspended ? "⏸ Suspended" : "● Active"}</Badge>
-                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_tenant_id ? "Tenant" : "Business"}</span>
+                  <span style={{ fontSize: 10, color: c.tenant_type === "csp" ? "#7C4DFF" : c.tenant_type === "agent" ? "#FF6B35" : C.muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.tenant_type === "csp" ? "CSP Partner" : c.tenant_type === "agent" ? "Agent Partner" : c.parent_entity_id ? "Tenant" : "Business"}</span>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
   {onDrillDown && <button onClick={() => onDrillDown(c.id)} style={{ background: "#7C4DFF22", border: "1px solid #7C4DFF55", borderRadius: 7, padding: "7px 10px", color: "#7C4DFF", fontWeight: 700, cursor: "pointer", fontSize: 12, fontFamily: "'DM Sans', sans-serif" }}>View Portal</button>}
@@ -2205,7 +2206,7 @@ function AppInner() {
     if (isAuthenticated && profile && view === "login") {
       if (profile.role === "superadmin" || profile.role === "super_admin" || profile.role === "sp_admin") {
         setView("sp");
-      } else if (profile.entity_tier === "master_agent" && profile.tenant_id) {
+      } else if (profile.tenant_type === "master_agent" && profile.tenant_id) {
         setView("master_agent_" + profile.tenant_id);
       } else if (isCSP && profile.tenant_id) {
         setView("csp_" + profile.tenant_id);
