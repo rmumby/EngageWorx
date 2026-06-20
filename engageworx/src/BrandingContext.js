@@ -37,7 +37,7 @@ function parseBrandingRow(t, hostname) {
   return {
     isWhiteLabel: true,
     tenantId: t.id,
-    parentTenantId: t.parent_tenant_id || null,
+    parentTenantId: t.parent_entity_id || null, // sourced from parent_entity_id (authoritative); key name kept for consumers
     brandName: name,
     brandShort: short,
     brandPrimary: t.brand_primary || '#00BFFF',
