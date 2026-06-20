@@ -1,12 +1,10 @@
 -- 073: Redesign provision_tenant_and_bind — CONTRACT + AUTH ONLY (no channel/plan/pipeline seeding;
 -- that's the next step). Reviewable in isolation.
 --
--- ⚠️ NOT YET APPLIED TO PROD — ONE decision still gates apply:
---   (1) AUTH vs CALLER CONTEXT [OPEN]: all current callers (invite-tenant, stripe-webhook,
---       provision-eval, create-tenant) invoke via the SERVICE-ROLE key, so auth.uid() is NULL.
---       As written (strict), the caller-scope check RAISES for them — applying breaks all
---       provisioning until the endpoints invoke with the user's JWT, OR we add a service-role/
---       null-uid bypass (one line, marked below). Pick one before apply.
+-- Decisions (both resolved):
+--   (1) AUTH vs CALLER CONTEXT [RESOLVED — option b]: service-role/null-uid callers BYPASS the
+--       caller-scope check (they enforce their own auth) — prod-safe. Authenticated users (auth.uid()
+--       not null) are scoped: SP member bypass, else admin of parent/ancestor, else raise 42501.
 --   (2) TIER-RANK [RESOLVED]: rank super_admin=0..tenant=4; raise only when child would OUTRANK its
 --       parent (child_rank < parent_rank, e.g. CSP under tenant). Equal rank allowed (reseller/agent
 --       chains: csp-under-csp, master_agent-under-master_agent). Plus an absolute guard: never
@@ -75,10 +73,10 @@ BEGIN
     ELSE 'tenant' END;
 
   -- ── Caller-scope auth ─────────────────────────────────────────────────────
-  -- auth.uid() must be an SP member (bypass) OR an admin of the parent / an ancestor
-  -- (recursive walk up parent_entity_id). NOTE: service-role callers have auth.uid() = NULL and
-  -- will RAISE here. For a service-role/null-uid bypass instead, prepend:  IF v_actor IS NOT NULL THEN
-  IF NOT is_sp_admin(v_actor) THEN
+  -- Service-role/backend callers have auth.uid() = NULL and BYPASS this check (they enforce their
+  -- own auth; this is the prod-safety bypass). For an authenticated user, auth.uid() must be an SP
+  -- member (bypass) OR an admin of the parent / an ancestor (recursive walk up parent_entity_id).
+  IF v_actor IS NOT NULL AND NOT is_sp_admin(v_actor) THEN
     v_cur := v_parent;
     WHILE v_cur IS NOT NULL AND v_depth < 20 LOOP
       IF is_tenant_admin(v_actor, v_cur) THEN v_authorized := true; EXIT; END IF;
