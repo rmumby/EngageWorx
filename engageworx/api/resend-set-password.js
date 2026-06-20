@@ -32,12 +32,12 @@ module.exports = async function handler(req, res) {
   if (auth.error) return res.status(auth.status).json({ error: auth.error });
 
   try {
-    var t = await supabase.from('tenants').select('id, name, brand_name, parent_tenant_id').eq('id', tenantId).maybeSingle();
+    var t = await supabase.from('tenants').select('id, name, brand_name, parent_entity_id').eq('id', tenantId).maybeSingle();
     if (!t.data) return res.status(404).json({ error: 'tenant not found' });
 
     // Sender anchor: the parent CSP if any, else the SP — never the (possibly unverified) tenant.
     var SP_TENANT_ID = process.env.SP_TENANT_ID || 'c1bc59a8-5235-4921-9755-02514b574387';
-    var ownerTenantId = t.data.parent_tenant_id || SP_TENANT_ID;
+    var ownerTenantId = t.data.parent_entity_id || SP_TENANT_ID;
 
     var pc = await getPlatformConfig(tenantId, supabase);
     var tenantName = t.data.brand_name || t.data.name;

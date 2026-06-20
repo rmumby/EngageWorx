@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
   // ── Look up tenant ─────────────────────────────────────────────────
   var { data: tenant, error: tenantErr } = await supabase
     .from('tenants')
-    .select('id, name, plan, parent_tenant_id')
+    .select('id, name, plan, parent_entity_id')
     .eq('id', tenantId)
     .maybeSingle();
 
@@ -105,7 +105,7 @@ module.exports = async function handler(req, res) {
   var firstName = adminName.split(' ')[0];
 
   // ── Build welcome email ────────────────────────────────────────────
-  var pc = await getPlatformConfig(tenant.parent_tenant_id || tenantId, supabase);
+  var pc = await getPlatformConfig(tenant.parent_entity_id || tenantId, supabase);
 
   // Find plan name
   var planName = tenant.plan || 'Starter';
