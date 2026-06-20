@@ -36,7 +36,7 @@ export function canEditBranding(actor, entity) {
   if (actor.isSuperAdmin) return { allowed: true, reason: 'super admin' };
   if (actor.tenantId === entity.id) return { allowed: true, reason: 'own entity' };
 
-  var isDirectChild = entity.parent_tenant_id === actor.tenantId || entity.parent_entity_id === actor.tenantId;
+  var isDirectChild = entity.parent_entity_id === actor.tenantId;
 
   if (actor.entityTier === 'csp') {
     if (isDirectChild) return { allowed: true, reason: 'CSP editing tenant under them' };
@@ -65,7 +65,7 @@ function isCustomized(entity) {
 async function resolveInheritedBranding(entity) {
   var current = entity;
   for (var i = 0; i < 5; i++) {
-    var parentId = current.parent_entity_id || current.parent_tenant_id;
+    var parentId = current.parent_entity_id;
     if (!parentId) return null;
     var r = await supabase.from('tenants').select('*').eq('id', parentId).maybeSingle();
     if (!r.data) return null;

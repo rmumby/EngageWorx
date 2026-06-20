@@ -116,14 +116,14 @@ export default function AgentPortal({ agentTenantId, onLogout, onBack, profile, 
     try {
       var a = await supabase.from('tenants').select('*').eq('id', agentTenantId).maybeSingle();
       if (a.data) setAgentInfo(a.data);
-      var d = await supabase.from('tenants').select('*').eq('parent_tenant_id', agentTenantId).eq('tenant_type', 'business').order('created_at', { ascending: false });
+      var d = await supabase.from('tenants').select('*').eq('parent_entity_id', agentTenantId).eq('tenant_type', 'business').order('created_at', { ascending: false });
       setDirectTenants(d.data || []);
-      var sa = await supabase.from('tenants').select('*').eq('parent_tenant_id', agentTenantId).eq('tenant_type', 'agent').order('created_at', { ascending: false });
+      var sa = await supabase.from('tenants').select('*').eq('parent_entity_id', agentTenantId).eq('tenant_type', 'agent').order('created_at', { ascending: false });
       var agents = sa.data || [];
       setSubAgents(agents);
       var tenantsMap = {};
       for (var i = 0; i < agents.length; i++) {
-        var st = await supabase.from('tenants').select('*').eq('parent_tenant_id', agents[i].id).order('created_at', { ascending: false });
+        var st = await supabase.from('tenants').select('*').eq('parent_entity_id', agents[i].id).order('created_at', { ascending: false });
         tenantsMap[agents[i].id] = st.data || [];
       }
       setSubAgentTenants(tenantsMap);
