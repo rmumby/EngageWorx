@@ -1,17 +1,16 @@
 -- 073: Redesign provision_tenant_and_bind — CONTRACT + AUTH ONLY (no channel/plan/pipeline seeding;
 -- that's the next step). Reviewable in isolation.
 --
--- ⚠️ NOT YET APPLIED TO PROD — two decisions gate apply (see PR/review notes):
---   (1) AUTH vs CALLER CONTEXT: all current callers (invite-tenant, stripe-webhook, provision-eval,
---       create-tenant) invoke via the SERVICE-ROLE key, so auth.uid() is NULL. As written (strict),
---       the caller-scope check RAISES for them — applying this breaks all provisioning until the
---       endpoints invoke with the user's JWT, OR we add a service-role/null-uid bypass (one line,
---       marked below). Pick one before apply.
---   (2) TIER-RANK vs EXISTING DATA: "strictly below" rejects csp-under-csp (Travel Roam → xMobility)
---       and master_agent-under-master_agent (Airespring MA → RKP Steering), which EXIST in prod and
---       were required to nest in the HierarchyView acceptance. Strict forbids provisioning new ones.
---       Confirm: grandfather existing + strict for new (as written), or allow equal-tier reseller
---       chains (change the >= comparison to >).
+-- ⚠️ NOT YET APPLIED TO PROD — ONE decision still gates apply:
+--   (1) AUTH vs CALLER CONTEXT [OPEN]: all current callers (invite-tenant, stripe-webhook,
+--       provision-eval, create-tenant) invoke via the SERVICE-ROLE key, so auth.uid() is NULL.
+--       As written (strict), the caller-scope check RAISES for them — applying breaks all
+--       provisioning until the endpoints invoke with the user's JWT, OR we add a service-role/
+--       null-uid bypass (one line, marked below). Pick one before apply.
+--   (2) TIER-RANK [RESOLVED]: rank super_admin=0..tenant=4; raise only when child would OUTRANK its
+--       parent (child_rank < parent_rank, e.g. CSP under tenant). Equal rank allowed (reseller/agent
+--       chains: csp-under-csp, master_agent-under-master_agent). Plus an absolute guard: never
+--       provision a super_admin (no second root), regardless of parent.
 --
 -- Changes: + p_parent_entity_id, + p_idempotency_key; keep p_parent_tenant_id (072 trigger mirrors);
 -- ignore p_entity_tier (072 trigger derives entity_tier from customer_type); generalized idempotency
@@ -64,7 +63,7 @@ DECLARE
   v_cur         uuid;
   v_authorized  boolean := false;
   v_depth       int := 0;
-  v_rank        jsonb := '{"super_admin":5,"master_agent":4,"agent":3,"csp":2,"tenant":1}'::jsonb;
+  v_rank        jsonb := '{"super_admin":0,"master_agent":1,"agent":2,"csp":3,"tenant":4}'::jsonb;
 BEGIN
   -- Derived child tier (same map as the 072 invariant trigger). p_entity_tier is ignored.
   v_child_tier := CASE p_customer_type
@@ -92,14 +91,21 @@ BEGIN
     END IF;
   END IF;
 
-  -- ── Tier-rank: derived child tier must rank strictly below the parent's tier ──
+  -- Absolute guard: never provision a second root, regardless of parent.
+  IF v_child_tier = 'super_admin' THEN
+    RAISE EXCEPTION 'provision_tenant_and_bind: cannot provision a super_admin tenant (no second root)'
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- ── Tier-rank (super_admin=0 .. tenant=4): raise only if the child would OUTRANK its parent ──
+  -- (child_rank < parent_rank, e.g. a CSP under a tenant). Equal rank is allowed (reseller/agent chains).
   IF v_parent IS NOT NULL THEN
     SELECT entity_tier INTO v_parent_tier FROM public.tenants WHERE id = v_parent;
     IF v_parent_tier IS NULL THEN
       RAISE EXCEPTION 'provision_tenant_and_bind: parent % not found', v_parent USING ERRCODE = '23503';
     END IF;
-    IF COALESCE((v_rank->>v_child_tier)::int, 0) >= COALESCE((v_rank->>v_parent_tier)::int, 99) THEN
-      RAISE EXCEPTION 'provision_tenant_and_bind: child tier % must rank strictly below parent tier %', v_child_tier, v_parent_tier
+    IF COALESCE((v_rank->>v_child_tier)::int, 99) < COALESCE((v_rank->>v_parent_tier)::int, 0) THEN
+      RAISE EXCEPTION 'provision_tenant_and_bind: child tier % would outrank parent tier %', v_child_tier, v_parent_tier
         USING ERRCODE = '23514';
     END IF;
   END IF;
