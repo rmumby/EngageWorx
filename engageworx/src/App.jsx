@@ -1177,12 +1177,7 @@ setDemoCreating(false);
                                     await supabase.from('poland_carrier_configs').insert({ tenant_id: c.id, phone_number: '', carrier_type: 'http_webhook', enabled: true });
                                   }
                                 } else {
-                                  var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', c.id).eq('channel', channelKey).maybeSingle();
-                                  if (existing.data && existing.data.id) {
-                                    await supabase.from('channel_configs').update({ enabled: enabled, status: enabled ? 'connected' : 'disconnected', updated_at: new Date().toISOString() }).eq('id', existing.data.id).eq('tenant_id', c.id);
-                                  } else {
-                                    await supabase.from('channel_configs').insert({ tenant_id: c.id, channel: channelKey, enabled: enabled, status: enabled ? 'connected' : 'disconnected', config_encrypted: {} });
-                                  }
+                                  await supabase.rpc('save_channel_config', { p_tenant_id: c.id, p_channel: channelKey, p_enabled: enabled, p_status: enabled ? 'connected' : 'disconnected' });
                                 }
                                 if (refreshLiveData) refreshLiveData();
                               } catch (err) { alert('Channel toggle failed: ' + err.message); }
