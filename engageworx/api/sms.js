@@ -457,6 +457,19 @@ module.exports = async function handler(req, res) {
             code: 'SMS_NOT_ENABLED',
           });
         }
+        // Defense in depth: gate on the live registration outcome, not sms_enabled alone — never send
+        // for a killed registration even if sms_enabled lagged (the post-approval-monitor window). Block
+        // when the tenant's MOST RECENT wizard session is rejected/suspended (latest, so a stale rejection
+        // before a newer approval doesn't over-block). SP/Conecta/Delamere have no such latest session.
+        var latestReg = await supabaseGate.from('tcr_wizard_sessions')
+          .select('status').eq('tenant_id', tenant_id)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        if (latestReg.data && ['rejected', 'suspended'].indexOf(latestReg.data.status) !== -1) {
+          return res.status(403).json({
+            error: 'SMS registration was rejected or suspended — re-register before sending.',
+            code: 'SMS_REGISTRATION_KILLED',
+          });
+        }
       } catch (gateErr) { console.log('[SMS Gate] Check failed, blocking:', gateErr.message); return res.status(403).json({ error: 'SMS gate check failed', code: 'SMS_GATE_ERROR' }); }
     }
 

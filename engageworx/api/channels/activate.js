@@ -75,8 +75,22 @@ async function runChannel(svc, tenantId, channel) {
       message: 'Add your sending domain and its DNS records to verify email; the channel stays pending until verified.',
     };
   }
-  // sms / whatsapp / voice / mms runners ship in later slice-2 steps. The channel is now 'pending' and
-  // cannot reach 'connected' until its runner + provider callback are wired.
+  if (channel === 'sms') {
+    // SMS external step = A2P 10DLC registration via the TCR wizard (/api/tcr-wizard) AND a number bound
+    // to a messaging service. The channel reaches 'connected' (and sms_enabled flips true — via the
+    // TCR-approved hook in tcr-wizard.js + the 081 number-ready trigger, both feeding the scoped
+    // recompute_sms_enabled) only when BOTH land. Number provisioning is out-of-band in v1 (Telnyx
+    // auto-purchase is its own build); the wizard drives registration.
+    return {
+      type: 'sms_registration',
+      endpoint: '/api/tcr-wizard',
+      action: 'start',
+      number_provisioning: 'out_of_band',
+      message: 'Complete A2P 10DLC registration in the TCR wizard. Number assignment is handled by your account team in v1. SMS sending unlocks when the campaign is approved and the number is bound.',
+    };
+  }
+  // whatsapp / voice / mms runners ship in later slice-2 steps. The channel is now 'pending' and cannot
+  // reach 'connected' until its runner + provider callback are wired.
   return {
     type: 'runner_pending',
     channel: channel,
