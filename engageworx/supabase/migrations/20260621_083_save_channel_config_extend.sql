@@ -25,6 +25,7 @@ CREATE OR REPLACE FUNCTION public.save_channel_config(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path TO 'public'
 AS $$
 DECLARE
   v_caller_id       uuid;
@@ -153,11 +154,17 @@ BEGIN
         ELSE config_encrypted
       END,
       enabled        = COALESCE(p_enabled, enabled),
-      status         = COALESCE(p_status, status),
       provider       = COALESCE(p_provider, provider),
       last_tested_at = COALESCE(p_last_tested_at, last_tested_at),
       updated_at     = now()
     WHERE id = v_existing_id;
+    -- Touch status (and thus the 081 number-ready trigger -> recompute_sms_enabled) only on a REAL
+    -- change. Config-only saves (AIChatbot AI-fields, Settings last_tested_at ping) pass p_status=NULL
+    -- and never target the status column, so they don't churn recompute.
+    IF p_status IS NOT NULL THEN
+      UPDATE channel_configs SET status = p_status
+       WHERE id = v_existing_id AND status IS DISTINCT FROM p_status;
+    END IF;
     v_result_id := v_existing_id;
   ELSE
     INSERT INTO channel_configs (tenant_id, channel, enabled, config_encrypted, status, provider, last_tested_at, updated_at)
@@ -178,5 +185,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.save_channel_config(uuid, text, boolean, jsonb, text, text, timestamptz, boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.save_channel_config(uuid, text, boolean, jsonb, text, text, timestamptz, boolean) TO authenticated;
+-- Supabase default privileges auto-grant EXECUTE to anon+authenticated+service_role on new public
+-- functions; REVOKE FROM PUBLIC does NOT remove anon's explicit grant, so revoke anon explicitly.
+REVOKE EXECUTE ON FUNCTION public.save_channel_config(uuid, text, boolean, jsonb, text, text, timestamptz, boolean) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION public.save_channel_config(uuid, text, boolean, jsonb, text, text, timestamptz, boolean) TO authenticated;

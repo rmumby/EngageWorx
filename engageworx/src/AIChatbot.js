@@ -240,13 +240,14 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
           ai_business_info: aiConfig.businessInfo,
           kb_sources: overrideKbSources || kbSources
         };
+        // p_status omitted (null): saving AI config is not a channel-connection event, so we never
+        // flip channel_configs.status here (which would churn the 081 sms recompute trigger).
         await supabase.rpc('save_channel_config', {
           p_tenant_id: currentTenantId,
           p_channel: ch,
           p_enabled: !!aiConfig.channels[ch],
           p_config_encrypted: aiFields,
-          p_provider: ch,
-          p_status: aiConfig.channels[ch] ? 'connected' : null
+          p_provider: ch
         });
       }
       // Sync to chatbot_configs so message handlers pick up business knowledge
