@@ -89,8 +89,25 @@ async function runChannel(svc, tenantId, channel) {
       message: 'Complete A2P 10DLC registration in the TCR wizard. Number assignment is handled by your account team in v1. SMS sending unlocks when the campaign is approved and the number is bound.',
     };
   }
-  // whatsapp / voice / mms runners ship in later slice-2 steps. The channel is now 'pending' and cannot
-  // reach 'connected' until its runner + provider callback are wired.
+  if (channel === 'whatsapp') {
+    // WhatsApp's external step is Meta's Embedded Signup, which MUST run client-side: the browser
+    // launches FB.login (whatsapp_business_management/_messaging/business_management scopes) to obtain
+    // an OAuth code, then POSTs { code, tenant_id } to /api/whatsapp-signup. That endpoint exchanges the
+    // code, discovers the WABA + phone number, subscribes the webhook, and writes channel_configs(whatsapp)
+    // straight to 'connected' synchronously — no out-of-band wait, no separate provider callback (unlike
+    // sms's number step). So the runner only hands back the directive to launch embedded signup; there's
+    // no server-side provider call to make here (same hand-off shape as email's create-domain). The row
+    // activate_channel just set to 'pending' is updated to 'connected' by whatsapp-signup.js when Meta returns.
+    return {
+      type: 'whatsapp_embedded_signup',
+      endpoint: '/api/whatsapp-signup',
+      action: 'embedded_signup',
+      client_driven: true,
+      message: 'Launch WhatsApp Business embedded signup to connect your WhatsApp Business Account. The channel activates as soon as your account and number come back from the provider.',
+    };
+  }
+  // voice / mms runners ship in later slice-2 steps. The channel is now 'pending' and cannot reach
+  // 'connected' until its runner + provider callback are wired.
   return {
     type: 'runner_pending',
     channel: channel,
