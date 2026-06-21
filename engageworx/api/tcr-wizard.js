@@ -821,6 +821,14 @@ module.exports = async function handler(req, res) {
 
           var { error: statusSaveErr } = await supabase.from('tcr_wizard_sessions').update(statusUpdate).eq('id', sessionId);
           if (statusSaveErr) console.warn('[status] Failed to persist status update:', statusSaveErr.message);
+          // sms_enabled guard — TCR-approved event: re-evaluate the last-of-two enable condition
+          // (approved AND sms channel connected). Scoped to wizard tenants (helper no-ops otherwise);
+          // the number-ready event calls the same helper from the SMS activation runner. Disable on
+          // rejected/suspended is handled by the trg_tcr_wizard_sms_disable trigger.
+          if (statusUpdate.status) {
+            try { await supabase.rpc('recompute_sms_enabled', { p_tenant_id: session.tenant_id }); }
+            catch (e) { console.warn('[status] recompute_sms_enabled failed:', e.message); }
+          }
           session.campaign_status = statusUpdate.campaign_status;
           session.mno_status = statusUpdate.mno_status;
           session._supplier_status = { brand: brandStatus, campaign: campaignStatus };
