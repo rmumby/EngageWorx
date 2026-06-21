@@ -1433,7 +1433,7 @@ return (<div>
                               setWaVerifying(false);
                             }} style={{ ...btnSec, padding: "8px 14px", fontSize: 11, opacity: waVerifying ? 0.6 : 1 }}>{waVerifying ? 'Verifying...' : '🔍 Verify Credentials'}</button>
                           ) : (
-                            <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.from("channel_configs").update({ last_tested_at: new Date().toISOString() }).eq("channel", ch.id).eq("tenant_id", _tid).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
+                            <button style={{ ...btnSec, padding: "8px 14px", fontSize: 11 }} onClick={() => { const _tid = resolvedTenantId || currentTenantId; saveChannelConfig(ch.id, configData, isEnabled).then(() => { if (!_tid) return; supabase.rpc('save_channel_config', { p_tenant_id: _tid, p_channel: ch.id, p_last_tested_at: new Date().toISOString() }).then(() => loadChannelConfigs()); }); }}>Test Connection</button>
                           )}
                           {channelSavedId === ch.id && <span style={{ color: "#00E676", fontSize: 12, fontWeight: 700 }}>✓ Saved</span>}
                           {channelSavedId === ch.id && channelSavedConfig && (

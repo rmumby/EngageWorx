@@ -124,29 +124,19 @@ export default function OnboardingWizard({ tenantId, onComplete }) {
         });
         if (brandRpc.error) throw brandRpc.error;
       } else if (step === 3 && !skipEmail) {
-        var existing = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'email').maybeSingle();
-        var emailCfg = Object.assign({}, (existing.data && existing.data.config_encrypted) || {}, {
-          from_email: fromEmail.trim() || null,
-          from_name: fromName.trim() || null,
-        });
+        // channel_configs is SELECT-only for clients (RLS) — write via the cascade-checked definer RPC,
+        // which merges config_encrypted server-side (so we pass only the fields being set).
+        var emailCfg = { from_email: fromEmail.trim() || null, from_name: fromName.trim() || null };
         if (emailApiKey.trim()) emailCfg.api_key = emailApiKey.trim();
-        var emailPayload = { tenant_id: tenantId, channel: 'email', enabled: true, status: 'connected', config_encrypted: emailCfg, updated_at: new Date().toISOString() };
-        if (existing.data && existing.data.id) await supabase.from('channel_configs').update(emailPayload).eq('id', existing.data.id).eq('tenant_id', tenantId);
-        else await supabase.from('channel_configs').insert(emailPayload);
+        await supabase.rpc('save_channel_config', { p_tenant_id: tenantId, p_channel: 'email', p_enabled: true, p_status: 'connected', p_config_encrypted: emailCfg });
       } else if (step === 4 && !skipAI) {
         var faqText = faqs.filter(function(f) { return f.q.trim() && f.a.trim(); }).map(function(f) { return 'Q: ' + f.q.trim() + '\nA: ' + f.a.trim(); }).join('\n\n');
         var kb = (businessDescription.trim() ? businessDescription.trim() + '\n\n' : '') + (faqText ? '=== FAQs ===\n' + faqText : '');
         await supabase.from('chatbot_configs').upsert({ tenant_id: tenantId, bot_name: agentName.trim() || null, knowledge_base: kb || null }, { onConflict: 'tenant_id' });
       } else if (step === 5 && !skipWa) {
-        var existingWa = await supabase.from('channel_configs').select('id, config_encrypted').eq('tenant_id', tenantId).eq('channel', 'whatsapp').maybeSingle();
-        var waCfg = Object.assign({}, (existingWa.data && existingWa.data.config_encrypted) || {}, {
-          phone_number_id: waPhoneId.trim() || null,
-          business_account_id: waAccountId.trim() || null,
-          access_token: waToken.trim() || null,
-        });
-        var waPayload = { tenant_id: tenantId, channel: 'whatsapp', enabled: !!(waPhoneId.trim() && waToken.trim()), status: (waPhoneId.trim() && waToken.trim()) ? 'connected' : 'pending', config_encrypted: waCfg, updated_at: new Date().toISOString() };
-        if (existingWa.data && existingWa.data.id) await supabase.from('channel_configs').update(waPayload).eq('id', existingWa.data.id).eq('tenant_id', tenantId);
-        else await supabase.from('channel_configs').insert(waPayload);
+        var waConnected = !!(waPhoneId.trim() && waToken.trim());
+        var waCfg = { phone_number_id: waPhoneId.trim() || null, business_account_id: waAccountId.trim() || null, access_token: waToken.trim() || null };
+        await supabase.rpc('save_channel_config', { p_tenant_id: tenantId, p_channel: 'whatsapp', p_enabled: waConnected, p_status: waConnected ? 'connected' : 'pending', p_config_encrypted: waCfg });
       }
 
       var stepPatch = { onboarding_step: nextStep };

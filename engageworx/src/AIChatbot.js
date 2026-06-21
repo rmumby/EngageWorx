@@ -232,22 +232,23 @@ export default function AIChatbot({ C, tenants, viewLevel = "tenant", currentTen
       var channelList = ['sms', 'email', 'voice'];
       for (var i = 0; i < channelList.length; i++) {
         var ch = channelList[i];
-        // Read existing config first — never overwrite credentials
-const existingRow = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
-const existingEncrypted = existingRow.data?.config_encrypted || {};
-const configData = { 
-  ...existingEncrypted,
-  ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch], 
-  ai_agent_name: aiConfig.agentName, 
-  ai_business_info: aiConfig.businessInfo, 
-  kb_sources: overrideKbSources || kbSources 
-};
-var existing = await supabase.from('channel_configs').select('id').eq('tenant_id', currentTenantId).eq('channel', ch).maybeSingle();
-if (existing.data) {
-  await supabase.from('channel_configs').update({ config_encrypted: configData, enabled: aiConfig.channels[ch] }).eq('id', existing.data.id);
-} else if (aiConfig.channels[ch]) {
-  await supabase.from('channel_configs').insert({ tenant_id: currentTenantId, channel: ch, config_encrypted: configData, enabled: true, provider: ch, status: 'connected' });
-}
+        // channel_configs is SELECT-only for clients — write via the definer RPC, which merges
+        // config_encrypted server-side, so we pass only the AI fields (existing credentials preserved).
+        var aiFields = {
+          ai_enabled: aiConfig.aiEnabled && aiConfig.channels[ch],
+          ai_agent_name: aiConfig.agentName,
+          ai_business_info: aiConfig.businessInfo,
+          kb_sources: overrideKbSources || kbSources
+        };
+        // p_status omitted (null): saving AI config is not a channel-connection event, so we never
+        // flip channel_configs.status here (which would churn the 081 sms recompute trigger).
+        await supabase.rpc('save_channel_config', {
+          p_tenant_id: currentTenantId,
+          p_channel: ch,
+          p_enabled: !!aiConfig.channels[ch],
+          p_config_encrypted: aiFields,
+          p_provider: ch
+        });
       }
       // Sync to chatbot_configs so message handlers pick up business knowledge
       var presetObj = PERSONALITIES.find(function(p) { return p.id === selectedPersonality; });

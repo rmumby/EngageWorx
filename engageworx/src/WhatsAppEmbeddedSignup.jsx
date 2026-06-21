@@ -87,7 +87,7 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
   async function disconnect() {
     if (!window.confirm('Disconnect WhatsApp? Your number stays on Meta — this just removes it from the portal.')) return;
     try {
-      await supabase.from('channel_configs').update({ enabled: false, status: 'disconnected', config_encrypted: {} }).eq('tenant_id', tenantId).eq('channel', 'whatsapp');
+      await supabase.rpc('save_channel_config', { p_tenant_id: tenantId, p_channel: 'whatsapp', p_enabled: false, p_status: 'disconnected', p_config_encrypted: {}, p_clear_config: true });
       setStatus({ state: 'idle' });
       setCfg(null);
     } catch (e) { alert('Error: ' + e.message); }
