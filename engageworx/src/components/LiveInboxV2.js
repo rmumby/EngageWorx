@@ -576,7 +576,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // replying into a tenant thread, whose profile isn't a member of that tenant). Merges into
   // agentNamesRef (full_name -> email-local-part -> 'Agent' fallback for genuinely missing names).
   async function ensureAgentNames(msgs) {
-    console.log('[agent-names] enter', { count: msgs && msgs.length });
     if (!supabase || !msgs || !msgs.length) return;
     var seen = {}, ids = [];
     msgs.forEach(function(m) {
@@ -584,16 +583,12 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       // can never get stuck (the RPC is cheap and authoritative).
       if (m && m.sender_id && !seen[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
     });
-    console.log('[agent-names] ids', ids, '| agent-msg sender_ids:',
-      (msgs || []).filter(function(m){ return m.sender_type === 'agent'; })
-        .map(function(m){ return { sid: m.sender_id, inRef: agentNamesRef.current[m.sender_id] }; }));
     if (!ids.length) return;
     try {
       // Resolve via SECURITY DEFINER RPC: user_profiles SELECT RLS is own-row-only, so a direct client
       // select silently returns just the viewer's row (can't read other agents'). The RPC returns name
       // only. ids the RPC doesn't return stay unresolved -> the mapping's 'Agent' fallback applies.
       var r = await supabase.rpc('get_agent_display_names', { p_ids: ids });
-      console.log('[agent-names] rpc', { ids: ids, data: r.data, error: r.error });
       (r.data || []).forEach(function(p) {
         agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim() : 'Agent';
       });
@@ -697,7 +692,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           }
           await ensureAgentNames(data);
           var mapped = data.map(function(m) {
-            if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(single)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
             var resolvedMedia = null;
             if (m.media_urls && m.media_urls.length > 0) {
               resolvedMedia = m.media_urls.map(function(p) {
@@ -749,7 +743,6 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
             await ensureAgentNames(mResult.data);
             if (mResult.data) mResult.data.forEach(function(m) {
-              if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(poll)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
                 id: m.id,
@@ -910,7 +903,6 @@ useEffect(function() {
           const { data: mData } = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
           await ensureAgentNames(mData);
           if (mData) mData.forEach(function(m) {
-            if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(init)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
               id: m.id,
@@ -1186,7 +1178,6 @@ useEffect(function() {
       const messageBody = composeText.trim();
       setComposeText("");
       var agentId = await resolveAgentId();
-      console.log('[manual-send] resolved sender_id (agent):', agentId, '| channel:', selectedConv.channel);
 
       // ── WhatsApp: server-canonical path (no client-side pre-insert) ──
       if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
