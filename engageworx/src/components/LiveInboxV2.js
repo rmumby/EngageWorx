@@ -550,30 +550,74 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // Keep a ref of teamMembers so the poll interval (a stale closure) can re-enrich
   // assignedTo with real agent names — otherwise reassignments visually revert on poll.
   const teamMembersRef = useRef([]);
+  const agentNamesRef = useRef({}); // sender_id -> display name, for attributing outbound agent messages
+  const agentIdRef = useRef(null);  // resolved auth user id of the logged-in agent (for sender_id)
   useEffect(function() { teamMembersRef.current = teamMembers; }, [teamMembers]);
 
   // Load sender email options — admin sees all, reps see only their own
   var currentUserId = userProfile && userProfile.id;
   var currentUserRole = userProfile && userProfile.role;
+  // Resolve the logged-in agent's auth user id for outbound attribution (sender_id). The userProfile
+  // prop is NOT threaded into every render site (SP-console + CSP portal omit it), so never depend on
+  // it alone — fall back to the live auth session so sender_id can never be null when a user is signed in.
+  async function resolveAgentId() {
+    if (agentIdRef.current) return agentIdRef.current;
+    if (currentUserId) { agentIdRef.current = currentUserId; return currentUserId; }
+    if (!supabase) return null;
+    try {
+      var r = await supabase.auth.getUser();
+      var uid = (r && r.data && r.data.user && r.data.user.id) || null;
+      if (uid) agentIdRef.current = uid;
+      return uid;
+    } catch (_) { return null; }
+  }
+  // Batch-resolve display names for the agent sender_ids ACTUALLY PRESENT on loaded messages, straight
+  // from the message rows — the tenant-member loader misses cross-tenant senders (e.g. an SP superadmin
+  // replying into a tenant thread, whose profile isn't a member of that tenant). Merges into
+  // agentNamesRef (full_name -> email-local-part -> 'Agent' fallback for genuinely missing names).
+  async function ensureAgentNames(msgs) {
+    if (!supabase || !msgs || !msgs.length) return;
+    var seen = {}, ids = [];
+    msgs.forEach(function(m) {
+      // distinct non-null sender_ids. No agentNamesRef skip — re-resolve via RPC each load so a value
+      // can never get stuck (the RPC is cheap and authoritative).
+      if (m && m.sender_id && !seen[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
+    });
+    if (!ids.length) return;
+    try {
+      // Resolve via SECURITY DEFINER RPC: user_profiles SELECT RLS is own-row-only, so a direct client
+      // select silently returns just the viewer's row (can't read other agents'). The RPC returns name
+      // only. ids the RPC doesn't return stay unresolved -> the mapping's 'Agent' fallback applies.
+      var r = await supabase.rpc('get_agent_display_names', { p_ids: ids });
+      (r.data || []).forEach(function(p) {
+        agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim() : 'Agent';
+      });
+    } catch (_) {}
+  }
   var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
     if (demoMode === true || !supabase) return;
     (async function() {
       try {
-        var emails = [
-          { email: 'hello@engwx.com', label: 'Hello', type: 'default' },
-        ];
-        // Tenant's default_sender_email (preferred) or channel_configs from_email
+        // From-address options mirror the AI-draft / send-digest-reply resolver — TENANT IDENTITY ONLY:
+        // default_sender_email -> channel_configs from_email/inbound_email -> derived from resend_domain.
+        // NEVER seed the SP platform address (hello@engwx.com) — that was the white-label leak (it was
+        // offered as a sender option to every tenant + was the default for tenants without a config).
+        var emails = [];
+        var tenantFallback = null;
         try {
-          var tenantR = await supabase.from('tenants').select('default_sender_email, brand_name, name').eq('id', resolvedTenantId).maybeSingle();
-          if (tenantR.data && tenantR.data.default_sender_email) {
-            emails.unshift({ email: tenantR.data.default_sender_email, label: (tenantR.data.brand_name || tenantR.data.name || 'Tenant') + ' default', type: 'tenant' });
+          var tenantR = await supabase.from('tenants').select('default_sender_email, resend_domain, brand_name, name').eq('id', resolvedTenantId).maybeSingle();
+          if (tenantR.data) {
+            if (tenantR.data.default_sender_email) {
+              emails.push({ email: tenantR.data.default_sender_email, label: (tenantR.data.brand_name || tenantR.data.name || 'Tenant') + ' default', type: 'tenant' });
+            }
+            if (tenantR.data.resend_domain) tenantFallback = 'noreply@' + tenantR.data.resend_domain;
           }
         } catch (e) {}
         try {
           var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
-          if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
-            var tenantEmail = chR.data.config_encrypted.from_email;
+          if (chR.data && chR.data.config_encrypted && (chR.data.config_encrypted.from_email || chR.data.config_encrypted.inbound_email)) {
+            var tenantEmail = chR.data.config_encrypted.from_email || chR.data.config_encrypted.inbound_email;
             if (!emails.find(function(e) { return e.email === tenantEmail; })) {
               emails.push({ email: tenantEmail, label: 'Channel config', type: 'tenant' });
             }
@@ -593,9 +637,14 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               emails.push({ email: senderAddr, label: p.full_name || senderAddr.split('@')[0], type: 'team', profileId: p.id, role: p.role });
             }
           });
+          // NOTE: agentNamesRef is populated ONLY by ensureAgentNames (via the get_agent_display_names
+          // RPC). Do NOT seed it from this direct user_profiles select — it's RLS-filtered to the viewer's
+          // own row (own-row SELECT policy) and was pre-seeding ids so ensureAgentNames skipped them.
         } catch (e) {}
         setSenderEmails(emails);
-        if (!fromEmail) setFromEmail(emails[0] ? emails[0].email : 'hello@engwx.com');
+        // Default = tenant identity (emails[0]); never the SP platform default. Fall back to the
+        // tenant's own resend_domain address, or empty (prompts sender config) — never hello@engwx.com.
+        if (!fromEmail) setFromEmail(emails[0] ? emails[0].email : (tenantFallback || ''));
       } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
     })();
   }, [resolvedTenantId, demoMode, supabase]);
@@ -641,6 +690,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               }
             } catch (sessErr) { console.warn('[LiveInbox] Session error for signed URLs:', sessErr.message); }
           }
+          await ensureAgentNames(data);
           var mapped = data.map(function(m) {
             var resolvedMedia = null;
             if (m.media_urls && m.media_urls.length > 0) {
@@ -657,7 +707,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               subject: m.subject || '',
               mediaUrls: resolvedMedia,
               time: m.created_at ? new Date(m.created_at) : new Date(),
-              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
               read: true,
               delivered: true,
             };
@@ -691,6 +741,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var mMap = {};
           if (convos.length > 0) {
             var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+            await ensureAgentNames(mResult.data);
             if (mResult.data) mResult.data.forEach(function(m) {
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
@@ -700,7 +751,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
                 text: m.body || '',
                 mediaUrls: m.media_urls || null,
                 time: m.created_at ? new Date(m.created_at) : new Date(),
-                agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+                agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
                 read: true, delivered: true,
               });
             });
@@ -850,6 +901,7 @@ useEffect(function() {
         var msgMap = {};
         if (convos.length > 0) {
           const { data: mData } = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+          await ensureAgentNames(mData);
           if (mData) mData.forEach(function(m) {
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
@@ -858,7 +910,7 @@ useEffect(function() {
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
               text: m.body || '',
               time: m.created_at ? new Date(m.created_at) : new Date(),
-              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : null,
+              agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
               read: true,
               delivered: true,
             });
@@ -1067,7 +1119,7 @@ useEffect(function() {
       await supabase.from('messages').insert({
         tenant_id: resolvedTenantId, conversation_id: convId,
         contact_id: contactId, channel: newConvChannel,
-        direction: 'outbound', sender_type: 'agent',
+        direction: 'outbound', sender_type: 'agent', sender_id: await resolveAgentId(),
         body: newConvBody.trim(), status: 'delivered',
         metadata: fromEmail ? { from_email: fromEmail } : null,
         sent_at: new Date().toISOString(),
@@ -1125,6 +1177,7 @@ useEffect(function() {
     try {
       const messageBody = composeText.trim();
       setComposeText("");
+      var agentId = await resolveAgentId();
 
       // ── WhatsApp: server-canonical path (no client-side pre-insert) ──
       if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
@@ -1137,6 +1190,7 @@ useEffect(function() {
             tenant_id: selectedConv.tenant_id || currentTenantId,
             conversation_id: selectedConv.id,
             contact_id: selectedConv.contact_id || null,
+            sender_id: agentId,
           }),
         });
         var waData;
@@ -1179,6 +1233,7 @@ useEffect(function() {
         body: messageBody,
         status: 'delivered',
         sender_type: 'agent',
+        sender_id: agentId,
         metadata: (selectedConv.channel === 'email' && fromEmail) ? { from_email: fromEmail } : null,
         sent_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
@@ -1684,6 +1739,10 @@ useEffect(function() {
                 timestamp: msg.time,
                 metadata: {
                   avatar: isContact ? selectedConv.contact.avatar : (msg.agent ? msg.agent.avatar : null),
+                  // MessageBubble renders `authorName || role` in the header — set authorName to the resolved
+                  // agent name so a human send shows "Rob", not the literal role "agent". Bots keep their
+                  // in-bubble botName label (authorName left null so the header isn't doubled up).
+                  authorName: (msg.agent && !msg.isBot) ? msg.agent.name : null,
                   agentName: msg.agent ? msg.agent.name : null,
                   botName: msg.isBot ? "AI Assistant" : null,
                   delivered: msg.delivered,
@@ -2061,9 +2120,10 @@ useEffect(function() {
                     setKbToast('Blocked ' + blockEntry + '. Future mail is rejected before reaching your inbox.');
                     setTimeout(function() { setKbToast(null); }, 4000);
                   }},
-                  { label: "Add Note", icon: "📝", action: function() {
+                  { label: "Add Note", icon: "📝", action: async function() {
                     var note = window.prompt('Add a note to this conversation:');
                     if (note && supabase) {
+                      var noteAgentId = await resolveAgentId();
                       supabase.from('messages').insert({
                         tenant_id: selectedConv.tenant_id || currentTenantId,
                         conversation_id: selectedConv.id,
@@ -2073,6 +2133,7 @@ useEffect(function() {
                         body: '📝 Note: ' + note,
                         status: 'delivered',
                         sender_type: 'agent',
+                        sender_id: noteAgentId,
                         created_at: new Date().toISOString(),
                       }).then(function() {
                         var noteMsg = { id: 'note_' + Date.now(), from: 'agent', text: '📝 Note: ' + note, time: new Date(), agent: null, read: true, delivered: true };
@@ -2100,7 +2161,7 @@ useEffect(function() {
                 return (
                   <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.from === 'bot' ? '🤖 AI Reply' : '👤 Agent'}</span>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.isBot ? '🤖 AI Reply' : ('👤 ' + (m.agent && m.agent.name ? m.agent.name : 'Agent'))}</span>
                       <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>

@@ -190,6 +190,7 @@ module.exports = async function handler(req, res) {
     var tenantId = req.body.tenant_id;
     var inConversationId = req.body.conversation_id || null;
     var inContactId = req.body.contact_id || null;
+    var inSenderId = req.body.sender_id || null; // logged-in agent, for manual-send attribution
 
     if (!to || !body) return res.status(400).json({ error: 'Missing required fields: to, body' });
 
@@ -375,6 +376,7 @@ module.exports = async function handler(req, res) {
               channel: 'whatsapp',
               direction: 'outbound',
               sender_type: 'agent',
+              sender_id: inSenderId,
               body: body,
               status: dispatchResult.response_status,
               provider: dispatchResult.provider,
