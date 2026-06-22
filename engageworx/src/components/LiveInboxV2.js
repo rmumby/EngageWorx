@@ -594,7 +594,10 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var nameMap = {};
           (upR.data || []).forEach(function(p) {
             // Sender-name map (UNGATED — everyone may see who sent an agent message): sender_id -> display name.
-            nameMap[p.id] = p.full_name || (p.email ? p.email.split('@')[0] : 'Agent');
+            // Graceful fallback so an agent message never renders nameless: full_name (trimmed, handles
+            // null/empty/whitespace) -> email local-part -> generic 'Agent'.
+            nameMap[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim()
+              : (p.email ? p.email.split('@')[0] : 'Agent');
             var senderAddr = tmMap[p.id] || p.sender_email || p.email;
             if (!senderAddr) return;
             if (emails.find(function(e) { return e.email === senderAddr; })) return;
