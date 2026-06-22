@@ -1152,6 +1152,7 @@ useEffect(function() {
             tenant_id: selectedConv.tenant_id || currentTenantId,
             conversation_id: selectedConv.id,
             contact_id: selectedConv.contact_id || null,
+            sender_id: currentUserId || null,
           }),
         });
         var waData;
