@@ -576,11 +576,15 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // replying into a tenant thread, whose profile isn't a member of that tenant). Merges into
   // agentNamesRef (full_name -> email-local-part -> 'Agent' fallback for genuinely missing names).
   async function ensureAgentNames(msgs) {
+    console.log('[agent-names] enter', { count: msgs && msgs.length });
     if (!supabase || !msgs || !msgs.length) return;
     var seen = {}, ids = [];
     msgs.forEach(function(m) {
       if (m && m.sender_id && !seen[m.sender_id] && !agentNamesRef.current[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
     });
+    console.log('[agent-names] ids', ids, '| agent-msg sender_ids:',
+      (msgs || []).filter(function(m){ return m.sender_type === 'agent'; })
+        .map(function(m){ return { sid: m.sender_id, inRef: agentNamesRef.current[m.sender_id] }; }));
     if (!ids.length) return;
     try {
       // Resolve via SECURITY DEFINER RPC: user_profiles SELECT RLS is own-row-only, so a direct client
