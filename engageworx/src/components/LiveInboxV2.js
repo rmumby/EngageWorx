@@ -580,7 +580,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (!supabase || !msgs || !msgs.length) return;
     var seen = {}, ids = [];
     msgs.forEach(function(m) {
-      if (m && m.sender_id && !seen[m.sender_id] && !agentNamesRef.current[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
+      // distinct non-null sender_ids. No agentNamesRef skip — re-resolve via RPC each load so a value
+      // can never get stuck (the RPC is cheap and authoritative).
+      if (m && m.sender_id && !seen[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
     });
     console.log('[agent-names] ids', ids, '| agent-msg sender_ids:',
       (msgs || []).filter(function(m){ return m.sender_type === 'agent'; })
@@ -632,13 +634,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var tmMap = {};
           (tmR.data || []).forEach(function(tm) { tmMap[tm.user_id] = tm.sender_email_override; });
           var upR = await supabase.from('user_profiles').select('id, email, full_name, role, sender_email').in('id', Object.keys(tmMap).length > 0 ? Object.keys(tmMap) : ['_none_']);
-          var nameMap = {};
           (upR.data || []).forEach(function(p) {
-            // Sender-name map (UNGATED — everyone may see who sent an agent message): sender_id -> display name.
-            // Graceful fallback so an agent message never renders nameless: full_name (trimmed, handles
-            // null/empty/whitespace) -> email local-part -> generic 'Agent'.
-            nameMap[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim()
-              : (p.email ? p.email.split('@')[0] : 'Agent');
             var senderAddr = tmMap[p.id] || p.sender_email || p.email;
             if (!senderAddr) return;
             if (emails.find(function(e) { return e.email === senderAddr; })) return;
@@ -646,7 +642,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               emails.push({ email: senderAddr, label: p.full_name || senderAddr.split('@')[0], type: 'team', profileId: p.id, role: p.role });
             }
           });
-          agentNamesRef.current = nameMap;
+          // NOTE: agentNamesRef is populated ONLY by ensureAgentNames (via the get_agent_display_names
+          // RPC). Do NOT seed it from this direct user_profiles select — it's RLS-filtered to the viewer's
+          // own row (own-row SELECT policy) and was pre-seeding ids so ensureAgentNames skipped them.
         } catch (e) {}
         setSenderEmails(emails);
         // Default = tenant identity (emails[0]); never the SP platform default. Fall back to the
