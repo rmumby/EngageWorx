@@ -1748,6 +1748,10 @@ useEffect(function() {
                 timestamp: msg.time,
                 metadata: {
                   avatar: isContact ? selectedConv.contact.avatar : (msg.agent ? msg.agent.avatar : null),
+                  // MessageBubble renders `authorName || role` in the header — set authorName to the resolved
+                  // agent name so a human send shows "Rob", not the literal role "agent". Bots keep their
+                  // in-bubble botName label (authorName left null so the header isn't doubled up).
+                  authorName: (msg.agent && !msg.isBot) ? msg.agent.name : null,
                   agentName: msg.agent ? msg.agent.name : null,
                   botName: msg.isBot ? "AI Assistant" : null,
                   delivered: msg.delivered,
