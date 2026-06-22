@@ -560,20 +560,25 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     if (demoMode === true || !supabase) return;
     (async function() {
       try {
-        var emails = [
-          { email: 'hello@engwx.com', label: 'Hello', type: 'default' },
-        ];
-        // Tenant's default_sender_email (preferred) or channel_configs from_email
+        // From-address options mirror the AI-draft / send-digest-reply resolver — TENANT IDENTITY ONLY:
+        // default_sender_email -> channel_configs from_email/inbound_email -> derived from resend_domain.
+        // NEVER seed the SP platform address (hello@engwx.com) — that was the white-label leak (it was
+        // offered as a sender option to every tenant + was the default for tenants without a config).
+        var emails = [];
+        var tenantFallback = null;
         try {
-          var tenantR = await supabase.from('tenants').select('default_sender_email, brand_name, name').eq('id', resolvedTenantId).maybeSingle();
-          if (tenantR.data && tenantR.data.default_sender_email) {
-            emails.unshift({ email: tenantR.data.default_sender_email, label: (tenantR.data.brand_name || tenantR.data.name || 'Tenant') + ' default', type: 'tenant' });
+          var tenantR = await supabase.from('tenants').select('default_sender_email, resend_domain, brand_name, name').eq('id', resolvedTenantId).maybeSingle();
+          if (tenantR.data) {
+            if (tenantR.data.default_sender_email) {
+              emails.push({ email: tenantR.data.default_sender_email, label: (tenantR.data.brand_name || tenantR.data.name || 'Tenant') + ' default', type: 'tenant' });
+            }
+            if (tenantR.data.resend_domain) tenantFallback = 'noreply@' + tenantR.data.resend_domain;
           }
         } catch (e) {}
         try {
           var chR = await supabase.from('channel_configs').select('config_encrypted').eq('tenant_id', resolvedTenantId).eq('channel', 'email').maybeSingle();
-          if (chR.data && chR.data.config_encrypted && chR.data.config_encrypted.from_email) {
-            var tenantEmail = chR.data.config_encrypted.from_email;
+          if (chR.data && chR.data.config_encrypted && (chR.data.config_encrypted.from_email || chR.data.config_encrypted.inbound_email)) {
+            var tenantEmail = chR.data.config_encrypted.from_email || chR.data.config_encrypted.inbound_email;
             if (!emails.find(function(e) { return e.email === tenantEmail; })) {
               emails.push({ email: tenantEmail, label: 'Channel config', type: 'tenant' });
             }
@@ -595,7 +600,9 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           });
         } catch (e) {}
         setSenderEmails(emails);
-        if (!fromEmail) setFromEmail(emails[0] ? emails[0].email : 'hello@engwx.com');
+        // Default = tenant identity (emails[0]); never the SP platform default. Fall back to the
+        // tenant's own resend_domain address, or empty (prompts sender config) — never hello@engwx.com.
+        if (!fromEmail) setFromEmail(emails[0] ? emails[0].email : (tenantFallback || ''));
       } catch (e) { console.warn('[Inbox] sender emails load error:', e.message); }
     })();
   }, [resolvedTenantId, demoMode, supabase]);
