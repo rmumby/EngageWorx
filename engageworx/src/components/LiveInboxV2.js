@@ -551,11 +551,26 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   // assignedTo with real agent names — otherwise reassignments visually revert on poll.
   const teamMembersRef = useRef([]);
   const agentNamesRef = useRef({}); // sender_id -> display name, for attributing outbound agent messages
+  const agentIdRef = useRef(null);  // resolved auth user id of the logged-in agent (for sender_id)
   useEffect(function() { teamMembersRef.current = teamMembers; }, [teamMembers]);
 
   // Load sender email options — admin sees all, reps see only their own
   var currentUserId = userProfile && userProfile.id;
   var currentUserRole = userProfile && userProfile.role;
+  // Resolve the logged-in agent's auth user id for outbound attribution (sender_id). The userProfile
+  // prop is NOT threaded into every render site (SP-console + CSP portal omit it), so never depend on
+  // it alone — fall back to the live auth session so sender_id can never be null when a user is signed in.
+  async function resolveAgentId() {
+    if (agentIdRef.current) return agentIdRef.current;
+    if (currentUserId) { agentIdRef.current = currentUserId; return currentUserId; }
+    if (!supabase) return null;
+    try {
+      var r = await supabase.auth.getUser();
+      var uid = (r && r.data && r.data.user && r.data.user.id) || null;
+      if (uid) agentIdRef.current = uid;
+      return uid;
+    } catch (_) { return null; }
+  }
   var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
     if (demoMode === true || !supabase) return;
@@ -1082,7 +1097,7 @@ useEffect(function() {
       await supabase.from('messages').insert({
         tenant_id: resolvedTenantId, conversation_id: convId,
         contact_id: contactId, channel: newConvChannel,
-        direction: 'outbound', sender_type: 'agent', sender_id: currentUserId || null,
+        direction: 'outbound', sender_type: 'agent', sender_id: await resolveAgentId(),
         body: newConvBody.trim(), status: 'delivered',
         metadata: fromEmail ? { from_email: fromEmail } : null,
         sent_at: new Date().toISOString(),
@@ -1140,6 +1155,8 @@ useEffect(function() {
     try {
       const messageBody = composeText.trim();
       setComposeText("");
+      var agentId = await resolveAgentId();
+      console.log('[manual-send] resolved sender_id (agent):', agentId, '| channel:', selectedConv.channel);
 
       // ── WhatsApp: server-canonical path (no client-side pre-insert) ──
       if (selectedConv.channel === 'whatsapp' && (selectedConv.contact?.whatsapp_number || selectedConv.contact?.mobile_phone || selectedConv.contact?.phone)) {
@@ -1152,7 +1169,7 @@ useEffect(function() {
             tenant_id: selectedConv.tenant_id || currentTenantId,
             conversation_id: selectedConv.id,
             contact_id: selectedConv.contact_id || null,
-            sender_id: currentUserId || null,
+            sender_id: agentId,
           }),
         });
         var waData;
@@ -1195,7 +1212,7 @@ useEffect(function() {
         body: messageBody,
         status: 'delivered',
         sender_type: 'agent',
-        sender_id: currentUserId || null,
+        sender_id: agentId,
         metadata: (selectedConv.channel === 'email' && fromEmail) ? { from_email: fromEmail } : null,
         sent_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
@@ -2078,9 +2095,10 @@ useEffect(function() {
                     setKbToast('Blocked ' + blockEntry + '. Future mail is rejected before reaching your inbox.');
                     setTimeout(function() { setKbToast(null); }, 4000);
                   }},
-                  { label: "Add Note", icon: "📝", action: function() {
+                  { label: "Add Note", icon: "📝", action: async function() {
                     var note = window.prompt('Add a note to this conversation:');
                     if (note && supabase) {
+                      var noteAgentId = await resolveAgentId();
                       supabase.from('messages').insert({
                         tenant_id: selectedConv.tenant_id || currentTenantId,
                         conversation_id: selectedConv.id,
@@ -2090,7 +2108,7 @@ useEffect(function() {
                         body: '📝 Note: ' + note,
                         status: 'delivered',
                         sender_type: 'agent',
-                        sender_id: currentUserId || null,
+                        sender_id: noteAgentId,
                         created_at: new Date().toISOString(),
                       }).then(function() {
                         var noteMsg = { id: 'note_' + Date.now(), from: 'agent', text: '📝 Note: ' + note, time: new Date(), agent: null, read: true, delivered: true };
