@@ -42,8 +42,9 @@ module.exports = async function handler(req, res) {
         continue;
       }
       var body = await r.json();
-      // Telnyx v2 wraps in { data: {...} }; tolerate a flat shape too. CONFIRM against live call.
-      var status = (body && body.data && body.data.status) || (body && body.status) || null;
+      // Telnyx GET /v2/10dlc/campaign/{id} is TOP-LEVEL (not {data:...}-wrapped); the 10DLC enum
+      // lives in `campaignStatus` (NOT `status`). Tolerate a wrapper defensively. p_raw stays full body.
+      var status = (body && body.data && body.data.campaignStatus) || (body && body.campaignStatus) || null;
       if (!status) { results.push({ tenant_id: s.tenant_id, skipped: 'no_status' }); continue; }
 
       var rpcRes = await supabase.rpc('record_campaign_status', {
