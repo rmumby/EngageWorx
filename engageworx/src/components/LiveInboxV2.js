@@ -587,6 +587,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       // select silently returns just the viewer's row (can't read other agents'). The RPC returns name
       // only. ids the RPC doesn't return stay unresolved -> the mapping's 'Agent' fallback applies.
       var r = await supabase.rpc('get_agent_display_names', { p_ids: ids });
+      console.log('[agent-names] rpc', { ids: ids, data: r.data, error: r.error });
       (r.data || []).forEach(function(p) {
         agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim() : 'Agent';
       });
