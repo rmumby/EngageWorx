@@ -697,6 +697,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           }
           await ensureAgentNames(data);
           var mapped = data.map(function(m) {
+            if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(single)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
             var resolvedMedia = null;
             if (m.media_urls && m.media_urls.length > 0) {
               resolvedMedia = m.media_urls.map(function(p) {
@@ -748,6 +749,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
             var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
             await ensureAgentNames(mResult.data);
             if (mResult.data) mResult.data.forEach(function(m) {
+              if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(poll)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
                 id: m.id,
@@ -908,6 +910,7 @@ useEffect(function() {
           const { data: mData } = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
           await ensureAgentNames(mData);
           if (mData) mData.forEach(function(m) {
+            if (m.sender_type === 'agent' && m.sender_id) console.log('[agent-names] map(init)', m.sender_id, '->', agentNamesRef.current[m.sender_id]);
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
               id: m.id,
