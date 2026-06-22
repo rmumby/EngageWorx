@@ -583,10 +583,12 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     });
     if (!ids.length) return;
     try {
-      var r = await supabase.from('user_profiles').select('id, full_name, email').in('id', ids);
+      // Resolve via SECURITY DEFINER RPC: user_profiles SELECT RLS is own-row-only, so a direct client
+      // select silently returns just the viewer's row (can't read other agents'). The RPC returns name
+      // only. ids the RPC doesn't return stay unresolved -> the mapping's 'Agent' fallback applies.
+      var r = await supabase.rpc('get_agent_display_names', { p_ids: ids });
       (r.data || []).forEach(function(p) {
-        agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim()
-          : (p.email ? p.email.split('@')[0] : 'Agent');
+        agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim() : 'Agent';
       });
     } catch (_) {}
   }
