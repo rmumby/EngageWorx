@@ -571,6 +571,25 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
       return uid;
     } catch (_) { return null; }
   }
+  // Batch-resolve display names for the agent sender_ids ACTUALLY PRESENT on loaded messages, straight
+  // from the message rows — the tenant-member loader misses cross-tenant senders (e.g. an SP superadmin
+  // replying into a tenant thread, whose profile isn't a member of that tenant). Merges into
+  // agentNamesRef (full_name -> email-local-part -> 'Agent' fallback for genuinely missing names).
+  async function ensureAgentNames(msgs) {
+    if (!supabase || !msgs || !msgs.length) return;
+    var seen = {}, ids = [];
+    msgs.forEach(function(m) {
+      if (m && m.sender_id && !seen[m.sender_id] && !agentNamesRef.current[m.sender_id]) { seen[m.sender_id] = 1; ids.push(m.sender_id); }
+    });
+    if (!ids.length) return;
+    try {
+      var r = await supabase.from('user_profiles').select('id, full_name, email').in('id', ids);
+      (r.data || []).forEach(function(p) {
+        agentNamesRef.current[p.id] = (p.full_name && p.full_name.trim()) ? p.full_name.trim()
+          : (p.email ? p.email.split('@')[0] : 'Agent');
+      });
+    } catch (_) {}
+  }
   var isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'owner';
   useEffect(function() {
     if (demoMode === true || !supabase) return;
@@ -671,6 +690,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               }
             } catch (sessErr) { console.warn('[LiveInbox] Session error for signed URLs:', sessErr.message); }
           }
+          await ensureAgentNames(data);
           var mapped = data.map(function(m) {
             var resolvedMedia = null;
             if (m.media_urls && m.media_urls.length > 0) {
@@ -721,6 +741,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
           var mMap = {};
           if (convos.length > 0) {
             var mResult = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+            await ensureAgentNames(mResult.data);
             if (mResult.data) mResult.data.forEach(function(m) {
               if (!mMap[m.conversation_id]) mMap[m.conversation_id] = [];
               mMap[m.conversation_id].push({
@@ -880,6 +901,7 @@ useEffect(function() {
         var msgMap = {};
         if (convos.length > 0) {
           const { data: mData } = await supabase.from('messages').select('*').in('conversation_id', convos.map(function(c) { return c.id; })).order('created_at', { ascending: true });
+          await ensureAgentNames(mData);
           if (mData) mData.forEach(function(m) {
             if (!msgMap[m.conversation_id]) msgMap[m.conversation_id] = [];
             msgMap[m.conversation_id].push({
