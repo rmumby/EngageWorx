@@ -159,8 +159,11 @@ export default function Button({ variant, onClick, disabled, children, style, ty
   var bg, color, border, boxShadow;
 
   if (v === 'primary') {
-    bg = isDark ? '#ffffff' : '#000000';
-    color = isDark ? '#000000' : '#ffffff';
+    // Monochrome primary (option a): dark = white field + ink text; light = ink field + white text
+    // (black-on-white, kept as-is). Ink is the palette token #0D1117, not pure black. Brand-color CTAs
+    // stay on the `accent` variant / useAccentButtonStyle — untouched.
+    bg = isDark ? '#FFFFFF' : '#0D1117';
+    color = isDark ? '#0D1117' : '#FFFFFF';
     border = 'none';
   } else if (v === 'secondary') {
     bg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';

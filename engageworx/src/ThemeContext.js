@@ -3,22 +3,22 @@ import { supabase } from './supabaseClient';
 import './themes/tokens.css';
 
 var DARK = {
-  bg: '#000000', surface: '#0a0a0a', border: 'rgba(255,255,255,0.12)', divider: 'rgba(255,255,255,0.2)',
-  text: '#E8F4FD', muted: '#6B8BAE',
+  bg: '#0D1117', surface: '#161B22', border: '#30363D', divider: '#30363D',
+  text: '#F0F6FC', muted: '#8B949E',
   primary: '#00C9FF', accent: '#E040FB',
-  inputBg: 'rgba(0,0,0,0.3)', inputBorder: 'rgba(255,255,255,0.1)',
-  cardBg: 'rgba(255,255,255,0.03)', cardBorder: 'rgba(255,255,255,0.08)',
+  inputBg: '#FFFFFF', inputBorder: '#30363D', inputText: '#0D1117',
+  cardBg: '#161B22', cardBorder: '#30363D',
   badgeBg: 'rgba(255,255,255,0.06)',
   mode: 'dark',
 };
 
 var LIGHT = {
-  bg: '#f9fafb', surface: '#ffffff', border: '#d1d5db', divider: '#cbd5e1',
-  text: '#111827', muted: '#4b5563',
+  bg: '#F6F8FA', surface: '#FFFFFF', border: '#E8EAF0', divider: '#E8EAF0',
+  text: '#0D1117', muted: '#6B7280',
   primary: '#0077B6', accent: '#7C3AED',
-  inputBg: '#ffffff', inputBorder: '#d1d5db',
-  cardBg: '#ffffff', cardBorder: '#d1d5db',
-  badgeBg: '#f3f4f6',
+  inputBg: '#FFFFFF', inputBorder: '#E8EAF0', inputText: '#0D1117',
+  cardBg: '#FFFFFF', cardBorder: '#E8EAF0',
+  badgeBg: '#F6F8FA',
   mode: 'light',
 };
 
@@ -128,10 +128,11 @@ export function ThemeProvider({ children }) {
       document.body.classList.toggle('dark-mode', isDark);
       document.body.classList.toggle('light-mode', !isDark);
       // Body background uses brand CSS variables set by BrandingContext
-      var brandPrimary = getComputedStyle(document.documentElement).getPropertyValue('--brand-primary').trim() || '#00BFFF';
-      var brandSecondary = getComputedStyle(document.documentElement).getPropertyValue('--brand-secondary').trim() || '#A855F7';
-      document.body.style.background = isDark ? brandPrimary : brandSecondary;
-      document.body.style.color = isDark ? '#FFFFFF' : '#000000';
+      // Visible page bg is set HERE on body (not via the token bg). Use the structural page tokens —
+      // dark = true ink #0D1117 (was brandPrimary's navy), light = #F6F8FA — so the page matches the
+      // card/surface tokens instead of bleeding the brand color across the whole background.
+      document.body.style.background = isDark ? '#0D1117' : '#F6F8FA';
+      document.body.style.color = isDark ? '#F0F6FC' : '#0D1117';
     }
   }, [isDark, mode, preference]);
 
@@ -143,13 +144,22 @@ export function ThemeProvider({ children }) {
 
       /* Force all text to be dark unless it's a primary/accent/status color */
       body, body * {
-        --lm-text: #111827;
-        --lm-muted: #4b5563;
+        --lm-text: #0D1117;
+        --lm-muted: #6B7280;
         --lm-label: #6b7280;
-        --lm-bg: #f9fafb;
+        --lm-bg: #F6F8FA;
         --lm-surface: #ffffff;
-        --lm-border: #e5e7eb;
+        --lm-border: #E8EAF0;
       }
+
+      /* ═══ NEW TOKEN PALETTE — token-consumers now emit these dark hexes; map to light.
+         (color: #0D1117 is intentionally NOT overridden — it's already the correct dark text.) ═══ */
+      [style*="background: #0D1117"], [style*="background:#0D1117"] { background: #F6F8FA !important; }
+      [style*="background: #161B22"], [style*="background:#161B22"] { background: #FFFFFF !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
+      [style*="border: 1px solid #30363D"], [style*="border-color: #30363D"],
+      [style*="border: 1px solid #30363d"], [style*="border-color: #30363d"] { border-color: #E8EAF0 !important; }
+      [style*="color: #F0F6FC"], [style*="color:#F0F6FC"] { color: #0D1117 !important; }
+      [style*="color: #8B949E"], [style*="color:#8B949E"] { color: #6B7280 !important; }
 
       /* All divs and spans with white/light text → dark */
       div[style*="color: #fff"], div[style*="color:#fff"],
@@ -162,7 +172,7 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
 
       /* Portal text colors → dark */
       div[style*="color: #E8F4FD"], span[style*="color: #E8F4FD"],
@@ -171,28 +181,28 @@ export function ThemeProvider({ children }) {
       div[style*="color: #FFF0E8"], div[style*="color: #E8FFF2"], div[style*="color: #EDE8FF"],
       h1[style*="color: #E8F4FD"], h2[style*="color: #E8F4FD"], h3[style*="color: #E8F4FD"],
       p[style*="color: #E8F4FD"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
 
       /* Muted text → readable gray */
       div[style*="color: #6B8BAE"], span[style*="color: #6B8BAE"],
       div[style*="color:#6B8BAE"], span[style*="color:#6B8BAE"],
       p[style*="color: #6B8BAE"], button[style*="color: #6B8BAE"],
       div[style*="color: #8B6B55"], div[style*="color: #4B8B65"], div[style*="color: #6B5B8B"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
 
       /* Semi-transparent white text (labels, subtitles) */
       [style*="rgba(255, 255, 255, 0.4)"], [style*="rgba(255,255,255,0.4)"]
-      { color: #4b5563 !important; }
+      { color: #6B7280 !important; }
       [style*="rgba(255, 255, 255, 0.5)"], [style*="rgba(255,255,255,0.5)"]
-      { color: #4b5563 !important; }
+      { color: #6B7280 !important; }
       [style*="rgba(255, 255, 255, 0.6)"], [style*="rgba(255,255,255,0.6)"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="rgba(255, 255, 255, 0.7)"], [style*="rgba(255,255,255,0.7)"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="rgba(255, 255, 255, 0.8)"], [style*="rgba(255,255,255,0.8)"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
       [style*="rgba(255, 255, 255, 0.9)"], [style*="rgba(255,255,255,0.9)"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
 
       /* ═══ BACKGROUNDS ═══ */
       /* Main dark backgrounds → light */
@@ -203,7 +213,7 @@ export function ThemeProvider({ children }) {
       [style*="background: #050810"], [style*="background:#050810"],
       [style*="background: #0c0a10"], [style*="background: #080d10"],
       [style*="background: #0a0810"]
-      { background: #f9fafb !important; }
+      { background: #F6F8FA !important; }
 
       /* Surface/panel backgrounds → white */
       [style*="background: #0d1425"], [style*="background:#0d1425"],
@@ -216,7 +226,7 @@ export function ThemeProvider({ children }) {
 
       /* Semi-transparent white/dark backgrounds (cards, panels) */
       [style*="background: rgba(255, 255, 255, 0.02)"], [style*="background: rgba(255,255,255,0.02)"]
-      { background: #f9fafb !important; }
+      { background: #F6F8FA !important; }
       [style*="background: rgba(255, 255, 255, 0.03)"], [style*="background: rgba(255,255,255,0.03)"]
       { background: #ffffff !important; box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
       [style*="background: rgba(255, 255, 255, 0.04)"], [style*="background: rgba(255,255,255,0.04)"]
@@ -224,7 +234,7 @@ export function ThemeProvider({ children }) {
       [style*="background: rgba(255, 255, 255, 0.05)"], [style*="background: rgba(255,255,255,0.05)"]
       { background: #f3f4f6 !important; }
       [style*="background: rgba(255, 255, 255, 0.06)"], [style*="background: rgba(255,255,255,0.06)"]
-      { background: #e5e7eb !important; }
+      { background: #E8EAF0 !important; }
 
       /* Dark input backgrounds */
       [style*="background: rgba(0, 0, 0, 0.3)"], [style*="background: rgba(0,0,0,0.3)"]
@@ -238,45 +248,45 @@ export function ThemeProvider({ children }) {
       [style*="border: 1px solid #182440"], [style*="border-color: #182440"],
       [style*="border: 1px solid #1a1a1a"], [style*="border-color: #1a1a1a"],
       [style*="border: 1px solid #1a2540"], [style*="border-color: #1a2540"]
-      { border-color: #e5e7eb !important; }
+      { border-color: #E8EAF0 !important; }
 
       [style*="border: 1px solid rgba(255, 255, 255"], [style*="border: 1px solid rgba(255,255,255"]
-      { border-color: #e5e7eb !important; }
+      { border-color: #E8EAF0 !important; }
 
       [style*="border-right: 1px solid"], [style*="border-bottom: 1px solid"]
-      { border-color: #e5e7eb !important; }
+      { border-color: #E8EAF0 !important; }
 
       /* ═══ LIVE INBOX SPECIFIC ═══ */
       [style*="background: rgba(0, 0, 0, 0.15)"],
       [style*="background: rgba(0,0,0,0.15)"] { background: #f3f4f6 !important; }
       [style*="background: rgba(0, 0, 0, 0.2)"],
-      [style*="background: rgba(0,0,0,0.2)"] { background: #e5e7eb !important; }
+      [style*="background: rgba(0,0,0,0.2)"] { background: #E8EAF0 !important; }
       [style*="background: rgba(0, 0, 0, 0.1)"],
-      [style*="background: rgba(0,0,0,0.1)"] { background: #f9fafb !important; }
+      [style*="background: rgba(0,0,0,0.1)"] { background: #F6F8FA !important; }
       [style*="border: 1px solid rgba(255, 255, 255, 0.04)"],
       [style*="border-bottom: 1px solid rgba(255, 255, 255, 0.04)"],
-      [style*="border-bottom: 1px solid rgba(255,255,255,0.04)"] { border-color: #e5e7eb !important; }
+      [style*="border-bottom: 1px solid rgba(255,255,255,0.04)"] { border-color: #E8EAF0 !important; }
       [style*="border: 1px solid rgba(255, 255, 255, 0.06)"],
       [style*="border-right: 1px solid rgba(255, 255, 255, 0.06)"],
       [style*="border-right: 1px solid rgba(255,255,255,0.06)"],
       [style*="border-top: 1px solid rgba(255, 255, 255, 0.06)"],
-      [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #e5e7eb !important; }
+      [style*="border-top: 1px solid rgba(255,255,255,0.06)"] { border-color: #E8EAF0 !important; }
       [style*="color: rgba(255, 255, 255, 0.25)"],
-      [style*="color: rgba(255,255,255,0.25)"] { color: #4b5563 !important; }
+      [style*="color: rgba(255,255,255,0.25)"] { color: #6B7280 !important; }
       [style*="color: rgba(255, 255, 255, 0.3)"],
-      [style*="color: rgba(255,255,255,0.3)"] { color: #4b5563 !important; }
+      [style*="color: rgba(255,255,255,0.3)"] { color: #6B7280 !important; }
 
       /* ═══ PIPELINE / LEAD DETAIL ═══ */
       [style*="background: #0f172a"], [style*="background:#0f172a"]
-      { background: #ffffff !important; border-color: #e5e7eb !important; }
+      { background: #ffffff !important; border-color: #E8EAF0 !important; }
       [style*="color: #f1f5f9"], [style*="color:#f1f5f9"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
       [style*="color: #8899aa"], [style*="color:#8899aa"]
-      { color: #4b5563 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #9aaabb"], [style*="color:#9aaabb"]
-      { color: #4b5563 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #b0bec5"], [style*="color:#b0bec5"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #a5b4fc"], [style*="color:#a5b4fc"]
       { color: #4f46e5 !important; }
       [style*="color: #fcd34d"], [style*="color:#fcd34d"]
@@ -289,48 +299,48 @@ export function ThemeProvider({ children }) {
       /* ═══ AGGRESSIVE TEXT CONTRAST — catch all light grays ═══ */
       [style*="color: #9ca3af"], [style*="color:#9ca3af"],
       [style*="color: #9CA3AF"], [style*="color:#9CA3AF"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #6b7280"], [style*="color:#6b7280"],
       [style*="color: #6B7280"], [style*="color:#6B7280"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #94a3b8"], [style*="color:#94a3b8"],
       [style*="color: #94A3B8"], [style*="color:#94A3B8"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #cbd5e1"], [style*="color:#cbd5e1"],
       [style*="color: #CBD5E1"], [style*="color:#CBD5E1"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #aaa"], [style*="color:#aaa"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #999"], [style*="color:#999"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #888"], [style*="color:#888"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: #777"], [style*="color:#777"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgb(156"], [style*="color:rgb(156"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgb(107"], [style*="color:rgb(107"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgb(148"], [style*="color:rgb(148"]
-      { color: #1f2937 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgb(203"], [style*="color:rgb(203"]
-      { color: #374151 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgba(255, 255, 255, 0.15)"], [style*="color: rgba(255,255,255,0.15)"]
       { color: #6b7280 !important; }
       [style*="color: rgba(255, 255, 255, 0.2)"], [style*="color: rgba(255,255,255,0.2)"]
       { color: #6b7280 !important; }
       [style*="color: rgba(255, 255, 255, 0.35)"], [style*="color: rgba(255,255,255,0.35)"]
-      { color: #4b5563 !important; }
+      { color: #6B7280 !important; }
       [style*="color: rgba(255, 255, 255, 0.85)"], [style*="color: rgba(255,255,255,0.85)"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
 
       /* ═══ FORM ELEMENTS ═══ */
       select, input, textarea {
-        color: #111827 !important;
+        color: #0D1117 !important;
         background: #ffffff !important;
-        border-color: #d1d5db !important;
+        border-color: #E8EAF0 !important;
       }
-      select option { color: #111827; background: #ffffff; }
+      select option { color: #0D1117; background: #ffffff; }
 
       /* ═══ GLOBAL CATCH-ALL — override ALL white/light text on the page ═══ */
       div, span, p, h1, h2, h3, h4, h5, h6, label, a, li, td, th, button, pre, code {
@@ -347,22 +357,22 @@ export function ThemeProvider({ children }) {
       h1[style*="color:#fff"], h2[style*="color:#fff"], h3[style*="color:#fff"],
       button[style*="color: #fff"], button[style*="color:#fff"],
       label[style*="color: #fff"], label[style*="color:#fff"]
-      { color: #111827 !important; }
+      { color: #0D1117 !important; }
 
       /* Force readable text everywhere via broad selectors */
-      [style*="color: rgb(255, 255, 255)"] { color: #111827 !important; }
-      [style*="color: rgb(232, 244, 253)"] { color: #111827 !important; }
-      [style*="color: rgb(226, 232, 240)"] { color: #111827 !important; }
-      [style*="color: rgb(107, 139, 174)"] { color: #374151 !important; }
-      [style*="color: rgb(107, 91, 139)"] { color: #374151 !important; }
+      [style*="color: rgb(255, 255, 255)"] { color: #0D1117 !important; }
+      [style*="color: rgb(232, 244, 253)"] { color: #0D1117 !important; }
+      [style*="color: rgb(226, 232, 240)"] { color: #0D1117 !important; }
+      [style*="color: rgb(107, 139, 174)"] { color: #6B7280 !important; }
+      [style*="color: rgb(107, 91, 139)"] { color: #6B7280 !important; }
 
       /* ═══ TABLE OVERRIDES ═══ */
-      table { border-color: #e5e7eb !important; }
-      th, td { border-color: #e5e7eb !important; }
+      table { border-color: #E8EAF0 !important; }
+      th, td { border-color: #E8EAF0 !important; }
       th[style*="background: #0A0D14"], th[style*="background:#0A0D14"],
       th[style*="background: #0a0d14"], td[style*="background: #0a0d14"],
       tr[style*="background: #0A0D14"], tr[style*="background: #0a0d14"]
-      { background: #e5e7eb !important; }
+      { background: #E8EAF0 !important; }
 
       /* ═══ SCROLLBAR ═══ */
       ::-webkit-scrollbar { width: 8px; }
@@ -388,7 +398,7 @@ export function ThemeProvider({ children }) {
       body.light-mode li,
       body.light-mode pre,
       body.light-mode code {
-        color: #111827;
+        color: #0D1117;
       }
 
       /* Re-apply primary/accent/status colors after the nuclear reset */
@@ -489,21 +499,21 @@ export function ThemeProvider({ children }) {
         var rgb = parseRGB(c);
         if (rgb && !isAccentColor(rgb)) {
           var lum = luminance(rgb);
-          if (lum > 0.75) setWithTracking(el, 'color', '#111827');
-          else if (lum > 0.55) setWithTracking(el, 'color', '#374151');
-          else if (lum > 0.45) setWithTracking(el, 'color', '#4b5563');
+          if (lum > 0.75) setWithTracking(el, 'color', '#0D1117');
+          else if (lum > 0.55) setWithTracking(el, 'color', '#6B7280');
+          else if (lum > 0.45) setWithTracking(el, 'color', '#6B7280');
         }
         if (c && c.startsWith('rgba(255, 255, 255,')) {
           var a = parseFloat(c.split(',')[3]);
           if (a < 0.4) setWithTracking(el, 'color', '#6b7280');
-          else if (a < 0.7) setWithTracking(el, 'color', '#374151');
-          else setWithTracking(el, 'color', '#111827');
+          else if (a < 0.7) setWithTracking(el, 'color', '#6B7280');
+          else setWithTracking(el, 'color', '#0D1117');
         }
         var bgRgb = parseRGB(bg);
-        if (bgRgb && luminance(bgRgb) < 0.15) setWithTracking(el, 'background-color', '#f9fafb');
+        if (bgRgb && luminance(bgRgb) < 0.15) setWithTracking(el, 'background-color', '#F6F8FA');
         else if (bgRgb && luminance(bgRgb) < 0.25) setWithTracking(el, 'background-color', '#ffffff');
         if (bg && bg.startsWith('rgba(255, 255, 255,')) { var ba = parseFloat(bg.split(',')[3]); if (ba < 0.08) setWithTracking(el, 'background-color', '#ffffff'); }
-        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) setWithTracking(el, 'background-color', ba2 > 0.25 ? '#f3f4f6' : '#f9fafb'); }
+        if (bg && bg.startsWith('rgba(0, 0, 0,')) { var ba2 = parseFloat(bg.split(',')[3]); if (ba2 >= 0.1) setWithTracking(el, 'background-color', ba2 > 0.25 ? '#f3f4f6' : '#F6F8FA'); }
       }
     }
     var t1 = setTimeout(fixColors, 100);
@@ -554,6 +564,7 @@ export function getThemedColors(portalColors, themeObj) {
     muted: LIGHT.muted,
     inputBg: LIGHT.inputBg,
     inputBorder: LIGHT.inputBorder,
+    inputText: LIGHT.inputText,
     cardBg: LIGHT.cardBg,
     cardBorder: LIGHT.cardBorder,
     badgeBg: LIGHT.badgeBg,

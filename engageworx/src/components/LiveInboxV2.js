@@ -4,6 +4,8 @@ import { DEMO_CONVERSATIONS } from '../demoFixtures';
 import { ChatThread, ChatInput, MessageBubble } from './chat';
 import { Button, Badge, Card, RichEditor } from './ui';
 import { SP_TENANT_ID, spDefaultsToOwn } from '../lib/spScope';
+import { useTheme } from '../ThemeContext';
+import { statusChipStyle } from '../lib/statusChip';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // Parse a Postgres timestamptz string ("2026-06-24 07:55:44+00") into a Date that resolves to the
@@ -413,6 +415,7 @@ var LI_SP_TENANT_ID = SP_TENANT_ID;
 
 function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantId, demoMode = false, supabase, userProfile }) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   var resolvedTenantId = currentTenantId || LI_SP_TENANT_ID;
   var isSPorCSP = viewLevel === 'sp' || viewLevel === 'csp';
   var scopeStorageKey = 'ew_inbox_scope_' + (userProfile && userProfile.id || 'anon');
@@ -1534,7 +1537,7 @@ useEffect(function() {
                     </div>
                     <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                       {conv.priority === "high" && <span style={{ background: "#FF3B3022", color: "#FF3B30", border: "1px solid #FF3B3044", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
-                      {conv.ai_draft_status === 'pending' && <span style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>AI DRAFT</span>}
+                      {conv.ai_draft_status === 'pending' && <span style={{ ...statusChipStyle('draft', isDark), borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>AI DRAFT</span>}
                       {conv.contact.tags.slice(0, 2).map(t => (
                         <span key={t} style={{ background: `${TAG_COLORS[t] || "#6B8BAE"}15`, color: TAG_COLORS[t] || "#6B8BAE", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 600 }}>{t}</span>
                       ))}

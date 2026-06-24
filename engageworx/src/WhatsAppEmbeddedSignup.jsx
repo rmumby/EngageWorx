@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { useTheme } from './ThemeContext';
+import { statusChipStyle } from './lib/statusChip';
 
 var META_SDK = 'https://connect.facebook.net/en_US/sdk.js';
 var META_SCOPES = 'whatsapp_business_management,whatsapp_business_messaging,business_management';
@@ -22,6 +24,7 @@ function loadFbSdk(appId) {
 }
 
 export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected }) {
+  var { isDark } = useTheme();
   var colors = C || { primary: '#25D366', muted: '#6B8BAE' };
   var [status, setStatus] = useState({ state: 'idle' }); // idle | loading | connected | error
   var [cfg, setCfg] = useState(null);
@@ -141,7 +144,7 @@ export default function WhatsAppEmbeddedSignup({ tenantId, C, appId, onConnected
             var stageData = provStages.find(function(s) { return s.stage === sc.key; });
             var st = stageData ? stageData.status : 'not_started';
             var icon = st === 'done' ? '✅' : st === 'in_progress' || st === 'submitted' ? '🔄' : st === 'rejected' ? '❌' : '○';
-            var stColor = st === 'done' ? '#25D366' : st === 'in_progress' || st === 'submitted' ? '#f59e0b' : st === 'rejected' ? '#FF3B30' : 'rgba(255,255,255,0.25)';
+            var stColor = statusChipStyle(st, isDark).color; // saturated readable text shade per status (.color only — this is a label, not a pill)
             var isExpanded = expandedStage === sc.key;
             return (
               <div key={sc.key} style={{ marginBottom: 6 }}>

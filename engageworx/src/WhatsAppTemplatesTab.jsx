@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from './ThemeContext';
+import { statusChipStyle } from './lib/statusChip';
 
 var STATUS_BADGE = {
   draft:     { color: '#94a3b8', label: '📝 Draft' },
@@ -18,6 +20,7 @@ var USE_CASES = [
 ];
 
 export default function WhatsAppTemplatesTab({ tenantId, C }) {
+  var { isDark } = useTheme();
   var colors = C || { primary: '#25D366', muted: '#6B8BAE' };
   var [local, setLocal] = useState([]);
   var [metaList, setMetaList] = useState([]);
@@ -154,7 +157,7 @@ export default function WhatsAppTemplatesTab({ tenantId, C }) {
                     <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{t.name}</div>
                     <div style={{ color: colors.muted, fontSize: 10, marginTop: 2 }}>{t.category} · {t.language || 'en_US'}{t.submitted_at ? ' · submitted ' + new Date(t.submitted_at).toLocaleDateString() : ''}</div>
                   </div>
-                  <span style={{ background: badge.color + '22', color: badge.color, border: '1px solid ' + badge.color + '55', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{badge.label}</span>
+                  <span style={{ ...statusChipStyle(t.status, isDark), borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>{badge.label}</span>
                 </div>
                 <div style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 6, padding: 10, fontSize: 12, color: '#cbd5e1', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{t.body_text}</div>
                 {t.rejection_reason && <div style={{ marginTop: 8, color: '#dc2626', fontSize: 11 }}>⚠️ {t.rejection_reason}</div>}

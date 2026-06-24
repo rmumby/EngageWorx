@@ -133,8 +133,8 @@ function useLiveData(demoMode, isSPAdmin) {
           colors: {
             primary: t.brand_primary || '#00C9FF',
             accent: t.brand_secondary || '#E040FB',
-            bg: "#080d1a", surface: "#0d1425", border: "#182440",
-            text: "#E8F4FD", muted: "#6B8BAE",
+            bg: "#0D1117", surface: "#161B22", border: "#30363D",
+            text: "#F0F6FC", muted: "#8B949E",
           },
           stats: {
             messages: 0, revenue: 0,
@@ -179,7 +179,7 @@ const TENANTS = {
     name: "EngageWorx",
     logo: "EW",
     role: "superadmin",
-    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", divider: "rgba(255,255,255,0.2)", text: "#E8F4FD", muted: "#6B8BAE" },
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#0D1117", surface: "#161B22", border: "#30363D", divider: "rgba(255,255,255,0.2)", text: "#F0F6FC", muted: "#8B949E" },
     customers: ["acme", "retailco", "finserv"],
     stats: { totalMessages: 1284712, totalRevenue: 892450, activeCustomers: 3, totalCampaigns: 87 },
   },
@@ -256,7 +256,7 @@ function SAFlagButton({ supabase, screenLabel, tenantContextId, onViewIssues }) 
     {flagOpen && (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         onClick={function() { if (!flagSaving) setFlagOpen(false); }}>
-        <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#0d1425', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 460, maxWidth: '90vw', display: 'flex', flexDirection: 'column' }}>
+        <div onClick={function(e) { e.stopPropagation(); }} style={{ background: '#161B22', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 460, maxWidth: '90vw', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>🚩 Flag an Issue</h3>
             <button onClick={function() { setFlagOpen(false); }} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 18, cursor: 'pointer' }}>✕</button>
@@ -692,11 +692,11 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
             colors: {
               primary: t.brand_primary || '#00C9FF',
               accent: t.brand_secondary || '#E040FB',
-              bg: '#080d1a',
-              surface: '#0d1425',
-              border: '#182440',
-              text: '#E8F4FD',
-              muted: '#6B8BAE',
+              bg: '#0D1117',
+              surface: '#161B22',
+              border: '#30363D',
+              text: '#F0F6FC',
+              muted: '#8B949E',
             },
             plan: t.plan || 'starter',
             status: t.status || 'active',
@@ -727,7 +727,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     { name: "Ruby", primary: "#FF3B30", secondary: "#FF6B6B" },
     { name: "Gold", primary: "#FFD600", secondary: "#FFAB00" },
     { name: "Coral", primary: "#E040FB", secondary: "#AA00FF" },
-    { name: "Slate", primary: "#6B8BAE", secondary: "#4A6FA5" },
+    { name: "Slate", primary: "#8B949E", secondary: "#4A6FA5" },
   ];
 
   const openBrandEditor = (tenant) => {
@@ -1658,7 +1658,7 @@ setDemoCreating(false);
                 { slug: 'growth', name: 'Growth', monthly_price: 249, message_limit: 5000, channels: 4, user_seats: 10 },
                 { slug: 'pro', name: 'Pro', monthly_price: 499, message_limit: 20000, channels: 6, user_seats: 25 },
               ];
-              var planColors = { starter: '#6B8BAE', growth: C.primary, pro: '#7C4DFF', enterprise: C.accent, silver: '#C0C0C0', gold: '#FFD600', platinum: '#E5E4E2', diamond: '#B9F2FF' };
+              var planColors = { starter: '#8B949E', growth: C.primary, pro: '#7C4DFF', enterprise: C.accent, silver: '#C0C0C0', gold: '#FFD600', platinum: '#E5E4E2', diamond: '#B9F2FF' };
               return published.map(function(p) {
                 var color = planColors[p.slug] || C.primary;
                 var msgLimit = p.message_limit;
@@ -1758,7 +1758,7 @@ function TenantBrandSettings({ tenantId, tenant, C }) {
           <label style={labelStyle}>Website URL</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={brand.websiteUrl} onChange={e => setBrand(b => ({ ...b, websiteUrl: e.target.value }))} placeholder="https://yourdomain.com" style={{ ...inputStyle, flex: 1 }} />
-            <button onClick={detectBrand} disabled={!brand.websiteUrl || brand.detecting} style={{ background: brand.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 8, padding: '10px 14px', color: brand.detecting ? '#6B8BAE' : '#000', fontWeight: 700, cursor: brand.websiteUrl && !brand.detecting ? 'pointer' : 'not-allowed', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif", opacity: !brand.websiteUrl ? 0.5 : 1 }}>
+            <button onClick={detectBrand} disabled={!brand.websiteUrl || brand.detecting} style={{ background: brand.detecting ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #00C9FF, #7C4DFF)', border: 'none', borderRadius: 8, padding: '10px 14px', color: brand.detecting ? '#8B949E' : '#000', fontWeight: 700, cursor: brand.websiteUrl && !brand.detecting ? 'pointer' : 'not-allowed', fontSize: 13, whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif", opacity: !brand.websiteUrl ? 0.5 : 1 }}>
               {brand.detecting ? '⏳ Detecting…' : '✨ Auto-detect'}
             </button>
           </div>
@@ -1813,7 +1813,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
     logo: (dbTenantName || "??").substring(0, 2).toUpperCase(),
     role: "customer",
     brand: { primary: "#00C9FF", secondary: "#E040FB", name: dbTenantName || "" },
-    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#080d1a", surface: "#0d1425", border: "#182440", divider: "rgba(255,255,255,0.2)", text: "#E8F4FD", muted: "#6B8BAE" },
+    colors: { primary: "#00C9FF", accent: "#E040FB", bg: "#0D1117", surface: "#161B22", border: "#30363D", divider: "rgba(255,255,255,0.2)", text: "#F0F6FC", muted: "#8B949E" },
     stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
     channels: ["SMS", "Email"],
   };
@@ -2039,7 +2039,7 @@ function CustomerPortal({ tenantId, onBack, liveTenants, onLogout }) {
         {page === "settings" && (
           <Settings C={C} currentTenantId={tenantId} viewLevel="tenant" demoMode={false} defaultTab="channels" allowedTabs={["channels", "billing", "team", "notifications", "escalation", "knowledge-base", "pipeline-stages", "security", "modules"].concat(['admin', 'superadmin'].includes(cpAuth && cpAuth.profile ? cpAuth.profile.role : '') ? ["branding"] : [])} userRole={cpAuth && cpAuth.profile ? cpAuth.profile.role : ''} />
         )}
-        {page === "registrations" && <Suspense fallback={<div style={{color:'#6B8BAE',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
+        {page === "registrations" && <Suspense fallback={<div style={{color:'#8B949E',padding:40,textAlign:'center'}}>Loading...</div>}><RegistrationsPage tenantId={tenantId} C={C} /></Suspense>}
         {page === "events" && eventsEnabled && <div style={{ padding: '32px 40px' }}><CoordinatorEvents tenantId={tenantId} C={C} /></div>}
         {page === "pipeline" && entityTier === 'csp' && (
           <PipelineDashboard C={C} tenantId={tenantId} demoMode={false} isSuperAdmin={false} />
@@ -2314,7 +2314,7 @@ var spNavBase = [
 
   if (!isPortal) {
     if (window.location.pathname === '/blog' || window.location.pathname.startsWith('/blog/')) {
-      return <Suspense fallback={<div style={{background:'#050810',color:'#E8F4FD',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"}}>Loading...</div>}><Blog onBack={function() { window.location.href = '/'; }} /></Suspense>;
+      return <Suspense fallback={<div style={{background:'#050810',color:'#F0F6FC',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Outfit',sans-serif"}}>Loading...</div>}><Blog onBack={function() { window.location.href = '/'; }} /></Suspense>;
     }
     if (window.location.pathname === '/api-docs') {
       return <Suspense fallback={<div style={{background:'#0a0d14',color:'#e8f0f8',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'DM Sans',sans-serif"}}>Loading...</div>}><ApiDocs onBack={function() { window.location.href = '/'; }} /></Suspense>;
@@ -2480,7 +2480,7 @@ var spNavBase = [
   // Notification-only gate — these users are routing targets, not portal users
   if (isAuthenticated && isNotificationOnly) {
     return (
-      <div style={{ minHeight: "100vh", background: "#080d1a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ minHeight: "100vh", background: "#0D1117", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 420, padding: 40 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🔔</div>
           <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Notification-Only Account</div>
