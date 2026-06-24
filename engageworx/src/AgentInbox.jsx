@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useTheme, getThemedColors } from "./ThemeContext";
+import { statusChipStyle } from "./lib/statusChip";
 
 const MOCK_TICKETS = [
   {
@@ -345,10 +346,10 @@ export default function AgentInbox({ C: propC, tenants, viewLevel, currentTenant
 }
 
 function StatusTag({ status, color }) {
-  const colors = { pending_agent: "#f59e0b", agent_active: "#6366f1", resolved: "#10b981", closed: "#475569", pending_upstream: "#ef4444" };
-  const col = colors[status] || "#475569";
+  const { isDark } = useTheme();
+  const s = statusChipStyle(status, isDark);
   return (
-    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, fontWeight: 600, background: `${col}20`, color: col }}>
+    <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, fontWeight: 600, background: s.background, color: s.color, border: s.border }}>
       {STATUS_LABELS[status] || status}
     </span>
   );
