@@ -55,12 +55,12 @@ export default function ChatInput({
     <div style={styleOverride}>
       {/* Mode toggle */}
       {modeOptions && onModeChange && (
-        <div style={{ display: "flex", gap: 0, marginBottom: 10, border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, overflow: "hidden", width: "fit-content" }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 10, border: "1px solid var(--theme-border-strong)", borderRadius: 8, overflow: "hidden", width: "fit-content" }}>
           {modeOptions.map((opt) => (
             <button key={opt.id} onClick={() => onModeChange(opt.id)} style={{
               padding: "6px 14px", fontSize: 12,
               background: mode === opt.id ? accent : "transparent",
-              color: mode === opt.id ? "#fff" : "rgba(255,255,255,0.4)",
+              color: mode === opt.id ? "#fff" : "var(--theme-text-muted)",
               border: "none", cursor: "pointer", fontWeight: 600,
               fontFamily: "'DM Sans', sans-serif",
             }}>
@@ -84,11 +84,11 @@ export default function ChatInput({
           rows={rows}
           style={{
             flex: 1,
-            background: "rgba(0,0,0,0.3)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "var(--theme-input-bg)",
+            border: "1px solid var(--theme-border-strong)",
             borderRadius: 10,
             padding: "10px 14px",
-            color: "#fff",
+            color: "var(--theme-input-text)",
             fontSize: 14,
             fontFamily: "'DM Sans', sans-serif",
             resize: "none",
@@ -103,11 +103,11 @@ export default function ChatInput({
           style={{
             background: canSend
               ? `linear-gradient(135deg, ${primary}, ${accent})`
-              : "rgba(255,255,255,0.06)",
+              : "var(--theme-disabled-bg)",
             border: "none",
             borderRadius: 10,
             padding: "0 20px",
-            color: canSend ? "#000" : "rgba(255,255,255,0.2)",
+            color: canSend ? "#000" : "var(--theme-disabled-text)",
             fontWeight: 700,
             cursor: canSend ? "pointer" : "not-allowed",
             fontSize: 13,
