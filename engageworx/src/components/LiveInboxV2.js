@@ -6,6 +6,18 @@ import { Button, Badge, Card, RichEditor } from './ui';
 import { SP_TENANT_ID, spDefaultsToOwn } from '../lib/spScope';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
+// Parse a Postgres timestamptz string ("2026-06-24 07:55:44+00") into a Date that resolves to the
+// SAME instant in every engine. V8 is lenient with the space separator + bare ±HH offset, but strict
+// WebKit (Safari/iOS) mis-parses or rejects them — normalize to ISO first: space -> 'T', and pad a
+// bare ±HH offset to ±HH:00. Already-ISO inputs pass through unchanged.
+function parseTs(s) {
+  if (!s) return new Date();
+  if (s instanceof Date) return s;
+  var str = String(s).replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00');
+  var d = new Date(str);
+  return isNaN(d.getTime()) ? new Date(s) : d;
+}
+
 function dedupConversations(convos, contactMap, msgMap) {
   // First pass: deduplicate by conversation id (prevents poll duplication)
   var byId = {};
@@ -469,6 +481,10 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
   const [selectedCall, setSelectedCall] = useState(null);
   const [fromEmail, setFromEmail] = useState('');
   const [senderEmails, setSenderEmails] = useState([]);
+  // Tenant timezone (tenants.digest_timezone) for the OPEN conversation — message timestamps render in
+  // the tenant's clock, not the viewer's. null => fall back to viewer-local. Fetched per selected conv
+  // so SP/CSP multi-tenant views use each thread's own tenant tz.
+  const [selectedTenantTz, setSelectedTenantTz] = useState(null);
   const [newConvOpen, setNewConvOpen] = useState(false);
   const [newConvSearch, setNewConvSearch] = useState('');
   const [newConvResults, setNewConvResults] = useState([]);
@@ -649,6 +665,21 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
     })();
   }, [resolvedTenantId, demoMode, supabase]);
 
+  // Resolve the OPEN conversation's tenant timezone (tenants.digest_timezone) for timestamp rendering.
+  // null on absence/RLS-miss -> formatters fall back to viewer-local.
+  var selectedTenantIdForTz = selectedConv && selectedConv.tenant_id;
+  useEffect(function() {
+    if (!selectedTenantIdForTz || !supabase || demoMode === true) { setSelectedTenantTz(null); return; }
+    var cancelled = false;
+    (async function() {
+      try {
+        var r = await supabase.from('tenants').select('digest_timezone').eq('id', selectedTenantIdForTz).maybeSingle();
+        if (!cancelled) setSelectedTenantTz(r.data && r.data.digest_timezone ? r.data.digest_timezone : null);
+      } catch (e) { if (!cancelled) setSelectedTenantTz(null); }
+    })();
+    return function() { cancelled = true; };
+  }, [selectedTenantIdForTz, supabase, demoMode]);
+
   // Empty useEffects for live mode (must run every render to maintain hook count)
   useEffect(() => { if (demoMode === true) { setConversations(DEMO_CONVERSATIONS); } }, [demoMode]);
   useEffect(() => {
@@ -706,7 +737,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               text: (resolvedMedia && resolvedMedia.length > 0 && (m.body === '[Photo]' || !m.body)) ? '' : (m.body || ''),
               subject: m.subject || '',
               mediaUrls: resolvedMedia,
-              time: m.created_at ? new Date(m.created_at) : new Date(),
+              time: parseTs(m.created_at),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
               read: true,
               delivered: true,
@@ -750,7 +781,7 @@ function LiveInboxInner({ C: rawC, tenants, viewLevel = "tenant", currentTenantI
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
                 text: m.body || '',
                 mediaUrls: m.media_urls || null,
-                time: m.created_at ? new Date(m.created_at) : new Date(),
+                time: parseTs(m.created_at),
                 agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
                 read: true, delivered: true,
               });
@@ -909,7 +940,7 @@ useEffect(function() {
               from: (m.direction === 'inbound' || m.sender_type === 'contact') ? 'contact' : 'agent',
               isBot: m.sender_type === 'ai' || m.sender_type === 'bot',
               text: m.body || '',
-              time: m.created_at ? new Date(m.created_at) : new Date(),
+              time: parseTs(m.created_at),
               agent: (m.sender_type === 'ai' || m.sender_type === 'bot') ? { id: 'bot', name: 'AI Assistant', avatar: '🤖', status: 'online' } : ((m.sender_type === 'agent' && m.sender_id) ? { id: m.sender_id, name: (agentNamesRef.current[m.sender_id] || 'Agent'), avatar: '👤', status: 'online' } : null),
               read: true,
               delivered: true,
@@ -1745,6 +1776,7 @@ useEffect(function() {
                   authorName: (msg.agent && !msg.isBot) ? msg.agent.name : null,
                   agentName: msg.agent ? msg.agent.name : null,
                   botName: msg.isBot ? "AI Assistant" : null,
+                  tenantTz: selectedTenantTz,  // render the bubble time in the tenant's clock (null -> viewer-local)
                   delivered: msg.delivered,
                   read: msg.read,
                   isHtml: isHtml,
@@ -2162,7 +2194,7 @@ useEffect(function() {
                   <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.03)" : "none" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.isBot ? '🤖 AI Reply' : ('👤 ' + (m.agent && m.agent.name ? m.agent.name : 'Agent'))}</span>
-                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
+                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString([], selectedTenantTz ? { timeZone: selectedTenantTz } : {}) : ''}</span>
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>

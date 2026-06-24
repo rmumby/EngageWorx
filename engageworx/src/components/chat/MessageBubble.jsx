@@ -40,6 +40,7 @@ export default function MessageBubble({
     isHtml,
     botName,
     mediaUrls,
+    tenantTz,
   } = metadata;
 
   const isUser = role === "user";
@@ -88,7 +89,7 @@ export default function MessageBubble({
   let timeStr = null;
   if (timestamp) {
     if (timestamp instanceof Date) {
-      timeStr = timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      timeStr = timestamp.toLocaleTimeString([], Object.assign({ hour: "2-digit", minute: "2-digit" }, tenantTz ? { timeZone: tenantTz } : {}));
     } else {
       timeStr = String(timestamp);
     }
