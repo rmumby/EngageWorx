@@ -30,7 +30,8 @@ export function ThemeProvider({ children }) {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'dark';
+    // No OS signal available (SSR / no matchMedia) → fall back to light, not dark.
+    return 'light';
   };
 
   // Theme default is LIGHT pre-auth for every tenant. We deliberately do NOT read a global
