@@ -6,9 +6,9 @@ import { useTheme } from '../../ThemeContext';
 
 export default function Toggle({ checked, onChange, disabled, label, description }) {
   var b = useBranding();
-  var { theme, isDark } = useTheme();
-  var accent = b.brandPrimary || theme.primary;
-  var trackBg = checked ? accent : (isDark ? 'rgba(255,255,255,0.15)' : '#d1d5db');
+  var { theme } = useTheme();
+  var accent = b.brandPrimary || theme.primary; // on-state is brand-relative — not tokenized
+  var trackBg = checked ? accent : 'var(--theme-border-strong)';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, opacity: disabled ? 0.5 : 1 }}>
@@ -31,7 +31,7 @@ export default function Toggle({ checked, onChange, disabled, label, description
         }}
       >
         <div style={{
-          width: 20, height: 20, borderRadius: 10, background: '#fff',
+          width: 20, height: 20, borderRadius: 10, background: '#fff', // knob: white affordance in both modes (intentional literal)
           position: 'absolute', top: 2, left: checked ? 22 : 2,
           transition: 'left 0.2s',
         }} />

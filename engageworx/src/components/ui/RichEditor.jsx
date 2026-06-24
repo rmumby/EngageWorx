@@ -27,7 +27,7 @@ function sanitizeEditorHtml(html) {
 }
 
 export default function RichEditor({ value, onChange, placeholder, disabled, style, maxHeight }) {
-  var { theme, isDark } = useTheme();
+  useTheme(); // subscribe to theme changes; colors below resolve via var(--theme-*) on data-theme
   var editorRef = useRef(null);
   var internalUpdate = useRef(false);
 
@@ -66,7 +66,7 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
         disabled={disabled}
         style={{
           background: 'transparent', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-          color: isDark ? theme.muted : '#6b7280', fontSize: 13, fontWeight: 700,
+          color: 'var(--theme-text-secondary)', fontSize: 13, fontWeight: 700,
           padding: '4px 8px', borderRadius: 4, fontFamily: 'Georgia, serif',
         }}
       >{label}</button>
@@ -76,12 +76,12 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
   var isEmpty = !value || value === '<br>' || value === '<div><br></div>';
 
   return (
-    <div style={Object.assign({ border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : '#d1d5db'), borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' }, style || {})}>
+    <div style={Object.assign({ border: '1px solid var(--theme-border-strong)', borderRadius: 10, overflow: 'hidden', display: 'flex', flexDirection: 'column' }, style || {})}>
       {/* Toolbar — pinned (never scrolls with the body) */}
       <div style={{
         display: 'flex', gap: 2, padding: '4px 8px', flexShrink: 0,
-        borderBottom: '1px solid ' + (isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb'),
-        background: isDark ? 'rgba(255,255,255,0.02)' : '#f9fafb',
+        borderBottom: '1px solid var(--theme-border)',
+        background: 'var(--theme-surface-raised)',
       }}>
         {toolbarBtn('B', 'bold')}
         {toolbarBtn('I', 'italic')}
@@ -92,7 +92,7 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
           disabled={disabled}
           style={{
             background: 'transparent', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-            color: isDark ? theme.muted : '#6b7280', fontSize: 13, fontWeight: 700,
+            color: 'var(--theme-text-secondary)', fontSize: 13, fontWeight: 700,
             padding: '4px 8px', borderRadius: 4, fontFamily: 'Georgia, serif',
           }}
         >Link</button>
@@ -109,9 +109,11 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
             // maxHeight is an optional standalone cap; when an ancestor bounds the
             // height (flex column), flex:1 + overflowY already scroll long content.
             ...(maxHeight ? { maxHeight: maxHeight } : {}),
-            color: theme.text, fontSize: 14, lineHeight: 1.6,
+            // Text-entry surface adopts the portal white-input treatment (white field + ink text in
+            // BOTH modes) — consolidation aligns the editor with all other inputs. Visible change in dark.
+            color: 'var(--theme-input-text)', fontSize: 14, lineHeight: 1.6,
             fontFamily: 'Georgia, serif',
-            background: isDark ? 'rgba(0,0,0,0.3)' : '#ffffff',
+            background: 'var(--theme-input-bg)',
             outline: 'none', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
             opacity: disabled ? 0.5 : 1,
           }}
@@ -119,7 +121,7 @@ export default function RichEditor({ value, onChange, placeholder, disabled, sty
         {isEmpty && placeholder && (
           <div style={{
             position: 'absolute', top: 10, left: 14,
-            color: isDark ? 'rgba(255,255,255,0.25)' : '#9ca3af',
+            color: 'var(--theme-text-secondary)', // grey readable on the white editor field in both modes
             fontSize: 14, fontFamily: 'Georgia, serif', pointerEvents: 'none',
           }}>{placeholder}</div>
         )}
