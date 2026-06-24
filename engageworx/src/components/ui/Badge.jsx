@@ -7,20 +7,21 @@ import { useTheme } from '../../ThemeContext';
 
 export default function Badge({ children, variant, style }) {
   var b = useBranding();
-  var { theme, isDark } = useTheme();
+  var { theme } = useTheme();
   var v = variant || 'semantic';
   var accent = b.brandPrimary || theme.primary;
 
   var bg, color, border;
   if (v === 'accent') {
+    // Brand-relative — tenant accent fill + tint. Intentionally NOT tokenized (white-label).
     bg = accent + '22';
     color = accent;
     border = '1px solid ' + accent + '44';
   } else {
-    // semantic — neutral status
-    bg = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
-    color = isDark ? theme.muted : '#4b5563';
-    border = '1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : '#d1d5db');
+    // semantic — neutral status (theme tokens, mode-flips via data-theme)
+    bg = 'var(--theme-surface-raised)';
+    color = 'var(--theme-text-secondary)';
+    border = '1px solid var(--theme-border-strong)';
   }
 
   return (

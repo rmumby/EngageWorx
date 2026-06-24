@@ -71,11 +71,11 @@ export function useAccentButtonStyle(overrides) {
 // Theme-aware SECONDARY button style (subtle fill, switches light↔dark). Replaces dark-tuned
 // rgba(255,255,255,…) consts that wash out on light backgrounds.
 export function useSecondaryButtonStyle(overrides) {
-  var { isDark } = useTheme();
+  useTheme(); // subscribe to theme; colors resolve via var(--theme-*) on data-theme
   return Object.assign({
-    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-    color: isDark ? '#E8F4FD' : '#374151',
-    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    background: 'var(--theme-surface-raised)',
+    color: 'var(--theme-text)',
+    border: '1px solid var(--theme-border-strong)',
     borderRadius: 10,
     padding: '10px 20px',
     fontWeight: 600,
@@ -87,10 +87,10 @@ export function useSecondaryButtonStyle(overrides) {
 
 // Theme-aware GHOST button style (transparent, muted text) for text/icon buttons (✕, ← Back, Clear, ★).
 export function useGhostButtonStyle(overrides) {
-  var { isDark, theme } = useTheme();
+  useTheme();
   return Object.assign({
     background: 'transparent',
-    color: isDark ? theme.muted : '#4b5563',
+    color: 'var(--theme-text-secondary)',
     border: 'none',
     borderRadius: 8,
     padding: '8px 12px',
@@ -103,11 +103,11 @@ export function useGhostButtonStyle(overrides) {
 
 // Theme-aware OUTLINE button style (transparent + border) — e.g. Sandbox / Demo / +New Tenant (task 3).
 export function useOutlineButtonStyle(overrides) {
-  var { isDark, theme } = useTheme();
+  useTheme();
   return Object.assign({
     background: 'transparent',
-    color: isDark ? theme.muted : '#4b5563',
-    border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db'),
+    color: 'var(--theme-text-secondary)',
+    border: '1px solid var(--theme-border-strong)',
     borderRadius: 10,
     padding: '10px 20px',
     fontWeight: 600,
@@ -122,12 +122,12 @@ export function useOutlineButtonStyle(overrides) {
 // fill + WCAG-contrast text; inactive = theme-aware subtle. Fixes the dark-tuned wash on light.
 export function useSegmentedStyles() {
   var b = useBranding();
-  var { isDark, theme } = useTheme();
+  var { theme } = useTheme();
   var brand = b.brandPrimary || theme.primary;
   return function (active) {
     return active
       ? { background: brand, color: contrastText(brand), border: '1px solid ' + brand }
-      : { background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', color: isDark ? theme.muted : '#4b5563', border: '1px solid ' + (isDark ? 'rgba(255,255,255,0.08)' : '#e4e7ec') };
+      : { background: 'var(--theme-hover-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' };
   };
 }
 
@@ -166,9 +166,9 @@ export default function Button({ variant, onClick, disabled, children, style, ty
     color = isDark ? '#0D1117' : '#FFFFFF';
     border = 'none';
   } else if (v === 'secondary') {
-    bg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
-    color = isDark ? '#ccc' : '#374151';
-    border = '1px solid ' + (isDark ? 'rgba(255,255,255,0.1)' : '#d1d5db');
+    bg = 'var(--theme-surface-raised)';
+    color = 'var(--theme-text)';
+    border = '1px solid var(--theme-border-strong)';
   } else if (v === 'accent') {
     bg = brandColor;
     color = contrastText(brandColor);
@@ -177,19 +177,19 @@ export default function Button({ variant, onClick, disabled, children, style, ty
     boxShadow = _ae.boxShadow;
   } else if (v === 'ghost') {
     bg = 'transparent';
-    color = isDark ? theme.muted : '#4b5563';
+    color = 'var(--theme-text-secondary)';
     border = 'none';
   } else if (v === 'outline') {
     bg = 'transparent';
-    color = isDark ? theme.muted : '#4b5563';
-    border = '1px solid ' + (isDark ? 'rgba(255,255,255,0.12)' : '#d1d5db');
+    color = 'var(--theme-text-secondary)';
+    border = '1px solid var(--theme-border-strong)';
   } else if (v === 'subtle') {
     bg = 'transparent';
-    color = isDark ? theme.muted : '#4b5563';
+    color = 'var(--theme-text-secondary)';
     border = 'none';
   } else if (v === 'danger') {
-    bg = '#dc2626';
-    color = '#fff';
+    bg = 'var(--semantic-error)';
+    color = '#fff'; // text on error fill — white in both modes (intentional literal)
     border = 'none';
   }
 
