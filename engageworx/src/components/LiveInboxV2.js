@@ -1380,7 +1380,7 @@ useEffect(function() {
   const activeCount = conversations.filter(c => c.status === "active" || c.status === "urgent").length;
   const waitingCount = conversations.filter(c => c.status === "waiting").length;
 
-  const inputStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+  const inputStyle = { background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
 
   const handleSend = () => {
     if (!composeText.trim()) return;
@@ -1408,15 +1408,15 @@ useEffect(function() {
     <div style={{ display: "flex", height: isMobile ? "100vh" : "calc(100vh - 32px)", fontFamily: "'DM Sans', sans-serif", overflow: "hidden", position: "relative" }}>
       <style dangerouslySetInnerHTML={{ __html: '.conv-card:hover .conv-checkbox { opacity: 1 !important; }' }} />
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
-      <div style={{ width: isMobile ? "100%" : 320, minWidth: isMobile ? 0 : 280, borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.06)", display: isMobile && mobileShowChat ? "none" : "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)", flexShrink: 0 }}>
+      <div style={{ width: isMobile ? "100%" : 320, minWidth: isMobile ? 0 : 280, borderRight: isMobile ? "none" : "1px solid var(--theme-border)", display: isMobile && mobileShowChat ? "none" : "flex", flexDirection: "column", background: "var(--theme-surface)", flexShrink: 0 }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>{t('inbox.title')}</h2>
+            <h2 style={{ color: "var(--theme-text)", margin: 0, fontSize: 18, fontWeight: 800 }}>{t('inbox.title')}</h2>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {totalUnread > 0 && <span style={{ background: "var(--semantic-error)", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
-              <button onClick={function() { setSelectMode(!selectMode); if (selectMode) setSelectedConvIds([]); }} style={{ background: selectMode ? C.primary + "22" : "rgba(255,255,255,0.06)", border: "1px solid " + (selectMode ? C.primary : "var(--theme-border-strong)"), borderRadius: 6, height: 26, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 10, color: selectMode ? C.primary : "var(--theme-text-muted)", fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }} title="Select conversations">{selectMode ? "✕" : "☑"}</button>
+              <button onClick={function() { setSelectMode(!selectMode); if (selectMode) setSelectedConvIds([]); }} style={{ background: selectMode ? C.primary + "22" : "var(--theme-surface-raised)", border: "1px solid " + (selectMode ? C.primary : "var(--theme-border-strong)"), borderRadius: 6, height: 26, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 10, color: selectMode ? C.primary : "var(--theme-text-muted)", fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }} title="Select conversations">{selectMode ? "✕" : "☑"}</button>
               {!demoMode && <button onClick={function() { setNewConvOpen(true); }} style={{ background: C.primary, border: "none", borderRadius: 6, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 14, color: "#000", fontWeight: 800, lineHeight: 1, padding: 0 }} title="New Conversation">✏️</button>}
             </div>
           </div>
@@ -1424,21 +1424,21 @@ useEffect(function() {
           {/* Scope toggle — SP/CSP only */}
           {isSPorCSP && (
             <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-              <button onClick={function() { if (scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: !scopeOwnOnly ? C.primary + '22' : 'var(--theme-hover-bg)', color: !scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.35)' }}>All tenants</button>
-              <button onClick={function() { if (!scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: scopeOwnOnly ? C.primary + '22' : 'var(--theme-hover-bg)', color: scopeOwnOnly ? C.primary : 'rgba(255,255,255,0.35)' }}>{tenantBrandName || 'Own'} only</button>
+              <button onClick={function() { if (scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: !scopeOwnOnly ? C.primary + '22' : 'var(--theme-hover-bg)', color: !scopeOwnOnly ? C.primary : 'var(--theme-text-muted)' }}>All tenants</button>
+              <button onClick={function() { if (!scopeOwnOnly) toggleScope(); }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: 'none', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", background: scopeOwnOnly ? C.primary + '22' : 'var(--theme-hover-bg)', color: scopeOwnOnly ? C.primary : 'var(--theme-text-muted)' }}>{tenantBrandName || 'Own'} only</button>
             </div>
           )}
 
           {/* Hide resolved toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <div onClick={toggleHideResolved} style={{ width: 32, height: 18, borderRadius: 9, position: 'relative', background: hideResolved ? C.primary : 'rgba(255,255,255,0.15)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
+            <div onClick={toggleHideResolved} style={{ width: 32, height: 18, borderRadius: 9, position: 'relative', background: hideResolved ? C.primary : 'var(--theme-border-strong)', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}>
               <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: hideResolved ? 16 : 2, transition: 'all 0.2s' }} />
             </div>
-            <span style={{ color: hideResolved ? C.primary : 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 600 }}>Hide resolved</span>
+            <span style={{ color: hideResolved ? C.primary : 'var(--theme-text-muted)', fontSize: 10, fontWeight: 600 }}>Hide resolved</span>
           </div>
 
           {/* Tab Switcher: Messages | Calls */}
-          <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "var(--theme-surface)", borderRadius: 8, padding: 3 }}>
             {[
               { id: "all", label: "💬 " + t('inbox.all') },
               { id: "messages", label: t('inbox.messages') },
@@ -1465,7 +1465,7 @@ useEffect(function() {
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "var(--theme-hover-bg)",
-                border: `1px solid ${filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary + "66" : "rgba(255,255,255,0.06)"}`,
+                border: `1px solid ${filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary + "66" : "var(--theme-border)"}`,
                 borderRadius: 6, padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer",
                 color: filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary : "var(--theme-text-muted)",
                 fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0,
@@ -1479,7 +1479,7 @@ useEffect(function() {
             <button onClick={() => setFilterChannel("all")} style={{
               background: filterChannel === "all" ? `${C.primary}22` : "transparent", border: "none",
               borderRadius: 4, padding: "3px 6px", fontSize: 10, cursor: "pointer",
-              color: filterChannel === "all" ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600,
+              color: filterChannel === "all" ? C.primary : "var(--theme-text-muted)", fontWeight: 600,
             }}>All</button>
             {Object.entries(CHANNELS).filter(([key]) => key !== 'voice').map(([key, ch]) => (
               <button key={key} onClick={() => setFilterChannel(key)} title={ch.label} style={{
@@ -1524,24 +1524,24 @@ useEffect(function() {
                   {/* Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                      <span style={{ color: "#fff", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ color: "var(--theme-text)", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {((conv.contact.phone || '').indexOf('+48') === 0 || (conv.metadata && conv.metadata.country === 'PL')) && <span title="Polska" style={{ marginRight: 4 }}>🇵🇱</span>}
                         {conv.contact.name}
-                        {((conv.metadata && conv.metadata.language === 'pl') || (conv.contact.phone || '').indexOf('+48') === 0) && <span style={{ marginLeft: 6, background: 'rgba(220,38,38,0.15)', color: '#dc2626', border: '1px solid rgba(220,38,38,0.4)', borderRadius: 3, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>PL</span>}
+                        {((conv.metadata && conv.metadata.language === 'pl') || (conv.contact.phone || '').indexOf('+48') === 0) && <span style={{ marginLeft: 6, background: 'var(--semantic-error-tint)', color: 'var(--semantic-error)', border: '1px solid var(--semantic-error)', borderRadius: 3, padding: '1px 5px', fontSize: 9, fontWeight: 700 }}>PL</span>}
                       </span>
                       <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{conv.lastActivity ? (typeof conv.lastActivity.toLocaleDateString === 'function' ? (new Date().toDateString() === conv.lastActivity.toDateString() ? conv.lastActivity.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : conv.lastActivity.toLocaleDateString([], { month: 'short', day: 'numeric' })) : '') : ''}</span>
                     </div>
-                    <div style={{ color: conv.unread > 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                    <div style={{ color: conv.unread > 0 ? "var(--theme-text-secondary)" : "var(--theme-text-muted)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {conv.isTyping ? <span style={{ color: C.primary, fontStyle: "italic" }}>typing...</span> : (lastMsg.from === "contact" ? "" : `${lastMsg.agent?.name || "You"}: `)}
                       {!conv.isTyping && lastMsg.text.slice(0, 60)}{!conv.isTyping && lastMsg.text.length > 60 ? "..." : ""}
                     </div>
                     <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                      {conv.priority === "high" && <span style={{ background: "#FF3B3022", color: "var(--semantic-error)", border: "1px solid #FF3B3044", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
+                      {conv.priority === "high" && <span style={{ background: "var(--semantic-error-tint)", color: "var(--semantic-error)", border: "1px solid var(--semantic-error)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
                       {conv.ai_draft_status === 'pending' && <span style={{ ...statusChipStyle('draft', isDark), borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>AI DRAFT</span>}
                       {conv.contact.tags.slice(0, 2).map(t => (
                         <span key={t} style={{ background: `${TAG_COLORS[t] || "var(--theme-text-secondary)"}15`, color: TAG_COLORS[t] || "var(--theme-text-secondary)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 600 }}>{t}</span>
                       ))}
-                      {conv.assignedTo && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
+                      {conv.assignedTo && <span style={{ color: "var(--theme-disabled-text)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
                     </div>
                   </div>
                 </div>
@@ -1552,8 +1552,8 @@ useEffect(function() {
           {filtered.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : t('inbox.noConversations')}</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || (tenantFromEmail ? ("Try adjusting your filters or send an email to " + tenantFromEmail) : "Try adjusting your filters or start a conversation")}</div>
+              <div style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : t('inbox.noConversations')}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 4 }}>{liveError || (tenantFromEmail ? ("Try adjusting your filters or send an email to " + tenantFromEmail) : "Try adjusting your filters or start a conversation")}</div>
             </div>
           )}
         </div>)}
@@ -1562,12 +1562,12 @@ useEffect(function() {
         {inboxTab === "calls" && (
           <div style={{ flex: 1, overflowY: "auto" }}>
             {loadingCalls ? (
-              <div style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Loading calls...</div>
+              <div style={{ padding: 40, textAlign: "center", color: "var(--theme-text-muted)" }}>Loading calls...</div>
             ) : calls.length === 0 ? (
               <div style={{ padding: "40px 20px", textAlign: "center" }}>
                 <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{t('inbox.noCalls')}</div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{t('inbox.callsHint')}</div>
+                <div style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 14 }}>{t('inbox.noCalls')}</div>
+                <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 4 }}>{t('inbox.callsHint')}</div>
               </div>
             ) : calls.map(call => {
               const isVoicemail = call.status === 'voicemail' || call.recording_url;
@@ -1576,21 +1576,21 @@ useEffect(function() {
               return (
                 <div key={call.id} onClick={() => setSelectedCall(selectedCall?.id === call.id ? null : call)} style={{ padding: "12px 16px", borderBottom: "1px solid var(--theme-hover-bg)", cursor: "pointer", background: selectedCall?.id === call.id ? "rgba(0,201,255,0.06)" : "transparent", transition: "background 0.15s" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: isVoicemail ? "rgba(255,214,0,0.15)" : "rgba(0,201,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: isVoicemail ? "var(--semantic-warning-tint)" : "rgba(0,201,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
                       {isVoicemail ? "📩" : call.direction === 'inbound' ? "📲" : "📱"}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
+                        <span style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
                         <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
                         <span style={{ color: isVoicemail ? "var(--semantic-warning)" : "#00C9FF", fontSize: 10, fontWeight: 700 }}>{isVoicemail ? "VOICEMAIL" : call.direction?.toUpperCase() || "INBOUND"}</span>
                         {dur && <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{dur}</span>}
-                        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
                       {isVoicemail && call.transcript && (
-                        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ color: "var(--theme-text-secondary)", fontSize: 11, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           VM: {call.transcript.length > 80 ? call.transcript.substring(0, 80) + '...' : call.transcript}
                         </div>
                       )}
@@ -1601,11 +1601,11 @@ useEffect(function() {
                   </div>
                   {/* Expanded call details */}
                   {selectedCall?.id === call.id && (
-                    <div style={{ marginTop: 10, padding: 12, background: "rgba(0,0,0,0.2)", borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
+                    <div style={{ marginTop: 10, padding: 12, background: "var(--theme-surface)", borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
                       {call.transcript && (
                         <div style={{ marginBottom: 8 }}>
                           <div style={{ color: "var(--semantic-warning)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", marginBottom: 4 }}>Transcript</div>
-                          <div style={{ color: "rgba(255,255,255,0.6)" }}>{call.transcript}</div>
+                          <div style={{ color: "var(--theme-text-secondary)" }}>{call.transcript}</div>
                         </div>
                       )}
                       {call.recording_url && (
@@ -1614,7 +1614,7 @@ useEffect(function() {
                         </a>
                       )}
                       {!call.transcript && !call.recording_url && (
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No recording or transcript available</div>
+                        <div style={{ color: "var(--theme-text-muted)", fontStyle: "italic" }}>No recording or transcript available</div>
                       )}
                       {isVoicemail && (
                         <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
@@ -1631,8 +1631,8 @@ useEffect(function() {
                             } catch (err) { console.error('[LiveInbox] Mark handled error:', err.message); }
                           }} disabled={call.voicemail_handled} style={{
                             display: "inline-flex", alignItems: "center", gap: 4,
-                            background: call.voicemail_handled ? "rgba(0,230,118,0.1)" : "rgba(255,214,0,0.1)",
-                            border: call.voicemail_handled ? "1px solid rgba(0,230,118,0.3)" : "1px solid rgba(255,214,0,0.3)",
+                            background: call.voicemail_handled ? "var(--semantic-success-tint)" : "var(--semantic-warning-tint)",
+                            border: call.voicemail_handled ? "1px solid var(--semantic-success)" : "1px solid var(--semantic-warning)",
                             borderRadius: 6, padding: "6px 12px", fontSize: 11, fontWeight: 600,
                             color: call.voicemail_handled ? "var(--semantic-success)" : "var(--semantic-warning)",
                             cursor: call.voicemail_handled ? "default" : "pointer",
@@ -1649,12 +1649,12 @@ useEffect(function() {
 
         {/* Bottom — Bulk Actions or Stats */}
         {selectMode && selectedConvIds.length > 0 ? (
-          <div style={{ padding: "8px 10px", borderTop: "1px solid rgba(255,255,255,0.06)", background: C.primary + "08" }}>
+          <div style={{ padding: "8px 10px", borderTop: "1px solid var(--theme-border)", background: C.primary + "08" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
               <span style={{ color: C.primary, fontSize: 11, fontWeight: 700 }}>{selectedConvIds.length} selected</span>
               <button onClick={function() { var allIds = filtered.map(function(c) { return c.id; }); setSelectedConvIds(selectedConvIds.length === allIds.length ? [] : allIds); }} style={{ background: "none", border: "none", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 10, textDecoration: "underline", fontFamily: "'DM Sans', sans-serif" }}>{selectedConvIds.length === filtered.length ? "Deselect all" : "Select all"}</button>
               <div style={{ flex: 1 }} />
-              <button onClick={function() { setSelectedConvIds([]); setSelectMode(false); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>✕ Clear</button>
+              <button onClick={function() { setSelectedConvIds([]); setSelectMode(false); }} style={{ background: "none", border: "none", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 10, fontFamily: "'DM Sans', sans-serif" }}>✕ Clear</button>
             </div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {[
@@ -1679,15 +1679,15 @@ useEffect(function() {
                   setSelectedConvIds([]); setSelectMode(false);
                 } catch (e) { alert('Delete failed: ' + e.message); }
                 setBulkActing(false);
-              }} disabled={bulkActing} style={{ background: "#FF3B3015", border: "1px solid #FF3B3044", borderRadius: 6, padding: "4px 8px", color: "var(--semantic-error)", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>🗑️ Delete</button>
+              }} disabled={bulkActing} style={{ background: "var(--semantic-error-tint)", border: "1px solid var(--semantic-error)", borderRadius: 6, padding: "4px 8px", color: "var(--semantic-error)", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", opacity: bulkActing ? 0.5 : 1 }}>🗑️ Delete</button>
             </div>
           </div>
         ) : (
-          <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: isMobile ? "8px 12px" : "10px 16px", borderTop: "1px solid var(--theme-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{filtered.length} conversations</span>
             <div style={{ display: "flex", gap: 6 }}>
               {(demoMode ? AGENTS.filter(function(a) { return a.status === "online"; }) : (teamMembers.length > 0 ? teamMembers : (userProfile ? [{ id: userProfile.id, name: userProfile.full_name || userProfile.email || 'You', avatar: (userProfile.full_name || 'Y').substring(0, 2).toUpperCase() }] : []))).slice(0, 3).map(function(a) {
-                return <div key={a.id} title={a.name} style={{ width: 22, height: 22, borderRadius: "50%", background: C.primary + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>;
+                return <div key={a.id} title={a.name} style={{ width: 22, height: 22, borderRadius: "50%", background: C.primary + "33", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid var(--semantic-success-tint)" }}>{a.avatar}</div>;
               })}
               {teamMembers.length > 3 && !demoMode && <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, lineHeight: "22px" }}>+{teamMembers.length - 3}</span>}
               <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, lineHeight: "22px" }}>{demoMode ? "online" : (teamMembers.length === 0 ? "Just you" : teamMembers.length + " team")}</span>
@@ -1700,20 +1700,20 @@ useEffect(function() {
       {selectedConv && (!isMobile || mobileShowChat) ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, width: isMobile ? "100%" : "auto", position: isMobile ? "absolute" : "relative", inset: isMobile ? 0 : "auto", zIndex: isMobile ? 10 : "auto", background: isMobile ? (C.bg || "var(--theme-bg)") : "transparent" }}>
           {/* Chat Header */}
-          <div style={{ padding: isMobile ? "10px 12px" : "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: isMobile ? 10 : 14, background: "rgba(0,0,0,0.1)" }}>
+          <div style={{ padding: isMobile ? "10px 12px" : "14px 20px", borderBottom: "1px solid var(--theme-border)", display: "flex", alignItems: "center", gap: isMobile ? 10 : 14, background: "var(--theme-surface)" }}>
             {isMobile && (
               <button onClick={function() { setMobileShowChat(false); }} style={{ background: "none", border: "none", color: C.primary, fontSize: 18, cursor: "pointer", padding: "4px 8px 4px 0", fontWeight: 700, flexShrink: 0 }}>←</button>
             )}
             <div style={{ width: isMobile ? 32 : 38, height: isMobile ? 32 : 38, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 11 : 13, fontWeight: 800, color: CHANNELS[selectedConv.channel].color, flexShrink: 0 }}>{selectedConv.contact.avatar}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: isMobile ? "nowrap" : "wrap" }}>
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: isMobile ? 14 : 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.name}</span>
+                <span style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: isMobile ? 14 : 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.name}</span>
                 <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 {!isMobile && <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>}
-                {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "var(--semantic-error)", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
-                {selectedConv.contact && selectedConv.contact.is_blocked && <span title="You won't send sequences or messages to this contact" style={{ background: "#64748b22", color: "#94a3b8", border: "1px solid #64748b55", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>BLOCKED</span>}
+                {selectedConv.priority === "high" && <span style={{ background: "var(--semantic-error-tint)", color: "var(--semantic-error)", border: "1px solid var(--semantic-error)", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
+                {selectedConv.contact && selectedConv.contact.is_blocked && <span title="You won't send sequences or messages to this contact" style={{ background: "var(--theme-active-bg)", color: "var(--theme-text-secondary)", border: "1px solid var(--theme-border-strong)", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>BLOCKED</span>}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.company}{!isMobile && (" · " + selectedConv.contact.phone)}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedConv.contact.company}{!isMobile && (" · " + selectedConv.contact.phone)}</div>
             </div>
             {!isMobile && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {selectedConv.assignedTo && (
@@ -1877,7 +1877,7 @@ useEffect(function() {
                   </div>
                   <textarea value={verdictMsg} onChange={function(e) { setVerdictMsg(e.target.value); }} rows={2}
                     placeholder="Message to patient (or leave blank for default)..."
-                    style={{ width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none', marginBottom: 8 }} />
+                    style={{ width: '100%', background: 'var(--theme-input-bg)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '8px 12px', color: 'var(--theme-input-text)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", resize: 'vertical', boxSizing: 'border-box', outline: 'none', marginBottom: 8 }} />
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button disabled={sending} onClick={function() { submitVerdict('approved'); }}
                       style={{ background: '#10b981', border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: sending ? 0.5 : 1 }}>
@@ -1893,7 +1893,7 @@ useEffect(function() {
           })()}
 
           {/* Compose Area */}
-          <div style={{ padding: isMobile ? "10px 10px 16px" : "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: isMobile ? (C.bg || "var(--theme-bg)") : "rgba(0,0,0,0.1)", ...(isMobile ? { position: "sticky", bottom: 0, zIndex: 5 } : {}) }}>
+          <div style={{ padding: isMobile ? "10px 10px 16px" : "12px 20px 16px", borderTop: "1px solid var(--theme-border)", background: isMobile ? (C.bg || "var(--theme-bg)") : "var(--theme-surface)", ...(isMobile ? { position: "sticky", bottom: 0, zIndex: 5 } : {}) }}>
             <ChatInput
               value={composeText}
               onChange={setComposeText}
@@ -1907,18 +1907,18 @@ useEffect(function() {
               toolbar={<>
                 {/* Canned Responses */}
                 {showCanned && (
-                  <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-active-bg)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{t('inbox.quickResponses')}</div>
+                  <div style={{ marginBottom: 10, background: "var(--theme-surface)", border: "1px solid var(--theme-active-bg)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
+                    <div style={{ color: "var(--theme-text-muted)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>{t('inbox.quickResponses')}</div>
                     <div style={{ display: "grid", gap: 4 }}>
                       {CANNED_RESPONSES.map(cr => (
                         <button key={cr.id} onClick={() => handleCannedSelect(cr.text)} style={{
-                          background: "var(--theme-surface-raised)", border: "1px solid rgba(255,255,255,0.06)",
+                          background: "var(--theme-surface-raised)", border: "1px solid var(--theme-border)",
                           borderRadius: 6, padding: "8px 10px", cursor: "pointer", textAlign: "left",
-                          color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                          color: "var(--theme-text-secondary)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
                           transition: "all 0.15s",
                         }}
                           onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.borderColor = `${C.primary}33`; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "var(--theme-surface-raised)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "var(--theme-surface-raised)"; e.currentTarget.style.borderColor = "var(--theme-border)"; }}
                         >
                           <span style={{ color: C.primary, fontWeight: 700, fontSize: 10, marginRight: 8 }}>{cr.label}</span>
                           {cr.text.slice(0, 70)}{cr.text.length > 70 ? "..." : ""}
@@ -1930,17 +1930,17 @@ useEffect(function() {
 
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible" }}>
-                  <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "var(--theme-hover-bg)", border: `1px solid ${showCanned ? C.primary + "44" : "var(--theme-active-bg)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>⚡ Quick</button>
-                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>📎 Attach</button>
-                  {!isMobile && <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>}
-                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>{isMobile ? "🤖" : "🤖 AI Suggest"}</button>
+                  <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "var(--theme-hover-bg)", border: `1px solid ${showCanned ? C.primary + "44" : "var(--theme-active-bg)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>⚡ Quick</button>
+                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>📎 Attach</button>
+                  {!isMobile && <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>}
+                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", whiteSpace: "nowrap", flexShrink: 0 }}>{isMobile ? "🤖" : "🤖 AI Suggest"}</button>
                   {selectedConv.channel === 'email' && senderEmails.length > 0 && (
-                    <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 6px", color: "#fff", fontSize: 10, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", flexShrink: 0, maxWidth: isMobile ? 120 : 200 }}>
+                    <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 6, padding: "3px 6px", color: "var(--theme-input-text)", fontSize: 10, fontFamily: "'DM Sans', sans-serif", cursor: "pointer", flexShrink: 0, maxWidth: isMobile ? 120 : 200 }}>
                       {senderEmails.map(function(se) { return <option key={se.email} value={se.email}>From: {se.email}</option>; })}
                     </select>
                   )}
                   <div style={{ flex: 1 }} />
-                  {!isMobile && <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>}
+                  {!isMobile && <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>}
                 </div>
               </>}
             />
@@ -1951,8 +1951,8 @@ useEffect(function() {
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>💬</div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('inbox.selectConversation')}</div>
-            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>{t('inbox.selectHint')}</div>
+            <div style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>{t('inbox.selectConversation')}</div>
+            <div style={{ color: "var(--theme-text-muted)", fontSize: 14 }}>{t('inbox.selectHint')}</div>
             <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 28 }}>
               {[
                 { label: "Active", value: activeCount, color: C.primary },
@@ -1961,7 +1961,7 @@ useEffect(function() {
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{s.label}</div>
+                  <div style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1971,13 +1971,13 @@ useEffect(function() {
 
       {/* ═══════════ RIGHT: Contact Info Sidebar ═══════════ */}
       {!isMobile && selectedConv && showContactInfo && (
-        <div style={{ width: 280, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.1)", flexShrink: 0 }}>
+        <div style={{ width: 280, borderLeft: "1px solid var(--theme-border)", overflowY: "auto", background: "var(--theme-surface)", flexShrink: 0 }}>
           <div style={{ padding: "20px 16px" }}>
             {/* Contact Card */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: CHANNELS[selectedConv.channel].color, margin: "0 auto 10px" }}>{selectedConv.contact.avatar}</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</div>
-              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 }}>{selectedConv.contact.company}</div>
+              <div style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 2 }}>{selectedConv.contact.company}</div>
               <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 8 }}>
                 {selectedConv.contact.tags.map(t => (
                   <span key={t} style={{ background: `${TAG_COLORS[t] || "var(--theme-text-secondary)"}18`, color: TAG_COLORS[t] || "var(--theme-text-secondary)", border: `1px solid ${TAG_COLORS[t] || "var(--theme-text-secondary)"}33`, borderRadius: 4, padding: "1px 7px", fontSize: 9, fontWeight: 700 }}>{t}</span>
@@ -1996,7 +1996,7 @@ useEffect(function() {
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, padding: "6px 0", borderBottom: i < 3 ? "1px solid var(--theme-surface-raised)" : "none" }}>
                   <span style={{ fontSize: 11 }}>{item.icon}</span>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, wordBreak: "break-all" }}>{item.value}</span>
+                  <span style={{ color: "var(--theme-text-secondary)", fontSize: 11, wordBreak: "break-all" }}>{item.value}</span>
                 </div>
               ))}
             </div>
@@ -2007,12 +2007,12 @@ useEffect(function() {
               {[
                 { label: "Status", value: selectedConv.status.charAt(0).toUpperCase() + selectedConv.status.slice(1), color: selectedConv.status === "urgent" ? "var(--semantic-error)" : selectedConv.status === "active" ? "var(--semantic-success)" : selectedConv.status === "waiting" ? "var(--semantic-warning)" : "var(--theme-text-secondary)" },
                 { label: "Priority", value: selectedConv.priority.charAt(0).toUpperCase() + selectedConv.priority.slice(1), color: selectedConv.priority === "high" ? "var(--semantic-error)" : selectedConv.priority === "medium" ? "var(--semantic-warning)" : "var(--semantic-success)" },
-                { label: "Agent", value: selectedConv.ai_assigned ? "AI" : (selectedConv.assignedTo?.name || "Unassigned"), color: selectedConv.ai_assigned ? C.primary : "rgba(255,255,255,0.5)" },
-                { label: "Messages", value: (selectedConv.messages || []).length, color: "rgba(255,255,255,0.5)" },
-                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "rgba(255,255,255,0.5)" },
+                { label: "Agent", value: selectedConv.ai_assigned ? "AI" : (selectedConv.assignedTo?.name || "Unassigned"), color: selectedConv.ai_assigned ? C.primary : "var(--theme-text-secondary)" },
+                { label: "Messages", value: (selectedConv.messages || []).length, color: "var(--theme-text-secondary)" },
+                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "var(--theme-text-secondary)" },
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{item.label}</span>
+                  <span style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{item.label}</span>
                   <span style={{ color: item.color, fontSize: 11, fontWeight: 600 }}>{item.value}</span>
                 </div>
               ))}
@@ -2178,7 +2178,7 @@ useEffect(function() {
                   }},
                 ].map(function(action) { return (
                   <button key={action.label} onClick={action.action || undefined} style={{
-                    background: "var(--theme-hover-bg)", border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--theme-hover-bg)", border: "1px solid var(--theme-border)",
                     borderRadius: 6, padding: "8px", cursor: "pointer", color: "var(--theme-text-muted)",
                     fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.15s",
                   }}
@@ -2197,9 +2197,9 @@ useEffect(function() {
                   <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid var(--theme-surface-raised)" : "none" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.isBot ? '🤖 AI Reply' : ('👤 ' + (m.agent && m.agent.name ? m.agent.name : 'Agent'))}</span>
-                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString([], selectedTenantTz ? { timeZone: selectedTenantTz } : {}) : ''}</span>
+                      <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString([], selectedTenantTz ? { timeZone: selectedTenantTz } : {}) : ''}</span>
                     </div>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
+                    <div style={{ color: "var(--theme-text-muted)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>
                 );
               })}
@@ -2210,10 +2210,10 @@ useEffect(function() {
 
       {/* ═══════════ New Conversation Modal ═══════════ */}
       {newConvOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={function() { setNewConvOpen(false); }}>
-          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: "var(--theme-surface)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14, padding: 24, width: 480, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "var(--theme-overlay)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={function() { setNewConvOpen(false); }}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: "var(--theme-surface)", border: "1px solid var(--theme-border-strong)", borderRadius: 14, padding: 24, width: 480, maxWidth: "90vw", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ color: "#fff", margin: 0, fontSize: 16, fontWeight: 800 }}>✏️ New Conversation</h3>
+              <h3 style={{ color: "var(--theme-text)", margin: 0, fontSize: 16, fontWeight: 800 }}>✏️ New Conversation</h3>
               <button onClick={function() { setNewConvOpen(false); }} style={{ background: "none", border: "none", color: "var(--theme-text-muted)", fontSize: 18, cursor: "pointer" }}>✕</button>
             </div>
 
@@ -2222,31 +2222,31 @@ useEffect(function() {
               {newConvContact ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.primary + "15", border: "1px solid " + C.primary + "44", borderRadius: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim()}</div>
+                    <div style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 13 }}>{((newConvContact.first_name || '') + ' ' + (newConvContact.last_name || '')).trim()}</div>
                     <div style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{newConvContact.email || newConvContact.phone || newConvContact.mobile_phone}</div>
                   </div>
-                  <button onClick={function() { setNewConvContact(null); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                  <button onClick={function() { setNewConvContact(null); }} style={{ background: "none", border: "none", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 14 }}>✕</button>
                 </div>
               ) : (<>
                 <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                  <input value={newConvSearch} onChange={function(e) { setNewConvSearch(e.target.value); }} onKeyDown={function(e) { if (e.key === 'Enter') newConvSearchContacts(newConvSearch); }} placeholder="Search contacts..." style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                  <input value={newConvSearch} onChange={function(e) { setNewConvSearch(e.target.value); }} onKeyDown={function(e) { if (e.key === 'Enter') newConvSearchContacts(newConvSearch); }} placeholder="Search contacts..." style={{ flex: 1, background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                   <button onClick={function() { newConvSearchContacts(newConvSearch); }} disabled={newConvSearching} style={{ background: C.primary + "22", border: "1px solid " + C.primary + "44", borderRadius: 8, padding: "8px 12px", color: C.primary, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{newConvSearching ? "..." : "🔍"}</button>
                 </div>
                 {newConvResults.length > 0 && (
-                  <div style={{ maxHeight: 120, overflowY: "auto", marginBottom: 8, border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, background: "rgba(0,0,0,0.2)" }}>
+                  <div style={{ maxHeight: 120, overflowY: "auto", marginBottom: 8, border: "1px solid var(--theme-border)", borderRadius: 8, background: "var(--theme-surface)" }}>
                     {newConvResults.map(function(c) {
                       var cName = ((c.first_name || '') + ' ' + (c.last_name || '')).trim() || c.email || c.phone;
                       return (
                         <div key={c.id} onClick={function() { setNewConvContact(c); setNewConvResults([]); setNewConvSearch(''); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--theme-hover-bg)", display: "flex", justifyContent: "space-between" }}
                           onMouseEnter={function(e) { e.currentTarget.style.background = "var(--theme-hover-bg)"; }}
                           onMouseLeave={function(e) { e.currentTarget.style.background = "transparent"; }}>
-                          <div><div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{cName}</div><div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{c.email}{c.phone ? ' · ' + c.phone : ''}</div></div>
+                          <div><div style={{ color: "var(--theme-text)", fontSize: 13, fontWeight: 600 }}>{cName}</div><div style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{c.email}{c.phone ? ' · ' + c.phone : ''}</div></div>
                         </div>
                       );
                     })}
                   </div>
                 )}
-                <input value={newConvManual} onChange={function(e) { setNewConvManual(e.target.value); }} placeholder="Or enter phone number / email directly..." style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                <input value={newConvManual} onChange={function(e) { setNewConvManual(e.target.value); }} placeholder="Or enter phone number / email directly..." style={{ width: "100%", background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
               </>)}
             </div>
 
@@ -2259,7 +2259,7 @@ useEffect(function() {
                   { id: "whatsapp", label: "📱 WhatsApp", color: "#25D366" },
                 ].map(function(ch) {
                   var active = newConvChannel === ch.id;
-                  return <button key={ch.id} onClick={function() { setNewConvChannel(ch.id); }} style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", background: active ? ch.color + "22" : "var(--theme-surface-raised)", border: "2px solid " + (active ? ch.color : "var(--theme-active-bg)"), color: active ? ch.color : "var(--theme-text-muted)", fontSize: 12, fontWeight: active ? 700 : 400, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{ch.label}</button>;
+                  return <button key={ch.id} onClick={function() { setNewConvChannel(ch.id); }} style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", textAlign: "center", background: active ? ch.color + "22" : "var(--theme-surface-raised)", border: "2px solid " + (active ? ch.color: "var(--theme-active-bg)"), color: active ? ch.color: "var(--theme-text-muted)", fontSize: 12, fontWeight: active ? 700 : 400, fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s" }}>{ch.label}</button>;
                 })}
               </div>
             </div>
@@ -2267,7 +2267,7 @@ useEffect(function() {
             {newConvChannel === 'email' && senderEmails.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <label style={{ color: "var(--theme-text-muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>From</label>
-                <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                <select value={fromEmail} onChange={function(e) { setFromEmail(e.target.value); }} style={{ width: "100%", background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "10px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
                   {senderEmails.map(function(se) { return <option key={se.email} value={se.email}>{se.email}</option>; })}
                 </select>
               </div>
@@ -2275,7 +2275,7 @@ useEffect(function() {
 
             <div style={{ marginBottom: 16 }}>
               <label style={{ color: "var(--theme-text-muted)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 6, fontWeight: 700 }}>Message</label>
-              <textarea value={newConvBody} onChange={function(e) { setNewConvBody(e.target.value); }} rows={4} placeholder={"Write your " + newConvChannel.toUpperCase() + " message..."} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" }} />
+              <textarea value={newConvBody} onChange={function(e) { setNewConvBody(e.target.value); }} rows={4} placeholder={"Write your " + newConvChannel.toUpperCase() + " message..."} style={{ width: "100%", background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "10px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", lineHeight: 1.5, boxSizing: "border-box" }} />
               {newConvChannel === "sms" && <div style={{ color: "var(--theme-disabled-text)", fontSize: 10, marginTop: 4, textAlign: "right" }}>{newConvBody.length}/160 chars{newConvBody.length > 160 ? " (" + Math.ceil(newConvBody.length / 160) + " segments)" : ""}</div>}
             </div>
 
@@ -2289,28 +2289,28 @@ useEffect(function() {
 
       {/* Add to KB Modal */}
       {kbModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--theme-overlay)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={function() { if (!kbSaving) setKbModal(null); }}>
-          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: 'var(--theme-surface)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: 24, width: 540, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+          <div onClick={function(e) { e.stopPropagation(); }} style={{ background: 'var(--theme-surface)', border: '1px solid var(--theme-border-strong)', borderRadius: 14, padding: 24, width: 540, maxWidth: '90vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ color: '#fff', margin: 0, fontSize: 16, fontWeight: 800 }}>📚 Add to Knowledge Base</h3>
+              <h3 style={{ color: 'var(--theme-text)', margin: 0, fontSize: 16, fontWeight: 800 }}>📚 Add to Knowledge Base</h3>
               <button onClick={function() { setKbModal(null); }} style={{ background: 'none', border: 'none', color: 'var(--theme-text-muted)', fontSize: 18, cursor: 'pointer' }}>✕</button>
             </div>
 
             <label style={{ color: 'var(--theme-text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Title</label>
             <input value={kbModal.title} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { title: e.target.value })); }}
               maxLength={200} placeholder="e.g. Drinks package options"
-              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '8px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
+              style={{ width: '100%', background: 'var(--theme-surface)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '8px 12px', color: 'var(--theme-text)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', marginBottom: 14 }} />
 
             <label style={{ color: 'var(--theme-text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Question (from customer)</label>
             <textarea value={kbModal.question} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { question: e.target.value })); }}
               rows={4} placeholder="The customer's original question..."
-              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '10px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 14 }} />
+              style={{ width: '100%', background: 'var(--theme-input-bg)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '10px 12px', color: 'var(--theme-input-text)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 14 }} />
 
             <label style={{ color: 'var(--theme-text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8, display: 'block', marginBottom: 6, fontWeight: 700 }}>Answer (your reply)</label>
             <textarea value={kbModal.answer} onChange={function(e) { setKbModal(Object.assign({}, kbModal, { answer: e.target.value })); }}
               rows={6} placeholder="Your answer that should be reused..."
-              style={{ width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '10px 12px', color: '#fff', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 18 }} />
+              style={{ width: '100%', background: 'var(--theme-input-bg)', border: '1px solid var(--theme-border-strong)', borderRadius: 8, padding: '10px 12px', color: 'var(--theme-input-text)', fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: 'none', boxSizing: 'border-box', resize: 'vertical', marginBottom: 18 }} />
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button disabled={kbSaving || !kbModal.title.trim() || !kbModal.answer.trim()} onClick={async function() {

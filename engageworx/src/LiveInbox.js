@@ -591,7 +591,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
   const activeCount = conversations.filter(c => c.status === "active" || c.status === "urgent").length;
   const waitingCount = conversations.filter(c => c.status === "waiting").length;
 
-  const inputStyle = { background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
+  const inputStyle = { background: "var(--theme-input-bg)", border: "1px solid var(--theme-border-strong)", borderRadius: 8, padding: "8px 12px", color: "var(--theme-input-text)", fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" };
 
   const handleSend = () => {
     if (!composeText.trim()) return;
@@ -618,15 +618,15 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", height: "100%", width: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ padding: '20px 24px 0 24px', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, color: C?.text || '#111', fontSize: 24, fontWeight: 700 }}>Live Inbox</h1>
+        <h1 style={{ margin: 0, color: C?.text || 'var(--theme-text)', fontSize: 24, fontWeight: 700 }}>Live Inbox</h1>
       </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
       {/* ═══════════ LEFT: Conversation List ═══════════ */}
-      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid rgba(255,255,255,0.06)`, display: "flex", flexDirection: "column", background: "rgba(0,0,0,0.15)" }}>
+      <div style={{ width: 320, minWidth: 280, borderRight: `1px solid var(--theme-border)`, display: "flex", flexDirection: "column", background: "var(--theme-surface)" }}>
         {/* Header */}
         <div style={{ padding: "18px 16px 12px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ color: "#fff", margin: 0, fontSize: 18, fontWeight: 800 }}>Conversations</h2>
+            <h2 style={{ color: "var(--theme-text)", margin: 0, fontSize: 18, fontWeight: 800 }}>Conversations</h2>
             <div style={{ display: "flex", gap: 6 }}>
               {totalUnread > 0 && <span style={{ background: "var(--semantic-error)", color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{totalUnread}</span>}
               <span style={{ background: `${C.primary}22`, color: C.primary, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{activeCount} active</span>
@@ -634,7 +634,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           </div>
 
           {/* Tab Switcher: Messages | Calls */}
-          <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 3 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 10, background: "var(--theme-surface)", borderRadius: 8, padding: 3 }}>
             {[
               { id: "messages", label: "💬 Messages" },
               { id: "calls", label: `📞 Calls${!demoMode && calls.length > 0 ? ` (${calls.length})` : ""}` },
@@ -658,7 +658,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
             ].map(f => (
               <button key={f.id} onClick={() => setFilterStatus(f.id === "all" ? "all" : f.id)} style={{
                 background: filterStatus === (f.id === "all" ? "all" : f.id) ? `${C.primary}22` : "var(--theme-hover-bg)",
-                border: `1px solid ${filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary + "66" : "rgba(255,255,255,0.06)"}`,
+                border: `1px solid ${filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary + "66" : "var(--theme-border)"}`,
                 borderRadius: 6, padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer",
                 color: filterStatus === (f.id === "all" ? "all" : f.id) ? C.primary : "var(--theme-text-muted)",
                 fontFamily: "'DM Sans', sans-serif",
@@ -671,7 +671,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
             <button onClick={() => setFilterChannel("all")} style={{
               background: filterChannel === "all" ? `${C.primary}22` : "transparent", border: "none",
               borderRadius: 4, padding: "3px 6px", fontSize: 10, cursor: "pointer",
-              color: filterChannel === "all" ? C.primary : "rgba(255,255,255,0.3)", fontWeight: 600,
+              color: filterChannel === "all" ? C.primary : "var(--theme-text-muted)", fontWeight: 600,
             }}>All</button>
             {Object.entries(CHANNELS).map(([key, ch]) => (
               <button key={key} onClick={() => setFilterChannel(key)} title={ch.label} style={{
@@ -712,19 +712,19 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                   {/* Content */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
-                      <span style={{ color: "#fff", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.contact.name}</span>
+                      <span style={{ color: "var(--theme-text)", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.contact.name}</span>
                       <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{timeAgo(conv.lastActivity)}</span>
                     </div>
-                    <div style={{ color: conv.unread > 0 ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.3)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                    <div style={{ color: conv.unread > 0 ? "var(--theme-text-secondary)" : "var(--theme-text-muted)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {conv.isTyping ? <span style={{ color: C.primary, fontStyle: "italic" }}>typing...</span> : (lastMsg.from === "contact" ? "" : `${lastMsg.agent?.name || "You"}: `)}
                       {!conv.isTyping && lastMsg.text.slice(0, 60)}{!conv.isTyping && lastMsg.text.length > 60 ? "..." : ""}
                     </div>
                     <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                      {conv.priority === "high" && <span style={{ background: "#FF3B3022", color: "var(--semantic-error)", border: "1px solid #FF3B3044", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
+                      {conv.priority === "high" && <span style={{ background: "var(--semantic-error-tint)", color: "var(--semantic-error)", border: "1px solid var(--semantic-error)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>URGENT</span>}
                       {conv.contact.tags.slice(0, 2).map(t => (
                         <span key={t} style={{ background: `${TAG_COLORS[t] || "var(--theme-text-secondary)"}15`, color: TAG_COLORS[t] || "var(--theme-text-secondary)", borderRadius: 4, padding: "0 5px", fontSize: 9, fontWeight: 600 }}>{t}</span>
                       ))}
-                      {conv.assignedTo && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
+                      {conv.assignedTo && <span style={{ color: "var(--theme-disabled-text)", fontSize: 9 }}>→ {conv.assignedTo.name}</span>}
                     </div>
                   </div>
                 </div>
@@ -735,8 +735,8 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           {filtered.length === 0 && (
             <div style={{ padding: "40px 20px", textAlign: "center" }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>{liveError ? "⚠️" : "🔍"}</div>
-              <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>{liveError || "Try adjusting your filters or send an email to hello@engwx.com"}</div>
+              <div style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 14 }}>{liveError ? "Connection Error" : "No conversations found"}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 4 }}>{liveError || "Try adjusting your filters or send an email to hello@engwx.com"}</div>
             </div>
           )}
         </div>)}
@@ -745,12 +745,12 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
         {inboxTab === "calls" && (
           <div style={{ flex: 1, overflowY: "auto" }}>
             {loadingCalls ? (
-              <div style={{ padding: 40, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>Loading calls...</div>
+              <div style={{ padding: 40, textAlign: "center", color: "var(--theme-text-muted)" }}>Loading calls...</div>
             ) : calls.length === 0 ? (
               <div style={{ padding: "40px 20px", textAlign: "center" }}>
                 <div style={{ fontSize: 36, marginBottom: 8 }}>📞</div>
-                <div style={{ color: "#fff", fontWeight: 600, fontSize: 14 }}>No calls yet</div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, marginTop: 4 }}>Calls and voicemails will appear here</div>
+                <div style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 14 }}>No calls yet</div>
+                <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 4 }}>Calls and voicemails will appear here</div>
               </div>
             ) : calls.map(call => {
               const isVoicemail = call.status === 'voicemail' || call.recording_url;
@@ -759,28 +759,28 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               return (
                 <div key={call.id} onClick={() => setSelectedCall(selectedCall?.id === call.id ? null : call)} style={{ padding: "12px 16px", borderBottom: "1px solid var(--theme-hover-bg)", cursor: "pointer", background: selectedCall?.id === call.id ? "rgba(0,201,255,0.06)" : "transparent", transition: "background 0.15s" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: isVoicemail ? "rgba(255,214,0,0.15)" : "rgba(0,201,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: isVoicemail ? "var(--semantic-warning-tint)" : "rgba(0,201,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
                       {isVoicemail ? "📩" : call.direction === 'inbound' ? "📲" : "📱"}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "#fff", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
+                        <span style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
                         <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
                         <span style={{ color: isVoicemail ? "var(--semantic-warning)" : "#00C9FF", fontSize: 10, fontWeight: 700 }}>{isVoicemail ? "VOICEMAIL" : call.direction?.toUpperCase() || "INBOUND"}</span>
                         {dur && <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{dur}</span>}
-                        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
                     </div>
                   </div>
                   {/* Expanded call details */}
                   {selectedCall?.id === call.id && (
-                    <div style={{ marginTop: 10, padding: 12, background: "rgba(0,0,0,0.2)", borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
+                    <div style={{ marginTop: 10, padding: 12, background: "var(--theme-surface)", borderRadius: 8, fontSize: 12, lineHeight: 1.7 }}>
                       {call.transcript && (
                         <div style={{ marginBottom: 8 }}>
                           <div style={{ color: "var(--semantic-warning)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", marginBottom: 4 }}>Transcript</div>
-                          <div style={{ color: "rgba(255,255,255,0.6)" }}>{call.transcript}</div>
+                          <div style={{ color: "var(--theme-text-secondary)" }}>{call.transcript}</div>
                         </div>
                       )}
                       {call.recording_url && (
@@ -789,7 +789,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                         </a>
                       )}
                       {!call.transcript && !call.recording_url && (
-                        <div style={{ color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>No recording or transcript available</div>
+                        <div style={{ color: "var(--theme-text-muted)", fontStyle: "italic" }}>No recording or transcript available</div>
                       )}
                     </div>
                   )}
@@ -800,11 +800,11 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
         )}
 
         {/* Bottom Stats */}
-        <div style={{ padding: "10px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "10px 16px", borderTop: "1px solid var(--theme-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{inboxTab === "messages" ? `${filtered.length} conversations` : `${calls.length} calls`}</span>
           <div style={{ display: "flex", gap: 6 }}>
             {AGENTS.filter(a => a.status === "online").slice(0, 3).map(a => (
-              <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid #00E67633" }}>{a.avatar}</div>
+              <div key={a.id} title={`${a.name} (online)`} style={{ width: 22, height: 22, borderRadius: "50%", background: `${C.primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 800, color: C.primary, border: "2px solid var(--semantic-success-tint)" }}>{a.avatar}</div>
             ))}
             <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, lineHeight: "22px" }}>online</span>
           </div>
@@ -815,16 +815,16 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
       {selectedConv ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
           {/* Chat Header */}
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: 14, background: "rgba(0,0,0,0.1)" }}>
+          <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--theme-border)", display: "flex", alignItems: "center", gap: 14, background: "var(--theme-surface)" }}>
             <div style={{ width: 38, height: 38, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: CHANNELS[selectedConv.channel].color }}>{selectedConv.contact.avatar}</div>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</span>
+                <span style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</span>
                 <span title={CHANNELS[selectedConv.channel].label} style={{ fontSize: 12 }}>{CHANNELS[selectedConv.channel].icon}</span>
                 <span style={{ color: CHANNELS[selectedConv.channel].color, fontSize: 11 }}>{CHANNELS[selectedConv.channel].label}</span>
-                {selectedConv.priority === "high" && <span style={{ background: "#FF3B3022", color: "var(--semantic-error)", border: "1px solid #FF3B3044", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
+                {selectedConv.priority === "high" && <span style={{ background: "var(--semantic-error-tint)", color: "var(--semantic-error)", border: "1px solid var(--semantic-error)", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>URGENT</span>}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{selectedConv.contact.company} · {selectedConv.contact.phone}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{selectedConv.contact.company} · {selectedConv.contact.phone}</div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {selectedConv.assignedTo && (
@@ -870,7 +870,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
           />
 
           {/* Compose Area */}
-          <div style={{ padding: "12px 20px 16px", borderTop: "1px solid rgba(255,255,255,0.06)", background: "rgba(0,0,0,0.1)" }}>
+          <div style={{ padding: "12px 20px 16px", borderTop: "1px solid var(--theme-border)", background: "var(--theme-surface)" }}>
             <ChatInput
               value={composeText}
               onChange={setComposeText}
@@ -883,18 +883,18 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               toolbar={<>
                 {/* Canned Responses */}
                 {showCanned && (
-                  <div style={{ marginBottom: 10, background: "rgba(0,0,0,0.3)", border: "1px solid var(--theme-active-bg)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Quick Responses</div>
+                  <div style={{ marginBottom: 10, background: "var(--theme-surface)", border: "1px solid var(--theme-active-bg)", borderRadius: 10, padding: 10, maxHeight: 180, overflowY: "auto" }}>
+                    <div style={{ color: "var(--theme-text-muted)", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>Quick Responses</div>
                     <div style={{ display: "grid", gap: 4 }}>
                       {CANNED_RESPONSES.map(cr => (
                         <button key={cr.id} onClick={() => handleCannedSelect(cr.text)} style={{
-                          background: "var(--theme-surface-raised)", border: "1px solid rgba(255,255,255,0.06)",
+                          background: "var(--theme-surface-raised)", border: "1px solid var(--theme-border)",
                           borderRadius: 6, padding: "8px 10px", cursor: "pointer", textAlign: "left",
-                          color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                          color: "var(--theme-text-secondary)", fontSize: 12, fontFamily: "'DM Sans', sans-serif",
                           transition: "all 0.15s",
                         }}
                           onMouseEnter={e => { e.currentTarget.style.background = `${C.primary}15`; e.currentTarget.style.borderColor = `${C.primary}33`; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "var(--theme-surface-raised)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "var(--theme-surface-raised)"; e.currentTarget.style.borderColor = "var(--theme-border)"; }}
                         >
                           <span style={{ color: C.primary, fontWeight: 700, fontSize: 10, marginRight: 8 }}>{cr.label}</span>
                           {cr.text.slice(0, 70)}{cr.text.length > 70 ? "..." : ""}
@@ -906,12 +906,12 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
 
                 {/* Action buttons */}
                 <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                  <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "var(--theme-hover-bg)", border: `1px solid ${showCanned ? C.primary + "44" : "var(--theme-active-bg)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>⚡ Quick</button>
-                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📎 Attach</button>
-                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>
-                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>🤖 AI Suggest</button>
+                  <button onClick={() => setShowCanned(!showCanned)} style={{ background: showCanned ? `${C.primary}22` : "var(--theme-hover-bg)", border: `1px solid ${showCanned ? C.primary + "44" : "var(--theme-active-bg)"}`, borderRadius: 6, padding: "4px 8px", color: showCanned ? C.primary : "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>⚡ Quick</button>
+                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>📎 Attach</button>
+                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>😊 Emoji</button>
+                  <button style={{ background: "var(--theme-hover-bg)", border: "1px solid var(--theme-active-bg)", borderRadius: 6, padding: "4px 8px", color: "var(--theme-text-muted)", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif" }}>🤖 AI Suggest</button>
                   <div style={{ flex: 1 }} />
-                  <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>
+                  <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, lineHeight: "24px" }}>via {CHANNELS[selectedConv.channel].label}</span>
                 </div>
               </>}
             />
@@ -922,8 +922,8 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 64, marginBottom: 16 }}>💬</div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Select a conversation</div>
-            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 14 }}>Choose from the inbox to start messaging</div>
+            <div style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: 20, marginBottom: 6 }}>Select a conversation</div>
+            <div style={{ color: "var(--theme-text-muted)", fontSize: 14 }}>Choose from the inbox to start messaging</div>
             <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 28 }}>
               {[
                 { label: "Active", value: activeCount, color: C.primary },
@@ -932,7 +932,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center" }}>
                   <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{s.label}</div>
+                  <div style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -942,13 +942,13 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
 
       {/* ═══════════ RIGHT: Contact Info Sidebar ═══════════ */}
       {selectedConv && showContactInfo && (
-        <div style={{ width: 280, minWidth: 200, borderLeft: "1px solid rgba(255,255,255,0.06)", overflowY: "auto", background: "rgba(0,0,0,0.1)" }}>
+        <div style={{ width: 280, minWidth: 200, borderLeft: "1px solid var(--theme-border)", overflowY: "auto", background: "var(--theme-surface)" }}>
           <div style={{ padding: "20px 16px" }}>
             {/* Contact Card */}
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ width: 56, height: 56, borderRadius: "50%", background: `linear-gradient(135deg, ${CHANNELS[selectedConv.channel].color}44, ${CHANNELS[selectedConv.channel].color}22)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: CHANNELS[selectedConv.channel].color, margin: "0 auto 10px" }}>{selectedConv.contact.avatar}</div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</div>
-              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, marginTop: 2 }}>{selectedConv.contact.company}</div>
+              <div style={{ color: "var(--theme-text)", fontWeight: 700, fontSize: 15 }}>{selectedConv.contact.name}</div>
+              <div style={{ color: "var(--theme-text-muted)", fontSize: 12, marginTop: 2 }}>{selectedConv.contact.company}</div>
               <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 8 }}>
                 {selectedConv.contact.tags.map(t => (
                   <span key={t} style={{ background: `${TAG_COLORS[t] || "var(--theme-text-secondary)"}18`, color: TAG_COLORS[t] || "var(--theme-text-secondary)", border: `1px solid ${TAG_COLORS[t] || "var(--theme-text-secondary)"}33`, borderRadius: 4, padding: "1px 7px", fontSize: 9, fontWeight: 700 }}>{t}</span>
@@ -967,7 +967,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", gap: 8, padding: "6px 0", borderBottom: i < 3 ? "1px solid var(--theme-surface-raised)" : "none" }}>
                   <span style={{ fontSize: 11 }}>{item.icon}</span>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, wordBreak: "break-all" }}>{item.value}</span>
+                  <span style={{ color: "var(--theme-text-secondary)", fontSize: 11, wordBreak: "break-all" }}>{item.value}</span>
                 </div>
               ))}
             </div>
@@ -978,12 +978,12 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
               {[
                 { label: "Status", value: selectedConv.status.charAt(0).toUpperCase() + selectedConv.status.slice(1), color: selectedConv.status === "urgent" ? "var(--semantic-error)" : selectedConv.status === "active" ? "var(--semantic-success)" : selectedConv.status === "waiting" ? "var(--semantic-warning)" : "var(--theme-text-secondary)" },
                 { label: "Priority", value: selectedConv.priority.charAt(0).toUpperCase() + selectedConv.priority.slice(1), color: selectedConv.priority === "high" ? "var(--semantic-error)" : selectedConv.priority === "medium" ? "var(--semantic-warning)" : "var(--semantic-success)" },
-                { label: "Agent", value: selectedConv.assignedTo?.name || "Unassigned", color: "rgba(255,255,255,0.5)" },
-                { label: "Messages", value: (selectedConv.messages || []).length, color: "rgba(255,255,255,0.5)" },
-                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "rgba(255,255,255,0.5)" },
+                { label: "Agent", value: selectedConv.assignedTo?.name || "Unassigned", color: "var(--theme-text-secondary)" },
+                { label: "Messages", value: (selectedConv.messages || []).length, color: "var(--theme-text-secondary)" },
+                { label: "Started", value: (selectedConv.messages || [])[0]?.time ? new Date((selectedConv.messages || [])[0].time).toLocaleDateString() : 'N/A', color: "var(--theme-text-secondary)" },
               ].map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
-                  <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11 }}>{item.label}</span>
+                  <span style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{item.label}</span>
                   <span style={{ color: item.color, fontSize: 11, fontWeight: 600 }}>{item.value}</span>
                 </div>
               ))}
@@ -1048,7 +1048,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                   }},
                 ].map(function(action) { return (
                   <button key={action.label} onClick={action.action || undefined} style={{
-                    background: "var(--theme-hover-bg)", border: "1px solid rgba(255,255,255,0.06)",
+                    background: "var(--theme-hover-bg)", border: "1px solid var(--theme-border)",
                     borderRadius: 6, padding: "8px", cursor: "pointer", color: "var(--theme-text-muted)",
                     fontSize: 11, fontFamily: "'DM Sans', sans-serif", textAlign: "center", transition: "all 0.15s",
                   }}
@@ -1067,9 +1067,9 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                   <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid var(--theme-surface-raised)" : "none" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.from === 'bot' ? '🤖 AI Reply' : '👤 Agent'}</span>
-                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
+                      <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
                     </div>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
+                    <div style={{ color: "var(--theme-text-muted)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>
                 );
               })}
