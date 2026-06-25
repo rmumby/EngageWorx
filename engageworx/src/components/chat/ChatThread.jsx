@@ -53,7 +53,7 @@ export default function ChatThread({
               background: "var(--theme-hover-bg)",
               border: "1px solid var(--theme-border)",
               borderRadius: 12, padding: "4px 14px",
-              fontSize: 10, color: "var(--theme-disabled-text)",
+              fontSize: 10, color: "var(--theme-timestamp)",
             }}>
               {dateSeparator}
             </span>

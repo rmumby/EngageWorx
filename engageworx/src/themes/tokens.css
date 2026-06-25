@@ -32,6 +32,7 @@
   --theme-text:           #F0F6FC;
   --theme-text-secondary: #ABB4BF;
   --theme-text-muted:     rgba(255, 255, 255, 0.4);
+  --theme-timestamp:      #E6EDF3;   /* near-white, one step below message text; NOT shared with disabled/receipt states */
 
   /* ─── Structural: Borders ─── */
   --theme-border:         #30363D;
@@ -78,6 +79,7 @@
   --theme-text:           #0D1117;
   --theme-text-secondary: #6B7280;
   --theme-text-muted:     #6b7280;
+  --theme-timestamp:      #6B7280;   /* light: readable muted grey (was effectively invisible on white) */
 
   /* ─── Structural: Borders ─── */
   --theme-border:         #E8EAF0;
@@ -123,6 +125,7 @@
     --theme-text:           #0D1117;
     --theme-text-secondary: #6B7280;
     --theme-text-muted:     #6b7280;
+    --theme-timestamp:      #6B7280;
 
     --theme-border:         #E8EAF0;
     --theme-border-strong:  #E8EAF0;

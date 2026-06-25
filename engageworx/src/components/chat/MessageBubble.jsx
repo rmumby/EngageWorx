@@ -169,7 +169,7 @@ export default function MessageBubble({
       {/* Delivery status / timestamp footer (for inbox-style views) */}
       {(delivered !== undefined || (timeStr && !authorName)) && (
         <div style={{ display: "flex", justifyContent: isLeft ? "flex-start" : "flex-end", gap: 6, alignItems: "center", paddingLeft: showAvatar ? 34 : 0, paddingRight: showAvatar ? 34 : 0 }}>
-          {timeStr && !authorName && <span style={{ color: "var(--theme-disabled-text)", fontSize: 9 }}>{timeStr}</span>}
+          {timeStr && !authorName && <span style={{ color: "var(--theme-timestamp)", fontSize: 9 }}>{timeStr}</span>}
           {delivered && (
             <span style={{ color: read ? primary : "var(--theme-disabled-text)", fontSize: 10 }}>
               {read ? "✓✓" : "✓"}

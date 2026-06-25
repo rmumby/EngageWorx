@@ -713,7 +713,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
                       <span style={{ color: "var(--theme-text)", fontWeight: conv.unread > 0 ? 700 : 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conv.contact.name}</span>
-                      <span style={{ color: "var(--theme-disabled-text)", fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{timeAgo(conv.lastActivity)}</span>
+                      <span style={{ color: "var(--theme-timestamp)", fontSize: 10, flexShrink: 0, marginLeft: 6 }}>{timeAgo(conv.lastActivity)}</span>
                     </div>
                     <div style={{ color: conv.unread > 0 ? "var(--theme-text-secondary)" : "var(--theme-text-muted)", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {conv.isTyping ? <span style={{ color: C.primary, fontStyle: "italic" }}>typing...</span> : (lastMsg.from === "contact" ? "" : `${lastMsg.agent?.name || "You"}: `)}
@@ -765,12 +765,12 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ color: "var(--theme-text)", fontWeight: 600, fontSize: 13 }}>{call.from_number || "Unknown"}</span>
-                        <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                        <span style={{ color: "var(--theme-timestamp)", fontSize: 10 }}>{time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
                         <span style={{ color: isVoicemail ? "var(--semantic-warning)" : "#00C9FF", fontSize: 10, fontWeight: 700 }}>{isVoicemail ? "VOICEMAIL" : call.direction?.toUpperCase() || "INBOUND"}</span>
                         {dur && <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{dur}</span>}
-                        <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <span style={{ color: "var(--theme-timestamp)", fontSize: 10 }}>{time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                       </div>
                     </div>
                   </div>
@@ -1067,7 +1067,7 @@ useEffect(() => { if (demoMode || !supabase) return; supabase.from('tenant_membe
                   <div key={m.id || i} style={{ padding: "6px 0", borderBottom: i < 4 ? "1px solid var(--theme-surface-raised)" : "none" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "var(--theme-text-muted)", fontSize: 11 }}>{m.from === 'contact' ? '📨 Inbound' : m.from === 'bot' ? '🤖 AI Reply' : '👤 Agent'}</span>
-                      <span style={{ color: "var(--theme-disabled-text)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
+                      <span style={{ color: "var(--theme-timestamp)", fontSize: 10 }}>{m.time instanceof Date ? m.time.toLocaleDateString() : ''}</span>
                     </div>
                     <div style={{ color: "var(--theme-text-muted)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(m.text || '').slice(0, 60)}</div>
                   </div>
