@@ -4,7 +4,7 @@ import './themes/tokens.css';
 
 var DARK = {
   bg: '#0D1117', surface: '#161B22', border: '#30363D', divider: '#30363D',
-  text: '#F0F6FC', muted: '#8B949E',
+  text: '#F0F6FC', muted: '#ABB4BF',
   primary: '#00C9FF', accent: '#E040FB',
   inputBg: '#FFFFFF', inputBorder: '#30363D', inputText: '#0D1117',
   cardBg: '#161B22', cardBorder: '#30363D',
