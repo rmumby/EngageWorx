@@ -11,7 +11,7 @@ export var SP_BASE_COLORS = {
   border: '#30363D',
   divider: '#30363D',
   text: '#F0F6FC',
-  muted: '#8B949E',
+  muted: '#ABB4BF',
   inputBg: '#FFFFFF',
   inputText: '#0D1117',
   cardBg: '#161B22',
