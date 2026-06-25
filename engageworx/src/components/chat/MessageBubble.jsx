@@ -52,9 +52,9 @@ export default function MessageBubble({
   const isLeft = resolvedAlign === "left";
 
   // Theme colors with sensible defaults
-  const primary = colors.primary || "#00C9FF";
+  const primary = colors.primary || "#00C9FF"; // brand-relative fallback — kept
   const accent = colors.accent || primary;
-  const muted = colors.muted || "rgba(255,255,255,0.4)";
+  const muted = colors.muted || "var(--theme-text-muted)";
 
   // System messages render as plain italic text
   if (isSystem) {
@@ -67,17 +67,17 @@ export default function MessageBubble({
 
   // Background per role + state
   const bgMap = {
-    user: "rgba(255,255,255,0.08)",
+    user: "var(--theme-active-bg)",
     assistant: `${primary}15`,
     agent: `${primary}22`,
   };
-  let bg = bgMap[role] || "rgba(255,255,255,0.06)";
+  let bg = bgMap[role] || "var(--theme-surface-raised)";
   if (isInternal) bg = "rgba(99,102,241,0.08)";
   if (isEscalation) bg = "rgba(245,158,11,0.12)";
 
   // Border
   let border = isUser
-    ? "1px solid rgba(255,255,255,0.1)"
+    ? "1px solid var(--theme-border-strong)"
     : `1px solid ${primary}33`;
   if (isInternal) border = "1px dashed rgba(99,102,241,0.3)";
   if (isEscalation) border = "1px solid rgba(245,158,11,0.3)";
@@ -128,7 +128,7 @@ export default function MessageBubble({
           border,
           borderRadius,
           padding: "10px 14px",
-          color: "rgba(255,255,255,0.85)",
+          color: "var(--theme-text)",
           fontSize: 13,
           lineHeight: 1.5,
           whiteSpace: "pre-wrap",
@@ -151,7 +151,7 @@ export default function MessageBubble({
                     <img src={url} alt="Attachment" style={{
                       maxWidth: 240, maxHeight: 320, borderRadius: 10,
                       objectFit: "cover", cursor: "pointer",
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      border: "1px solid var(--theme-border-strong)",
                     }} />
                   </a>
                 );
@@ -169,9 +169,9 @@ export default function MessageBubble({
       {/* Delivery status / timestamp footer (for inbox-style views) */}
       {(delivered !== undefined || (timeStr && !authorName)) && (
         <div style={{ display: "flex", justifyContent: isLeft ? "flex-start" : "flex-end", gap: 6, alignItems: "center", paddingLeft: showAvatar ? 34 : 0, paddingRight: showAvatar ? 34 : 0 }}>
-          {timeStr && !authorName && <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 9 }}>{timeStr}</span>}
+          {timeStr && !authorName && <span style={{ color: "var(--theme-timestamp)", fontSize: 9 }}>{timeStr}</span>}
           {delivered && (
-            <span style={{ color: read ? primary : "rgba(255,255,255,0.2)", fontSize: 10 }}>
+            <span style={{ color: read ? primary : "var(--theme-disabled-text)", fontSize: 10 }}>
               {read ? "✓✓" : "✓"}
             </span>
           )}

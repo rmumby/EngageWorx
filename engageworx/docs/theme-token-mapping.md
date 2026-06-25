@@ -30,6 +30,7 @@ Both are "theme tokens." Don't rewrite an existing `theme.*` ref just to use `va
 | text-entry surface (inputs/editor): `rgba(0,0,0,0.3)` / `#ffffff`          | `var(--theme-input-bg)` + `var(--theme-input-text)` | **white field in BOTH modes** per the contrast-pass input decision |
 | placeholder / disabled text: `rgba(255,255,255,0.25)` / `#9ca3af`          | `var(--theme-text-secondary)` (on a white input) / `var(--theme-text-muted)` (on a themed surface) | pick by the surface it sits on |
 | danger fill `#dc2626` ; error text on it `#fff`               | `var(--semantic-error)` ; keep `#fff` | dark error normalizes to `#FF3B30` |
+| timestamps / activity times (clock + date strings)           | `var(--theme-timestamp)`       | dedicated token (dark `#E6EDF3` near-white, light `#6B7280`). Do NOT reuse `--theme-disabled-text` — that's shared with receipts/disabled and would overshoot. Receipts/disabled labels stay on `--theme-disabled-text`. |
 | success / warning / info                                      | `var(--semantic-success|warning|info)` (+ `-tint` for fills) | none in slice 0 |
 
 ## Intentional literal exceptions (DO NOT tokenize)
