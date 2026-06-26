@@ -3,10 +3,13 @@
 // email render path. Mirrors the conservative quote markers in api/_lib/strip-quoted-reply.js
 // but returns a structured result so the UI can show a "show quoted text" expander:
 //
-//   stripQuotedReply(text, { trimSignature }) -> { visible, quoted, sigTrimmed }
+//   stripQuotedReply(text, { trimSignature, signatures }) -> { visible, quoted, sigTrimmed }
 //     visible    — the fresh reply to render (quote cut; signature cut when trimSignature)
-//     quoted     — the quoted original (from the earliest quote marker onward), or ''
-//     sigTrimmed — the trailing signature that was removed (when trimSignature), or ''
+//     quoted     — the quoted original (from the earliest quote marker onward), or '' (string)
+//     sigTrimmed — boolean: whether a trailing signature was removed
+//   signatures: RegExp[] of signature markers to try (caller supplies, typically
+//   signaturesFor(tenantId) from signatureRegistry). Without it, no signature trimming runs.
+//   The full original is always recoverable by the caller from the untrimmed input.
 //
 // Guarantees:
 //   - Never loses the sender's words: if a cut would leave visible empty, the cut is skipped.
@@ -25,12 +28,12 @@ var QUOTE_MARKERS = [
   /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
 ];
 
-// Conservative trailing-signature markers. Only used when { trimSignature: true }.
-var SIG_MARKERS = [
-  /^--[ \t]*$/m,                                                       // RFC 3676 "-- " delimiter
-  /^Sent from my (iPhone|iPad|Android|mobile|phone|Samsung|BlackBerry)\b.*$/mi,
-  /^Get Outlook for (iOS|Android)\b.*$/mi,
-];
+// Signature markers are NOT defined here — the caller passes opts.signatures (per-tenant +
+// generic) from src/chat/signatureRegistry.js, so the registry is the single source of truth.
+
+// Trailing valediction ("Best," / "Thanks," / "Regards," …) left dangling once the signature
+// block below it is cut. Removed from the end of the candidate so "…questions.\n\nBest!" → "…questions."
+var VALEDICTION_TAIL = /\n[ \t]*(?:Best|Thanks|Thank you|Many thanks|Regards|Kind regards|Cheers|Sincerely|Warm regards)[!,. ]*[ \t]*\n?\s*$/i;
 
 function earliestMarker(text, markers) {
   var cutAt = -1;
@@ -44,7 +47,7 @@ function earliestMarker(text, markers) {
 function stripQuotedReply(text, opts) {
   opts = opts || {};
   if (text == null || text === '') {
-    return { visible: text, quoted: '', sigTrimmed: '' };
+    return { visible: text, quoted: '', sigTrimmed: false };
   }
   // Normalize line endings FIRST, before any marker runs. Markers are line-anchored, and a
   // lone \r left by CRLF would sit before the line end and defeat the "…wrote:$" attribution
@@ -52,7 +55,7 @@ function stripQuotedReply(text, opts) {
   var src = String(text).replace(/\r\n?/g, '\n');
   var visible = src;
   var quoted = '';
-  var sigTrimmed = '';
+  var sigTrimmed = false;
 
   // 1) Cut at the earliest quote marker (if any).
   var qAt = earliestMarker(src, QUOTE_MARKERS);
@@ -64,14 +67,20 @@ function stripQuotedReply(text, opts) {
     }
   }
 
-  // 2) Optionally trim a trailing signature from what remains visible.
-  if (opts.trimSignature && visible) {
-    var sAt = earliestMarker(visible, SIG_MARKERS);
-    if (sAt !== -1) {
-      var beforeS = visible.slice(0, sAt).replace(/\s+$/, '');
-      if (beforeS.length > 0) {                          // never lose the sender's words
-        sigTrimmed = visible.slice(sAt);
-        visible = beforeS;
+  // 2) Optionally trim a trailing signature, using the caller-supplied marker set. Cut at the
+  //    earliest matching marker, then drop any dangling valediction ("Best!", "Thanks,"), then
+  //    trim trailing whitespace. Skipped if it would empty the visible text (never-lose guard).
+  if (opts.trimSignature && opts.signatures && opts.signatures.length) {
+    var cut = visible.length;
+    for (var s = 0; s < opts.signatures.length; s++) {
+      var sm = visible.match(opts.signatures[s]);
+      if (sm && typeof sm.index === 'number' && sm.index >= 0 && sm.index < cut) cut = sm.index;
+    }
+    if (cut < visible.length) {
+      var candidate = visible.slice(0, cut).replace(VALEDICTION_TAIL, '').replace(/\s+$/, '');
+      if (candidate.length > 0) {                        // never lose the sender's words
+        visible = candidate;
+        sigTrimmed = true;
       }
     }
   }

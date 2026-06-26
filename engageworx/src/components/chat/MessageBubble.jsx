@@ -21,6 +21,7 @@
 import { useState } from 'react';
 var { markdownToHtml, sanitizeHtml, sanitizeEmailHtml } = require('../../lib/markdownToHtml');
 var { stripQuotedReply } = require('../../chat/stripQuotedReply');
+var { signaturesFor } = require('../../chat/signatureRegistry');
 export default function MessageBubble({
   role,
   content,
@@ -44,6 +45,7 @@ export default function MessageBubble({
     mediaUrls,
     tenantTz,
     channel,
+    tenantId,
   } = metadata;
 
   const isUser = role === "user";
@@ -63,7 +65,7 @@ export default function MessageBubble({
   // Render the fresh reply; when a quote or signature was cut, a "show quoted text" expander
   // reveals the full original body. Gated to channel === 'email' so chat/SMS bubbles are untouched.
   const emailStrip = (channel === 'email' && !isHtml && typeof content === 'string')
-    ? stripQuotedReply(content, { trimSignature: true })
+    ? stripQuotedReply(content, { trimSignature: true, signatures: signaturesFor(tenantId) })
     : null;
   const hasHiddenQuote = !!(emailStrip && (emailStrip.quoted || emailStrip.sigTrimmed));
   const [showQuoted, setShowQuoted] = useState(false);

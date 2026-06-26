@@ -1784,6 +1784,7 @@ useEffect(function() {
                   read: msg.read,
                   isHtml: isHtml,
                   channel: selectedConv.channel,  // gates the email quoted-reply expander in MessageBubble
+                  tenantId: selectedConv.tenant_id,  // selects the per-tenant signature set (registry)
                   mediaUrls: msg.mediaUrls || null,
                 },
                 _raw: msg,
