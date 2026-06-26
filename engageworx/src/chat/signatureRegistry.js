@@ -14,7 +14,10 @@ export const TENANT_SIGNATURES = {
   // The `\+\s?1[\s().\-]*\d` arm matches US phone sigs ("+1 (786) 982-7800", "+1-305-464-6560")
   // even when there's no "Founder & CEO" / "EngageWorx" line.
   [ENGAGEWORX]: [
-    /^[ \t]*Rob Mumby[ \t]*$(?=[\s\S]{0,160}?(?:Founder & CEO|EngageWorx|engwx\.com|\+\s?1[\s().\-]*\d))/im,
+    // relaxed: allow trailing text on the name line ("Rob Mumby   AI-Powered CX"); lookahead keeps it safe
+    /^[ \t]*Rob Mumby\b[^\n]*$(?=[\s\S]{0,160}?(?:Founder & CEO|EngageWorx|engwx\.com|\+\s?1[\s().\-]*\d))/im,
+    // team-name closing (AI-sequence outbound)
+    /^[ \t]*(?:The )?EngageWorx Team[ \t]*$/im,
   ],
 };
 

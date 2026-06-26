@@ -31,9 +31,10 @@ var QUOTE_MARKERS = [
 // Signature markers are NOT defined here — the caller passes opts.signatures (per-tenant +
 // generic) from src/chat/signatureRegistry.js, so the registry is the single source of truth.
 
-// Trailing valediction ("Best," / "Thanks," / "Regards," …) left dangling once the signature
-// block below it is cut. Removed from the end of the candidate so "…questions.\n\nBest!" → "…questions."
-var VALEDICTION_TAIL = /\n[ \t]*(?:Best|Thanks|Thank you|Many thanks|Regards|Kind regards|Cheers|Sincerely|Warm regards)[!,. ]*[ \t]*\n?\s*$/i;
+// After cutting the signature block, an EngageWorx sig can stack a dangling valediction ("Best!")
+// and/or a logo/header line ("EW") ABOVE the matched name line. The post-cut cleanup in
+// stripQuotedReply strips those from the tail ITERATIVELY until the text stops shrinking, so a
+// "…Best!\n\nEW" tail collapses fully rather than leaving "…Best!" behind.
 
 function earliestMarker(text, markers) {
   var cutAt = -1;
@@ -77,9 +78,16 @@ function stripQuotedReply(text, opts) {
       if (sm && typeof sm.index === 'number' && sm.index >= 0 && sm.index < cut) cut = sm.index;
     }
     if (cut < visible.length) {
-      var candidate = visible.slice(0, cut).replace(VALEDICTION_TAIL, '').replace(/\s+$/, '');
-      if (candidate.length > 0) {                        // never lose the sender's words
-        visible = candidate;
+      var cand = visible.slice(0, cut), prev;
+      do {
+        prev = cand;
+        cand = cand
+          .replace(/\n[ \t]*(?:Best|Thanks|Thank you|Many thanks|Regards|Kind regards|Cheers|Sincerely|Warm regards)[!,. ]*[ \t]*$/i, '')
+          .replace(/\n[ \t]*EW[ \t]*$/, '')   // EngageWorx sig logo/header line
+          .replace(/\s+$/, '');               // trimEnd
+      } while (cand !== prev);
+      if (cand.length > 0) {                   // never lose the sender's words
+        visible = cand;
         sigTrimmed = true;
       }
     }

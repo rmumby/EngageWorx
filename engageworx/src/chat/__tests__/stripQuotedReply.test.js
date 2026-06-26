@@ -63,6 +63,36 @@ describe('stripQuotedReply (registered signatures)', function() {
     expect(r.visible).toBe(SIG_ONLY);
     expect(r.sigTrimmed).toBe(false);
   });
+
+  test('team-name closing ("EngageWorx Team") is trimmed', function() {
+    var input =
+      'Want to try it free? Head to portal.engwx.com — no credit card needed.\r\n\r\n' +
+      "What's your use case?\r\n\r\nEngageWorx Team";
+    var r = stripQuotedReply(input, { trimSignature: true, signatures: EWX() });
+    expect(r.visible).toBe(
+      "Want to try it free? Head to portal.engwx.com — no credit card needed.\n\nWhat's your use case?"
+    );
+    expect(r.sigTrimmed).toBe(true);
+  });
+
+  test('structured template (EW logo + Best! stacked above name) collapses fully', function() {
+    var input =
+      'Better to ship with rough numbers than wait for perfect ones.\r\n\r\n' +
+      'Best!\r\n\r\nEW\r\nRob Mumby   AI-Powered CX\r\nFounder & CEO, EngageWorx\r\n' +
+      'PHONE\r\n+1 (786) 982-7800\r\nWEBSITE\r\nengwx.com\r\nLINKEDIN\r\nlinkedin.com/company/engwx\r\n';
+    var r = stripQuotedReply(input, { trimSignature: true, signatures: EWX() });
+    expect(r.visible).toBe('Better to ship with rough numbers than wait for perfect ones.');
+    expect(r.sigTrimmed).toBe(true);
+  });
+
+  test('terse one-liner where the sig dominates → content survives', function() {
+    var input =
+      'Vercel\r\n\r\nEW\r\nRob Mumby   AI-Powered CX\r\nFounder & CEO, EngageWorx\r\n' +
+      'PHONE\r\n+1 (786) 982-7800\r\n';
+    var r = stripQuotedReply(input, { trimSignature: true, signatures: EWX() });
+    expect(r.visible).toBe('Vercel');
+    expect(r.sigTrimmed).toBe(true);
+  });
 });
 
 describe('stripQuotedReply (guarantees)', function() {
