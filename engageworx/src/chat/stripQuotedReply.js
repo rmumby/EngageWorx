@@ -10,7 +10,7 @@
 //
 // Guarantees:
 //   - Never loses the sender's words: if a cut would leave visible empty, the cut is skipped.
-//   - No-op when there's no marker: visible === text exactly (no trimming), quoted/sigTrimmed ''.
+//   - No-op when there's no marker: visible === text (line endings normalized to \n), quoted/sigTrimmed ''.
 //   - PLAINTEXT ONLY. There is intentionally no HTML branch — pass the plain-text body;
 //     HTML emails are rendered as-is by the caller and not trimmed here.
 //
@@ -19,7 +19,7 @@
 
 // Quote markers — same set as the canonical server util.
 var QUOTE_MARKERS = [
-  /^On\b.*\bwrote:[ \t]*$/m,                 // Gmail / Apple Mail "On <date> … wrote:"
+  /^[ \t]*On\b.*\bwrote:[ \t]*$/m,           // Gmail/Apple "On … wrote:" (tolerates leading indent, e.g. quoted British attributions)
   /^-{2,}\s*Original Message\s*-{2,}/mi,      // Outlook "-----Original Message-----"
   /^From:[ \t].+\r?\n(Sent|Date):[ \t]/mi,    // Outlook reply header block
   /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
@@ -46,7 +46,10 @@ function stripQuotedReply(text, opts) {
   if (text == null || text === '') {
     return { visible: text, quoted: '', sigTrimmed: '' };
   }
-  var src = String(text);
+  // Normalize line endings FIRST, before any marker runs. Markers are line-anchored, and a
+  // lone \r left by CRLF would sit before the line end and defeat the "…wrote:$" attribution
+  // match on outbound mail — load-bearing for every \r\n email. (\r\n AND lone \r → \n.)
+  var src = String(text).replace(/\r\n?/g, '\n');
   var visible = src;
   var quoted = '';
   var sigTrimmed = '';

@@ -1,45 +1,48 @@
 // Tests for src/chat/stripQuotedReply — plaintext quoted-reply + signature trimming.
-// The two prod-shaped fixtures encode the behaviour the LiveInboxV2 email render path
-// relies on. (Fixtures reconstructed from the described prod cases; swap in exact bytes
-// if captured.)
+// Fixtures use prod-shaped bodies. Line endings are normalized to \n internally, so
+// expected `visible`/`quoted` are asserted in \n form even when the input is CRLF.
 var { stripQuotedReply } = require('../stripQuotedReply');
 
-// FIXTURE 1 — outbound "wall": a one-line reply, a standard "-- " signature, then the
-// Gmail-quoted original the recipient's client appended. The whole thing is stored as the
-// message body; the visible reply should be just the one line.
-var OUTBOUND_WALL = [
-  'When works for a demo?',
-  '',
-  '-- ',
-  'Rob Mumby',
-  'EngageWorx',
-  '',
-  'On Mon, Jun 23, 2026 at 9:14 AM Jane Doe <jane@acme.com> wrote:',
-  '> Thanks so much for reaching out about the platform.',
-  '> We\'d love to learn more about how it could help our team.',
-  '>',
-  '> Best,',
-  '> Jane',
-].join('\n');
+// FIXTURE 1 — outbound "wall" with CRLF line endings: a one-line reply, the EngageWorx
+// signature block, then the Gmail-quoted original the client appended. The \r\n is
+// load-bearing here — without normalization the "On … wrote:" marker would miss.
+var OUTBOUND_WALL =
+  'When works for a demo?\r\n\r\n\r\n' +
+  'Rob Mumby\r\n' +
+  'Founder & CEO  |  EngageWorx <https://engwx.com>\r\n' +
+  '+1 (786) 982-7800\r\n\r\n\r\n' +
+  'On Wed, Jun 10, 2026 at 7:40 AM Rob Mumby <rob@engwx.com> wrote:\r\n\r\n' +
+  "> I'm available later today...\r\n";
 
-// FIXTURE 2 — Delamere inbound that arrived already trimmed (no quote marker, no signature
-// delimiter). Stripping must be a pure no-op: visible === body.
-var DELAMERE_INBOUND_TRIMMED =
-  'Hi there, yes — 2pm on Thursday works perfectly for the venue tour. ' +
-  'We are really looking forward to seeing Delamere Manor in person. See you then!';
+// FIXTURE 2 — Delamere inbound that DOES carry a quoted chain: a fresh reply, then a
+// British-format attribution with LEADING WHITESPACE. Must strip at the attribution.
+var DELAMERE_QUOTED =
+  'Hi, thank you — Wednesday at 3pm suits us well for the tour.\n\n' +
+  '    On Wednesday, 17 June 2026 at 15:02:11 BST, Delamere Manor <weddings@delameremanor.co.uk> wrote:\n\n' +
+  '    Hello, just confirming your appointment request for the venue tour...\n';
+
+// FIXTURE 3 — genuinely clean inbound: no quote marker, no signature → pure no-op.
+var CLEAN_INBOUND = 'Hi, if weather looks grim, can we pivot to have the wedding indoors?';
 
 describe('stripQuotedReply', function() {
   describe('prod fixtures', function() {
-    test('outbound "When works for a demo?" wall → visible is just the reply', function() {
-      var r = stripQuotedReply(OUTBOUND_WALL, { trimSignature: true });
-      expect(r.visible).toBe('When works for a demo?');
-      expect(r.quoted).toMatch(/^On Mon, Jun 23, 2026/);   // quoted original preserved for the expander
-      expect(r.sigTrimmed).toMatch(/^-- /);                // signature captured, not lost
+    test('outbound CRLF wall → quote cut, signature kept (trimSignature off)', function() {
+      var r = stripQuotedReply(OUTBOUND_WALL); // trimSignature default off
+      expect(r.visible).toBe(
+        'When works for a demo?\n\n\nRob Mumby\nFounder & CEO  |  EngageWorx <https://engwx.com>\n+1 (786) 982-7800'
+      );
+      expect(r.quoted).toMatch(/^On Wed, Jun 10, 2026/);
     });
 
-    test('Delamere already-trimmed inbound → visible === body (no-op)', function() {
-      var r = stripQuotedReply(DELAMERE_INBOUND_TRIMMED, { trimSignature: true });
-      expect(r.visible).toBe(DELAMERE_INBOUND_TRIMMED);
+    test('Delamere quoted chain → cut at the leading-whitespace British attribution', function() {
+      var r = stripQuotedReply(DELAMERE_QUOTED);
+      expect(r.visible).toBe('Hi, thank you — Wednesday at 3pm suits us well for the tour.');
+      expect(r.quoted).toMatch(/^ {4}On Wednesday, 17 June 2026 at 15:02:11 BST,/);
+    });
+
+    test('genuinely clean inbound → visible === body (no-op)', function() {
+      var r = stripQuotedReply(CLEAN_INBOUND, { trimSignature: true });
+      expect(r.visible).toBe(CLEAN_INBOUND);
       expect(r.quoted).toBe('');
       expect(r.sigTrimmed).toBe('');
     });
@@ -59,11 +62,11 @@ describe('stripQuotedReply', function() {
       expect(r.quoted).toBe('');
     });
 
-    test('trimSignature defaults off → signature stays in visible, quote still cut', function() {
-      var r = stripQuotedReply(OUTBOUND_WALL);
-      expect(r.visible).toBe('When works for a demo?\n\n-- \nRob Mumby\nEngageWorx');
-      expect(r.sigTrimmed).toBe('');
-      expect(r.quoted).toMatch(/^On Mon, Jun 23, 2026/);
+    test('trimSignature trims a "-- " delimiter signature', function() {
+      var body = 'Thanks!\n\n-- \nRob\nEngageWorx';
+      var r = stripQuotedReply(body, { trimSignature: true });
+      expect(r.visible).toBe('Thanks!');
+      expect(r.sigTrimmed).toMatch(/^-- /);
     });
 
     test('Outlook "-----Original Message-----" marker is recognised', function() {
