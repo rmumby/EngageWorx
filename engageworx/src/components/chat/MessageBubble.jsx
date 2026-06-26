@@ -18,7 +18,9 @@
  *   botName?,      — label shown inside assistant bubbles
  * }
  */
+import { useState } from 'react';
 var { markdownToHtml, sanitizeHtml, sanitizeEmailHtml } = require('../../lib/markdownToHtml');
+var { stripQuotedReply } = require('../../chat/stripQuotedReply');
 export default function MessageBubble({
   role,
   content,
@@ -41,6 +43,7 @@ export default function MessageBubble({
     botName,
     mediaUrls,
     tenantTz,
+    channel,
   } = metadata;
 
   const isUser = role === "user";
@@ -55,6 +58,16 @@ export default function MessageBubble({
   const primary = colors.primary || "#00C9FF"; // brand-relative fallback — kept
   const accent = colors.accent || primary;
   const muted = colors.muted || "var(--theme-text-muted)";
+
+  // Email plaintext quoted-reply / signature trimming (PLAINTEXT ONLY — never HTML emails).
+  // Render the fresh reply; when a quote or signature was cut, a "show quoted text" expander
+  // reveals the full original body. Gated to channel === 'email' so chat/SMS bubbles are untouched.
+  const emailStrip = (channel === 'email' && !isHtml && typeof content === 'string')
+    ? stripQuotedReply(content, { trimSignature: true })
+    : null;
+  const hasHiddenQuote = !!(emailStrip && (emailStrip.quoted || emailStrip.sigTrimmed));
+  const [showQuoted, setShowQuoted] = useState(false);
+  const bodyToRender = (emailStrip && !showQuoted) ? emailStrip.visible : content;
 
   // System messages render as plain italic text
   if (isSystem) {
@@ -161,8 +174,17 @@ export default function MessageBubble({
           {isHtml
             ? <div style={{ whiteSpace: "normal", padding: "4px 0", overflowX: "auto", maxWidth: "100%", display: "block", width: "100%" }} dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(content) }} />
             : (isAssistant || role === 'agent')
-              ? <div style={{ whiteSpace: "normal", padding: "4px 0" }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(markdownToHtml(content || '')) }} />
-              : content}
+              ? <div style={{ whiteSpace: "normal", padding: "4px 0" }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(markdownToHtml(bodyToRender || '')) }} />
+              : bodyToRender}
+          {hasHiddenQuote && (
+            <button
+              type="button"
+              onClick={function() { setShowQuoted(function(v) { return !v; }); }}
+              style={{ background: "none", border: "none", padding: "4px 0 0", marginTop: 4, cursor: "pointer", color: muted, fontSize: 11, fontWeight: 600, fontFamily: "inherit", textAlign: isLeft ? "left" : "right" }}
+            >
+              {showQuoted ? "Hide quoted text" : "Show quoted text"}
+            </button>
+          )}
         </div>
       </div>
 

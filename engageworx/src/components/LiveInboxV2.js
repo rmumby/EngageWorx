@@ -1783,6 +1783,7 @@ useEffect(function() {
                   delivered: msg.delivered,
                   read: msg.read,
                   isHtml: isHtml,
+                  channel: selectedConv.channel,  // gates the email quoted-reply expander in MessageBubble
                   mediaUrls: msg.mediaUrls || null,
                 },
                 _raw: msg,
