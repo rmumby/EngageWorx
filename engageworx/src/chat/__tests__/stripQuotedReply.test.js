@@ -317,3 +317,83 @@ describe('quoted-reply hardening — >-quoted-block backstop', function() {
     expect(r.visible).toBe(body.replace(/\r\n/g, '\n'));
   });
 });
+
+// Three real inbound rows from Delamere conversation 4ac2ce5a-8b5b-4d70-8d70-87f4a7dcdde2
+// (messages.body, LF line endings as stored). Each `REPLY_*` is reused as BOTH the head of the
+// fixture body AND the expected `visible`, so there's no transcription drift between input and
+// expectation. Long quoted tails are shortened (no effect on the cut point); the attribution /
+// header lines that DO drive the cut are verbatim.
+describe('quoted-reply hardening — Delamere 4ac2ce5a real rows (Outlook forward leak)', function() {
+  // Row 1d60aa98 (752B): fresh reply + a >-quoted "> On 10/06/2026 … wrote:" block. Cut by the
+  // >-block backstop. MUST stay passing.
+  var REPLY_1D =
+    'Hi Darren\n \n' +
+    'Hope all is well, we were just wondering if it\'s possible for us to come and visit this ' +
+    'Sunday (28th June) so we can show our parents round before the big day! No worries if ' +
+    'you\'re not available this weekend, I\'m sure we can find a date :) \n \n' +
+    'Cheers\nBen and Isobel';
+  var BODY_1D = REPLY_1D + '\n\n' +
+    '> On 10/06/2026 15:59 BST Darren Wells <darren@delameremanor.co.uk> wrote:\n' +
+    '>  \n>  \n> Hi Isobel and Ben, \n>  \n> Best wishes,\n>  \n> Darren\n> Delamere Manor\n>';
+
+  test('1d60aa98 — >-quoted attribution cut, reply preserved (must not regress)', function() {
+    var r = stripQuotedReply(BODY_1D, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe(REPLY_1D);
+    expect(r.quoted).toMatch(/^> On 10\/06\/2026 15:59 BST Darren Wells/);
+  });
+
+  // Row 98cdfca9 (1375B): fresh reply + a >-quoted "> On 24/06/2026 … wrote:" block. Cut by the
+  // >-block backstop. MUST stay passing.
+  var REPLY_98 =
+    'Hi Sarah\n \n' +
+    'Thank you for getting in touch. We have been through a plan with Joy when we visited 2 ' +
+    'weeks ago, are there more details that we need to confirm? In either case, we would love ' +
+    'to come back to the manor to show our parents so they can see it before the big day! We ' +
+    'were ideally hoping for 4th/5th July but I notice that isn\'t on your list. If not, I\'m ' +
+    'sure we can find another date!\n \n' +
+    'Cheers\nBen and Isobel';
+  var BODY_98 = REPLY_98 + '\n\n' +
+    '> On 24/06/2026 14:25 BST The Wedding Team <weddings@delameremanor.co.uk> wrote:\n' +
+    '>  \n>  \n> Good afternoon Isobel & Ben,\n>  \n> Kind Regards\n>  \n> Sarah Pennington\n' +
+    '> Delamere Manor\n>';
+
+  test('98cdfca9 — >-quoted attribution cut, reply preserved (must not regress)', function() {
+    var r = stripQuotedReply(BODY_98, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe(REPLY_98);
+    expect(r.quoted).toMatch(/^> On 24\/06\/2026 14:25 BST The Wedding Team/);
+  });
+
+  // Row 8f67af9a (2825B): fresh reply, then 5 blank lines, then an 80-char "----" forward divider,
+  // then TWO stacked Outlook From:/Sent:/To:/Subject: blocks, then a >-quoted "On 24/06…" block.
+  // THE FIX TARGET: the cut must land at the FIRST From: block (Fix B), and the dangling blank
+  // lines + "----" divider above it must NOT leak into `visible` (Fix A).
+  var REPLY_8F =
+    'Hi Sarah\n\n\n' +
+    'We have decided who is in which room, is it best if we send that via email?\n\n\n' +
+    'We are happy showing ourselves around if you are! If we get to the Manor for\n' +
+    '2/2:30 would that be okay?\n\n\n' +
+    'Cheers\nBen and Isobel';
+  var BODY_8F = REPLY_8F + '\n\n\n\n\n' + '-'.repeat(80) + '\n\n' +
+    'From: The Wedding Team <weddings@delameremanor.co.uk>\n' +
+    'Sent: Friday, June 26, 2026 5:49 pm\n' +
+    'To: Ben Shelbourne <wedding@shelbourne.org>\n' +
+    'Subject: RE: Final Details Meeting - Wedding 08.08.2026\n \n\n' +
+    'Hi Ben and Isobel,\n\n \n\nKind Regards\n\n \n\nSarah Pennington\n\nDelamere Manor\n\n \n\n' +
+    'From: Ben Shelbourne <wedding@shelbourne.org>\n' +
+    'Sent: 25 June 2026 20:34\n' +
+    'To: The Wedding Team <weddings@delameremanor.co.uk>\n' +
+    'Subject: Re: Final Details Meeting - Wedding 08.08.2026\n\n \n\n' +
+    'Hi Sarah\n\n \n\nCheers\n\nBen and Isobel\n\n' +
+    '> On 24/06/2026 14:25 BST The Wedding Team <weddings@delameremanor.co.uk\n' +
+    '> [weddings@delameremanor.co.uk]> wrote:\n>  \n> \n>  \n';
+
+  test('8f67af9a — cut at FIRST From: block; no trailing divider or header leaks (fix target)', function() {
+    var r = stripQuotedReply(BODY_8F, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe(REPLY_8F);                 // ends at "Cheers\nBen and Isobel"
+    expect(r.visible).not.toMatch(/-{2,}\s*$/);       // no dangling "----" forward divider
+    expect(r.visible).not.toMatch(/^From:/m);         // no Outlook From: header survived
+    expect(r.visible).not.toMatch(/^Sent:/m);         // no Outlook Sent: header survived
+    // quoted begins at the FIRST From:/Sent: block (Fix B), not a deeper one or the >-block
+    expect(r.quoted).toMatch(/^From: The Wedding Team <weddings@delameremanor\.co\.uk>\nSent: Friday/);
+  });
+});

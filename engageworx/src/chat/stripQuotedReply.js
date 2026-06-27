@@ -68,7 +68,13 @@ function stripQuotedReply(text, opts) {
   // 1) Cut at the earliest quote marker (if any).
   var qAt = earliestMarker(src, QUOTE_MARKERS);
   if (qAt !== -1) {
-    var beforeQ = src.slice(0, qAt).replace(/\s+$/, ''); // drop trailing whitespace only
+    var beforeQ = src.slice(0, qAt)
+      .replace(/\s+$/, '')              // drop trailing whitespace
+      .replace(/\n+\s*-{2,}\s*$/, '');  // ...and a dangling forward/Outlook "----" divider rule
+                                        // left above the cut (dashes aren't whitespace). A
+                                        // nested Outlook forward stacks blank lines + an 80-char
+                                        // "----" rule ABOVE the first From:/Sent: block; without
+                                        // this the rule and the blank lines leak into `visible`.
     if (beforeQ.length > 0) {                            // never lose the sender's words
       quoted = src.slice(qAt);
       visible = beforeQ;
