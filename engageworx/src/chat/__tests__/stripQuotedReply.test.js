@@ -5,6 +5,7 @@
 // always recoverable by the caller from the untrimmed input.
 var { stripQuotedReply } = require('../stripQuotedReply');
 var { signaturesFor, ENGAGEWORX } = require('../signatureRegistry');
+var { looksLikeHtml } = require('../looksLikeHtml');
 
 var EWX = function() { return signaturesFor(ENGAGEWORX); };
 
@@ -130,5 +131,35 @@ describe('stripQuotedReply (guarantees)', function() {
     expect(stripQuotedReply('').visible).toBe('');
     expect(stripQuotedReply(null).visible).toBe(null);
     expect(stripQuotedReply(undefined).visible).toBe(undefined);
+  });
+});
+
+// Regression: an OUTBOUND reply whose Gmail attribution carries a bracketed email
+// ("Rick Beckers <rb@channelsales.pro>") reached prod rendered RAW. Root cause was the
+// HTML heuristic (looksLikeHtml) mis-classifying the plaintext body as HTML, gating off the
+// strip. The util always handled the body — so the classification check is the real guard.
+describe('outbound regression — bracketed-email attribution (prod leak)', function() {
+  var OUTBOUND_RICK =
+    "Thanks Rick — that timeline works on our end. I'll get the SOW over by Friday.\r\n\r\n" +
+    'On Thu, Jun 25, 2026 at 2:12 PM Rick Beckers <rb@channelsales.pro> wrote:\r\n' +
+    '> Hi Rob, following up on the partnership timeline.\r\n' +
+    '> Can we target end of month for kickoff?\r\n\r\n' +
+    'Best, Rob\r\n\r\n' +
+    'Rob Mumby\r\n' +
+    'Founder & CEO | EngageWorx\r\n' +
+    '+1 (786) 982-7800\r\n';
+
+  test('the bracketed email no longer trips the HTML heuristic', function() {
+    expect(looksLikeHtml(OUTBOUND_RICK)).toBe(false);          // was true → skipped the strip
+    expect(looksLikeHtml('EngageWorx <https://engwx.com>')).toBe(false);
+    expect(looksLikeHtml('<div>real html</div>')).toBe(true);  // genuine HTML still detected
+    expect(looksLikeHtml('<br/>plain<p style="x">')).toBe(true);
+  });
+
+  test('strips to just the new reply; quote + sig sit behind the expander', function() {
+    var r = stripQuotedReply(OUTBOUND_RICK, { trimSignature: true, signatures: signaturesFor(ENGAGEWORX) });
+    expect(r.visible).toBe("Thanks Rick — that timeline works on our end. I'll get the SOW over by Friday.");
+    expect(r.quoted).toMatch(/^On Thu, Jun 25, 2026 at 2:12 PM Rick Beckers <rb@channelsales\.pro> wrote:/);
+    expect(r.quoted).toContain('Rob Mumby'); // signature recoverable via the expander, not in visible
   });
 });
