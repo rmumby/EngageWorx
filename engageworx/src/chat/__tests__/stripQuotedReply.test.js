@@ -396,4 +396,15 @@ describe('quoted-reply hardening — Delamere 4ac2ce5a real rows (Outlook forwar
     // quoted begins at the FIRST From:/Sent: block (Fix B), not a deeper one or the >-block
     expect(r.quoted).toMatch(/^From: The Wedding Team <weddings@delameremanor\.co\.uk>\nSent: Friday/);
   });
+
+  // Guard: Fix A's divider trim is scoped to `beforeQ` INSIDE the quote-cut branch. With no quote
+  // marker (qAt === -1) the branch is skipped entirely, so a message that simply ENDS in "----"
+  // keeps its trailing dashes — the trim must never fire on an arbitrary tail.
+  test('no quote marker → trailing "----" is preserved (Fix A does not fire on arbitrary tails)', function() {
+    var body = 'Hi\n\nthanks\n\n----';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe(body);   // unchanged — dashes intact
+    expect(r.quoted).toBe('');      // nothing was cut
+    expect(r.sigTrimmed).toBe(false);
+  });
 });
