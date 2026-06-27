@@ -411,3 +411,44 @@ describe('quoted-reply hardening — Delamere 4ac2ce5a real rows (Outlook forwar
     expect(r.sigTrimmed).toBe(false);
   });
 });
+
+// LIVE-BYTE regression — the INPUT is the exact messages.body bytes (base64) for the three
+// Delamere 4ac2ce5a rows, decoded at test time. NOT a reconstruction: this is the actual U+00A0
+// NBSP that Outlook stamps after the From:/Sent: header colons. A reconstructed fixture (plain
+// space) is exactly what let the first divider-only fix pass falsely while prod still leaked, so
+// the marker fix MUST be proven against the real bytes here.
+describe('quoted-reply hardening — Delamere 4ac2ce5a LIVE messages.body bytes', function() {
+  var fixtures = require('./fixtures/delamere-4ac2ce5a-rows.json').rows;
+  var decode = function(id) { return Buffer.from(fixtures[id], 'base64').toString('utf8'); };
+
+  test('8f67af9a (live bytes, NBSP headers) collapses to the Ben/Isobel reply — no forward leak', function() {
+    var body = decode('8f67af9a');
+    expect(body.charCodeAt(body.indexOf('From:') + 5)).toBe(0x00a0); // prove the input really has NBSP
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe(
+      'Hi Sarah\n\n\nWe have decided who is in which room, is it best if we send that via email?\n\n\n' +
+      'We are happy showing ourselves around if you are! If we get to the Manor for\n' +
+      '2/2:30 would that be okay?\n\n\nCheers\nBen and Isobel'
+    );
+    expect(r.visible).not.toMatch(/-{2,}\s*$/);     // no "----" divider leaked
+    expect(r.visible).not.toMatch(/^From:/m);       // no Outlook From: header leaked
+    expect(r.visible).not.toMatch(/^Sent:/m);       // no Outlook Sent: header leaked
+    expect(r.visible).not.toContain('\u00a0');      // NBSP header region fully excluded
+    // cut lands at the FIRST NBSP-stamped From:/Sent: block, on the real bytes
+    expect(r.quoted).toMatch(/^From:\u00a0The Wedding Team <weddings@delameremanor\.co\.uk>\nSent:\u00a0Friday/);
+  });
+
+  test('1d60aa98 (live bytes) → >-quoted attribution cut, reply preserved', function() {
+    var r = stripQuotedReply(decode('1d60aa98'), { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible.endsWith('Cheers\nBen and Isobel')).toBe(true);
+    expect(r.visible).not.toContain('Best wishes');   // quoted body did not leak
+    expect(r.quoted).toMatch(/^> On 10\/06\/2026 15:59 BST Darren Wells/);
+  });
+
+  test('98cdfca9 (live bytes) → >-quoted attribution cut, reply preserved', function() {
+    var r = stripQuotedReply(decode('98cdfca9'), { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible.endsWith('Cheers\nBen and Isobel')).toBe(true);
+    expect(r.visible).not.toContain('Kind Regards');  // quoted body did not leak
+    expect(r.quoted).toMatch(/^> On 24\/06\/2026 14:25 BST The Wedding Team/);
+  });
+});
