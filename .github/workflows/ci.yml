@@ -1,0 +1,28 @@
+name: CI
+
+# Runs the jest suite on every PR targeting main so it can be enforced as a required
+# status check. The app lives in the engageworx/ subdirectory; CRA's `react-scripts test`
+# (jest) is invoked directly because test/build are not wired as npm scripts.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engageworx
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: engageworx/package-lock.json
+      - run: npm ci
+      - name: jest (react-scripts test, CI mode)
+        run: npx react-scripts test
+        env:
+          CI: true
