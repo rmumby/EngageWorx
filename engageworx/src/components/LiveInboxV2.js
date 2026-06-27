@@ -6,6 +6,7 @@ import { Button, Badge, Card, RichEditor } from './ui';
 import { SP_TENANT_ID, spDefaultsToOwn } from '../lib/spScope';
 import { useTheme } from '../ThemeContext';
 import { statusChipStyle } from '../lib/statusChip';
+import { looksLikeHtml } from '../chat/looksLikeHtml';
 // supabase is passed as a prop from App.jsx to avoid duplicate GoTrueClient instances
 
 // Parse a Postgres timestamptz string ("2026-06-24 07:55:44+00") into a Date that resolves to the
@@ -1764,7 +1765,9 @@ useEffect(function() {
           <ChatThread
             messages={(selectedConv.messages || []).map(function(msg) {
               var isContact = msg.from === "contact";
-              var isHtml = msg.text && /<[a-z][\s\S]*>/i.test(msg.text);
+              // Real HTML tags only — NOT angle-bracketed emails/URLs in plaintext (those used to
+              // trip the old /<[a-z][\s\S]*>/i and route quoted-reply walls past the plaintext strip).
+              var isHtml = looksLikeHtml(msg.text);
               return {
                 id: msg.id,
                 role: isContact ? "user" : "agent",

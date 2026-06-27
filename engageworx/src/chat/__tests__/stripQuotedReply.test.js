@@ -5,6 +5,7 @@
 // always recoverable by the caller from the untrimmed input.
 var { stripQuotedReply } = require('../stripQuotedReply');
 var { signaturesFor, ENGAGEWORX } = require('../signatureRegistry');
+var { looksLikeHtml } = require('../looksLikeHtml');
 
 var EWX = function() { return signaturesFor(ENGAGEWORX); };
 
@@ -130,5 +131,89 @@ describe('stripQuotedReply (guarantees)', function() {
     expect(stripQuotedReply('').visible).toBe('');
     expect(stripQuotedReply(null).visible).toBe(null);
     expect(stripQuotedReply(undefined).visible).toBe(undefined);
+  });
+});
+
+// Regression: an OUTBOUND reply whose Gmail attribution carries a bracketed email
+// ("Rick Beckers <rb@channelsales.pro>") reached prod rendered RAW. Root cause was the
+// HTML heuristic (looksLikeHtml) mis-classifying the plaintext body as HTML, gating off the
+// strip. The util always handled the body — so the classification check is the real guard.
+describe('outbound regression — bracketed-email attribution (prod leak)', function() {
+  var OUTBOUND_RICK =
+    "Thanks Rick — that timeline works on our end. I'll get the SOW over by Friday.\r\n\r\n" +
+    'On Thu, Jun 25, 2026 at 2:12 PM Rick Beckers <rb@channelsales.pro> wrote:\r\n' +
+    '> Hi Rob, following up on the partnership timeline.\r\n' +
+    '> Can we target end of month for kickoff?\r\n\r\n' +
+    'Best, Rob\r\n\r\n' +
+    'Rob Mumby\r\n' +
+    'Founder & CEO | EngageWorx\r\n' +
+    '+1 (786) 982-7800\r\n';
+
+  test('the bracketed email no longer trips the HTML heuristic', function() {
+    expect(looksLikeHtml(OUTBOUND_RICK)).toBe(false);          // was true → skipped the strip
+    expect(looksLikeHtml('EngageWorx <https://engwx.com>')).toBe(false);
+    expect(looksLikeHtml('<div>real html</div>')).toBe(true);  // genuine HTML still detected
+    expect(looksLikeHtml('<br/>plain<p style="x">')).toBe(true);
+  });
+
+  test('strips to just the new reply; quote + sig sit behind the expander', function() {
+    var r = stripQuotedReply(OUTBOUND_RICK, { trimSignature: true, signatures: signaturesFor(ENGAGEWORX) });
+    expect(r.visible).toBe("Thanks Rick — that timeline works on our end. I'll get the SOW over by Friday.");
+    expect(r.quoted).toMatch(/^On Thu, Jun 25, 2026 at 2:12 PM Rick Beckers <rb@channelsales\.pro> wrote:/);
+    expect(r.quoted).toContain('Rob Mumby'); // signature recoverable via the expander, not in visible
+  });
+});
+
+// Two LIVE outbound rows (tenant c1bc59a8…) that rendered via the isHtml path and walled in
+// prod. Both are plaintext with ZERO real HTML tags (verified by Postgres open/close-tag probes)
+// — they only carry angle-bracketed URL/email tokens and a Gmail [image: …] placeholder. Every
+// bracket-bearing line below is verbatim from the row; the long quoted deal-strategy thread in
+// row 53d775db is elided for confidentiality (it contains no tags, so classification is identical).
+describe('looksLikeHtml — live plaintext rows must classify as NOT html', function() {
+  // row 53d775db-f080-4c50-8650-1174251242b4
+  var ROW_53D =
+    'Hi David,\r\n\r\n' +
+    'Hope you had a nice weekend.\r\n\r\n' +
+    "How's a follow-up call Tuesday or Wednesday?\r\n\r\n\r\n" +
+    'Rob Mumby\r\n' +
+    'Founder & CEO  |  EngageWorx <https://engwx.com>\r\n' +
+    '+1 (786) 982-7800\r\n\r\n\r\n' +
+    'On Thu, Jun 11, 2026 at 6:52 PM Rob Mumby <rob@engwx.com> wrote:\r\n\r\n' +
+    '> David,\r\n>\r\n' +
+    '> [quoted deal-strategy thread elided for confidentiality — contains no HTML tags]\r\n>\r\n';
+
+  // row a26f5327-8153-4ed9-8929-a2e1a1b6c988 (carries a Gmail [image: …] placeholder)
+  var ROW_A26 =
+    'Hey David,\r\n\r\n' +
+    "I reached out to Tyler and didn't get a response.  I'll continue to try him.\r\n\r\n" +
+    "How's next week look to dig into the EngageWorx platform to set-up?\r\n\r\n" +
+    'Best!\r\n\r\n\r\n' +
+    'Rob Mumby\r\n' +
+    'Founder & CEO  |  EngageWorx <https://engwx.com>\r\n' +
+    '+1 (786) 982-7800\r\n\r\n\r\n' +
+    'On Fri, Jun 26, 2026 at 11:35 PM iCatholic Mobile <david@icatholicmobile.com>\r\n' +
+    'wrote:\r\n\r\n' +
+    '> Hello  Any updates on the discussion and next steps on our contract?\r\n>\r\n' +
+    '> [image: iCatholic-Mobile-email copy.jpg]\r\n>\r\n';
+
+  test('row 53d775db (bracketed URL + email) is not HTML', function() {
+    expect(looksLikeHtml(ROW_53D)).toBe(false);
+  });
+
+  test('row a26f5327 (bracketed URL + email + [image:] placeholder) is not HTML', function() {
+    expect(looksLikeHtml(ROW_A26)).toBe(false);
+  });
+
+  test('bare bracket tokens individually are not HTML', function() {
+    expect(looksLikeHtml('<https://engwx.com>')).toBe(false);   // scheme
+    expect(looksLikeHtml('<david@icatholicmobile.com>')).toBe(false); // email local-part with @
+    expect(looksLikeHtml('[image: iCatholic-Mobile-email copy.jpg]')).toBe(false); // [image: placeholder
+  });
+
+  test('genuine HTML still classifies as html', function() {
+    expect(looksLikeHtml('<div>hello</div>')).toBe(true);
+    expect(looksLikeHtml('<img src="x.jpg">')).toBe(true);
+    expect(looksLikeHtml('text <p style="m:0">para</p> more')).toBe(true);
+    expect(looksLikeHtml('a closing only </a> tag')).toBe(true);
   });
 });
