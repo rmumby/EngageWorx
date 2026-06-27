@@ -28,7 +28,12 @@ var QUOTE_MARKERS = [
   // first, so only the single \n needs handling here.
   /^[ \t]*On\b[^\n]*(?:\n[ \t]*)?\bwrote:[ \t]*$/m,
   /^-{2,}\s*Original Message\s*-{2,}/mi,      // Outlook "-----Original Message-----"
-  /^From:[ \t].+\r?\n(Sent|Date):[ \t]/mi,    // Outlook reply header block
+  // Outlook reply header block. NBSP-tolerant: Outlook (and some webmail forwards) stamp a
+  // U+00A0 non-breaking space after the "From:"/"Sent:" colon instead of a plain space, which
+  // would otherwise defeat the [ \t] class and drop the cut through to a deeper marker (leaking
+  // the whole forward). Adjacency stays strict — the From: line must be immediately followed by
+  // the Sent:/Date: line — so prose mentioning "From:" isn't mis-cut.
+  /^From:[ \t\u00a0].+\r?\n(Sent|Date):[ \t\u00a0]/mi,
   /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
   // Backstop: a contiguous >-quoted block (≥2 lines). An independent cut point so an unknown or
   // itself-quoted attribution ("> On 10/06/2026 … wrote:") still gets cut at the start of the quote.

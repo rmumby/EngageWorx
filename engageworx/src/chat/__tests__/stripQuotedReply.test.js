@@ -365,8 +365,11 @@ describe('quoted-reply hardening — Delamere 4ac2ce5a real rows (Outlook forwar
 
   // Row 8f67af9a (2825B): fresh reply, then 5 blank lines, then an 80-char "----" forward divider,
   // then TWO stacked Outlook From:/Sent:/To:/Subject: blocks, then a >-quoted "On 24/06…" block.
-  // THE FIX TARGET: the cut must land at the FIRST From: block (Fix B), and the dangling blank
-  // lines + "----" divider above it must NOT leak into `visible` (Fix A).
+  // Verbatim detail that's load-bearing: Outlook stamps a U+00A0 NON-BREAKING SPACE after each
+  // header colon ("From:\u00a0…", "Sent:\u00a0…"), NOT a plain space. The From:/Sent: marker must
+  // be NBSP-tolerant or the cut drops through to the deep >-block and the ENTIRE forward leaks.
+  // THE FIX TARGET: cut lands at the FIRST From: block (Fix B, NBSP-tolerant), and the dangling
+  // blank lines + "----" divider above it must NOT leak into `visible` (Fix A).
   var REPLY_8F =
     'Hi Sarah\n\n\n' +
     'We have decided who is in which room, is it best if we send that via email?\n\n\n' +
@@ -374,27 +377,27 @@ describe('quoted-reply hardening — Delamere 4ac2ce5a real rows (Outlook forwar
     '2/2:30 would that be okay?\n\n\n' +
     'Cheers\nBen and Isobel';
   var BODY_8F = REPLY_8F + '\n\n\n\n\n' + '-'.repeat(80) + '\n\n' +
-    'From: The Wedding Team <weddings@delameremanor.co.uk>\n' +
-    'Sent: Friday, June 26, 2026 5:49 pm\n' +
-    'To: Ben Shelbourne <wedding@shelbourne.org>\n' +
-    'Subject: RE: Final Details Meeting - Wedding 08.08.2026\n \n\n' +
-    'Hi Ben and Isobel,\n\n \n\nKind Regards\n\n \n\nSarah Pennington\n\nDelamere Manor\n\n \n\n' +
-    'From: Ben Shelbourne <wedding@shelbourne.org>\n' +
-    'Sent: 25 June 2026 20:34\n' +
-    'To: The Wedding Team <weddings@delameremanor.co.uk>\n' +
-    'Subject: Re: Final Details Meeting - Wedding 08.08.2026\n\n \n\n' +
-    'Hi Sarah\n\n \n\nCheers\n\nBen and Isobel\n\n' +
+    'From:\u00a0The Wedding Team <weddings@delameremanor.co.uk>\n' +
+    'Sent:\u00a0Friday, June 26, 2026 5:49 pm\n' +
+    'To:\u00a0Ben Shelbourne <wedding@shelbourne.org>\n' +
+    'Subject:\u00a0RE: Final Details Meeting - Wedding 08.08.2026\n\u00a0\n\n' +
+    'Hi Ben and Isobel,\n\n\u00a0\n\nKind Regards\n\n\u00a0\n\nSarah Pennington\n\nDelamere Manor\n\n\u00a0\n\n' +
+    'From:\u00a0Ben Shelbourne <wedding@shelbourne.org>\n' +
+    'Sent:\u00a025 June 2026 20:34\n' +
+    'To:\u00a0The Wedding Team <weddings@delameremanor.co.uk>\n' +
+    'Subject:\u00a0Re: Final Details Meeting - Wedding 08.08.2026\n\n\u00a0\n\n' +
+    'Hi Sarah\n\n\u00a0\n\nCheers\n\nBen and Isobel\n\n' +
     '> On 24/06/2026 14:25 BST The Wedding Team <weddings@delameremanor.co.uk\n' +
     '> [weddings@delameremanor.co.uk]> wrote:\n>  \n> \n>  \n';
 
-  test('8f67af9a — cut at FIRST From: block; no trailing divider or header leaks (fix target)', function() {
+  test('8f67af9a — cut at FIRST From: block; NBSP header tolerated; no divider/header leak (fix target)', function() {
     var r = stripQuotedReply(BODY_8F, { trimSignature: true, signatures: GENERIC() });
     expect(r.visible).toBe(REPLY_8F);                 // ends at "Cheers\nBen and Isobel"
     expect(r.visible).not.toMatch(/-{2,}\s*$/);       // no dangling "----" forward divider
     expect(r.visible).not.toMatch(/^From:/m);         // no Outlook From: header survived
     expect(r.visible).not.toMatch(/^Sent:/m);         // no Outlook Sent: header survived
     // quoted begins at the FIRST From:/Sent: block (Fix B), not a deeper one or the >-block
-    expect(r.quoted).toMatch(/^From: The Wedding Team <weddings@delameremanor\.co\.uk>\nSent: Friday/);
+    expect(r.quoted).toMatch(/^From:\u00a0The Wedding Team <weddings@delameremanor\.co\.uk>\nSent:\u00a0Friday/);
   });
 
   // Guard: Fix A's divider trim is scoped to `beforeQ` INSIDE the quote-cut branch. With no quote
