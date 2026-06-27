@@ -217,3 +217,103 @@ describe('looksLikeHtml — live plaintext rows must classify as NOT html', func
     expect(looksLikeHtml('a closing only </a> tag')).toBe(true);
   });
 });
+
+// Quoted-reply hardening, verified against the live corpus (EngageWorx + Delamere, plaintext
+// only). Bracket-bearing attribution lines are verbatim from the cited rows; long quoted bodies
+// are shortened (no effect on where the cut fires). Each asserts the cut fires (quote removed).
+var GENERIC = function() { return signaturesFor(undefined); }; // non-EW tenants: generic sig markers only
+
+describe('quoted-reply hardening — wrapped attributions', function() {
+  // req 1 — row 086f9bac: Gmail soft-wrap puts "wrote:" on its own line after the <email>.
+  test('wrapped US-date attribution (086f9bac)', function() {
+    var body =
+      'how many people can be seated?\r\n\r\n\r\n' +
+      'On Sun, Jun 7, 2026 at 11:04 AM Delamere Manor <weddings@delameremanor.co.uk>\r\n' +
+      'wrote:\r\n\r\n' +
+      '> Delamere Manor\r\n>\r\n> Hi Rob — yes, absolutely, there\'s a solid wet weather plan.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('how many people can be seated?');
+    expect(r.quoted).toMatch(/^On Sun, Jun 7, 2026 at 11:04 AM Delamere Manor/);
+  });
+
+  // req 1 — row 149b1765: wrapped attribution + an EngageWorx signature above it.
+  test('wrapped attribution + EW signature both removed (149b1765)', function() {
+    var body =
+      'Hey Vitaly,\r\n\r\nHope you had a good weekend.\r\n\r\n' +
+      "Just circling up to see if you've spent time in the portal.\r\n\r\n" +
+      'Best!\r\n\r\n\r\nRob Mumby\r\nFounder & CEO  |  EngageWorx <https://engwx.com>\r\n+1 (786) 982-7800\r\n\r\n\r\n' +
+      'On Mon, Jun 8, 2026 at 5:20 PM Vitaly Potapov <vitaly@rangetelecom.com>\r\n' +
+      'wrote:\r\n\r\n> Rob,\r\n>\r\n> I will be doing some digging later this week.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: signaturesFor(ENGAGEWORX) });
+    expect(r.visible).toBe("Hey Vitaly,\n\nHope you had a good weekend.\n\nJust circling up to see if you've spent time in the portal.");
+    expect(r.sigTrimmed).toBe(true);
+  });
+
+  // req 3 — British-Gmail hybrid date, wrapped (Delamere "Sam / Wedding Team" thread).
+  test('wrapped British-Gmail hybrid attribution', function() {
+    var body =
+      'Hi, that all sounds perfect, thank you!\r\n\r\n' +
+      'On Tue, 23 Jun 2026 at 15:22, The Wedding Team <weddings@delameremanor.co.uk>\r\n' +
+      'wrote:\r\n\r\n> Hi Sam,\r\n>\r\n> Thank you for your email, 8.30am is great for arrival.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('Hi, that all sounds perfect, thank you!');
+    expect(r.quoted).toMatch(/^On Tue, 23 Jun 2026 at 15:22, The Wedding Team/);
+  });
+});
+
+describe('quoted-reply hardening — additional single-line date formats', function() {
+  // req 3 — iOS, row 05805982
+  test('iOS "On 17 Jun 2026, at 14:29," format (05805982)', function() {
+    var body =
+      'Hi Darren,\r\n\r\nThank you for the update. Please let me know how you get on.\r\n\r\n' +
+      'On 15 Jun 2026, at 08:48, Ninie <nita.ninie@gmail.com> wrote:\r\n>\r\n> Hi Darren,\r\n>\r\n> Hope you are well.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('Hi Darren,\n\nThank you for the update. Please let me know how you get on.');
+    expect(r.quoted).toMatch(/^On 15 Jun 2026, at 08:48, Ninie/);
+  });
+
+  // req 3 — British long-form / BST (149b1765 was cited; format per spec)
+  test('British long-form "On Friday, 12 June 2026 at 18:27:57 BST," format', function() {
+    var body =
+      'Thanks so much for organising everything.\r\n\r\n' +
+      'On Friday, 12 June 2026 at 18:27:57 BST, Lucy Mcnay <lucy.mcnay@example.co.uk> wrote:\r\n' +
+      '> Hi,\r\n> Please find attached the final schedule.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('Thanks so much for organising everything.');
+    expect(r.quoted).toMatch(/^On Friday, 12 June 2026 at 18:27:57 BST, Lucy Mcnay/);
+  });
+
+  // req 3 — numeric / Yahoo dd/mm/yyyy
+  test('numeric/Yahoo "On 19/06/2026 12:39 BST e-mail …" format', function() {
+    var body =
+      'Yes please, that works for us.\r\n\r\n' +
+      'On 19/06/2026 12:39 BST e-mail becky.naish <becky.naish@example.com> wrote:\r\n' +
+      '> Hello,\r\n> Confirming your booking details below.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('Yes please, that works for us.');
+    expect(r.quoted).toMatch(/^On 19\/06\/2026 12:39 BST e-mail becky\.naish/);
+  });
+});
+
+describe('quoted-reply hardening — >-quoted-block backstop', function() {
+  // req 2 — row 1d60aa98: the attribution is itself >-quoted ("> On 10/06/2026 … wrote:"), so the
+  // "On … wrote:" marker can't anchor it. The contiguous >-block is the independent cut point.
+  test('>-quoted attribution is cut by the block backstop (1d60aa98)', function() {
+    var body =
+      'Hi Darren\r\n\r\n' +
+      'Hope all is well, could we visit this Sunday to show our parents round?\r\n\r\n' +
+      'Cheers\r\nBen and Isobel\r\n\r\n' +
+      '> On 10/06/2026 15:59 BST Darren Wells <darren@delameremanor.co.uk> wrote:\r\n' +
+      '>\r\n> Hi Isobel and Ben,\r\n>\r\n> Thank you for coming into the manor today.\r\n';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.visible).toBe('Hi Darren\n\nHope all is well, could we visit this Sunday to show our parents round?\n\nCheers\nBen and Isobel');
+    expect(r.quoted).toMatch(/^> On 10\/06\/2026 15:59 BST Darren Wells/);
+  });
+
+  test('a lone stray ">" line in a reply does NOT trigger the backstop', function() {
+    var body = 'I agree with the point below:\r\n> just one quoted line, no block\r\nLet me know.';
+    var r = stripQuotedReply(body, { trimSignature: true, signatures: GENERIC() });
+    expect(r.quoted).toBe('');                 // single > line is not a ≥2-line block
+    expect(r.visible).toBe(body.replace(/\r\n/g, '\n'));
+  });
+});

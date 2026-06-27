@@ -22,10 +22,17 @@
 
 // Quote markers — same set as the canonical server util.
 var QUOTE_MARKERS = [
-  /^[ \t]*On\b.*\bwrote:[ \t]*$/m,           // Gmail/Apple "On … wrote:" (tolerates leading indent, e.g. quoted British attributions)
+  // Gmail/Apple "On … wrote:" — date-format-agnostic (US, iOS "On 17 Jun 2026, at 14:29,",
+  // British long-form/BST, numeric dd/mm/yyyy). Tolerates a leading indent AND a soft-wrap that
+  // pushes a trailing "wrote:" onto its own line ("… <email>\nwrote:"). CRLF is normalized to \n
+  // first, so only the single \n needs handling here.
+  /^[ \t]*On\b[^\n]*(?:\n[ \t]*)?\bwrote:[ \t]*$/m,
   /^-{2,}\s*Original Message\s*-{2,}/mi,      // Outlook "-----Original Message-----"
   /^From:[ \t].+\r?\n(Sent|Date):[ \t]/mi,    // Outlook reply header block
   /^_{10,}[ \t]*$/m,                          // Outlook underscore divider
+  // Backstop: a contiguous >-quoted block (≥2 lines). An independent cut point so an unknown or
+  // itself-quoted attribution ("> On 10/06/2026 … wrote:") still gets cut at the start of the quote.
+  /^>.*(?:\n>.*)+/m,
 ];
 
 // Signature markers are NOT defined here — the caller passes opts.signatures (per-tenant +
