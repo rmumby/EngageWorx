@@ -6,6 +6,7 @@ import { BrandingProvider, useBranding } from './BrandingContext';
 import BrandLogo from './BrandLogo';
 import PipelineDashboard from './components/PipelineDashboard';
 import { supabase } from './supabaseClient';
+import { fetchChannelLabelMap } from './lib/channelDisplay';
 import SignupPage from './SignupPage';
 import AdminTenants from './AdminTenants';
 import AnalyticsDashboard from './AnalyticsDashboard';
@@ -68,8 +69,10 @@ function useLiveData(demoMode, isSPAdmin) {
     if (!isSPAdmin) { setLiveLoading(false); return; }
     setLiveLoading(true);
     try {
+      // RC1: live_tenants excludes demo + sandbox (status active|trial) — SP rollups must not
+      // count demo/sandbox tenants. (Was .from('tenants') = every tenant including demo/sandbox.)
       const { data: tenants, error } = await supabase
-        .from('tenants')
+        .from('live_tenants')
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -86,37 +89,10 @@ function useLiveData(demoMode, isSPAdmin) {
         countMap[c.tenant_id] = (countMap[c.tenant_id] || 0) + 1;
       });
 
-      // Active channels: enabled=true AND has key credentials configured
-      const { data: chRows } = await supabase
-        .from('channel_configs')
-        .select('tenant_id, channel, enabled, config_encrypted')
-        .eq('enabled', true);
-      const channelMap = {};
-      const CHANNEL_LABELS = { sms: 'SMS', email: 'Email', whatsapp: 'WhatsApp', voice: 'Voice', rcs: 'RCS', mms: 'MMS' };
-      function hasCredentials(channel, cfg) {
-        if (!cfg) return false;
-        if (channel === 'sms' || channel === 'voice') return !!(cfg.phone_number || cfg.account_sid);
-        if (channel === 'email') return !!(cfg.api_key || cfg.from_email || cfg.domain);
-        if (channel === 'whatsapp') return !!(cfg.access_token || cfg.phone_number_id);
-        if (channel === 'rcs') return !!(cfg.agent_id);
-        return true; // unknown channels: trust enabled flag
-      }
-      (chRows || []).forEach(function(r) {
-        if (!r.tenant_id || !r.channel) return;
-        if (!hasCredentials(r.channel, r.config_encrypted)) return;
-        if (!channelMap[r.tenant_id]) channelMap[r.tenant_id] = [];
-        var label = CHANNEL_LABELS[String(r.channel).toLowerCase()] || r.channel.toUpperCase();
-        if (channelMap[r.tenant_id].indexOf(label) === -1) channelMap[r.tenant_id].push(label);
-      });
-      // Poland carrier — separate table, add 🇵🇱 Poland badge for enabled configs
-      try {
-        const { data: plRows } = await supabase.from('poland_carrier_configs').select('tenant_id').eq('enabled', true);
-        (plRows || []).forEach(function(r) {
-          if (!r.tenant_id) return;
-          if (!channelMap[r.tenant_id]) channelMap[r.tenant_id] = [];
-          if (channelMap[r.tenant_id].indexOf('🇵🇱 Poland') === -1) channelMap[r.tenant_id].push('🇵🇱 Poland');
-        });
-      } catch (e) {}
+      // RC3a: active channels from channel_configs (enabled=true + has credentials), via the
+      // shared helper so the TenantManagement list can't drift from this derivation. Never reads
+      // tenants.channels_enabled. Includes the 🇵🇱 Poland carrier badge.
+      const channelMap = await fetchChannelLabelMap(supabase);
 
       const formatted = (tenants || []).map(t => {
         var totalContacts = countMap[t.id] || 0;
@@ -569,6 +545,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         status: 'trial',
         brand_primary: newTenant.color,
         brand_name: newTenant.brandName || newTenant.companyName,
+        // channels_enabled: creation-time intent only — never read for display (use channel_configs / channelDisplay.js)
         channels_enabled: ['sms', 'email'],
         customer_type: customerType,
         tenant_type: customerType,
@@ -668,8 +645,10 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
     (async () => {
       try {
         const { supabase } = await import('./supabaseClient');
+        // RC1: management surface → real_tenants (excludes demo + sandbox, ANY status) so a
+        // suspended/churned tenant is still reachable here. (Was .from('tenants') incl. demo/sandbox.)
         var tenantQuery = supabase
-          .from('tenants')
+          .from('real_tenants')
           .select('*')
           .order('created_at', { ascending: false });
         console.log('[TenantManagement] query scoping — currentTenantId:', currentTenantId, currentTenantId ? 'SCOPED to parent_entity_id' : 'UNSCOPED (all tenants)');
@@ -679,6 +658,9 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
         const { data, error } = await tenantQuery;
         console.log('[TenantManagement] query result — rows:', data ? data.length : 0, 'error:', error ? error.message : 'none', 'ids:', (data || []).slice(0, 5).map(function(t) { return t.name + '(' + t.id.substring(0, 8) + ')'; }));
         if (!error && data) {
+          // RC3a: channel badges from channel_configs via the shared helper (single source of
+          // truth with useLiveData) — not the stale tenants.channels_enabled column.
+          const channelMap = await fetchChannelLabelMap(supabase);
           const mapped = data.map(t => ({
             id: t.id,
             name: t.name,
@@ -700,7 +682,7 @@ function TenantManagement({ C, demoMode = false, onDrillDown, refreshLiveData, c
             },
             plan: t.plan || 'starter',
             status: t.status || 'active',
-            channels: t.channels_enabled || ['sms', 'email'],
+            channels: channelMap[t.id] || [],
             stats: { messages: 0, revenue: 0, campaigns: 0, contacts: 0, deliveryRate: 0, openRate: 0 },
             slug: t.slug,
             created_at: t.created_at,
@@ -1442,6 +1424,7 @@ setDemoCreating(false);
                             legal_entity_id: legalEntityId, contract_type: roleChoice === 'direct' ? 'tenant_subscription' : roleChoice + '_referral',
                             parent_tenant_id: parentChoice || c.parent_tenant_id, parent_entity_id: parentChoice || c.parent_entity_id,
                             brand_primary: c.brand_primary, brand_secondary: c.brand_secondary,
+                            // channels_enabled: creation-time intent only — never read for display (use channel_configs / channelDisplay.js)
                             channels_enabled: c.channels_enabled || ['sms', 'email'],
                           }).select('id').single();
                           if (ins.error) throw ins.error;

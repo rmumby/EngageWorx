@@ -10,8 +10,10 @@ export default function AdminTenants() {
 
   const fetchTenants = async () => {
     setLoading(true);
+    // RC1: real_tenants excludes demo + sandbox but keeps ALL statuses, so the screen's own
+    // .eq('status', filter) can still reach suspended/churned tenants. (Was .from('tenants').)
     const { data } = await supabase
-      .from("tenants")
+      .from("real_tenants")
       .select("*")
       .eq("status", filter)
       .order("created_at", { ascending: false });
