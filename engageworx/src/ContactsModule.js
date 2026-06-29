@@ -1341,8 +1341,10 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
         {[
           { label: "Total Contacts", value: totalContacts.toLocaleString(), color: C.primary, icon: "👥" },
           { label: "Subscribed", value: subscribedCount.toLocaleString(), sub: totalContacts > 0 ? `${((subscribedCount / totalContacts) * 100).toFixed(0)}%` : "0%", color: "#00E676", icon: "✅" },
-          { label: "Avg Open Rate", value: `${avgOpenRate}%`, color: "#00C9FF", icon: "👁️" },
-          { label: "Total LTV", value: `$${Math.round(totalLTV).toLocaleString()}`, color: "#FFD600", icon: "💰" },
+          // RC3b: Open Rate + LTV have no truthful source yet (no email-open events table; billing
+          // tables empty) → explicit "—" on live data. Demo mode keeps the fixture numbers.
+          { label: "Avg Open Rate", value: demoMode ? `${avgOpenRate}%` : "—", sub: demoMode ? undefined : "Not tracked yet", color: "#00C9FF", icon: "👁️" },
+          { label: "Total LTV", value: demoMode ? `$${Math.round(totalLTV).toLocaleString()}` : "—", sub: demoMode ? undefined : "No billing source", color: "#FFD600", icon: "💰" },
         ].map((kpi, i) => (
           <div key={i} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderTop: `3px solid ${kpi.color}`, borderRadius: 12, padding: "16px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>

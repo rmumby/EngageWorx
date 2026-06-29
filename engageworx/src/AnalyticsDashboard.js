@@ -246,6 +246,27 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
   const [liveData, setLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
 
+  // RC1/RC2: real tenants for the SP "view a tenant's metrics" filter (was the hardcoded
+  // DEMO_TENANTS literal). live_business_tenants = leaf business tenants only — CSP/agent rollups
+  // aren't metric sources. Demo mode keeps DEMO_TENANTS so the synthetic generator still works.
+  const [tenantOptions, setTenantOptions] = useState([]);
+  useEffect(() => {
+    if (viewLevel !== "sp" || demoMode) return;
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const { data } = await supabase.from('live_business_tenants').select('id, name, brand_primary, brand_name').order('name');
+        setTenantOptions((data || []).map(t => ({
+          id: t.id,
+          name: t.brand_name || t.name,
+          color: t.brand_primary || '#00C9FF',
+          logo: (t.brand_name || t.name || '??').substring(0, 2).toUpperCase(),
+        })));
+      } catch (e) { /* leave options empty on error */ }
+    })();
+  }, [viewLevel, demoMode]);
+  const tenantList = demoMode ? DEMO_TENANTS : tenantOptions;
+
   // Fetch live analytics from Supabase
   useEffect(() => {
     if (demoMode) { setLiveData(null); return; }
@@ -253,7 +274,10 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
       setLiveLoading(true);
       try {
         const { supabase } = await import('./supabaseClient');
-        const tenantId = currentTenantId || null;
+        // RC2: at SP level honor the tenant-filter dropdown (option value = tenant UUID from
+        // live_business_tenants); "all" → null = aggregate across tenants. Tenant level keeps its
+        // own currentTenantId. Without this the dropdown options were cosmetic (query ignored them).
+        const tenantId = viewLevel === 'sp' ? (tenantFilter !== 'all' ? tenantFilter : null) : (currentTenantId || null);
 
         // Get messages in date range
         let msgQuery = supabase.from('messages').select('channel, status, direction, sender_type, created_at').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
@@ -372,7 +396,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
 
   // Drill-down into specific tenant
   if (drillTenant) {
-    const t = DEMO_TENANTS.find(x => x.id === drillTenant);
+    const t = tenantList.find(x => x.id === drillTenant) || { name: "", color: "#00C9FF", logo: "" };
     return (
       <div style={{ padding: "32px 40px", maxWidth: 1400 }}>
         <button onClick={() => setDrillTenant(null)} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 8, padding: "8px 16px", color: C.text, cursor: "pointer", fontSize: 13, fontWeight: 600, marginBottom: 20, fontFamily: "'DM Sans', sans-serif" }}>← Back to All Tenants</button>
@@ -419,7 +443,7 @@ export default function AnalyticsDashboard({ C, tenants, viewLevel = "sp", curre
           {viewLevel === "sp" && (
             <select value={tenantFilter} onChange={(e) => setTenantFilter(e.target.value)} style={selectStyle}>
               <option value="all">All Tenants</option>
-              {DEMO_TENANTS.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {tenantList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
           <select value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={selectStyle}>

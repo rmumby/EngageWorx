@@ -43,7 +43,9 @@ export default function CustomerSuccessDashboard({ C, onDrillDown }) {
     (async function() {
       setLoading(true);
       try {
-        var { data } = await supabase.from('tenants').select('id, name, plan, entity_tier, tenant_type, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, contacts_count, soft_capped, updated_at, created_at, current_period_start');
+        // RC1: live_tenants excludes demo + sandbox (active|trial). RC3b: contacts_count dropped —
+        // it's 0 platform-wide (dead column) and was selected but never rendered here.
+        var { data } = await supabase.from('live_tenants').select('id, name, plan, entity_tier, tenant_type, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, soft_capped, updated_at, created_at, current_period_start');
         setTenants(data || []);
 
         // AI cost this month per tenant

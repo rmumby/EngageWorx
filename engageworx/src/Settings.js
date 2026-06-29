@@ -847,7 +847,9 @@ if (!tenantId) {
     if (activeTab !== 'billing' || demoMode || !resolvedTenantId) return;
     (async () => {
       try {
-        const { data } = await supabase.from('tenants').select('plan, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, contacts_count, soft_capped').eq('id', resolvedTenantId).maybeSingle();
+        // RC3b: contacts_count dropped — dead column (0 platform-wide), selected but never rendered
+        // in the usage block below. Stop reading it.
+        const { data } = await supabase.from('tenants').select('plan, sms_used, whatsapp_used, email_used, ai_interactions_used, voice_minutes_used, soft_capped').eq('id', resolvedTenantId).maybeSingle();
         if (data) setTenantUsage(data);
       } catch (e) {}
     })();
