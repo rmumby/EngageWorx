@@ -1223,7 +1223,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       {TAGS.filter(function(t) { return !(editingContact.tags || []).includes(t); }).map(function(t) { return <option key={t} value={t}>{t}</option>; })}
                     </select>
                   </div>
-                  <button onClick={() => handleEditContact(editingContact)} style={{ ...btnPrimary, width: "100%", borderRadius: 8, padding: "10px" }}>Save Changes</button>
+                  {/* Sticky action bar — pinned to the bottom of the scrollport so Save/Cancel
+                      stay visible without scrolling the long edit form (platform_issue 6bd38f12).
+                      Opaque surface bg + top border so scrolled fields don't bleed through. */}
+                  <div style={{ position: "sticky", bottom: 0, zIndex: 2, display: "flex", gap: 10, alignItems: "center", marginTop: 14, paddingTop: 12, background: "var(--theme-surface)", borderTop: "1px solid var(--theme-border)" }}>
+                    <button onClick={() => setEditingContact(null)} style={{ ...btnSecondary, padding: "10px 16px" }}>Cancel</button>
+                    <button onClick={() => handleEditContact(editingContact)} style={{ ...btnPrimary, flex: 1, borderRadius: 8, padding: "10px" }}>Save Changes</button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
