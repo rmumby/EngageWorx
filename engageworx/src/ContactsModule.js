@@ -1165,13 +1165,15 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
               {editingContact ? (
                 <div>
                   {/* Two-column grid: Identity left, Business right */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 14 }}>
+                  {/* auto-fit collapses to ONE column when the card is too narrow for two (≈316px),
+                      so neither column clips; minWidth:0 on each item defeats the grid min-content trap. */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16, marginBottom: 14 }}>
                     {/* LEFT — Identity */}
-                    <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                       {[{ key: "firstName", label: "First Name" }, { key: "lastName", label: "Last Name" }, { key: "email", label: "Email" }].map(f => (
                         <div key={f.key}>
                           <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
-                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", minWidth: 0, maxWidth: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                         </div>
                       ))}
                       {[{ key: "mobile_phone", label: "Mobile" }, { key: "office_phone", label: "Office" }, { key: "whatsapp_number", label: "WhatsApp" }].map(function(f) {
@@ -1179,33 +1181,33 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                         return (
                           <div key={f.key}>
                             <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
-                            <div style={{ display: "flex", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
                               <select value={parts.cc} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(e.target.value, parts.num); setEditingContact(Object.assign({}, editingContact, obj)); }} style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 6px", color: C.text, fontSize: 11, fontFamily: "'DM Sans', sans-serif", outline: "none", width: 80 }}>
                                 {COUNTRY_CODES.map(function(cc) { return <option key={cc.code} value={cc.code}>{cc.flag} {cc.code}</option>; })}
                               </select>
-                              <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Number" style={{ flex: 1, background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
+                              <input value={parts.num} onChange={function(e) { var obj = {}; obj[f.key] = joinPhone(parts.cc, e.target.value); setEditingContact(Object.assign({}, editingContact, obj)); }} placeholder="Number" style={{ flex: 1, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none" }} />
                             </div>
                           </div>
                         );
                       })}
                       <div>
                         <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Status</label>
-                        <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
+                        <select value={editingContact.status} onChange={e => setEditingContact({ ...editingContact, status: e.target.value })} style={{ width: "100%", minWidth: 0, maxWidth: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }}>
                           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                     </div>
                     {/* RIGHT — Business context */}
-                    <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
                       {[{ key: "company", label: "Company" }, { key: "title", label: "Title" }, { key: "linkedinUrl", label: "LinkedIn" }].map(f => (
                         <div key={f.key}>
                           <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>{f.label}</label>
-                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
+                          <input value={editingContact[f.key] || ""} onChange={e => setEditingContact({ ...editingContact, [f.key]: e.target.value })} style={{ width: "100%", minWidth: 0, maxWidth: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", boxSizing: "border-box" }} />
                         </div>
                       ))}
                       <div>
                         <label style={{ color: C.muted, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, display: "block", marginBottom: 4 }}>Notes</label>
-                        <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={5} style={{ width: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                        <textarea value={editingContact.notes || ""} onChange={e => setEditingContact({ ...editingContact, notes: e.target.value })} rows={5} style={{ width: "100%", minWidth: 0, maxWidth: "100%", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "7px 10px", color: C.text, fontSize: 13, fontFamily: "'DM Sans', sans-serif", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
                       </div>
                     </div>
                   </div>
@@ -1223,7 +1225,13 @@ export default function ContactsModule({ C, tenants, viewLevel = "tenant", curre
                       {TAGS.filter(function(t) { return !(editingContact.tags || []).includes(t); }).map(function(t) { return <option key={t} value={t}>{t}</option>; })}
                     </select>
                   </div>
-                  <button onClick={() => handleEditContact(editingContact)} style={{ ...btnPrimary, width: "100%", borderRadius: 8, padding: "10px" }}>Save Changes</button>
+                  {/* Sticky action bar — pinned to the bottom of the scrollport so Save/Cancel
+                      stay visible without scrolling the long edit form (platform_issue 6bd38f12).
+                      Opaque surface bg + top border so scrolled fields don't bleed through. */}
+                  <div style={{ position: "sticky", bottom: 0, zIndex: 2, display: "flex", gap: 10, alignItems: "center", marginTop: 14, paddingTop: 12, background: "var(--theme-surface)", borderTop: "1px solid var(--theme-border)" }}>
+                    <button onClick={() => setEditingContact(null)} style={{ ...btnSecondary, padding: "10px 16px" }}>Cancel</button>
+                    <button onClick={() => handleEditContact(editingContact)} style={{ ...btnPrimary, flex: 1, borderRadius: 8, padding: "10px" }}>Save Changes</button>
+                  </div>
                 </div>
               ) : (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
