@@ -1,9 +1,22 @@
 // api/webhook-inbound.js
 // Generic inbound webhook receiver for any service (Calendly, HubSpot, Typeform, etc.)
 // POST /api/webhook-inbound?tenant_id=xxx&integration_id=xxx
+//
+// Two modes, decided by integrations.public_browser:
+//   - server-to-server (default, public_browser=false): unchanged — open CORS, no challenge token,
+//     no rate limit. Tenant scoping (tenant_id + integration_id + active) is the control; a shared
+//     webhook_secret/HMAC remains the available S2S control (not enforced here).
+//   - public/browser (public_browser=true): the integration is wired to a public, browser-posted
+//     form, so we additionally (a) restrict CORS to the tenant's allowed_origins, (b) require a
+//     bot-challenge token (verified server-side), and (c) rate-limit THIS integration's inbound
+//     leads. These apply ONLY in this mode and never affect server-to-server integrations.
 
 const { createClient } = require('@supabase/supabase-js');
 const { STAGE_KEYS, getPipelineStageId } = require('./_lib/pipelineStages');
+
+// Public/browser mode only — per-integration burst guard (counts this integration's own leads, so
+// concurrent server-to-server imports on other integrations never throttle the public form).
+const PUBLIC_RATE_LIMIT_PER_MIN = 10;
 
 function getSupabase() {
   return createClient(
@@ -13,32 +26,100 @@ function getSupabase() {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin || '';
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   const { tenant_id, integration_id } = req.query;
+
+  // Resolve the integration up front — its public_browser flag governs CORS on BOTH the preflight
+  // and the POST (tenant_id + integration_id are present on the OPTIONS request too).
+  const supabase = getSupabase();
+  let integration = null;
+  let allowedOrigins = [];
+  if (tenant_id && integration_id) {
+    try {
+      const r = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('id', integration_id)
+        .eq('tenant_id', tenant_id)
+        .eq('status', 'active')
+        .single();
+      integration = r.data || null;
+      if (integration && integration.public_browser) {
+        const tr = await supabase.from('tenants').select('allowed_origins').eq('id', tenant_id).maybeSingle();
+        allowedOrigins = (tr.data && Array.isArray(tr.data.allowed_origins)) ? tr.data.allowed_origins : [];
+      }
+    } catch (e) { /* leave integration null; POST path returns 404 */ }
+  }
+
+  const publicMode = !!(integration && integration.public_browser);
+
+  // CORS: server-to-server (default) keeps '*'. Public/browser mode reflects the Origin only when
+  // it's in the tenant's allow-list (no customer domains hardcoded); otherwise the header is omitted
+  // and the browser blocks the response.
+  if (publicMode) {
+    if (origin && allowedOrigins.indexOf(origin) !== -1) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Max-Age', '86400'); // cache the per-tenant preflight for 24h (mirror screening-intake)
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
+
   if (!tenant_id || !integration_id) {
     return res.status(400).json({ error: 'Missing tenant_id or integration_id' });
   }
+  if (!integration) {
+    return res.status(404).json({ error: 'Integration not found' });
+  }
 
-  const supabase = getSupabase();
   const payload = req.body || {};
 
-  try {
-    // Load integration config
-    const { data: integration, error } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('id', integration_id)
-      .eq('tenant_id', tenant_id)
-      .eq('status', 'active')
-      .single();
-
-    if (error || !integration) {
-      return res.status(404).json({ error: 'Integration not found' });
+  // ── Public/browser-mode hardening — no effect on server-to-server integrations ────────────────
+  if (publicMode) {
+    // (a) CORS allow-list: reject browsers on non-allow-listed origins outright. Server-to-server
+    //     callers send no Origin header and are unaffected.
+    if (origin && allowedOrigins.indexOf(origin) === -1) {
+      return res.status(403).json({ error: 'This form is not authorized for this site.' });
     }
 
+    // (b) Bot challenge: the public form must submit a verification token (in the body — keeps it off
+    //     the URL). Verified server-side; failure blocks before any write.
+    const token = payload.turnstile_token || payload['cf-turnstile-response'] || '';
+    const clientIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || null;
+    let verified = false;
+    try {
+      const { verifyTurnstileToken } = await import('./_verifyTurnstile.js');
+      const v = await verifyTurnstileToken(token, clientIp);
+      verified = !!(v && v.success);
+    } catch (e) {
+      console.error('[webhook-inbound] challenge verify threw tenant=' + tenant_id + ' integration=' + integration_id);
+    }
+    if (!verified) {
+      return res.status(403).json({ error: 'Verification failed — please try again.' });
+    }
+
+    // (c) Per-integration burst guard: count THIS integration's leads in the last 60s. Matches the
+    //     source label the lead insert uses below, so other integrations' (server-to-server) imports
+    //     never count against this form. Coarse + non-fatal.
+    try {
+      const srcLabel = integration.name || integration.service || 'webhook';
+      const rl = await supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenant_id)
+        .eq('source', srcLabel)
+        .gte('created_at', new Date(Date.now() - 60000).toISOString());
+      if (rl.count && rl.count >= PUBLIC_RATE_LIMIT_PER_MIN) {
+        return res.status(429).json({ error: 'Too many submissions — please try again shortly.' });
+      }
+    } catch (e) { /* non-fatal */ }
+  }
+
+  try {
     // Update trigger count and last triggered
     await supabase.from('integrations').update({
       last_triggered_at: new Date().toISOString(),
