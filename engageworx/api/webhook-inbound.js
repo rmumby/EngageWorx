@@ -62,6 +62,7 @@ module.exports = async function handler(req, res) {
   // and the browser blocks the response.
   if (publicMode) {
     if (origin && allowedOrigins.indexOf(origin) !== -1) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Max-Age', '86400'); // cache the per-tenant preflight for 24h (mirror screening-intake)
   } else {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
